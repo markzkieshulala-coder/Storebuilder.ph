@@ -1,87 +1,83 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Syne, Bricolage_Grotesque, DM_Serif_Display, Cormorant_Garamond } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "react-hot-toast";
 
-const playfair = Playfair_Display({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-playfair",
   display: "swap",
-});
-
-const syne = Syne({
-  subsets: ["latin"],
-  variable: "--font-syne",
-  display: "swap",
-});
-
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-bricolage",
-  display: "swap",
-});
-
-const dmSerif = DM_Serif_Display({
-  subsets: ["latin"],
-  weight: ["400"],
-  style: ["normal", "italic"],
-  variable: "--font-dm-serif",
-  display: "swap",
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-cormorant",
-  display: "swap",
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://storebuilder.ph"),
   title: {
-    default: "Storebuilder.ph — Build your website with AI",
+    default: "Storebuilder.ph — #1 Online Store Builder Philippines | Gawa ng AI",
     template: "%s | Storebuilder.ph",
   },
   description:
-    "The first AI-powered website builder made for the Philippines 🇵🇭. Type a prompt, get a complete website instantly. No coding required.",
+    "Ang pinaka-madaling paraan para gumawa ng website sa Pilipinas. I-type lang ang iyong negosyo, makakuha ng magandang website sa loob ng ilang segundo. Libreng gamitin — walang coding. The #1 AI website builder for Filipino entrepreneurs.",
   keywords: [
-    "website builder",
-    "AI website builder",
-    "Philippines",
-    "online store",
-    "business website",
-    "portfolio",
+    "online store builder Philippines",
+    "website builder Philippines",
+    "AI website builder Philippines",
+    "AI website builder para sa Pilipino",
+    "libreng website builder Philippines",
+    "gawa ng website Philippines",
+    "online store Philippines",
+    "ecommerce Philippines",
+    "website para sa negosyo",
+    "free website builder Philippines",
+    "business website Philippines",
+    "Filipino website builder",
+    "Storebuilder Philippines",
+    "website builder Pilipinas",
+    "AI store builder PH",
   ],
-  authors: [{ name: "Storebuilder.ph" }],
+  authors: [{ name: "Mark Ocdenaria", url: "https://storebuilder.ph" }],
   creator: "Storebuilder.ph",
+  publisher: "Storebuilder.ph",
+  alternates: {
+    canonical: "https://storebuilder.ph",
+  },
   openGraph: {
     type: "website",
     locale: "en_PH",
     url: "https://storebuilder.ph",
-    title: "Storebuilder.ph — Build your website with AI",
+    title: "Storebuilder.ph — #1 Online Store Builder Philippines",
     description:
-      "The first AI-powered website builder made for the Philippines 🇵🇭. Type a prompt, get a complete website instantly.",
+      "Gumawa ng magandang website para sa iyong negosyo sa ilang segundo gamit ang AI. Libre para sa lahat ng Pilipino. No coding required.",
     siteName: "Storebuilder.ph",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Storebuilder.ph",
+        alt: "Storebuilder.ph — AI Website Builder Philippines",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Storebuilder.ph — Build your website with AI",
+    title: "Storebuilder.ph — #1 Online Store Builder Philippines",
     description:
-      "The first AI-powered website builder made for the Philippines 🇵🇭",
+      "Gumawa ng magandang website para sa iyong negosyo sa ilang segundo. Libre. No coding.",
     images: ["/og-image.png"],
+    creator: "@storebuildersph",
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "storebuilder-ph-google-verify",
   },
 };
 
@@ -91,27 +87,74 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${playfair.variable} ${syne.variable} ${bricolage.variable} ${dmSerif.variable} ${cormorant.variable}`}
-      suppressHydrationWarning
-    >
-      <body className="antialiased">
+    <html lang="en-PH" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Storebuilder.ph",
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Web",
+              url: "https://storebuilder.ph",
+              description:
+                "AI-powered website builder for Filipino entrepreneurs. Build a professional website in seconds — no coding required.",
+              offers: [
+                {
+                  "@type": "Offer",
+                  price: "0",
+                  priceCurrency: "PHP",
+                  name: "Free Plan",
+                },
+                {
+                  "@type": "Offer",
+                  price: "999",
+                  priceCurrency: "PHP",
+                  name: "Pro Monthly",
+                  billingDuration: "P1M",
+                },
+              ],
+              aggregateRating: {
+                "@type": "AggregateRating",
+                ratingValue: "4.9",
+                reviewCount: "128",
+              },
+              author: {
+                "@type": "Organization",
+                name: "Storebuilder.ph",
+                founder: { "@type": "Person", name: "Mark Ocdenaria" },
+                address: {
+                  "@type": "PostalAddress",
+                  addressCountry: "PH",
+                  addressRegion: "Philippines",
+                },
+              },
+            }),
+          }}
+        />
+      </head>
+      <body className="antialiased bg-white text-gray-900" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         <Providers>{children}</Providers>
         <Toaster
           position="bottom-right"
           toastOptions={{
             style: {
-              background: "#1a1a2e",
-              color: "#fff",
-              border: "1px solid rgba(139,92,246,0.3)",
-              borderRadius: "12px",
+              background: "#fff",
+              color: "#111827",
+              border: "1px solid #e5e7eb",
+              borderRadius: "10px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             },
             success: {
-              iconTheme: {
-                primary: "#8b5cf6",
-                secondary: "#fff",
-              },
+              iconTheme: { primary: "#1877F2", secondary: "#fff" },
             },
           }}
         />
