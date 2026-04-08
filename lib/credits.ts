@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { Plan } from "@prisma/client";
 
-export const FREE_DAILY_LIMIT = 2;
+export const FREE_DAILY_LIMIT = 3;
 
 export function getPhilippineDate(): string {
   return new Date().toLocaleDateString("en-CA", {
