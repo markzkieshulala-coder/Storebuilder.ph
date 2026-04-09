@@ -20,6 +20,7 @@ export default function TermsPage() {
             <span className="font-bold text-gray-900">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
+            <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="hover:text-blue-600 transition-colors">Pricing</Link>
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
@@ -72,19 +73,20 @@ export default function TermsPage() {
                 "While we strive for high-quality output, we do not guarantee the accuracy, completeness, or fitness for any particular purpose of AI-generated content.",
                 "You are responsible for reviewing and editing all AI-generated content before publishing your website.",
                 "You must not use our AI features to generate content that violates any laws or these Terms.",
-                "AI generation credits (Free: 3 per day, Pro: unlimited) are non-transferable and cannot be carried over to the next day for free accounts.",
+                "AI generation credits (Free: 3 per month, Pro: 30 per day) are non-transferable and cannot be carried over.",
               ],
             },
             {
-              title: "4. Payments and Refunds",
+              title: "4. Payments and Refund Policy",
               content: [
                 "Pro subscriptions are processed securely through PayMongo, a PCI-compliant Philippine payment gateway.",
                 "Accepted payment methods include GCash, Maya, GoTyme Bank, credit/debit cards (Visa, Mastercard), and BancNet.",
-                "Pro Monthly: ₱999 per month, billed monthly. Pro Yearly: ₱8,999 per year, billed annually.",
+                "Pro Monthly: ₱499 per month, billed monthly. Pro Yearly: ₱4,299 per year, billed annually.",
                 "Subscriptions auto-renew unless cancelled before the renewal date. You may cancel anytime from your dashboard.",
-                "Refund Policy: We offer a 7-day money-back guarantee for new Pro subscriptions. To request a refund, contact us at Storebuilderph@gmail.com within 7 days of your purchase.",
-                "Refunds will be processed within 5–10 business days via the original payment method.",
-                "We reserve the right to modify pricing with 30 days' advance notice to existing subscribers.",
+                "ALL PAYMENTS ARE FINAL AND NON-REFUNDABLE. We do not offer refunds for any reason, including but not limited to unused AI credits, partial months, or change of mind.",
+                "AI generation credits are consumed immediately upon use and cannot be refunded under any circumstances.",
+                "By completing your purchase, you acknowledge and agree to this no-refund policy. Please review your selection carefully before purchasing.",
+                "We reserve the right to modify pricing with 30 days advance notice to existing subscribers.",
               ],
             },
             {
