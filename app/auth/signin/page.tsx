@@ -53,8 +53,8 @@ export default function SignInPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Mag-sign in</h1>
-          <p className="text-gray-500 text-sm mb-7">Bumalik sa iyong account</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Sign in</h1>
+          <p className="text-gray-500 text-sm mb-7">Welcome back</p>
 
           {/* Google */}
           <button
@@ -72,7 +72,7 @@ export default function SignInPage() {
 
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-xs text-gray-400">o</span>
+            <span className="text-xs text-gray-400">or</span>
             <div className="flex-1 h-px bg-gray-100" />
           </div>
 
@@ -128,14 +128,14 @@ export default function SignInPage() {
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">
-          Wala pang account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/auth/register" className="font-semibold hover:underline" style={{ color: BLUE }}>
-            Gumawa nang libre
+            Sign up free
           </Link>
         </p>
         <Link href="/" className="flex items-center gap-1.5 justify-center mt-3 text-xs text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft size={12} />
-          Bumalik sa home
+          Back to home
         </Link>
       </div>
     </div>
