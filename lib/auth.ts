@@ -62,6 +62,24 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user }) {
+      // Auto-promote the owner account to ADMIN on every login
+      if (user.email === "Storebuilderph@gmail.com") {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { id: true, role: true },
+          });
+          if (dbUser && dbUser.role !== "ADMIN") {
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: { role: "ADMIN" },
+            });
+          }
+        } catch {}
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
@@ -69,6 +87,11 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         // @ts-ignore
         token.plan = user.plan;
+
+        // Ensure admin email always gets ADMIN role in token
+        if (user.email === "Storebuilderph@gmail.com") {
+          token.role = "ADMIN";
+        }
       }
 
       // Refresh user data on session update
