@@ -1,42 +1,40 @@
 import { prisma } from "./prisma";
 import { Plan } from "@prisma/client";
 
-export const FREE_DAILY_LIMIT = 3;
+export const FREE_MONTHLY_LIMIT = 3;
 
 export function getPhilippineDate(): string {
-  return new Date().toLocaleDateString("en-CA", {
+  // Returns YYYY-MM for monthly tracking
+  const full = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Manila",
-  }); // Returns YYYY-MM-DD
+  });
+  return full.slice(0, 7); // "YYYY-MM"
 }
 
 export function getNextResetTime(): Date {
   const now = new Date();
-  // Next midnight in PH time (UTC+8)
-  const phOffset = 8 * 60; // minutes
+  const phOffset = 8 * 60;
   const utcNow = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
   const phNow = new Date(utcNow + phOffset * 60 * 1000);
 
-  const nextMidnight = new Date(phNow);
-  nextMidnight.setDate(nextMidnight.getDate() + 1);
-  nextMidnight.setHours(0, 0, 0, 0);
-
-  // Convert back to UTC
-  return new Date(nextMidnight.getTime() - phOffset * 60 * 1000);
+  // First day of next month in PH time
+  const nextMonth = new Date(phNow.getFullYear(), phNow.getMonth() + 1, 1, 0, 0, 0, 0);
+  return new Date(nextMonth.getTime() - phOffset * 60 * 1000);
 }
 
 export async function getUserCredits(userId: string, plan: Plan) {
   if (plan === Plan.PRO) {
-    return { used: 0, limit: Infinity, remaining: Infinity, canGenerate: true };
+    return { used: 0, limit: 30, remaining: 30, canGenerate: true };
   }
 
-  const today = getPhilippineDate();
+  const month = getPhilippineDate();
 
   const usage = await prisma.creditUsage.findUnique({
-    where: { userId_date: { userId, date: today } },
+    where: { userId_date: { userId, date: month } },
   });
 
   const used = usage?.count ?? 0;
-  const limit = FREE_DAILY_LIMIT;
+  const limit = FREE_MONTHLY_LIMIT;
   const remaining = Math.max(0, limit - used);
 
   return {
@@ -49,12 +47,12 @@ export async function getUserCredits(userId: string, plan: Plan) {
 }
 
 export async function consumeCredit(userId: string): Promise<void> {
-  const today = getPhilippineDate();
+  const month = getPhilippineDate();
 
   await prisma.creditUsage.upsert({
-    where: { userId_date: { userId, date: today } },
+    where: { userId_date: { userId, date: month } },
     update: { count: { increment: 1 } },
-    create: { userId, date: today, count: 1 },
+    create: { userId, date: month, count: 1 },
   });
 }
 
@@ -72,7 +70,7 @@ export async function checkAndConsumeCredit(
     return {
       success: false,
       message:
-        "You've used your free generations for today. Come back tomorrow for 2 fresh credits — or upgrade to Pro for unlimited generations!",
+        "You have used all 3 free generations for this month. Upgrade to Pro for 30 generations per day.",
     };
   }
 
