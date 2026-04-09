@@ -62,8 +62,8 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Gumawa ng account</h1>
-          <p className="text-gray-500 text-sm mb-7">Libre magpakailanman · Walang credit card</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Create an account</h1>
+          <p className="text-gray-500 text-sm mb-7">Free forever · No credit card</p>
 
           <button
             onClick={handleGoogle}
@@ -80,13 +80,13 @@ export default function RegisterPage() {
 
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-xs text-gray-400">o</span>
+            <span className="text-xs text-gray-400">or</span>
             <div className="flex-1 h-px bg-gray-100" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Buong pangalan</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Full name</label>
               <div className="relative">
                 <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -147,25 +147,25 @@ export default function RegisterPage() {
               className="w-full py-2.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
               style={{ background: BLUE }}
             >
-              {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : "Gumawa ng libreng account"}
+              {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : "Create free account"}
             </button>
           </form>
 
           <p className="text-xs text-gray-400 mt-4 text-center">
-            Sa pag-register, sumasang-ayon ka sa aming{" "}
+            By registering, you agree to our{" "}
             <Link href="/terms" className="underline hover:text-gray-600">Terms of Service</Link>
           </p>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">
-          Mayroon nang account?{" "}
+          Already have an account?{" "}
           <Link href="/auth/signin" className="font-semibold hover:underline" style={{ color: BLUE }}>
-            Mag-sign in
+            Sign in
           </Link>
         </p>
         <Link href="/" className="flex items-center gap-1.5 justify-center mt-3 text-xs text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft size={12} />
-          Bumalik sa home
+          Back to home
         </Link>
       </div>
     </div>
