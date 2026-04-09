@@ -11,72 +11,236 @@ import { ArrowRight, Zap, Globe, Shield, Star, ChevronDown, Check, X, Sparkles }
 const BLUE = "#1877F2";
 
 const EXAMPLE_PROMPTS = [
-  "Online shoe store para sa Pilipinas na may eleganteng disenyo",
-  "Filipino restaurant na may mainit at makulay na kulay",
-  "Photography portfolio na minimalist at modern",
-  "Barbershop na may makulay at lakas na feel",
-  "Online store na nagbebenta ng handmade jewelry",
-  "Modern dental clinic website para sa Cebu",
-  "Personal trainer landing page na may energy",
-  "Coffee shop na tinatawag na Brew & Co",
+  "Online shoe store with elegant and modern design",
+  "Filipino restaurant with warm and vibrant colors",
+  "Minimalist and modern photography portfolio",
+  "Barbershop with bold and energetic design",
+  "Online store selling handmade jewelry",
+  "Modern dental clinic website for Cebu",
+  "Personal trainer landing page with energy",
+  "Coffee shop called Brew and Co",
 ];
 
 const EXAMPLE_WEBSITES = [
-  { name: "Ethica", type: "Shoe Store", bg: "#EBF3FF", accent: BLUE },
-  { name: "Brew & Co", type: "Coffee Shop", bg: "#FFF7EB", accent: "#F59E0B" },
-  { name: "KingsCut", type: "Barbershop", bg: "#EBF3FF", accent: BLUE },
-  { name: "Lumen", type: "Photography", bg: "#F3F4F6", accent: "#374151" },
-  { name: "Selah", type: "Wellness Studio", bg: "#ECFDF5", accent: "#10B981" },
-  { name: "Solana", type: "Jewelry Store", bg: "#F5F3FF", accent: "#7C3AED" },
+  {
+    name: "Ethica", type: "Shoe Store",
+    navBg: "#fff", navText: "#6b7280",
+    heroBg: "#1877F2", heroText: "#fff",
+    accent: "#1877F2", tagline: "Premium Footwear",
+    btnBg: "#fff", btnText: "#1877F2",
+    contentBg: "#EBF3FF",
+  },
+  {
+    name: "Brew & Co", type: "Coffee Shop",
+    navBg: "#1C0A00", navText: "#d1d5db",
+    heroBg: "#3D1A00", heroText: "#fff",
+    accent: "#F59E0B", tagline: "Artisan Coffee",
+    btnBg: "#F59E0B", btnText: "#111",
+    contentBg: "#FFF7EB",
+  },
+  {
+    name: "KingsCut", type: "Barbershop",
+    navBg: "#111", navText: "#d1d5db",
+    heroBg: "#111", heroText: "#fff",
+    accent: "#F59E0B", tagline: "Premium Cuts",
+    btnBg: "#F59E0B", btnText: "#111",
+    contentBg: "#F3F4F6",
+  },
+  {
+    name: "Lumen", type: "Photography",
+    navBg: "#fff", navText: "#6b7280",
+    heroBg: "#111827", heroText: "#fff",
+    accent: "#374151", tagline: "Capture Life",
+    btnBg: "#fff", btnText: "#111827",
+    contentBg: "#F9FAFB",
+  },
+  {
+    name: "Selah", type: "Wellness Studio",
+    navBg: "#fff", navText: "#6b7280",
+    heroBg: "#065F46", heroText: "#fff",
+    accent: "#10B981", tagline: "Find Your Balance",
+    btnBg: "#10B981", btnText: "#fff",
+    contentBg: "#ECFDF5",
+  },
+  {
+    name: "Solana", type: "Jewelry Store",
+    navBg: "#fff", navText: "#6b7280",
+    heroBg: "#4C1D95", heroText: "#fff",
+    accent: "#7C3AED", tagline: "Timeless Pieces",
+    btnBg: "#7C3AED", btnText: "#fff",
+    contentBg: "#F5F3FF",
+  },
 ];
+
+function MiniWebsitePreview({ site }: { site: (typeof EXAMPLE_WEBSITES)[0] }) {
+  return (
+    <div style={{ height: "176px", overflow: "hidden", position: "relative" }}>
+      <div
+        style={{
+          width: "900px",
+          transform: "scale(0.35)",
+          transformOrigin: "top left",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          fontFamily: "Inter, sans-serif",
+        }}
+      >
+        {/* Mini navbar */}
+        <div
+          style={{
+            height: "52px",
+            background: site.navBg,
+            borderBottom: "1px solid #e5e7eb",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 32px",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ fontWeight: 800, color: site.accent, fontSize: "22px" }}>{site.name}</span>
+          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+            {["Home", "Products", "About", "Contact"].map((item) => (
+              <span key={item} style={{ fontSize: "15px", color: site.navText }}>{item}</span>
+            ))}
+            <span
+              style={{
+                fontSize: "15px",
+                background: site.accent,
+                color: "#fff",
+                padding: "8px 20px",
+                borderRadius: "8px",
+                fontWeight: 600,
+              }}
+            >
+              Shop Now
+            </span>
+          </div>
+        </div>
+        {/* Hero */}
+        <div
+          style={{
+            height: "220px",
+            background: site.heroBg,
+            display: "flex",
+            alignItems: "center",
+            padding: "0 40px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "44px",
+                fontWeight: 800,
+                color: site.heroText,
+                marginBottom: "14px",
+                lineHeight: 1.1,
+              }}
+            >
+              {site.tagline}
+            </div>
+            <div style={{ fontSize: "18px", color: site.heroText, opacity: 0.75, marginBottom: "24px" }}>
+              Discover your perfect collection
+            </div>
+            <div
+              style={{
+                background: site.btnBg,
+                color: site.btnText,
+                padding: "14px 32px",
+                borderRadius: "10px",
+                display: "inline-block",
+                fontSize: "18px",
+                fontWeight: 700,
+              }}
+            >
+              Shop Now
+            </div>
+          </div>
+        </div>
+        {/* Product row */}
+        <div style={{ padding: "28px 32px", background: site.contentBg }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, color: "#111827", marginBottom: "16px" }}>
+            Featured Collection
+          </div>
+          <div style={{ display: "flex", gap: "16px" }}>
+            {[1, 2, 3].map((j) => (
+              <div
+                key={j}
+                style={{
+                  flex: 1,
+                  background: "#fff",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                <div
+                  style={{
+                    height: "80px",
+                    background: site.accent,
+                    opacity: 0.15,
+                    borderRadius: "8px",
+                    marginBottom: "12px",
+                  }}
+                />
+                <div style={{ height: "14px", background: "#e5e7eb", borderRadius: "4px", marginBottom: "8px", width: "80%" }} />
+                <div style={{ height: "12px", background: "#e5e7eb", borderRadius: "4px", width: "50%" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const FEATURES = [
   {
     icon: Zap,
-    title: "Gumawa sa loob ng ilang segundo",
-    description: "I-type ang iyong idea, i-click ang generate. Makakuha ng kumpletong magandang website agad — hindi kailangan ng design skills.",
+    title: "Build in seconds",
+    description: "Type your idea, click generate. Get a complete beautiful website instantly. No design skills needed.",
   },
   {
     icon: Globe,
-    title: "Ginawa para sa Pilipinas",
-    description: "GCash payments, presyo sa ₱, Filipino aesthetics. Lahat ng kailangan ng iyong lokal na negosyo.",
+    title: "Built for the Philippines",
+    description: "GCash payments, prices in Philippine Peso, local aesthetics. Everything your business needs to go online.",
   },
   {
     icon: Sparkles,
-    title: "AI na nagdidisenyo, hindi template",
-    description: "Bawat website ay natatanging nilikha ng Claude AI. Walang cookie-cutter templates. Tunay na creative output.",
+    title: "AI-designed, not templated",
+    description: "Every website is uniquely created by Claude AI. No cookie-cutter templates. Truly creative output.",
   },
   {
     icon: Shield,
-    title: "I-edit ang lahat nang biswal",
-    description: "Mag-drag, mag-drop, mag-click para mag-edit. Palitan ang teksto, larawan, kulay — lahat nang walang code.",
+    title: "Edit everything visually",
+    description: "Click any element to edit. Change text, images, colors — all without writing code.",
   },
 ];
 
 const FAQS = [
   {
-    q: "Kailangan ba ng coding skills?",
-    a: "Hindi talaga. I-type mo lang ang gusto mo at gagawin ng AI para sa iyo. Pagkatapos, i-click ang anumang bahagi para i-edit.",
+    q: "Do I need coding skills?",
+    a: "Not at all. Just type what you want and the AI builds it for you. Then click any element to edit.",
   },
   {
-    q: "Ilang website ang magagawa ko?",
-    a: "Ang mga free users ay makakakuha ng 3 AI generations bawat araw. Ang Pro users ay unlimited ang generations.",
+    q: "How many websites can I create?",
+    a: "Free users get 3 AI generations per month. Pro users get 30 AI generations per day.",
   },
   {
-    q: "Pwede ko bang gamitin ang sarili kong domain?",
-    a: "Oo! Ang Pro users ay maaaring mag-connect ng custom domain (hal. yournegosyo.com). Ang Free users ay makakakuha ng libreng subdomain sa storebuilder.ph.",
+    q: "Can I use my own domain?",
+    a: "Yes! Pro users can connect a custom domain (e.g. yourbusiness.com). Free users get a free subdomain at storebuilder.ph.",
   },
   {
-    q: "Anong payment methods ang sinusuportahan?",
-    a: "GCash, Maya, GoTyme, credit/debit cards, at BancNet — lahat ng Philippine payment methods.",
+    q: "What payment methods are supported?",
+    a: "GCash, Maya, GoTyme, credit/debit cards, and BancNet — all major Philippine payment methods.",
   },
   {
-    q: "Mobile-friendly ba ang mga website?",
-    a: "Oo! Bawat generated website ay fully responsive at maganda sa mobile, tablet, at desktop.",
+    q: "Are the websites mobile-friendly?",
+    a: "Yes! Every generated website is fully responsive and looks great on mobile, tablet, and desktop.",
   },
   {
-    q: "Maaari ko bang i-edit ang aking website pagkatapos gumawa?",
-    a: "Oo! Ang pag-edit ay ganap na libre at walang limitasyon. Gamitin ang aming drag-and-drop editor para sa anumang pagbabago.",
+    q: "Can I edit my website after creating it?",
+    a: "Yes! Editing is completely free. Use the drag-and-drop editor to make any changes you want.",
   },
 ];
 
@@ -134,6 +298,7 @@ export default function HomePage() {
           </Link>
 
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
+            <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="hover:text-blue-600 transition-colors">Pricing</Link>
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
@@ -180,17 +345,17 @@ export default function HomePage() {
             style={{ background: "#EBF3FF", color: BLUE, border: `1px solid #c7dcfd` }}
           >
             <span>🇵🇭</span>
-            <span>Ang #1 AI website builder para sa mga Pilipino</span>
+            <span>#1 AI Website Builder for Filipino Businesses</span>
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-5 leading-tight tracking-tight text-gray-900">
-            Gumawa ng website{" "}
-            <span style={{ color: BLUE }}>sa ilang segundo</span>{" "}
-            gamit ang AI
+            Build your website{" "}
+            <span style={{ color: BLUE }}>in seconds</span>{" "}
+            with AI
           </h1>
 
           <p className="text-lg md:text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
-            I-type ang iyong negosyo. Makakuha ng kumpletong, magandang, at fully editable na website — agad. Para sa lahat ng Filipino entrepreneur.
+            Describe your business. Get a complete, beautiful, fully editable website instantly. Made for every Filipino entrepreneur.
           </p>
 
           {/* Prompt input */}
@@ -235,7 +400,7 @@ export default function HomePage() {
           </div>
 
           <p className="mt-5 text-gray-400 text-sm">
-            Libre magsimula · Walang credit card · 3 generations per day free
+            Free to start · No credit card · 3 free generations per month
           </p>
         </motion.div>
       </section>
@@ -244,9 +409,9 @@ export default function HomePage() {
       <section className="py-16 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-center text-2xl md:text-3xl font-bold mb-2 text-gray-900">
-            Tingnan ang mga nagagawa
+            See what you can build
           </h2>
-          <p className="text-center text-gray-500 mb-10">AI-generated websites — hindi templates</p>
+          <p className="text-center text-gray-500 mb-10">AI-generated websites, not templates</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {EXAMPLE_WEBSITES.map((site, i) => (
               <motion.div
@@ -257,27 +422,15 @@ export default function HomePage() {
                 transition={{ delay: i * 0.08 }}
                 className="website-card rounded-xl overflow-hidden border border-gray-100 cursor-pointer"
               >
-                <div className="h-44 p-6 flex flex-col justify-between" style={{ background: site.bg }}>
-                  <span
-                    className="text-xs font-semibold px-2.5 py-1 rounded-full inline-block"
-                    style={{ background: `${site.accent}18`, color: site.accent }}
-                  >
-                    {site.type}
-                  </span>
-                  <div>
-                    <h3 className="text-2xl font-bold" style={{ color: site.accent }}>{site.name}</h3>
-                    <div className="flex gap-1 mt-2">
-                      {[...Array(3)].map((_, j) => (
-                        <div key={j} className="h-1 rounded-full flex-1 opacity-20" style={{ background: site.accent }} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <MiniWebsitePreview site={site} />
                 <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-100">
-                  <span className="text-xs text-gray-400">AI Generated</span>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-900">{site.name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{site.type}</span>
+                  </div>
                   <span className="text-xs text-gray-400 flex items-center gap-1">
                     <Sparkles size={11} />
-                    Unique design
+                    AI Generated
                   </span>
                 </div>
               </motion.div>
@@ -291,11 +444,11 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-4xl font-bold mb-3 text-gray-900">
-              Lahat ng kailangan mo para{" "}
-              <span style={{ color: BLUE }}>mag-online</span>
+              Everything you need to{" "}
+              <span style={{ color: BLUE }}>go online</span>
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto">
-              Mula sa AI generation hanggang sa pag-publish — lahat sa isang lugar, ginawa para sa Filipino businesses.
+              From AI generation to publishing — all in one place, built for Filipino businesses.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -326,13 +479,13 @@ export default function HomePage() {
       <section className="py-16 px-4 bg-white">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-center text-2xl md:text-4xl font-bold mb-12 text-gray-900">
-            Tatlong hakbang lang
+            Just 3 steps
           </h2>
           <div className="space-y-8">
             {[
-              { step: "01", title: "Ilarawan ang iyong website", desc: "Sabihin sa AI kung anong uri ng website ang kailangan mo. Maaaring specific o general — nauunawaan nito." },
-              { step: "02", title: "Gumawa ang AI agad", desc: "Gumagawa ang Claude AI ng kumpletong, natatanging website na may custom sections, colors, content, at layout sa loob ng ilang segundo." },
-              { step: "03", title: "I-edit, i-publish, at lumago", desc: "I-click ang kahit anong bahagi para i-edit. I-publish agad ang iyong site sa libreng subdomain o sa iyong sariling custom domain." },
+              { step: "01", title: "Describe your website", desc: "Tell the AI what kind of website you need. Be specific or general — it understands." },
+              { step: "02", title: "AI builds it instantly", desc: "Claude AI creates a complete, unique website with custom sections, colors, content, and layout in seconds." },
+              { step: "03", title: "Edit, publish, and grow", desc: "Click any element to edit. Publish instantly on a free subdomain or your own custom domain." },
             ].map((item, i) => (
               <motion.div
                 key={item.step}
@@ -359,19 +512,19 @@ export default function HomePage() {
       <section id="pricing" className="py-16 px-4" style={{ background: "#F7FAFF" }}>
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-4xl font-bold mb-2 text-gray-900">Simple, malinaw na presyo</h2>
-            <p className="text-gray-500">Magsimula nang libre. Mag-upgrade kapag handa ka na.</p>
+            <h2 className="text-2xl md:text-4xl font-bold mb-2 text-gray-900">Simple, transparent pricing</h2>
+            <p className="text-gray-500">Start free. Upgrade when you are ready.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Free */}
             <div className="p-7 rounded-xl border border-gray-200 bg-white">
               <h3 className="text-lg font-bold mb-1 text-gray-900">Free</h3>
               <div className="text-4xl font-bold text-gray-900 mb-1">₱0 <span className="text-base font-normal text-gray-400">/ forever</span></div>
-              <p className="text-xs text-gray-400 mb-5">Walang credit card na kailangan</p>
+              <p className="text-xs text-gray-400 mb-5">No credit card required</p>
               <ul className="space-y-2.5 mb-7">
                 {[
-                  "3 AI website generations per day",
-                  "Unlimited editing",
+                  "3 AI website generations per month",
+                  "Limited editing",
                   "Free subdomain (yourname.storebuilder.ph)",
                   "All editor features",
                   "Powered by Claude Haiku",
@@ -402,15 +555,15 @@ export default function HomePage() {
                 POPULAR
               </div>
               <h3 className="text-lg font-bold mb-1 text-gray-900">Pro</h3>
-              <div className="text-4xl font-bold text-gray-900 mb-1">₱999 <span className="text-base font-normal text-gray-400">/ month</span></div>
-              <p className="text-xs text-gray-400 mb-5">o ₱8,999/year (makatipid ng 25%)</p>
+              <div className="text-4xl font-bold text-gray-900 mb-1">₱499 <span className="text-base font-normal text-gray-400">/ month</span></div>
+              <p className="text-xs text-gray-400 mb-5">or ₱4,299/year (save 25%)</p>
               <ul className="space-y-2.5 mb-7">
                 {[
-                  "Unlimited AI website generations",
+                  "30 AI website generations per day",
                   "Unlimited editing",
                   "Custom domain connection",
                   "All editor features",
-                  "Powered by Claude Sonnet (mas matalino)",
+                  "Powered by Claude Sonnet (smarter AI)",
                   "Priority support",
                   "Remove Storebuilder.ph branding",
                   "Advanced section library",
@@ -440,16 +593,16 @@ export default function HomePage() {
             {[...Array(5)].map((_, i) => <Star key={i} size={18} className="fill-amber-400 text-amber-400" />)}
           </div>
           <p className="text-gray-600 italic mb-3 text-base">
-            "Nagawa ko ang website ng aking barbershop sa loob ng 3 minuto. Ang aking mga kliyente ay maaari nang mag-book online. Sobrang ganda ng result!"
+            "I built my barbershop website in under 3 minutes. My clients can now book online. The results are amazing!"
           </p>
-          <p className="text-gray-400 text-sm">— Carlo M., Kings Cut Barbershop, Quezon City</p>
+          <p className="text-gray-400 text-sm">Carlo M., Kings Cut Barbershop, Quezon City</p>
         </div>
       </section>
 
       {/* FAQ */}
       <section id="faq" className="py-16 px-4" style={{ background: "#F7FAFF" }}>
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-10 text-gray-900">Mga madalas na tanong</h2>
+          <h2 className="text-2xl font-bold text-center mb-10 text-gray-900">Frequently asked questions</h2>
           <div className="space-y-2">
             {FAQS.map((faq, i) => (
               <div key={i} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -487,15 +640,15 @@ export default function HomePage() {
       <section className="py-20 px-4 text-center" style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #1464d8 100%)` }}>
         <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
           <h2 className="text-3xl md:text-5xl font-bold mb-4 text-white">
-            Ang iyong website ay 30 segundo na lang
+            Your website is 30 seconds away
           </h2>
-          <p className="text-blue-100 text-base mb-8">Libre magpakailanman. Walang credit card. Walang code.</p>
+          <p className="text-blue-100 text-base mb-8">Free forever. No credit card. No code.</p>
           <Link
             href="/auth/register"
             className="inline-flex items-center gap-2 px-7 py-3.5 bg-white rounded-lg font-semibold text-base transition-opacity hover:opacity-90"
             style={{ color: BLUE }}
           >
-            Gumawa ng website ko ngayon
+            Build my website now
             <ArrowRight size={18} />
           </Link>
         </motion.div>
@@ -511,7 +664,7 @@ export default function HomePage() {
                 <span className="font-bold text-white">Storebuilder<span style={{ color: "#60a5fa" }}>.ph</span></span>
               </div>
               <p className="text-xs leading-relaxed text-gray-500">
-                Ang #1 AI-powered website builder para sa mga Filipino entrepreneur at small business owners.
+                The #1 AI-powered website builder for Filipino entrepreneurs and small business owners.
               </p>
             </div>
             <div>
