@@ -33,6 +33,7 @@ export default function ContactPage() {
             <span className="font-bold text-gray-900">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
+            <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="hover:text-blue-600 transition-colors">Pricing</Link>
             <Link href="/contact" className="transition-colors" style={{ color: BLUE }}>Contact</Link>
@@ -47,8 +48,8 @@ export default function ContactPage() {
       {/* Hero */}
       <section className="py-14 px-4 text-center" style={{ background: "linear-gradient(180deg, #EBF3FF 0%, #fff 100%)" }}>
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Makipag-ugnayan sa amin</h1>
-          <p className="text-gray-500 text-lg">Mayroon kang katanungan? Nandito kami para tumulong.</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Get in Touch</h1>
+          <p className="text-gray-500 text-lg">Have a question? We are here to help.</p>
         </div>
       </section>
 
@@ -56,7 +57,7 @@ export default function ContactPage() {
         <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-10">
           {/* Info */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Impormasyon sa Pakikipag-ugnayan</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
             <div className="space-y-5">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#EBF3FF" }}>
@@ -67,7 +68,7 @@ export default function ContactPage() {
                   <a href="mailto:Storebuilderph@gmail.com" className="text-sm hover:underline" style={{ color: BLUE }}>
                     Storebuilderph@gmail.com
                   </a>
-                  <p className="text-xs text-gray-400 mt-0.5">Sumasagot kami sa loob ng 24 na oras</p>
+                  <p className="text-xs text-gray-400 mt-0.5">We respond within 24 hours</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -75,21 +76,21 @@ export default function ContactPage() {
                   <MapPin size={18} style={{ color: BLUE }} />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-sm">Lokasyon</p>
-                  <p className="text-sm text-gray-600">Pilipinas 🇵🇭</p>
+                  <p className="font-semibold text-gray-900 text-sm">Location</p>
+                  <p className="text-sm text-gray-600">Philippines 🇵🇭</p>
                   <p className="text-xs text-gray-400 mt-0.5">Proudly built for the Filipino market</p>
                 </div>
               </div>
             </div>
 
             <div className="mt-8 p-5 rounded-xl border border-gray-100" style={{ background: "#F7FAFF" }}>
-              <p className="font-semibold text-gray-900 text-sm mb-2">Mga karaniwang katanungan</p>
+              <p className="font-semibold text-gray-900 text-sm mb-2">Common questions</p>
               <ul className="space-y-1.5 text-sm text-gray-500">
-                <li>• Paano mag-upgrade sa Pro?</li>
-                <li>• Paano mag-connect ng custom domain?</li>
-                <li>• May problema sa aking account</li>
-                <li>• Gusto ko ng refund</li>
-                <li>• Partnership o collaboration</li>
+                <li>• How do I upgrade to Pro?</li>
+                <li>• How do I connect a custom domain?</li>
+                <li>• I have a problem with my account</li>
+                <li>• Requesting support</li>
+                <li>• Partnership or collaboration</li>
               </ul>
             </div>
           </div>
@@ -100,20 +101,20 @@ export default function ContactPage() {
               <div className="text-center py-10">
                 <CheckCircle size={48} className="mx-auto mb-4" style={{ color: BLUE }} />
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Message sent!</h3>
-                <p className="text-gray-500 text-sm mb-6">Salamat sa iyong mensahe. Makikipag-ugnayan kami sa iyo sa lalong madaling panahon.</p>
+                <p className="text-gray-500 text-sm mb-6">Thank you for your message. We will get back to you shortly.</p>
                 <button
                   onClick={() => { setSent(false); setForm({ name: "", email: "", subject: "", message: "" }); }}
                   className="text-sm font-medium hover:underline"
                   style={{ color: BLUE }}
                 >
-                  Magpadala ng isa pa
+                  Send another message
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <h2 className="text-lg font-bold text-gray-900 mb-2">Magpadala ng mensahe</h2>
+                <h2 className="text-lg font-bold text-gray-900 mb-2">Send a message</h2>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Pangalan</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
                   <input
                     type="text"
                     required
@@ -146,20 +147,20 @@ export default function ContactPage() {
                     required
                     value={form.subject}
                     onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                    placeholder="Paano ko mag-upgrade sa Pro?"
+                    placeholder="How do I upgrade to Pro?"
                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none transition-all"
                     onFocus={(e) => e.target.style.borderColor = BLUE}
                     onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Mensahe</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Message</label>
                   <textarea
                     required
                     rows={5}
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    placeholder="Ilarawan ang iyong katanungan o concern..."
+                    placeholder="Describe your question or concern..."
                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none resize-none transition-all"
                     onFocus={(e) => e.target.style.borderColor = BLUE}
                     onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
@@ -174,7 +175,7 @@ export default function ContactPage() {
                   {sending ? (
                     <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <><Send size={15} /> Magpadala ng mensahe</>
+                    <><Send size={15} /> Send message</>
                   )}
                 </button>
               </form>
