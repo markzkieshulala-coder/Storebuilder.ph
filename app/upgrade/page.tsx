@@ -9,8 +9,8 @@ import { Crown, Check, Zap, Globe, Shield, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
 
 const BLUE = "#1877F2";
-const MONTHLY_PRICE = 99900;  // ₱999 in centavos
-const YEARLY_PRICE = 899900;  // ₱8,999 in centavos
+const MONTHLY_PRICE = 49900;  // ₱499 in centavos
+const YEARLY_PRICE = 429900;  // ₱4,299 in centavos
 
 export default function UpgradePage() {
   const { data: session } = useSession();
@@ -55,6 +55,7 @@ export default function UpgradePage() {
             <span className="font-bold text-gray-900">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
+            <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="transition-colors" style={{ color: BLUE }}>Pricing</Link>
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
@@ -68,19 +69,19 @@ export default function UpgradePage() {
 
       <div className="py-16 px-4">
         <div className="text-center mb-12 max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Mga Plano at Presyo</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Plans and Pricing</h1>
           <p className="text-gray-500 text-lg">
-            Magsimula nang libre. Mag-upgrade kapag handa ka na para sa mas maraming features.
+            Start free. Upgrade when you need more features.
           </p>
         </div>
 
         {isPro ? (
           <div className="max-w-sm mx-auto p-8 rounded-2xl border-2 text-center" style={{ borderColor: BLUE, background: "#EBF3FF" }}>
             <Crown size={36} className="mx-auto mb-4" style={{ color: BLUE }} />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Ikaw ay Pro na!</h2>
-            <p className="text-gray-500 text-sm mb-6">I-enjoy ang unlimited generations at lahat ng Pro features.</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">You are already Pro!</h2>
+            <p className="text-gray-500 text-sm mb-6">Enjoy 30 AI generations per day and all Pro features.</p>
             <Link href="/dashboard" className="block py-3 rounded-lg font-semibold text-sm text-white" style={{ background: BLUE }}>
-              Bumalik sa dashboard
+              Back to dashboard
             </Link>
           </div>
         ) : (
@@ -109,13 +110,13 @@ export default function UpgradePage() {
               <div className="p-8 rounded-2xl border border-gray-200 bg-white">
                 <h2 className="text-xl font-bold text-gray-900 mb-1">Free</h2>
                 <div className="text-5xl font-bold text-gray-900 mb-1">₱0</div>
-                <p className="text-gray-400 text-sm mb-6">Walang credit card · Libre magpakailanman</p>
+                <p className="text-gray-400 text-sm mb-6">No credit card · Free forever</p>
                 <ul className="space-y-3 mb-8">
                   {[
-                    "3 AI website generations bawat araw",
-                    "Unlimited na pag-edit",
-                    "Libreng subdomain (yourname.storebuilder.ph)",
-                    "Lahat ng editor features",
+                    "3 AI website generations per month",
+                    "Limited editing",
+                    "Free subdomain (yourname.storebuilder.ph)",
+                    "All editor features",
                     "Powered by Claude Haiku AI",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3 text-sm text-gray-700">
@@ -125,13 +126,13 @@ export default function UpgradePage() {
                   ))}
                   {["Custom domain", "Remove branding"].map((item) => (
                     <li key={item} className="flex items-start gap-3 text-sm text-gray-400 line-through">
-                      <span className="w-4 h-4 mt-0.5 shrink-0 text-center leading-4">–</span>
+                      <span className="w-4 h-4 mt-0.5 shrink-0 text-center leading-4 text-gray-300">✕</span>
                       {item}
                     </li>
                   ))}
                 </ul>
                 <Link href="/auth/register" className="block text-center py-3 rounded-xl border-2 border-gray-200 font-semibold text-sm text-gray-700 hover:border-blue-300 transition-colors">
-                  Magsimula nang libre
+                  Start for free
                 </Link>
               </div>
 
@@ -143,19 +144,19 @@ export default function UpgradePage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-1">Pro</h2>
                 <div className="flex items-end gap-2 mb-1">
                   <span className="text-5xl font-bold text-gray-900">
-                    {billingCycle === "monthly" ? "₱999" : "₱750"}
+                    {billingCycle === "monthly" ? "₱499" : "₱358"}
                   </span>
-                  <span className="text-gray-400 text-sm mb-2">/buwan</span>
+                  <span className="text-gray-400 text-sm mb-2">/month</span>
                 </div>
                 {billingCycle === "yearly" ? (
-                  <p className="text-sm text-green-600 font-medium mb-6">Billed ₱8,999/taon · Makatipid ng ₱3,989</p>
+                  <p className="text-sm text-green-600 font-medium mb-6">Billed ₱4,299/year · Save ₱1,689</p>
                 ) : (
-                  <p className="text-sm text-gray-400 mb-6">o ₱8,999/taon at makatipid ng 25%</p>
+                  <p className="text-sm text-gray-400 mb-6">or ₱4,299/year and save 25%</p>
                 )}
-                <ul className="space-y-3 mb-8">
+                <ul className="space-y-3 mb-6">
                   {[
-                    { icon: Zap, text: "Unlimited AI website generations" },
-                    { icon: CreditCard, text: "Powered by Claude Sonnet (mas matalino)" },
+                    { icon: Zap, text: "30 AI website generations per day" },
+                    { icon: CreditCard, text: "Powered by Claude Sonnet (smarter AI)" },
                     { icon: Globe, text: "Custom domain connection" },
                     { icon: Shield, text: "Remove Storebuilder.ph branding" },
                     { icon: Check, text: "Priority support" },
@@ -169,6 +170,14 @@ export default function UpgradePage() {
                     </li>
                   ))}
                 </ul>
+
+                {/* No Refund Notice */}
+                <div className="mb-4 p-3 rounded-xl border border-amber-200 bg-amber-50">
+                  <p className="text-xs text-amber-700 text-center font-medium">
+                    ⚠️ All payments are final and non-refundable. AI credits are consumed immediately upon use.
+                  </p>
+                </div>
+
                 <button
                   onClick={handleUpgrade}
                   disabled={loading}
@@ -178,7 +187,7 @@ export default function UpgradePage() {
                   {loading ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <><Crown size={16} /> Mag-upgrade sa Pro</>
+                    <><Crown size={16} /> Upgrade to Pro</>
                   )}
                 </button>
               </div>
@@ -186,7 +195,7 @@ export default function UpgradePage() {
 
             {/* Payment methods */}
             <div className="text-center mt-8">
-              <p className="text-xs text-gray-400 mb-3">Secure na pagbabayad sa pamamagitan ng PayMongo</p>
+              <p className="text-xs text-gray-400 mb-3">Secure payments via PayMongo</p>
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 {["GCash", "Maya", "GoTyme", "Visa", "Mastercard", "BancNet"].map((m) => (
                   <span key={m} className="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500 font-medium">
@@ -194,7 +203,7 @@ export default function UpgradePage() {
                   </span>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-3">7-day money-back guarantee · Cancel anytime</p>
+              <p className="text-xs text-gray-400 mt-3">All payments are final · Cancel anytime</p>
             </div>
           </>
         )}
