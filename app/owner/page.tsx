@@ -3,33 +3,34 @@
 import { useEffect, useState } from "react";
 
 const BLUE = "#1877F2";
-
-type Stats = {
-  totalUsers: number;
-  proUsers: number;
-  totalWebsites: number;
-  monthlyRevenue: number;
-  activeSubs: number;
-};
-
-type UserRow = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  plan: string;
-  createdAt: string;
-  _count: { websites: number };
-};
-
 const MENU = ["Overview", "Users", "Subscriptions", "Websites"] as const;
 type Tab = (typeof MENU)[number];
+
+type Stats = { totalUsers: number; proUsers: number; totalWebsites: number; monthlyRevenue: number; activeSubs: number };
+type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; _count: { websites: number } };
+type SubRow = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
+type SiteRow = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string; user: { name: string | null; email: string | null } };
+
+const TH: React.CSSProperties = { padding: "11px 20px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB", whiteSpace: "nowrap" };
+const TD: React.CSSProperties = { padding: "13px 20px", fontSize: "13px", color: "#374151", borderBottom: "1px solid #F3F4F6" };
+
+const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  ACTIVE:    { bg: "#D1FAE5", color: "#065F46" },
+  CANCELLED: { bg: "#FEE2E2", color: "#991B1B" },
+  PENDING:   { bg: "#FEF3C7", color: "#92400E" },
+  EXPIRED:   { bg: "#F3F4F6", color: "#6B7280" },
+};
 
 export default function OwnerPage() {
   const [active, setActive] = useState<Tab>("Overview");
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubRow[]>([]);
+  const [websites, setWebsites] = useState<SiteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [refundingId, setRefundingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/owner/stats")
@@ -39,192 +40,197 @@ export default function OwnerPage() {
         else {
           setStats(d.stats);
           setUsers(d.users);
+          setSubscriptions(d.subscriptions);
+          setWebsites(d.websites);
         }
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
+  async function handleRefund(subId: string) {
+    if (!confirm("Process refund and cancel this subscription? The user will be downgraded to Free.")) return;
+    setRefundingId(subId);
+    try {
+      const res = await fetch("/api/owner/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId: subId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSubscriptions((prev) => prev.map((s) => s.id === subId ? { ...s, status: "CANCELLED" } : s));
+        alert("Refund processed. Subscription cancelled and user downgraded to Free.");
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally {
+      setRefundingId(null);
+    }
+  }
+
+  const q = search.toLowerCase().trim();
+  const filteredUsers = users.filter((u) => !q || u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q));
+  const filteredSubs  = subscriptions.filter((s) => !q || s.user.email?.toLowerCase().includes(q) || s.user.name?.toLowerCase().includes(q));
+  const filteredSites = websites.filter((s) => !q || s.user.email?.toLowerCase().includes(q) || s.name?.toLowerCase().includes(q));
+
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        background: "#F4F6F9",
-      }}
-    >
-      <aside
-        style={{
-          width: "240px",
-          background: BLUE,
-          color: "#fff",
-          padding: "24px 16px",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            padding: "0 8px 24px",
-            borderBottom: "1px solid rgba(255,255,255,0.18)",
-            marginBottom: "20px",
-          }}
-        >
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: "15px" }}>
-              Storebuilder.ph
-            </div>
-            <div
-              style={{
-                fontSize: "10px",
-                opacity: 0.75,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                marginTop: "2px",
-              }}
-            >
-              Owner Panel
+    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: "#F4F6F9" }}>
+      <aside style={{ width: "230px", background: BLUE, color: "#fff", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", flexShrink: 0 }}>
+        <div style={{ padding: "22px 20px 18px", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "14px" }}>Storebuilder.ph</div>
+              <div style={{ fontSize: "10px", opacity: 0.7, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: "2px" }}>Owner Panel</div>
             </div>
           </div>
         </div>
-
-        <nav style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        <nav style={{ flex: 1, padding: "14px 10px", display: "flex", flexDirection: "column", gap: "2px" }}>
           {MENU.map((item) => (
-            <button
-              key={item}
-              onClick={() => setActive(item)}
-              style={{
-                padding: "10px 14px",
-                borderRadius: "8px",
-                border: "none",
-                textAlign: "left",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: active === item ? 600 : 500,
-                background:
-                  active === item ? "rgba(255,255,255,0.22)" : "transparent",
-                color: active === item ? "#fff" : "rgba(255,255,255,0.85)",
-                transition: "background 0.15s",
-              }}
-            >
+            <button key={item} onClick={() => { setActive(item); setSearch(""); }}
+              style={{ padding: "10px 14px", borderRadius: "8px", border: "none", textAlign: "left", cursor: "pointer", fontSize: "14px", fontWeight: active === item ? 600 : 500, background: active === item ? "rgba(255,255,255,0.2)" : "transparent", color: active === item ? "#fff" : "rgba(255,255,255,0.82)", transition: "background 0.15s" }}>
               {item}
             </button>
           ))}
         </nav>
+        <div style={{ padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.15)", fontSize: "11px", opacity: 0.55 }}>No authentication required</div>
       </aside>
 
-      <main style={{ flex: 1, padding: "32px 40px", overflowX: "auto" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, margin: "0 0 4px", color: "#111827" }}>
-          {active}
-        </h1>
-        <p style={{ color: "#6B7280", margin: "0 0 28px", fontSize: "13px" }}>
-          {active === "Overview"
-            ? "Monitor your Storebuilder.ph platform at a glance."
-            : `Manage ${active.toLowerCase()} on your platform.`}
-        </p>
-
-        {loading && (
-          <div style={{ padding: "60px", background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", textAlign: "center", color: "#6B7280" }}>
-            Loading...
+      <main style={{ flex: 1, padding: "32px 36px", overflowX: "auto" }}>
+        <div style={{ marginBottom: "24px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0, color: "#111827" }}>{active}</h1>
+            <p style={{ fontSize: "13px", color: "#6B7280", margin: "4px 0 0" }}>{active === "Overview" ? "Platform summary" : `All ${active.toLowerCase()} on the platform`}</p>
           </div>
-        )}
+          {active !== "Overview" && (
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input type="text" placeholder="Search by email or name\u2026" value={search} onChange={(e) => setSearch(e.target.value)}
+                style={{ padding: "8px 14px", fontSize: "13px", border: "1px solid #D1D5DB", borderRadius: "8px", outline: "none", width: "260px", background: "#fff" }} />
+              {search && <button onClick={() => setSearch("")} style={{ padding: "8px 14px", fontSize: "13px", background: "#fff", border: "1px solid #D1D5DB", borderRadius: "8px", cursor: "pointer", color: "#6B7280" }}>Clear</button>}
+            </div>
+          )}
+        </div>
 
-        {error && !loading && (
-          <div style={{ padding: "14px 18px", background: "#FEF2F2", color: "#991B1B", borderRadius: "10px", marginBottom: "20px", fontSize: "13px", border: "1px solid #FECACA" }}>
-            Error loading data: {error}
-          </div>
-        )}
+        {loading && <div style={{ padding: "60px", background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", textAlign: "center", color: "#6B7280" }}>Loading\u2026</div>}
+        {error && !loading && <div style={{ padding: "14px 18px", background: "#FEF2F2", color: "#991B1B", borderRadius: "10px", marginBottom: "20px", fontSize: "13px", border: "1px solid #FECACA" }}>Error: {error}</div>}
 
         {!loading && active === "Overview" && stats && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px", marginBottom: "16px" }}>
               {[
-                { label: "Total Users", value: stats.totalUsers.toLocaleString() },
-                { label: "Pro Subscribers", value: stats.proUsers.toLocaleString() },
-                { label: "Total Websites", value: stats.totalWebsites.toLocaleString() },
-                { label: "Monthly Revenue", value: "\u20B1" + stats.monthlyRevenue.toLocaleString() },
+                { label: "Total Users",     value: stats.totalUsers.toLocaleString(),                color: BLUE },
+                { label: "Pro Subscribers", value: stats.proUsers.toLocaleString(),                  color: "#B45309" },
+                { label: "Total Websites",  value: stats.totalWebsites.toLocaleString(),             color: "#059669" },
+                { label: "Monthly Revenue", value: "\u20B1" + stats.monthlyRevenue.toLocaleString(), color: "#7C3AED" },
               ].map((s) => (
-                <div key={s.label} style={{ background: "#fff", padding: "22px", borderRadius: "12px", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-                  <p style={{ fontSize: "11px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 12px", fontWeight: 600 }}>
-                    {s.label}
-                  </p>
-                  <p style={{ fontSize: "28px", fontWeight: 700, margin: 0, color: BLUE, lineHeight: 1 }}>
-                    {s.value}
-                  </p>
-                  <div style={{ width: "36px", height: "3px", background: BLUE, borderRadius: "2px", marginTop: "12px", opacity: 0.3 }} />
+                <div key={s.label} style={{ background: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #E5E7EB", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+                  <p style={{ fontSize: "11px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 10px", fontWeight: 600 }}>{s.label}</p>
+                  <p style={{ fontSize: "26px", fontWeight: 700, margin: 0, color: s.color, lineHeight: 1 }}>{s.value}</p>
                 </div>
               ))}
             </div>
-
-            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-              <div style={{ padding: "16px 24px", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: "15px", fontWeight: 600, margin: 0, color: "#111827" }}>Users</h2>
-                <span style={{ fontSize: "12px", color: "#9CA3AF" }}>Showing latest {users.length}</span>
-              </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ background: "#F9FAFB" }}>
-                      {["Name", "Email", "Plan", "Location", "Joined", "Websites"].map((h) => (
-                        <th key={h} style={{ padding: "12px 24px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB", whiteSpace: "nowrap" }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u, i) => (
-                      <tr key={u.id} style={{ borderBottom: i < users.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                        <td style={{ padding: "14px 24px", fontSize: "13px", fontWeight: 500, color: "#111827" }}>{u.name || "\u2014"}</td>
-                        <td style={{ padding: "14px 24px", fontSize: "13px", color: "#6B7280" }}>{u.email || "\u2014"}</td>
-                        <td style={{ padding: "14px 24px" }}>
-                          {u.plan === "PRO" ? (
-                            <span style={{ padding: "3px 10px", borderRadius: "20px", background: "#EBF3FF", color: BLUE, fontSize: "11px", fontWeight: 700 }}>Pro</span>
-                          ) : (
-                            <span style={{ padding: "3px 10px", borderRadius: "20px", background: "#F3F4F6", color: "#6B7280", fontSize: "11px", fontWeight: 500 }}>Free</span>
-                          )}
-                        </td>
-                        <td style={{ padding: "14px 24px", fontSize: "13px", color: "#6B7280" }}>Philippines</td>
-                        <td style={{ padding: "14px 24px", fontSize: "12px", color: "#9CA3AF", whiteSpace: "nowrap" }}>
-                          {new Date(u.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
-                        </td>
-                        <td style={{ padding: "14px 24px", fontSize: "13px", fontWeight: 600, color: "#111827" }}>{u._count.websites}</td>
-                      </tr>
-                    ))}
-                    {users.length === 0 && (
-                      <tr>
-                        <td colSpan={6} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No users yet</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px" }}>
+              {[
+                { label: "Free Users",           value: (stats.totalUsers - stats.proUsers).toLocaleString() },
+                { label: "Active Subscriptions", value: stats.activeSubs.toLocaleString() },
+                { label: "Conversion Rate",      value: stats.totalUsers > 0 ? ((stats.proUsers / stats.totalUsers) * 100).toFixed(1) + "%" : "0%" },
+              ].map((s) => (
+                <div key={s.label} style={{ background: "#fff", padding: "16px 20px", borderRadius: "12px", border: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "13px", color: "#6B7280" }}>{s.label}</span>
+                  <span style={{ fontSize: "18px", fontWeight: 700, color: "#111827" }}>{s.value}</span>
+                </div>
+              ))}
             </div>
           </>
         )}
 
-        {!loading && active !== "Overview" && (
-          <div style={{ background: "#fff", padding: "60px", borderRadius: "12px", border: "1px solid #E5E7EB", textAlign: "center", color: "#6B7280" }}>
-            <p style={{ margin: 0, fontSize: "14px" }}>{active} management coming soon</p>
+        {!loading && active === "Users" && (
+          <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #F3F4F6" }}><span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>{filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""}</span></div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["Name", "Email", "Plan", "Websites", "Joined"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filteredUsers.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ ...TD, fontWeight: 500, color: "#111827" }}>{u.name || "\u2014"}</td>
+                      <td style={TD}>{u.email || "\u2014"}</td>
+                      <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
+                      <td style={{ ...TD, fontWeight: 600 }}>{u._count.websites}</td>
+                      <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF" }}>{new Date(u.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
+                    </tr>
+                  ))}
+                  {filteredUsers.length === 0 && <tr><td colSpan={5} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No users found</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {!loading && active === "Subscriptions" && (
+          <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #F3F4F6" }}><span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>{filteredSubs.length} subscription{filteredSubs.length !== 1 ? "s" : ""}</span></div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["User", "Plan", "Amount Paid", "Payment Method", "Billing", "Status", "Date", "Action"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filteredSubs.map((s) => {
+                    const amount = s.amount / 100;
+                    const method = s.paymongoId ? "PayMongo" : "Manual";
+                    const ss = STATUS_STYLE[s.status] ?? STATUS_STYLE.EXPIRED;
+                    return (
+                      <tr key={s.id}>
+                        <td style={TD}><div style={{ fontWeight: 500, color: "#111827" }}>{s.user.name || "\u2014"}</div><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{s.user.email}</div></td>
+                        <td style={{ ...TD, fontWeight: 600, color: "#92400E" }}>{s.plan}</td>
+                        <td style={{ ...TD, fontWeight: 600, fontFamily: "monospace" }}>\u20B1{amount.toLocaleString()}</td>
+                        <td style={TD}><span style={{ padding: "2px 8px", background: "#F0F9FF", color: "#0369A1", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>{method}</span></td>
+                        <td style={TD}>{s.billingCycle === "MONTHLY" ? "Monthly" : "Yearly"}</td>
+                        <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: ss.bg, color: ss.color }}>{s.status}</span></td>
+                        <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF", whiteSpace: "nowrap" }}>{new Date(s.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        <td style={TD}>
+                          {s.status === "ACTIVE"
+                            ? <button onClick={() => handleRefund(s.id)} disabled={refundingId === s.id} style={{ padding: "5px 12px", background: "#FEE2E2", color: "#991B1B", border: "1px solid #FECACA", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>{refundingId === s.id ? "\u2026" : "Refund"}</button>
+                            : <span style={{ fontSize: "12px", color: "#D1D5DB" }}>\u2014</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredSubs.length === 0 && <tr><td colSpan={8} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No subscriptions found</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {!loading && active === "Websites" && (
+          <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #F3F4F6" }}><span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>{filteredSites.length} website{filteredSites.length !== 1 ? "s" : ""}</span></div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["Website", "Owner", "Type", "Status", "Domain", "Created"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filteredSites.map((site) => {
+                    const domain = site.customDomain || (site.subdomain ? `${site.subdomain}.storebuilder.ph` : null);
+                    return (
+                      <tr key={site.id}>
+                        <td style={{ ...TD, fontWeight: 600, color: "#111827" }}>{site.name}</td>
+                        <td style={TD}><div style={{ color: "#111827" }}>{site.user.name || "\u2014"}</div><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{site.user.email}</div></td>
+                        <td style={TD}><span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, background: "#EDE9FE", color: "#5B21B6" }}>{site.type}</span></td>
+                        <td style={TD}>
+                          {site.published
+                            ? <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontWeight: 600, color: "#059669" }}><span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#10B981", display: "inline-block" }} />Live</span>
+                            : <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "#9CA3AF" }}><span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#D1D5DB", display: "inline-block" }} />Draft</span>}
+                        </td>
+                        <td style={{ ...TD, fontSize: "12px", color: "#6B7280", fontFamily: "monospace" }}>{domain || "\u2014"}</td>
+                        <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF", whiteSpace: "nowrap" }}>{new Date(site.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
+                      </tr>
+                    );
+                  })}
+                  {filteredSites.length === 0 && <tr><td colSpan={6} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No websites found</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
