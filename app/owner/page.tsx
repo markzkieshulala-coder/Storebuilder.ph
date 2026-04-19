@@ -261,17 +261,17 @@ export default function OwnerPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Revenue</div>
-                        <div style={{ ...BIG_NUM, color: "#059669" }}>₱{monthlyStats.revenue.toLocaleString()}</div>
+                        <div style={{ ...BIG_NUM, color: "#111827" }}>₱{monthlyStats.revenue.toLocaleString()}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>from paid subs</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>New Signups</div>
-                        <div style={{ ...BIG_NUM, color: BLUE }}>{monthlyStats.newSignups}</div>
+                        <div style={{ ...BIG_NUM, color: "#111827" }}>{monthlyStats.newSignups}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>new accounts</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Paid Subs</div>
-                        <div style={{ ...BIG_NUM, color: "#B45309" }}>{monthlyStats.newPaid}</div>
+                        <div style={{ ...BIG_NUM, color: "#111827" }}>{monthlyStats.newPaid}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>transactions</div>
                       </div>
                     </div>
@@ -297,17 +297,17 @@ export default function OwnerPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Revenue</div>
-                        <div style={{ ...BIG_NUM, color: "#7C3AED" }}>₱{yearlyStats.revenue.toLocaleString()}</div>
+                        <div style={{ ...BIG_NUM, color: "#111827" }}>₱{yearlyStats.revenue.toLocaleString()}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>for {selYear}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>New Signups</div>
-                        <div style={{ ...BIG_NUM, color: BLUE }}>{yearlyStats.newSignups}</div>
+                        <div style={{ ...BIG_NUM, color: "#111827" }}>{yearlyStats.newSignups}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>new accounts</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Paid Subs</div>
-                        <div style={{ ...BIG_NUM, color: "#B45309" }}>{yearlyStats.newPaid}</div>
+                        <div style={{ ...BIG_NUM, color: "#111827" }}>{yearlyStats.newPaid}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>transactions</div>
                       </div>
                     </div>
@@ -325,8 +325,8 @@ export default function OwnerPage() {
                   </div>
                   {[
                     { label: "Total Users",   value: stats.totalUsers.toLocaleString(),  sub: "registered accounts", color: "#111827" },
-                    { label: "Active Members", value: stats.proUsers.toLocaleString(),   sub: "currently subscribed", color: "#059669" },
-                    { label: "Active Subs",    value: stats.activeSubs.toLocaleString(), sub: "running subscriptions", color: "#7C3AED" },
+                    { label: "Active Members", value: stats.proUsers.toLocaleString(),   sub: "currently subscribed", color: "#111827" },
+                    { label: "Active Subs",    value: stats.activeSubs.toLocaleString(), sub: "running subscriptions", color: "#111827" },
                   ].map((c) => (
                     <div key={c.label} style={{ background: "#fff", borderRadius: "14px", border: "1px solid #E5E7EB", padding: "22px 24px" }}>
                       <div style={{ fontSize: "11px", fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.07em" }}>{c.label}</div>
