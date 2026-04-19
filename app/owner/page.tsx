@@ -8,7 +8,7 @@ type Tab = (typeof MENU)[number];
 type Stats = { totalUsers: number; proUsers: number; totalWebsites: number; monthlyRevenue: number; activeSubs: number };
 type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; _count: { websites: number } };
 type SubRow = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
-type SiteRow = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string; user: { name: string | null; email: string | null } };
+type SiteRow = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
 
 const TH: React.CSSProperties = { padding: "11px 20px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB", whiteSpace: "nowrap" };
 const TD: React.CSSProperties = { padding: "13px 20px", fontSize: "13px", color: "#374151", borderBottom: "1px solid #F3F4F6" };
@@ -217,7 +217,7 @@ export default function OwnerPage() {
                       const benefits = PLAN_BENEFITS[u.plan] ?? PLAN_BENEFITS.FREE;
                       return (
                         <tr key={u.id}>
-                          <td style={TD}><div style={{ fontWeight: 500, color: "#111827" }}>{u.name || "\u2014"}</div><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{u.email}</div></td>
+                          <td style={TD}><a href={`/owner/user/${u.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 500, color: BLUE, textDecoration: "none" }}>{u.name || "\u2014"}</a><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{u.email}</div></td>
                           <td style={TD}><span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
                           <td style={{ ...TD, maxWidth: "220px" }}>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -249,8 +249,8 @@ export default function OwnerPage() {
                 <tbody>
                   {filteredUsers.map((u) => (
                     <tr key={u.id}>
-                      <td style={{ ...TD, fontWeight: 500, color: "#111827" }}>{u.name || "\u2014"}</td>
-                      <td style={TD}>{u.email || "\u2014"}</td>
+                      <td style={TD}><a href={`/owner/user/${u.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 500, color: BLUE, textDecoration: "none" }}>{u.name || "\u2014"}</a></td>
+                      <td style={TD}><a href={`/owner/user/${u.id}`} target="_blank" rel="noreferrer" style={{ color: "#374151", textDecoration: "none" }}>{u.email || "\u2014"}</a></td>
                       <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
                       <td style={{ ...TD, fontWeight: 600 }}>{u._count.websites}</td>
                       <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF" }}>{new Date(u.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
@@ -278,7 +278,7 @@ export default function OwnerPage() {
                     const benefits = PLAN_BENEFITS[s.plan] ?? PLAN_BENEFITS.FREE;
                     return (
                       <tr key={s.id}>
-                        <td style={TD}><div style={{ fontWeight: 500, color: "#111827" }}>{s.user.name || "\u2014"}</div><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{s.user.email}</div></td>
+                        <td style={TD}><a href={`/owner/user/${s.user.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 500, color: BLUE, textDecoration: "none", display: "block" }}>{s.user.name || "\u2014"}</a><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{s.user.email}</div></td>
                         <td style={TD}><span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: s.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: s.plan === "PRO" ? BLUE : "#6B7280" }}>{s.plan}</span></td>
                         <td style={{ ...TD, maxWidth: "200px" }}>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -318,7 +318,7 @@ export default function OwnerPage() {
                     return (
                       <tr key={site.id}>
                         <td style={{ ...TD, fontWeight: 600, color: "#111827" }}>{site.name}</td>
-                        <td style={TD}><div style={{ color: "#111827" }}>{site.user.name || "\u2014"}</div><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{site.user.email}</div></td>
+                        <td style={TD}><a href={`/owner/user/${site.user.id}`} target="_blank" rel="noreferrer" style={{ color: BLUE, textDecoration: "none", fontWeight: 500, display: "block" }}>{site.user.name || "\u2014"}</a><div style={{ fontSize: "11px", color: "#9CA3AF" }}>{site.user.email}</div></td>
                         <td style={TD}><span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, background: "#EDE9FE", color: "#5B21B6" }}>{site.type}</span></td>
                         <td style={TD}>{site.published
                           ? <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", fontWeight: 600, color: "#059669" }}><span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#10B981", display: "inline-block" }} />Live</span>

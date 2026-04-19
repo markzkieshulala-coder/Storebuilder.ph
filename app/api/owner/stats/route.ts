@@ -34,7 +34,7 @@ export async function GET() {
           select: {
             id: true, name: true, type: true, published: true,
             subdomain: true, customDomain: true, createdAt: true,
-            user: { select: { name: true, email: true } },
+            user: { select: { id: true, name: true, email: true } },
           },
         }),
       ]);
