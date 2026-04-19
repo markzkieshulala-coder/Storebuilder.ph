@@ -47,6 +47,7 @@ model User {
   role          Role      @default(USER)
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
+  location      String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

@@ -20,7 +20,7 @@ export async function GET(
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
-        image: true, createdAt: true, planExpiresAt: true,
+        image: true, createdAt: true, planExpiresAt: true, location: true,
         _count: { select: { websites: true } },
         subscriptions: {
           orderBy: { createdAt: "desc" },
@@ -60,13 +60,35 @@ export async function PATCH(
     if (!["FREE", "PRO"].includes(body.plan))
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     data.plan = body.plan;
-    if (body.plan === "PRO") {
-      const expiresAt = new Date();
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      data.planExpiresAt = expiresAt;
-    } else {
-      data.planExpiresAt = null;
+    // Only auto-set planExpiresAt if not also providing an explicit billingDate
+    if (body.billingDate === undefined) {
+      if (body.plan === "PRO") {
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        data.planExpiresAt = expiresAt;
+      } else {
+        data.planExpiresAt = null;
+      }
     }
+  }
+
+  if (body.billingDate !== undefined) {
+    data.planExpiresAt = body.billingDate ? new Date(body.billingDate) : null;
+  }
+
+  if (body.email !== undefined) {
+    const email = String(body.email).trim().toLowerCase();
+    if (!email.includes("@"))
+      return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
+    // Check uniqueness
+    const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (existing && existing.id !== params.id)
+      return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+    data.email = email;
+  }
+
+  if (body.location !== undefined) {
+    data.location = body.location ? String(body.location).trim() : null;
   }
 
   if (body.role !== undefined) {
@@ -81,7 +103,7 @@ export async function PATCH(
   const user = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, plan: true, role: true },
+    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true, location: true },
   });
 
   return NextResponse.json({ success: true, user });

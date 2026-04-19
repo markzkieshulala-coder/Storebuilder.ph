@@ -7,7 +7,7 @@ const MENU = ["Overview", "Total Users", "Subscriptions", "Websites"] as const;
 type Tab = (typeof MENU)[number];
 
 type Stats = { totalUsers: number; proUsers: number; totalWebsites: number; monthlyRevenue: number; activeSubs: number };
-type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; _count: { websites: number } };
+type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; location: string | null; _count: { websites: number } };
 type SubRow = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
 type SiteRow = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
 
@@ -35,7 +35,7 @@ function getNextBilling(sub: SubRow): string {
 
 export default function OwnerPage() {
   const [active, setActive] = useState<Tab>("Overview");
-  const [userView, setUserView] = useState<"active" | "former" | "all">("all");
+  const [userView, setUserView] = useState<"all" | "active" | "paid" | "former">("all");
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubRow[]>([]);
@@ -87,17 +87,23 @@ export default function OwnerPage() {
     ? users.filter((u) => u.email?.toLowerCase().includes(q)).slice(0, 6)
     : [];
 
-  // Total Users filtering
+  // Set of userIds who have ever paid (ACTIVE or CANCELLED — not just PENDING)
+  const paidUserIds = new Set(
+    subscriptions.filter((s) => s.status === "ACTIVE" || s.status === "CANCELLED").map((s) => s.user.id)
+  );
+
   const userStatus = (u: UserRow): "Active" | "Former" | "Free" => {
     const latest = userSubMap.get(u.id);
     if (u.plan === "PRO" && latest?.status === "ACTIVE") return "Active";
-    if (latest && (latest.status === "CANCELLED" || latest.status === "EXPIRED")) return "Former";
+    if (paidUserIds.has(u.id) && u.plan === "FREE") return "Former";
     return "Free";
   };
+
   const totalUsersFiltered = users.filter((u) => {
     if (!match(u.name, u.email)) return false;
     if (userView === "all") return true;
     if (userView === "active") return userStatus(u) === "Active";
+    if (userView === "paid")   return paidUserIds.has(u.id);
     if (userView === "former") return userStatus(u) === "Former";
     return true;
   });
@@ -231,6 +237,7 @@ export default function OwnerPage() {
                 {([
                   { key: "all",    label: `All Users (${users.length})` },
                   { key: "active", label: `Active Members (${users.filter(u => userStatus(u) === "Active").length})` },
+                  { key: "paid",   label: `Paid Members (${users.filter(u => paidUserIds.has(u.id)).length})` },
                   { key: "former", label: `Former Members (${users.filter(u => userStatus(u) === "Former").length})` },
                 ] as const).map((v) => (
                   <button key={v.key} onClick={() => setUserView(v.key)}
@@ -248,15 +255,17 @@ export default function OwnerPage() {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr>{["Email Address", "Name", "Status", "Plan", "Monthly Payment", "Billing Date", "Payment Method", "Joined"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
+                      <tr>{["Email Address", "Name", "Status", "Plan", "Location", "Monthly Payment", "Billing Date", "Payment Method", "Joined"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {totalUsersFiltered.map((u) => {
                         const status = userStatus(u);
                         const sub = userSubMap.get(u.id);
-                        const amount = sub && sub.status === "ACTIVE" ? `\u20B1${(sub.amount / 100).toLocaleString()}${sub.billingCycle === "MONTHLY" ? "/mo" : "/yr"}` : "\u2014";
-                        const billing = sub && sub.status === "ACTIVE" ? getNextBilling(sub) : "\u2014";
-                        const method = sub && sub.status === "ACTIVE" ? (sub.paymongoId ? "PayMongo" : "Manual") : "\u2014";
+                        const hasPaid = paidUserIds.has(u.id);
+                        const naLabel = !hasPaid;
+                        const amount = sub && sub.status === "ACTIVE" ? `\u20B1${(sub.amount / 100).toLocaleString()}${sub.billingCycle === "MONTHLY" ? "/mo" : "/yr"}` : naLabel ? "N/A" : "\u2014";
+                        const billing = sub && sub.status === "ACTIVE" ? getNextBilling(sub) : naLabel ? "N/A" : "\u2014";
+                        const method = sub && sub.status === "ACTIVE" ? (sub.paymongoId ? "PayMongo" : "Manual") : naLabel ? "N/A" : "\u2014";
                         const statusColor = status === "Active" ? { bg: "#D1FAE5", color: "#065F46" } : status === "Former" ? { bg: "#FEE2E2", color: "#991B1B" } : { bg: "#F3F4F6", color: "#6B7280" };
                         return (
                           <tr key={u.id}>
@@ -271,14 +280,15 @@ export default function OwnerPage() {
                             <td style={TD}>{u.name || "\u2014"}</td>
                             <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: statusColor.bg, color: statusColor.color }}>{status}</span></td>
                             <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
-                            <td style={{ ...TD, fontWeight: 600, fontFamily: "monospace" }}>{amount}</td>
-                            <td style={{ ...TD, fontSize: "12px", color: "#6B7280", whiteSpace: "nowrap" }}>{billing}</td>
-                            <td style={TD}>{sub && sub.status === "ACTIVE" ? <span style={{ padding: "2px 8px", background: "#F0F9FF", color: "#0369A1", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>{method}</span> : <span style={{ color: "#D1D5DB" }}>\u2014</span>}</td>
+                            <td style={{ ...TD, fontSize: "12px", color: "#6B7280" }}>{u.location || <span style={{ color: "#D1D5DB" }}>—</span>}</td>
+                            <td style={{ ...TD, fontWeight: naLabel ? 400 : 600, fontFamily: naLabel ? FONT : "monospace", color: naLabel ? "#9CA3AF" : "#111827" }}>{amount}</td>
+                            <td style={{ ...TD, fontSize: "12px", color: naLabel ? "#9CA3AF" : "#6B7280", whiteSpace: "nowrap" }}>{billing}</td>
+                            <td style={TD}>{sub && sub.status === "ACTIVE" ? <span style={{ padding: "2px 8px", background: "#F0F9FF", color: "#0369A1", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>{method}</span> : <span style={{ fontSize: "13px", color: naLabel ? "#9CA3AF" : "#D1D5DB" }}>{method}</span>}</td>
                             <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF", whiteSpace: "nowrap" }}>{new Date(u.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
                           </tr>
                         );
                       })}
-                      {totalUsersFiltered.length === 0 && <tr><td colSpan={8} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No users found</td></tr>}
+                      {totalUsersFiltered.length === 0 && <tr><td colSpan={9} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No users found</td></tr>}
                     </tbody>
                   </table>
                 </div>
