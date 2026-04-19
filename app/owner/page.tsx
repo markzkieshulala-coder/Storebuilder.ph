@@ -2,8 +2,8 @@
 import { useEffect, useState, useMemo } from "react";
 
 const BLUE = "#1877F2";
-const FONT = '"Google Sans", Roboto, "DM Sans", system-ui, -apple-system, sans-serif';
-const FONTS_URL = "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap";
+const FONT = '"Product Sans", "Google Sans", "Google Sans Text", Roboto, "DM Sans", system-ui, -apple-system, sans-serif';
+const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
 const MENU = ["Overview", "Total Users"] as const;
 type Tab = (typeof MENU)[number];
 

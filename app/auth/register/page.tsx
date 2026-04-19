@@ -52,7 +52,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 justify-center mb-8">
           <Image src="/logo.svg" alt="Storebuilder.ph" width={36} height={36} />

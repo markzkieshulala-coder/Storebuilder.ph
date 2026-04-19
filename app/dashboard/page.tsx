@@ -181,7 +181,7 @@ function DashboardContent() {
             <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
               <Sparkles size={15} className="text-white" />
             </div>
-            <span className="font-bold text-sm" style={{ fontFamily: "var(--font-syne)" }}>Storebuilder.ph</span>
+            <span className="font-bold text-sm" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>Storebuilder.ph</span>
           </Link>
         </div>
 
@@ -254,7 +254,7 @@ function DashboardContent() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-syne)" }}>
+            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
               Good {getGreeting()}, {session?.user?.name?.split(" ")[0]} 👋
             </h1>
             <p className="text-white/40 text-sm mt-1">

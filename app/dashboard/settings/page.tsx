@@ -40,7 +40,7 @@ export default function SettingsPage() {
         Back to dashboard
       </Link>
 
-      <h1 className="text-2xl font-bold mb-8" style={{ fontFamily: "var(--font-syne)" }}>Account Settings</h1>
+      <h1 className="text-2xl font-bold mb-8" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>Account Settings</h1>
 
       <div className="space-y-6">
         {/* Plan badge */}
