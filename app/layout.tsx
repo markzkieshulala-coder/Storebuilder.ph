@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "react-hot-toast";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://storebuilder.ph"),
@@ -87,12 +80,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-PH" className={inter.variable} suppressHydrationWarning>
+    <html lang="en-PH" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.cdnfonts.com" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+          href="https://fonts.cdnfonts.com/css/product-sans"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
         <script
@@ -141,7 +139,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased bg-white text-gray-900" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <body className="antialiased bg-white text-gray-900" style={{ fontFamily: "'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, sans-serif" }}>
         <Providers>{children}</Providers>
         <Toaster
           position="bottom-right"

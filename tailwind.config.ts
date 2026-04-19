@@ -11,6 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        sans: ["Product Sans", "Google Sans", "Google Sans Text", "Roboto", "DM Sans", "system-ui", "-apple-system", "sans-serif"],
         playfair: ["var(--font-playfair)", "serif"],
         syne: ["var(--font-syne)", "sans-serif"],
         bricolage: ["var(--font-bricolage)", "sans-serif"],

@@ -1,3 +1,6 @@
+@import url('https://fonts.cdnfonts.com/css/product-sans');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -30,14 +33,18 @@
 @layer base {
   * {
     @apply border-border;
+    font-family: 'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, -apple-system, sans-serif;
   }
-  body {
+  html, body {
     @apply bg-white text-gray-900;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, -apple-system, sans-serif !important;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  h1, h2, h3, h4, h5, h6,
+  p, span, div, a, button, input, textarea, select, label, li, td, th {
+    font-family: 'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, -apple-system, sans-serif !important;
   }
 }
 
