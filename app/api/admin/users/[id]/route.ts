@@ -20,7 +20,7 @@ export async function GET(
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
-        image: true, createdAt: true, planExpiresAt: true, location: true,
+        image: true, createdAt: true, planExpiresAt: true,
         _count: { select: { websites: true } },
         subscriptions: {
           orderBy: { createdAt: "desc" },
@@ -87,10 +87,6 @@ export async function PATCH(
     data.email = email;
   }
 
-  if (body.location !== undefined) {
-    data.location = body.location ? String(body.location).trim() : null;
-  }
-
   if (body.role !== undefined) {
     if (!["USER", "ADMIN"].includes(body.role))
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
@@ -103,7 +99,7 @@ export async function PATCH(
   const user = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true, location: true },
+    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true },
   });
 
   return NextResponse.json({ success: true, user });

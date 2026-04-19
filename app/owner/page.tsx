@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 
 const BLUE = "#1877F2";
-const FONT = '"Google Sans", "Google Sans Display", system-ui, -apple-system, Roboto, "Segoe UI", sans-serif';
+const FONT = '"Google Sans", Roboto, "DM Sans", system-ui, -apple-system, sans-serif';
+const FONTS_URL = "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap";
 const MENU = ["Overview", "Total Users", "Subscriptions", "Websites"] as const;
 type Tab = (typeof MENU)[number];
 
 type Stats = { totalUsers: number; proUsers: number; totalWebsites: number; monthlyRevenue: number; activeSubs: number };
-type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; location: string | null; _count: { websites: number } };
+type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; _count: { websites: number } };
 type SubRow = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
 type SiteRow = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
 
@@ -112,6 +113,10 @@ export default function OwnerPage() {
   const filteredSites = websites.filter((s) => match(s.user.name, s.user.email) || s.name.toLowerCase().includes(q));
 
   return (
+    <>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+    <link href={FONTS_URL} rel="stylesheet" />
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: FONT, background: "#F4F6F9" }}>
 
       {/* Sidebar */}
@@ -255,7 +260,7 @@ export default function OwnerPage() {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr>{["Email Address", "Name", "Status", "Plan", "Location", "Monthly Payment", "Billing Date", "Payment Method", "Joined"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
+                      <tr>{["Email Address", "Name", "Status", "Plan", "Monthly Payment", "Billing Date", "Payment Method", "Joined"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {totalUsersFiltered.map((u) => {
@@ -280,7 +285,6 @@ export default function OwnerPage() {
                             <td style={TD}>{u.name || "\u2014"}</td>
                             <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: statusColor.bg, color: statusColor.color }}>{status}</span></td>
                             <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
-                            <td style={{ ...TD, fontSize: "12px", color: "#6B7280" }}>{u.location || <span style={{ color: "#D1D5DB" }}>—</span>}</td>
                             <td style={{ ...TD, fontWeight: naLabel ? 400 : 600, fontFamily: naLabel ? FONT : "monospace", color: naLabel ? "#9CA3AF" : "#111827" }}>{amount}</td>
                             <td style={{ ...TD, fontSize: "12px", color: naLabel ? "#9CA3AF" : "#6B7280", whiteSpace: "nowrap" }}>{billing}</td>
                             <td style={TD}>{sub && sub.status === "ACTIVE" ? <span style={{ padding: "2px 8px", background: "#F0F9FF", color: "#0369A1", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>{method}</span> : <span style={{ fontSize: "13px", color: naLabel ? "#9CA3AF" : "#D1D5DB" }}>{method}</span>}</td>
@@ -288,7 +292,7 @@ export default function OwnerPage() {
                           </tr>
                         );
                       })}
-                      {totalUsersFiltered.length === 0 && <tr><td colSpan={9} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No users found</td></tr>}
+                      {totalUsersFiltered.length === 0 && <tr><td colSpan={8} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No users found</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -372,5 +376,6 @@ export default function OwnerPage() {
         </div>
       </main>
     </div>
+    </>
   );
 }
