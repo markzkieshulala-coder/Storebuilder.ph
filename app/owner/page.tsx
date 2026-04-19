@@ -150,7 +150,7 @@ export default function OwnerPage() {
   };
 
   const BIG_NUM: React.CSSProperties = {
-    fontSize: "32px", fontWeight: 700, lineHeight: 1, margin: "12px 0 4px",
+    fontSize: "32px", fontWeight: 700, lineHeight: 1, margin: "12px 0 4px", color: "#111827",
   };
 
   return (
@@ -261,17 +261,17 @@ export default function OwnerPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Revenue</div>
-                        <div style={{ ...BIG_NUM, color: "#111827" }}>₱{monthlyStats.revenue.toLocaleString()}</div>
+                        <div style={BIG_NUM}>₱{monthlyStats.revenue.toLocaleString()}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>from paid subs</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>New Signups</div>
-                        <div style={{ ...BIG_NUM, color: "#111827" }}>{monthlyStats.newSignups}</div>
+                        <div style={BIG_NUM}>{monthlyStats.newSignups}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>new accounts</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Paid Subs</div>
-                        <div style={{ ...BIG_NUM, color: "#111827" }}>{monthlyStats.newPaid}</div>
+                        <div style={BIG_NUM}>{monthlyStats.newPaid}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>transactions</div>
                       </div>
                     </div>
@@ -297,17 +297,17 @@ export default function OwnerPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Revenue</div>
-                        <div style={{ ...BIG_NUM, color: "#111827" }}>₱{yearlyStats.revenue.toLocaleString()}</div>
+                        <div style={BIG_NUM}>₱{yearlyStats.revenue.toLocaleString()}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>for {selYear}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>New Signups</div>
-                        <div style={{ ...BIG_NUM, color: "#111827" }}>{yearlyStats.newSignups}</div>
+                        <div style={BIG_NUM}>{yearlyStats.newSignups}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>new accounts</div>
                       </div>
                       <div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Paid Subs</div>
-                        <div style={{ ...BIG_NUM, color: "#111827" }}>{yearlyStats.newPaid}</div>
+                        <div style={BIG_NUM}>{yearlyStats.newPaid}</div>
                         <div style={{ fontSize: "11px", color: "#9CA3AF" }}>transactions</div>
                       </div>
                     </div>
@@ -324,13 +324,13 @@ export default function OwnerPage() {
                     <div style={{ fontSize: "11px", opacity: 0.7 }}>all-time cumulative</div>
                   </div>
                   {[
-                    { label: "Total Users",   value: stats.totalUsers.toLocaleString(),  sub: "registered accounts", color: "#111827" },
-                    { label: "Active Members", value: stats.proUsers.toLocaleString(),   sub: "currently subscribed", color: "#111827" },
-                    { label: "Active Subs",    value: stats.activeSubs.toLocaleString(), sub: "running subscriptions", color: "#111827" },
+                    { label: "Total Users",    value: stats.totalUsers.toLocaleString(),  sub: "registered accounts" },
+                    { label: "Active Members", value: stats.proUsers.toLocaleString(),    sub: "currently subscribed" },
+                    { label: "Active Subs",    value: stats.activeSubs.toLocaleString(),  sub: "running subscriptions" },
                   ].map((c) => (
                     <div key={c.label} style={{ background: "#fff", borderRadius: "14px", border: "1px solid #E5E7EB", padding: "22px 24px" }}>
                       <div style={{ fontSize: "11px", fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.07em" }}>{c.label}</div>
-                      <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, margin: "10px 0 4px", color: c.color }}>{c.value}</div>
+                      <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, margin: "10px 0 4px", color: "#111827" }}>{c.value}</div>
                       <div style={{ fontSize: "11px", color: "#9CA3AF" }}>{c.sub}</div>
                     </div>
                   ))}
