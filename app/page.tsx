@@ -21,178 +21,292 @@ const EXAMPLE_PROMPTS = [
   "Coffee shop called Brew and Co",
 ];
 
-const EXAMPLE_WEBSITES = [
-  {
-    name: "Ethica", type: "Shoe Store",
-    navBg: "#fff", navText: "#6b7280",
-    heroBg: "#1877F2", heroText: "#fff",
-    accent: "#1877F2", tagline: "Premium Footwear",
-    btnBg: "#fff", btnText: "#1877F2",
-    contentBg: "#EBF3FF",
-  },
-  {
-    name: "Brew & Co", type: "Coffee Shop",
-    navBg: "#1C0A00", navText: "#d1d5db",
-    heroBg: "#3D1A00", heroText: "#fff",
-    accent: "#F59E0B", tagline: "Artisan Coffee",
-    btnBg: "#F59E0B", btnText: "#111",
-    contentBg: "#FFF7EB",
-  },
-  {
-    name: "KingsCut", type: "Barbershop",
-    navBg: "#111", navText: "#d1d5db",
-    heroBg: "#111", heroText: "#fff",
-    accent: "#F59E0B", tagline: "Premium Cuts",
-    btnBg: "#F59E0B", btnText: "#111",
-    contentBg: "#F3F4F6",
-  },
-  {
-    name: "Lumen", type: "Photography",
-    navBg: "#fff", navText: "#6b7280",
-    heroBg: "#111827", heroText: "#fff",
-    accent: "#374151", tagline: "Capture Life",
-    btnBg: "#fff", btnText: "#111827",
-    contentBg: "#F9FAFB",
-  },
-  {
-    name: "Selah", type: "Wellness Studio",
-    navBg: "#fff", navText: "#6b7280",
-    heroBg: "#065F46", heroText: "#fff",
-    accent: "#10B981", tagline: "Find Your Balance",
-    btnBg: "#10B981", btnText: "#fff",
-    contentBg: "#ECFDF5",
-  },
-  {
-    name: "Solana", type: "Jewelry Store",
-    navBg: "#fff", navText: "#6b7280",
-    heroBg: "#4C1D95", heroText: "#fff",
-    accent: "#7C3AED", tagline: "Timeless Pieces",
-    btnBg: "#7C3AED", btnText: "#fff",
-    contentBg: "#F5F3FF",
-  },
-];
+const PF = "'Product Sans','Google Sans',Roboto,system-ui,sans-serif";
 
-function MiniWebsitePreview({ site }: { site: (typeof EXAMPLE_WEBSITES)[0] }) {
+function EthicaPreview() {
   return (
-    <div style={{ height: "176px", overflow: "hidden", position: "relative" }}>
-      <div
-        style={{
-          width: "900px",
-          transform: "scale(0.35)",
-          transformOrigin: "top left",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif",
-        }}
-      >
-        {/* Mini navbar */}
-        <div
-          style={{
-            height: "52px",
-            background: site.navBg,
-            borderBottom: "1px solid #e5e7eb",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 32px",
-            justifyContent: "space-between",
-          }}
-        >
-          <span style={{ fontWeight: 800, color: site.accent, fontSize: "22px" }}>{site.name}</span>
-          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-            {["Home", "Products", "About", "Contact"].map((item) => (
-              <span key={item} style={{ fontSize: "15px", color: site.navText }}>{item}</span>
-            ))}
-            <span
-              style={{
-                fontSize: "15px",
-                background: site.accent,
-                color: "#fff",
-                padding: "8px 20px",
-                borderRadius: "8px",
-                fontWeight: 600,
-              }}
-            >
-              Shop Now
-            </span>
+    <div style={{ width: 900, fontFamily: PF, background: "#fff", lineHeight: "normal" }}>
+      <div style={{ height: 52, background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 900, fontSize: 22, letterSpacing: "-0.04em", color: "#0f172a" }}>ETHICA</span>
+        <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+          {["Men","Women","Collections","Sale"].map(n => <span key={n} style={{ fontSize: 14, color: "#6B7280" }}>{n}</span>)}
+          <div style={{ padding: "8px 20px", background: "#0f172a", color: "#fff", borderRadius: 6, fontSize: 14, fontWeight: 600 }}>Shop Now</div>
+        </div>
+      </div>
+      <div style={{ height: 232, background: "linear-gradient(135deg,#0f172a 60%,#1e3a5f 100%)", display: "flex", alignItems: "center", padding: "0 48px", gap: 32, overflow: "hidden" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#93C5FD", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>New Arrivals · 2025</div>
+          <div style={{ fontSize: 44, fontWeight: 800, color: "#fff", lineHeight: 1.08, marginBottom: 14 }}>Step Into<br/>Your Style</div>
+          <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginBottom: 22 }}>Free shipping on orders ₱2,000+</div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ padding: "12px 28px", background: "#1877F2", color: "#fff", borderRadius: 8, fontSize: 15, fontWeight: 700 }}>Shop Collection</div>
+            <div style={{ padding: "12px 28px", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 8, fontSize: 15 }}>View Lookbook</div>
           </div>
         </div>
-        {/* Hero */}
-        <div
-          style={{
-            height: "220px",
-            background: site.heroBg,
-            display: "flex",
-            alignItems: "center",
-            padding: "0 40px",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: "44px",
-                fontWeight: 800,
-                color: site.heroText,
-                marginBottom: "14px",
-                lineHeight: 1.1,
-              }}
-            >
-              {site.tagline}
-            </div>
-            <div style={{ fontSize: "18px", color: site.heroText, opacity: 0.75, marginBottom: "24px" }}>
-              Discover your perfect collection
-            </div>
-            <div
-              style={{
-                background: site.btnBg,
-                color: site.btnText,
-                padding: "14px 32px",
-                borderRadius: "10px",
-                display: "inline-block",
-                fontSize: "18px",
-                fontWeight: 700,
-              }}
-            >
-              Shop Now
-            </div>
-          </div>
+        <div style={{ width: 244, height: 208, borderRadius: 16, overflow: "hidden", flexShrink: 0, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+          <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=488&h=416&q=80" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
         </div>
-        {/* Product row */}
-        <div style={{ padding: "28px 32px", background: site.contentBg }}>
-          <div style={{ fontSize: "20px", fontWeight: 700, color: "#111827", marginBottom: "16px" }}>
-            Featured Collection
-          </div>
-          <div style={{ display: "flex", gap: "16px" }}>
-            {[1, 2, 3].map((j) => (
-              <div
-                key={j}
-                style={{
-                  flex: 1,
-                  background: "#fff",
-                  borderRadius: "12px",
-                  padding: "16px",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <div
-                  style={{
-                    height: "80px",
-                    background: site.accent,
-                    opacity: 0.15,
-                    borderRadius: "8px",
-                    marginBottom: "12px",
-                  }}
-                />
-                <div style={{ height: "14px", background: "#e5e7eb", borderRadius: "4px", marginBottom: "8px", width: "80%" }} />
-                <div style={{ height: "12px", background: "#e5e7eb", borderRadius: "4px", width: "50%" }} />
+      </div>
+      <div style={{ padding: "20px 32px 22px", background: "#F8FAFC" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Featured Picks</span>
+          <span style={{ fontSize: 13, color: "#1877F2", fontWeight: 600 }}>View all →</span>
+        </div>
+        <div style={{ display: "flex", gap: 14 }}>
+          {[
+            { name: "Air Runner Pro", price: "₱3,490", badge: "New", bc: "#1877F2", img: "1549298916-b41d501d3772" },
+            { name: "Urban Classic",  price: "₱2,290", badge: "−20%", bc: "#EF4444", img: "1600185365483-26d0a9ccafcb" },
+            { name: "Canvas Lite",    price: "₱1,890", badge: null, bc: null,      img: "1608231387042-66d1773d3028" },
+          ].map(p => (
+            <div key={p.name} style={{ flex: 1, background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #E5E7EB", position: "relative" }}>
+              {p.badge && <div style={{ position: "absolute", top: 8, left: 8, padding: "2px 8px", background: p.bc!, color: "#fff", borderRadius: 4, fontSize: 10, fontWeight: 700, zIndex: 1 }}>{p.badge}</div>}
+              <img src={`https://images.unsplash.com/photo-${p.img}?auto=format&fit=crop&w=286&h=164&q=80`} style={{ width: "100%", height: 82, objectFit: "cover", display: "block" }} alt="" />
+              <div style={{ padding: "10px 12px" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 3 }}>{p.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{p.price}</div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
+
+function BrewCoPreview() {
+  return (
+    <div style={{ width: 900, fontFamily: PF, background: "#1C0A00", lineHeight: "normal" }}>
+      <div style={{ height: 52, background: "#1C0A00", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 700, fontSize: 20, color: "#F59E0B", letterSpacing: "0.04em" }}>☕ Brew & Co</span>
+        <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+          {["Menu","About","Locations","Rewards"].map(n => <span key={n} style={{ fontSize: 14, color: "rgba(255,255,255,0.65)" }}>{n}</span>)}
+          <div style={{ padding: "8px 20px", background: "#F59E0B", color: "#1C0A00", borderRadius: 6, fontSize: 14, fontWeight: 700 }}>Order Now</div>
+        </div>
+      </div>
+      <div style={{ height: 232, background: "linear-gradient(120deg,#3D1A00 0%,#1C0A00 100%)", display: "flex", alignItems: "center", padding: "0 48px", gap: 36, overflow: "hidden" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#FCD34D", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>Artisan · Since 2019</div>
+          <div style={{ fontSize: 46, fontWeight: 800, color: "#fff", lineHeight: 1.07, marginBottom: 14 }}>Crafted with<br/>Passion</div>
+          <div style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", marginBottom: 22 }}>Single-origin beans, expertly brewed daily</div>
+          <div style={{ display: "flex", gap: 14 }}>
+            <div style={{ padding: "12px 28px", background: "#F59E0B", color: "#1C0A00", borderRadius: 8, fontSize: 15, fontWeight: 700 }}>See Our Menu</div>
+            <div style={{ padding: "12px 28px", border: "1px solid rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.85)", borderRadius: 8, fontSize: 15 }}>Find a Branch</div>
+          </div>
+        </div>
+        <div style={{ width: 240, height: 210, borderRadius: 120, overflow: "hidden", flexShrink: 0, boxShadow: "0 20px 60px rgba(245,158,11,0.2)" }}>
+          <img src="https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=480&h=420&q=80" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+        </div>
+      </div>
+      <div style={{ padding: "20px 32px 22px", background: "#2C1000" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#FCD34D", marginBottom: 14 }}>Today&apos;s Menu</div>
+        <div style={{ display: "flex", gap: 14 }}>
+          {[
+            { name: "Signature Latte", desc: "Smooth espresso & steamed milk", price: "₱155", img: "1461023058943-07fcbe16d735" },
+            { name: "Cold Brew",       desc: "12-hour steeped, served iced",   price: "₱130", img: "1495474472287-4d71bcdd2085" },
+            { name: "Matcha Miel",     desc: "Ceremonial grade & honey",       price: "₱165", img: "1556679343-c7306c1976bc" },
+          ].map(item => (
+            <div key={item.name} style={{ flex: 1, background: "rgba(255,255,255,0.05)", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <img src={`https://images.unsplash.com/photo-${item.img}?auto=format&fit=crop&w=286&h=130&q=80`} style={{ width: "100%", height: 65, objectFit: "cover", display: "block" }} alt="" />
+              <div style={{ padding: "10px 12px" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 3 }}>{item.name}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>{item.desc}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#F59E0B" }}>{item.price}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KingsCutPreview() {
+  return (
+    <div style={{ width: 900, fontFamily: PF, background: "#0a0a0a", lineHeight: "normal" }}>
+      <div style={{ height: 52, background: "#0a0a0a", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 900, fontSize: 20, color: "#F59E0B", letterSpacing: "0.1em", textTransform: "uppercase" }}>✂ KingsCut</span>
+        <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+          {["Services","Gallery","Barbers","Contact"].map(n => <span key={n} style={{ fontSize: 14, color: "rgba(255,255,255,0.55)" }}>{n}</span>)}
+          <div style={{ padding: "8px 20px", background: "#F59E0B", color: "#0a0a0a", borderRadius: 6, fontSize: 14, fontWeight: 800 }}>Book Now</div>
+        </div>
+      </div>
+      <div style={{ height: 232, position: "relative", overflow: "hidden", display: "flex", alignItems: "center" }}>
+        <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&h=464&q=80" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(0,0,0,0.88) 50%,rgba(0,0,0,0.25) 100%)" }} />
+        <div style={{ position: "relative", padding: "0 48px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 12 }}>Quezon City · Est. 2018</div>
+          <div style={{ fontSize: 46, fontWeight: 900, color: "#fff", lineHeight: 1.05, marginBottom: 14, letterSpacing: "-0.02em" }}>Precision Cuts.<br/>Royal Treatment.</div>
+          <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginBottom: 22 }}>Walk-ins welcome · Mon–Sat 9AM–8PM</div>
+          <div style={{ display: "flex", gap: 14 }}>
+            <div style={{ padding: "12px 30px", background: "#F59E0B", color: "#0a0a0a", borderRadius: 8, fontSize: 15, fontWeight: 800 }}>Book Appointment</div>
+            <div style={{ padding: "12px 26px", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 8, fontSize: 15 }}>View Services</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "20px 32px 22px", background: "#111" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Our Services</div>
+        <div style={{ display: "flex", gap: 14 }}>
+          {[
+            { name: "Classic Haircut", desc: "Consultation, cut & style", price: "₱250", icon: "✂" },
+            { name: "Beard Grooming",  desc: "Shape, trim & hot towel",   price: "₱180", icon: "🪒" },
+            { name: "Full Package",    desc: "Haircut + beard + wash",     price: "₱420", icon: "👑" },
+          ].map(s => (
+            <div key={s.name} style={{ flex: 1, background: "#1a1a1a", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(245,158,11,0.2)" }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>{s.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{s.name}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>{s.desc}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#F59E0B" }}>{s.price}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LumenPreview() {
+  return (
+    <div style={{ width: 900, fontFamily: PF, background: "#0d0d0d", lineHeight: "normal" }}>
+      <div style={{ height: 52, background: "#0d0d0d", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 300, fontSize: 22, color: "#fff", letterSpacing: "0.22em", textTransform: "uppercase" }}>LUMEN</span>
+        <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+          {["Portfolio","Weddings","Events","About"].map(n => <span key={n} style={{ fontSize: 14, color: "rgba(255,255,255,0.5)" }}>{n}</span>)}
+          <div style={{ padding: "8px 20px", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 6, fontSize: 14 }}>Contact</div>
+        </div>
+      </div>
+      <div style={{ height: 232, position: "relative", overflow: "hidden", display: "flex", alignItems: "center" }}>
+        <img src="https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&w=900&h=464&q=80" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.32)" }} alt="" />
+        <div style={{ position: "relative", padding: "0 48px" }}>
+          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.45)", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 14 }}>Manila · Photography Studio</div>
+          <div style={{ fontSize: 50, fontWeight: 700, color: "#fff", lineHeight: 1.05, marginBottom: 16, letterSpacing: "-0.02em" }}>We Capture<br/>Your Story</div>
+          <div style={{ fontSize: 15, color: "rgba(255,255,255,0.5)", marginBottom: 24 }}>Weddings · Portraits · Brand Photography</div>
+          <div style={{ padding: "12px 30px", background: "#fff", color: "#0d0d0d", borderRadius: 8, fontSize: 15, fontWeight: 700, display: "inline-block" }}>View Portfolio</div>
+        </div>
+      </div>
+      <div style={{ padding: "20px 32px 22px", background: "#111" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontSize: 18, fontWeight: 600, color: "#fff" }}>Recent Work</span>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>See full gallery →</span>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {[
+            { img: "1531746020798-e6953c6e8e04", label: "Portraits" },
+            { img: "1606216794079-af76b9a3e799", label: "Weddings" },
+            { img: "1492684223347-c5ea5d39c05e", label: "Events" },
+          ].map(g => (
+            <div key={g.label} style={{ flex: 1, borderRadius: 8, overflow: "hidden", position: "relative" }}>
+              <img src={`https://images.unsplash.com/photo-${g.img}?auto=format&fit=crop&w=270&h=160&q=80`} style={{ width: "100%", height: 90, objectFit: "cover", display: "block", filter: "brightness(0.8)" }} alt="" />
+              <div style={{ position: "absolute", bottom: 8, left: 10, fontSize: 11, fontWeight: 600, color: "#fff", letterSpacing: "0.06em" }}>{g.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelahPreview() {
+  return (
+    <div style={{ width: 900, fontFamily: PF, background: "#fff", lineHeight: "normal" }}>
+      <div style={{ height: 52, background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 700, fontSize: 20, color: "#065F46", letterSpacing: "0.04em" }}>✿ Selah</span>
+        <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+          {["Classes","Schedule","Pricing","Contact"].map(n => <span key={n} style={{ fontSize: 14, color: "#6B7280" }}>{n}</span>)}
+          <div style={{ padding: "8px 20px", background: "#065F46", color: "#fff", borderRadius: 6, fontSize: 14, fontWeight: 600 }}>Join Now</div>
+        </div>
+      </div>
+      <div style={{ height: 232, position: "relative", overflow: "hidden", display: "flex", alignItems: "center" }}>
+        <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=900&h=464&q=80" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(6,95,70,0.88) 45%,rgba(6,95,70,0.2) 100%)" }} />
+        <div style={{ position: "relative", padding: "0 48px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>BGC · Taguig City</div>
+          <div style={{ fontSize: 46, fontWeight: 800, color: "#fff", lineHeight: 1.08, marginBottom: 14 }}>Find Your<br/>Balance</div>
+          <div style={{ fontSize: 15, color: "rgba(255,255,255,0.75)", marginBottom: 22 }}>Yoga · Pilates · Meditation · Sound Healing</div>
+          <div style={{ display: "flex", gap: 14 }}>
+            <div style={{ padding: "12px 28px", background: "#10B981", color: "#fff", borderRadius: 8, fontSize: 15, fontWeight: 700 }}>View Schedule</div>
+            <div style={{ padding: "12px 28px", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 8, fontSize: 15 }}>Free Trial Class</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "20px 32px 22px", background: "#F0FDF4" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#065F46", marginBottom: 14 }}>Today&apos;s Classes</div>
+        <div style={{ display: "flex", gap: 14 }}>
+          {[
+            { name: "Morning Flow",  time: "7:00 AM", instructor: "Maya R.", spots: "3 spots left", color: "#10B981" },
+            { name: "Deep Stretch",  time: "9:00 AM", instructor: "Lia S.",  spots: "Available",    color: "#059669" },
+            { name: "Meditation",    time: "6:00 PM", instructor: "Kai T.",  spots: "8 spots left", color: "#065F46" },
+          ].map(cls => (
+            <div key={cls.name} style={{ flex: 1, background: "#fff", borderRadius: 10, padding: "14px 16px", border: "1px solid #D1FAE5" }}>
+              <div style={{ width: 32, height: 4, background: cls.color, borderRadius: 2, marginBottom: 10 }} />
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 4 }}>{cls.name}</div>
+              <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 2 }}>{cls.time} · {cls.instructor}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: cls.color, marginTop: 8 }}>{cls.spots}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SolanaPreview() {
+  return (
+    <div style={{ width: 900, fontFamily: PF, background: "#faf8f5", lineHeight: "normal" }}>
+      <div style={{ height: 52, background: "#faf8f5", borderBottom: "1px solid #e8e0d5", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 300, fontSize: 22, color: "#4C1D95", letterSpacing: "0.24em", textTransform: "uppercase" }}>SOLANA</span>
+        <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+          {["Collections","Bespoke","About","Stores"].map(n => <span key={n} style={{ fontSize: 14, color: "#9CA3AF" }}>{n}</span>)}
+          <div style={{ padding: "8px 22px", background: "#4C1D95", color: "#fff", borderRadius: 6, fontSize: 14, fontWeight: 500 }}>Explore</div>
+        </div>
+      </div>
+      <div style={{ height: 232, background: "linear-gradient(135deg,#2E1065 0%,#4C1D95 100%)", display: "flex", alignItems: "center", padding: "0 48px", gap: 36, overflow: "hidden" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#C4B5FD", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Makati City · Fine Jewelry</div>
+          <div style={{ fontSize: 46, fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: 14, letterSpacing: "-0.02em" }}>Timeless<br/>Elegance</div>
+          <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginBottom: 22 }}>Handcrafted fine jewelry, made to last forever</div>
+          <div style={{ display: "flex", gap: 14 }}>
+            <div style={{ padding: "12px 28px", background: "#C4B5FD", color: "#2E1065", borderRadius: 8, fontSize: 15, fontWeight: 700 }}>Shop Now</div>
+            <div style={{ padding: "12px 28px", border: "1px solid rgba(196,181,253,0.4)", color: "rgba(255,255,255,0.85)", borderRadius: 8, fontSize: 15 }}>Bespoke Orders</div>
+          </div>
+        </div>
+        <div style={{ width: 240, height: 210, borderRadius: 14, overflow: "hidden", flexShrink: 0, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+          <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=480&h=420&q=80" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+        </div>
+      </div>
+      <div style={{ padding: "20px 32px 22px", background: "#faf8f5" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontSize: 18, fontWeight: 600, color: "#1f1235" }}>Our Collections</span>
+          <span style={{ fontSize: 13, color: "#7C3AED", fontWeight: 600 }}>See all →</span>
+        </div>
+        <div style={{ display: "flex", gap: 14 }}>
+          {[
+            { name: "Lunar Rings",    price: "From ₱4,500", img: "1515562141207-7a88fb7ce338" },
+            { name: "Eden Necklaces", price: "From ₱6,200", img: "1602173574767-37ac01994b2a" },
+            { name: "Bloom Earrings", price: "From ₱2,800", img: "1535632066927-ab7c9ab60908" },
+          ].map(c => (
+            <div key={c.name} style={{ flex: 1, background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #e8e0d5" }}>
+              <img src={`https://images.unsplash.com/photo-${c.img}?auto=format&fit=crop&w=286&h=154&q=80`} style={{ width: "100%", height: 77, objectFit: "cover", display: "block" }} alt="" />
+              <div style={{ padding: "10px 14px" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1f1235", marginBottom: 3 }}>{c.name}</div>
+                <div style={{ fontSize: 12, color: "#7C3AED", fontWeight: 600 }}>{c.price}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const EXAMPLE_SITES = [
+  { name: "Ethica",       type: "Online Shoe Store", Component: EthicaPreview  },
+  { name: "Brew & Co",    type: "Coffee Shop",        Component: BrewCoPreview  },
+  { name: "KingsCut",     type: "Barbershop",         Component: KingsCutPreview },
+  { name: "Lumen Studio", type: "Photography",        Component: LumenPreview   },
+  { name: "Selah",        type: "Wellness Studio",    Component: SelahPreview   },
+  { name: "Solana",       type: "Fine Jewelry",       Component: SolanaPreview  },
+];
+
 
 const FEATURES = [
   {
@@ -413,20 +527,24 @@ export default function HomePage() {
           </h2>
           <p className="text-center text-gray-500 mb-10">AI-generated websites, not templates</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {EXAMPLE_WEBSITES.map((site, i) => (
+            {EXAMPLE_SITES.map(({ name, type, Component: SitePreview }, i) => (
               <motion.div
-                key={site.name}
+                key={name}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
                 className="website-card rounded-xl overflow-hidden border border-gray-100 cursor-pointer"
               >
-                <MiniWebsitePreview site={site} />
+                <div style={{ height: "176px", overflow: "hidden", position: "relative", background: "#f1f5f9" }}>
+                  <div style={{ transform: "scale(0.355)", transformOrigin: "top left", position: "absolute", top: 0, left: 0 }}>
+                    <SitePreview />
+                  </div>
+                </div>
                 <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-100">
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">{site.name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{site.type}</span>
+                    <span className="text-sm font-semibold text-gray-900">{name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{type}</span>
                   </div>
                   <span className="text-xs text-gray-400 flex items-center gap-1">
                     <Sparkles size={11} />
