@@ -157,6 +157,7 @@ export default function UpgradePage() {
                     { icon: CreditCard, text: "Payment required" },
                     { icon: Check, text: "Unlimited editing" },
                     { icon: Zap, text: "Built-in CRM system for each generated website" },
+                    { icon: CreditCard, text: "Add own payment method (any type of payment links)" },
                     { icon: Globe, text: "Custom domain connection" },
                     { icon: Shield, text: "Remove Storebuilder.ph branding" },
                     { icon: Check, text: "Priority support" },

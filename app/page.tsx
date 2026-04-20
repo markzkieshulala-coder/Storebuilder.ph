@@ -679,6 +679,7 @@ export default function HomePage() {
                   "Payment required",
                   "Unlimited editing",
                   "Built-in CRM system for each generated website",
+                  "Add own payment method (any type of payment links)",
                   "Custom domain connection",
                   "Remove Storebuilder.ph branding",
                   "Priority support",
