@@ -641,11 +641,10 @@ export default function HomePage() {
               <p className="text-xs text-gray-400 mb-5">No credit card required</p>
               <ul className="space-y-2.5 mb-7">
                 {[
-                  "3 AI website generations per month",
-                  "Limited editing",
+                  "Unlimited editing (Drag and drop)",
                   "Free subdomain (yourname.storebuilder.ph)",
                   "All editor features",
-                  "Powered by Claude Haiku",
+                  "No payment required",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
                     <Check size={15} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
@@ -677,20 +676,25 @@ export default function HomePage() {
               <p className="text-xs text-gray-400 mb-5">or ₱4,299/year (save 25%)</p>
               <ul className="space-y-2.5 mb-7">
                 {[
-                  "30 AI website generations per day",
+                  "Payment required",
                   "Unlimited editing",
+                  "Built-in CRM system for each generated website",
                   "Custom domain connection",
-                  "All editor features",
-                  "Powered by Claude Sonnet (smarter AI)",
-                  "Priority support",
                   "Remove Storebuilder.ph branding",
-                  "Advanced section library",
+                  "Priority support",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
                     <Check size={15} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
                     {item}
                   </li>
                 ))}
+                <li className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <Check size={15} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
+                  <span>
+                    Downloadable source code for generated websites &amp; CRM{" "}
+                    <span className="text-gray-400 font-normal">(+₱299 additional fee)</span>
+                  </span>
+                </li>
               </ul>
               <Link
                 href="/upgrade"
