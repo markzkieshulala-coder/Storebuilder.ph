@@ -16,7 +16,6 @@ export async function GET() {
           take: 100,
           select: {
             id: true, name: true, email: true, plan: true, createdAt: true,
-            isInfluencer: true,
             _count: { select: { websites: true } },
           },
         }),
@@ -40,9 +39,13 @@ export async function GET() {
         }),
       ]);
 
+    const influencerRows = await prisma.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "isInfluencer" = true`;
+    const influencerSet = new Set(influencerRows.map((r) => r.id));
+    const usersWithInfluencer = users.map((u) => ({ ...u, isInfluencer: influencerSet.has(u.id) }));
+
     return NextResponse.json({
       stats: { totalUsers, proUsers, totalWebsites, monthlyRevenue: proUsers * 499, activeSubs },
-      users,
+      users: usersWithInfluencer,
       subscriptions,
       websites,
     });

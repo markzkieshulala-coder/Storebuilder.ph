@@ -16,9 +16,10 @@ export async function POST(req: NextRequest) {
     });
     if (!found) return NextResponse.json({ error: "No account found with that email address" }, { status: 404 });
 
+    await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
     const user = await prisma.user.update({
       where: { id: found.id },
-      data: { isInfluencer: true, plan: plan as "FREE" | "PRO" },
+      data: { plan: plan as "FREE" | "PRO" },
       select: { id: true, email: true, name: true, plan: true },
     });
 
@@ -33,10 +34,7 @@ export async function DELETE(req: NextRequest) {
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isInfluencer: false },
-    });
+    await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = false WHERE "id" = ${userId}`;
 
     return NextResponse.json({ success: true });
   } catch (e: any) {

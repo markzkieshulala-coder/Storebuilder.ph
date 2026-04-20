@@ -12,7 +12,7 @@ export async function GET(
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
-        image: true, createdAt: true, planExpiresAt: true, isInfluencer: true,
+        image: true, createdAt: true, planExpiresAt: true,
         _count: { select: { websites: true } },
         subscriptions: {
           orderBy: { createdAt: "desc" },
@@ -32,7 +32,10 @@ export async function GET(
     });
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    return NextResponse.json({ user });
+
+    const rows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
+    const isInfluencer = rows[0]?.isInfluencer ?? false;
+    return NextResponse.json({ user: { ...user, isInfluencer } });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
   }
