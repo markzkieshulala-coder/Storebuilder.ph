@@ -192,7 +192,8 @@ export default function AdminUserDetailPage() {
   const activeSub = user.subscriptions.find((s) => s.status === "ACTIVE");
   const hasPaidBefore = user.subscriptions.some((s) => s.status === "ACTIVE" || s.status === "CANCELLED");
   const isActive = !!activeSub;
-  const memberStatus = user.isInfluencer ? "Enterprise" : isActive ? "Active" : hasPaidBefore ? "Former" : "Free Tier";
+  const isPro = user.plan === "PRO" || isActive;
+  const memberStatus = user.isInfluencer ? "Enterprise" : isPro ? "Active" : hasPaidBefore ? "Former" : "Free Tier";
   const currentPlan = user.plan;
   const benefits = PLAN_BENEFITS[currentPlan] ?? PLAN_BENEFITS.FREE;
   const initials = (user.name ?? user.email ?? "?").slice(0, 2).toUpperCase();
@@ -237,13 +238,13 @@ export default function AdminUserDetailPage() {
 
         {/* Profile header */}
         <div style={{ ...CARD, marginBottom: "20px", display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
-          <div style={{ width: "68px", height: "68px", borderRadius: "50%", background: isActive ? BLUE : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", fontWeight: 700, color: isActive ? "#fff" : "#6B7280", flexShrink: 0, overflow: "hidden" }}>
+          <div style={{ width: "68px", height: "68px", borderRadius: "50%", background: isPro ? BLUE : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", fontWeight: 700, color: isPro ? "#fff" : "#6B7280", flexShrink: 0, overflow: "hidden" }}>
             {user.image ? <img src={user.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
           </div>
           <div style={{ flex: 1, minWidth: "200px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "21px", fontWeight: 700, margin: 0, color: "#111827" }}>{user.name || "Unnamed User"}</h1>
-              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: user.isInfluencer ? "#F5F3FF" : isActive ? "#D1FAE5" : hasPaidBefore ? "#FEF3C7" : "#F3F4F6", color: user.isInfluencer ? "#7C3AED" : isActive ? "#065F46" : hasPaidBefore ? "#92400E" : "#6B7280" }}>{memberStatus.toUpperCase()}</span>
+              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: user.isInfluencer ? "#F5F3FF" : isPro ? "#D1FAE5" : hasPaidBefore ? "#FEF3C7" : "#F3F4F6", color: user.isInfluencer ? "#7C3AED" : isPro ? "#065F46" : hasPaidBefore ? "#92400E" : "#6B7280" }}>{memberStatus.toUpperCase()}</span>
               {user.role === "ADMIN" && <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#EDE9FE", color: "#5B21B6" }}>ADMIN</span>}
             </div>
             <div style={{ fontSize: "14px", color: "#6B7280", marginTop: "4px" }}>{user.email}</div>
