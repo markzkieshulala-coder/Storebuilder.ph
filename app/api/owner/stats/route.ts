@@ -16,6 +16,7 @@ export async function GET() {
           take: 100,
           select: {
             id: true, name: true, email: true, plan: true, createdAt: true,
+            isInfluencer: true,
             _count: { select: { websites: true } },
           },
         }),

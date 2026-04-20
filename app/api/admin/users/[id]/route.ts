@@ -12,7 +12,7 @@ export async function GET(
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
-        image: true, createdAt: true, planExpiresAt: true,
+        image: true, createdAt: true, planExpiresAt: true, isInfluencer: true,
         _count: { select: { websites: true } },
         subscriptions: {
           orderBy: { createdAt: "desc" },
