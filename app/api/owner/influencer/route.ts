@@ -16,7 +16,14 @@ export async function POST(req: NextRequest) {
     });
     if (!found) return NextResponse.json({ error: "No account found with that email address" }, { status: 404 });
 
-    await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
+    try {
+      await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
+    } catch (e: any) {
+      if (e?.message?.includes("isInfluencer")) {
+        return NextResponse.json({ error: "Database not migrated. Run `npx prisma db push` to add the isInfluencer column." }, { status: 500 });
+      }
+      throw e;
+    }
     const user = await prisma.user.update({
       where: { id: found.id },
       data: { plan: plan as "FREE" | "PRO" },

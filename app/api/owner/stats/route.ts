@@ -39,8 +39,13 @@ export async function GET() {
         }),
       ]);
 
-    const influencerRows = await prisma.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "isInfluencer" = true`;
-    const influencerSet = new Set(influencerRows.map((r) => r.id));
+    const influencerSet = new Set<string>();
+    try {
+      const influencerRows = await prisma.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "isInfluencer" = true`;
+      influencerRows.forEach((r) => influencerSet.add(r.id));
+    } catch {
+      // isInfluencer column not migrated yet — treat all users as non-influencers
+    }
     const usersWithInfluencer = users.map((u) => ({ ...u, isInfluencer: influencerSet.has(u.id) }));
 
     return NextResponse.json({

@@ -33,8 +33,13 @@ export async function GET(
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const rows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
-    const isInfluencer = rows[0]?.isInfluencer ?? false;
+    let isInfluencer = false;
+    try {
+      const rows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
+      isInfluencer = rows[0]?.isInfluencer ?? false;
+    } catch {
+      // isInfluencer column not migrated yet
+    }
     return NextResponse.json({ user: { ...user, isInfluencer } });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
