@@ -12,7 +12,7 @@ export async function GET(
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
-        image: true, createdAt: true, planExpiresAt: true, isInfluencer: true,
+        image: true, createdAt: true, planExpiresAt: true,
         _count: { select: { websites: true } },
         subscriptions: {
           orderBy: { createdAt: "desc" },
@@ -82,17 +82,13 @@ export async function PATCH(
     data.role = body.role;
   }
 
-  if (body.isInfluencer !== undefined) {
-    data.isInfluencer = Boolean(body.isInfluencer);
-  }
-
   if (Object.keys(data).length === 0)
     return NextResponse.json({ error: "No changes" }, { status: 400 });
 
   const user = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true, isInfluencer: true },
+    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true },
   });
 
   return NextResponse.json({ success: true, user });
