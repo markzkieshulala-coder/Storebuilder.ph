@@ -79,7 +79,7 @@ export default function UpgradePage() {
           <div className="max-w-sm mx-auto p-8 rounded-2xl border-2 text-center" style={{ borderColor: BLUE, background: "#EBF3FF" }}>
             <Crown size={36} className="mx-auto mb-4" style={{ color: BLUE }} />
             <h2 className="text-xl font-bold text-gray-900 mb-2">You are already Pro!</h2>
-            <p className="text-gray-500 text-sm mb-6">Enjoy 30 AI generations per day and all Pro features.</p>
+            <p className="text-gray-500 text-sm mb-6">Enjoy unlimited editing, built-in CRM, and all Pro features.</p>
             <Link href="/dashboard" className="block py-3 rounded-lg font-semibold text-sm text-white" style={{ background: BLUE }}>
               Back to dashboard
             </Link>
@@ -113,11 +113,10 @@ export default function UpgradePage() {
                 <p className="text-gray-400 text-sm mb-6">No credit card · Free forever</p>
                 <ul className="space-y-3 mb-8">
                   {[
-                    "3 AI website generations per month",
-                    "Limited editing",
+                    "Unlimited editing (Drag and drop)",
                     "Free subdomain (yourname.storebuilder.ph)",
                     "All editor features",
-                    "Powered by Claude Haiku AI",
+                    "No payment required",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3 text-sm text-gray-700">
                       <Check size={16} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
@@ -155,12 +154,12 @@ export default function UpgradePage() {
                 )}
                 <ul className="space-y-3 mb-6">
                   {[
-                    { icon: Zap, text: "30 AI website generations per day" },
-                    { icon: CreditCard, text: "Powered by Claude Sonnet (smarter AI)" },
+                    { icon: CreditCard, text: "Payment required" },
+                    { icon: Check, text: "Unlimited editing" },
+                    { icon: Zap, text: "Built-in CRM system for each generated website" },
                     { icon: Globe, text: "Custom domain connection" },
                     { icon: Shield, text: "Remove Storebuilder.ph branding" },
                     { icon: Check, text: "Priority support" },
-                    { icon: Check, text: "Advanced section library" },
                   ].map(({ icon: Icon, text }) => (
                     <li key={text} className="flex items-center gap-3 text-sm text-gray-700">
                       <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: "#EBF3FF" }}>
@@ -169,6 +168,15 @@ export default function UpgradePage() {
                       {text}
                     </li>
                   ))}
+                  <li className="flex items-start gap-3 text-sm text-gray-700">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#EBF3FF" }}>
+                      <Check size={11} style={{ color: BLUE }} />
+                    </div>
+                    <span>
+                      Downloadable source code for generated websites &amp; CRM{" "}
+                      <span className="text-gray-400 font-normal">(+₱299 additional fee)</span>
+                    </span>
+                  </li>
                 </ul>
 
                 {/* No Refund Notice */}
