@@ -514,7 +514,7 @@ export default function HomePage() {
           </div>
 
           <p className="mt-5 text-gray-400 text-sm">
-            Free to start · No credit card · 3 free generations per month
+            Free to start · No credit card required
           </p>
         </motion.div>
       </section>

@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-async function requireAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "ADMIN") return null;
-  return session;
-}
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +12,7 @@ export async function GET(
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
-        image: true, createdAt: true, planExpiresAt: true,
+        image: true, createdAt: true, planExpiresAt: true, isInfluencer: true,
         _count: { select: { websites: true } },
         subscriptions: {
           orderBy: { createdAt: "desc" },
@@ -50,9 +42,6 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const body = await req.json();
   const data: Record<string, unknown> = {};
 
@@ -93,28 +82,26 @@ export async function PATCH(
     data.role = body.role;
   }
 
+  if (body.isInfluencer !== undefined) {
+    data.isInfluencer = Boolean(body.isInfluencer);
+  }
+
   if (Object.keys(data).length === 0)
     return NextResponse.json({ error: "No changes" }, { status: 400 });
 
   const user = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true },
+    select: { id: true, email: true, plan: true, role: true, planExpiresAt: true, isInfluencer: true },
   });
 
   return NextResponse.json({ success: true, user });
 }
 
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  if (params.id === session.user.id)
-    return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
-
   await prisma.user.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
 }

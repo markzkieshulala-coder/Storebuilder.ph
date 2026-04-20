@@ -8,7 +8,7 @@ const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
 
 type Sub = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string };
 type Site = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string };
-type User = { id: string; name: string | null; email: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
+type User = { id: string; name: string | null; email: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
 
 const PLAN_BENEFITS: Record<string, { label: string; color: string; bg: string }[]> = {
   FREE: [
@@ -192,7 +192,7 @@ export default function AdminUserDetailPage() {
   const activeSub = user.subscriptions.find((s) => s.status === "ACTIVE");
   const hasPaidBefore = user.subscriptions.some((s) => s.status === "ACTIVE" || s.status === "CANCELLED");
   const isActive = !!activeSub;
-  const memberStatus = isActive ? "Active" : hasPaidBefore ? "Former" : "Free Tier";
+  const memberStatus = user.isInfluencer ? "Enterprise" : isActive ? "Active" : hasPaidBefore ? "Former" : "Free Tier";
   const currentPlan = user.plan;
   const benefits = PLAN_BENEFITS[currentPlan] ?? PLAN_BENEFITS.FREE;
   const initials = (user.name ?? user.email ?? "?").slice(0, 2).toUpperCase();
@@ -243,7 +243,7 @@ export default function AdminUserDetailPage() {
           <div style={{ flex: 1, minWidth: "200px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "21px", fontWeight: 700, margin: 0, color: "#111827" }}>{user.name || "Unnamed User"}</h1>
-              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: isActive ? "#D1FAE5" : hasPaidBefore ? "#FEF3C7" : "#F3F4F6", color: isActive ? "#065F46" : hasPaidBefore ? "#92400E" : "#6B7280" }}>{memberStatus.toUpperCase()}</span>
+              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: user.isInfluencer ? "#F5F3FF" : isActive ? "#D1FAE5" : hasPaidBefore ? "#FEF3C7" : "#F3F4F6", color: user.isInfluencer ? "#7C3AED" : isActive ? "#065F46" : hasPaidBefore ? "#92400E" : "#6B7280" }}>{memberStatus.toUpperCase()}</span>
               {user.role === "ADMIN" && <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#EDE9FE", color: "#5B21B6" }}>ADMIN</span>}
             </div>
             <div style={{ fontSize: "14px", color: "#6B7280", marginTop: "4px" }}>{user.email}</div>

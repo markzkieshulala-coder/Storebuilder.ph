@@ -4,11 +4,11 @@ import { useEffect, useState, useMemo } from "react";
 const BLUE = "#1877F2";
 const FONT = '"Product Sans", "Google Sans", "Google Sans Text", Roboto, "DM Sans", system-ui, -apple-system, sans-serif';
 const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
-const MENU = ["Overview", "Total Users"] as const;
+const MENU = ["Overview", "Total Users", "Influencers"] as const;
 type Tab = (typeof MENU)[number];
 
 type Stats = { totalUsers: number; proUsers: number; totalWebsites: number; monthlyRevenue: number; activeSubs: number };
-type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; _count: { websites: number } };
+type UserRow = { id: string; name: string | null; email: string | null; plan: string; createdAt: string; isInfluencer: boolean; _count: { websites: number } };
 type SubRow = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; user: { id: string; name: string | null; email: string | null } };
 
 const TH: React.CSSProperties = { padding: "11px 20px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB", whiteSpace: "nowrap" };
@@ -33,13 +33,19 @@ function fmtMonth(ym: string) {
 
 export default function OwnerPage() {
   const [active, setActive]           = useState<Tab>("Overview");
-  const [userView, setUserView]       = useState<"all" | "active" | "paid" | "former">("all");
+  const [userView, setUserView]       = useState<"all" | "active" | "paid" | "former" | "influencer">("all");
   const [stats, setStats]             = useState<Stats | null>(null);
   const [users, setUsers]             = useState<UserRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubRow[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [headerSearch, setHeaderSearch] = useState("");
+
+  // Influencer form state
+  const [infEmail, setInfEmail]       = useState("");
+  const [infPlan, setInfPlan]         = useState<"FREE" | "PRO">("FREE");
+  const [infLoading, setInfLoading]   = useState(false);
+  const [infMsg, setInfMsg]           = useState<{ text: string; ok: boolean } | null>(null);
 
   // Overview filter state
   const now = new Date();
@@ -121,12 +127,54 @@ export default function OwnerPage() {
     [paidSubs]
   );
 
-  const userStatus = (u: UserRow): "Active" | "Former" | "Free" => {
+  const influencers = useMemo(() => users.filter((u) => u.isInfluencer), [users]);
+
+  const userStatus = (u: UserRow): "Enterprise" | "Active" | "Former" | "Free" => {
+    if (u.isInfluencer) return "Enterprise";
     const latest = userSubMap.get(u.id);
     if (u.plan === "PRO" && latest?.status === "ACTIVE") return "Active";
     if (paidUserIds.has(u.id) && u.plan === "FREE") return "Former";
     return "Free";
   };
+
+  async function addInfluencer() {
+    if (!infEmail.trim()) return;
+    setInfLoading(true); setInfMsg(null);
+    try {
+      const res = await fetch("/api/owner/influencer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: infEmail.trim(), plan: infPlan }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setInfMsg({ text: `${data.user.email} is now an Influencer (Enterprise · ${infPlan})`, ok: true });
+        setInfEmail("");
+        setUsers((prev) => prev.map((u) =>
+          u.email?.toLowerCase() === infEmail.trim().toLowerCase()
+            ? { ...u, isInfluencer: true, plan: infPlan }
+            : u
+        ));
+      } else {
+        setInfMsg({ text: data.error || "Unknown error", ok: false });
+      }
+    } catch (e: any) {
+      setInfMsg({ text: e.message, ok: false });
+    } finally { setInfLoading(false); }
+  }
+
+  async function removeInfluencer(userId: string) {
+    try {
+      const res = await fetch("/api/owner/influencer", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, isInfluencer: false } : u));
+      }
+    } catch {}
+  }
 
   const q = headerSearch.toLowerCase().trim();
   const match = (name: string | null, email: string | null) =>
@@ -136,10 +184,11 @@ export default function OwnerPage() {
 
   const totalUsersFiltered = users.filter((u) => {
     if (!match(u.name, u.email)) return false;
-    if (userView === "all")    return true;
-    if (userView === "active") return userStatus(u) === "Active";
-    if (userView === "paid")   return paidUserIds.has(u.id);
-    if (userView === "former") return userStatus(u) === "Former";
+    if (userView === "all")        return true;
+    if (userView === "active")     return userStatus(u) === "Active";
+    if (userView === "paid")       return paidUserIds.has(u.id);
+    if (userView === "former")     return userStatus(u) === "Former";
+    if (userView === "influencer") return u.isInfluencer;
     return true;
   });
 
@@ -180,6 +229,9 @@ export default function OwnerPage() {
                 {item}
                 {item === "Total Users" && stats && (
                   <span style={{ padding: "1px 7px", borderRadius: "12px", fontSize: "10px", background: "rgba(255,255,255,0.25)", fontWeight: 700 }}>{stats.totalUsers}</span>
+                )}
+                {item === "Influencers" && (
+                  <span style={{ padding: "1px 7px", borderRadius: "12px", fontSize: "10px", background: "rgba(196,181,253,0.4)", fontWeight: 700 }}>{influencers.length}</span>
                 )}
               </button>
             ))}
@@ -344,13 +396,14 @@ export default function OwnerPage() {
               <>
                 <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
                   {([
-                    { key: "all",    label: `All Users (${users.length})` },
-                    { key: "active", label: `Active Members (${users.filter(u => userStatus(u) === "Active").length})` },
-                    { key: "paid",   label: `Paid Members (${users.filter(u => paidUserIds.has(u.id)).length})` },
-                    { key: "former", label: `Former Members (${users.filter(u => userStatus(u) === "Former").length})` },
+                    { key: "all",        label: `All Users (${users.length})`,                                              ac: BLUE     },
+                    { key: "active",     label: `Active (${users.filter(u => userStatus(u) === "Active").length})`,         ac: BLUE     },
+                    { key: "paid",       label: `Paid (${users.filter(u => paidUserIds.has(u.id)).length})`,                ac: BLUE     },
+                    { key: "former",     label: `Former (${users.filter(u => userStatus(u) === "Former").length})`,         ac: BLUE     },
+                    { key: "influencer", label: `Influencers (${influencers.length})`,                                      ac: "#7C3AED" },
                   ] as const).map((v) => (
                     <button key={v.key} onClick={() => setUserView(v.key)}
-                      style={{ padding: "7px 18px", borderRadius: "8px", border: `1px solid ${userView === v.key ? BLUE : "#D1D5DB"}`, fontSize: "13px", fontWeight: 600, cursor: "pointer", background: userView === v.key ? BLUE : "#fff", color: userView === v.key ? "#fff" : "#6B7280", fontFamily: FONT }}>
+                      style={{ padding: "7px 18px", borderRadius: "8px", border: `1px solid ${userView === v.key ? v.ac : "#D1D5DB"}`, fontSize: "13px", fontWeight: 600, cursor: "pointer", background: userView === v.key ? v.ac : "#fff", color: userView === v.key ? "#fff" : "#6B7280", fontFamily: FONT }}>
                       {v.label}
                     </button>
                   ))}
@@ -375,7 +428,7 @@ export default function OwnerPage() {
                           const amount   = sub && sub.status === "ACTIVE" ? `\u20B1${(sub.amount / 100).toLocaleString()}${sub.billingCycle === "MONTHLY" ? "/mo" : "/yr"}` : na ? "N/A" : "\u2014";
                           const billing  = sub && sub.status === "ACTIVE" ? getNextBilling(sub) : na ? "N/A" : "\u2014";
                           const method   = sub && sub.status === "ACTIVE" ? (sub.paymongoId ? "PayMongo" : "Manual") : na ? "N/A" : "\u2014";
-                          const sc       = status === "Active" ? { bg: "#D1FAE5", color: "#065F46" } : status === "Former" ? { bg: "#FEE2E2", color: "#991B1B" } : { bg: "#F3F4F6", color: "#6B7280" };
+                          const sc       = status === "Enterprise" ? { bg: "#F5F3FF", color: "#7C3AED" } : status === "Active" ? { bg: "#D1FAE5", color: "#065F46" } : status === "Former" ? { bg: "#FEE2E2", color: "#991B1B" } : { bg: "#F3F4F6", color: "#6B7280" };
                           return (
                             <tr key={u.id}>
                               <td style={TD}>
@@ -402,6 +455,87 @@ export default function OwnerPage() {
                   </div>
                 </div>
               </>
+            )}
+
+            {/* ── INFLUENCERS ── */}
+            {!loading && active === "Influencers" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+                {/* Add form */}
+                <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #E5E7EB", padding: "24px 28px" }}>
+                  <div style={{ fontSize: "15px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Add Influencer Account</div>
+                  <div style={{ fontSize: "13px", color: "#9CA3AF", marginBottom: "18px" }}>Search a user by email and grant them Enterprise status. Their assigned plan is preserved internally, but their display status will always show as Enterprise.</div>
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
+                    <div style={{ flex: 1, minWidth: "220px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "6px" }}>Email Address</div>
+                      <input
+                        type="email" value={infEmail} onChange={(e) => setInfEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addInfluencer()}
+                        placeholder="user@example.com"
+                        style={{ width: "100%", padding: "9px 12px", fontSize: "13px", border: "1px solid #E5E7EB", borderRadius: "8px", outline: "none", fontFamily: FONT, boxSizing: "border-box" }} />
+                    </div>
+                    <div style={{ minWidth: "130px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "6px" }}>Assign Plan</div>
+                      <select value={infPlan} onChange={(e) => setInfPlan(e.target.value as "FREE" | "PRO")} style={SELECT}>
+                        <option value="FREE">Free</option>
+                        <option value="PRO">Pro</option>
+                      </select>
+                    </div>
+                    <button onClick={addInfluencer} disabled={infLoading || !infEmail.trim()}
+                      style={{ padding: "9px 22px", background: "#7C3AED", color: "#fff", border: "none", borderRadius: "8px", cursor: infLoading || !infEmail.trim() ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 600, fontFamily: FONT, opacity: infLoading || !infEmail.trim() ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                      {infLoading ? "Adding…" : "Grant Enterprise"}
+                    </button>
+                  </div>
+                  {infMsg && (
+                    <div style={{ marginTop: "12px", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", background: infMsg.ok ? "#F0FDF4" : "#FEF2F2", color: infMsg.ok ? "#065F46" : "#DC2626", border: `1px solid ${infMsg.ok ? "#BBF7D0" : "#FCA5A5"}` }}>
+                      {infMsg.ok ? "✓ " : "✕ "}{infMsg.text}
+                    </div>
+                  )}
+                </div>
+
+                {/* Influencer list */}
+                <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", overflow: "hidden" }}>
+                  <div style={{ padding: "14px 20px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>{influencers.length} influencer account{influencers.length !== 1 ? "s" : ""}</span>
+                    <span style={{ padding: "2px 8px", borderRadius: "12px", fontSize: "10px", fontWeight: 700, background: "#F5F3FF", color: "#7C3AED" }}>Enterprise</span>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr>{["Email Address", "Name", "Status", "Assigned Plan", "Joined", "Actions"].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {influencers.map((u) => (
+                          <tr key={u.id}>
+                            <td style={TD}>
+                              <a href={`/admin/users/${u.id}`} target="_blank" rel="noreferrer"
+                                style={{ color: BLUE, textDecoration: "none", fontWeight: 500, fontSize: "13px" }}
+                                onMouseEnter={(e) => e.currentTarget.style.textDecoration = "underline"}
+                                onMouseLeave={(e) => e.currentTarget.style.textDecoration = "none"}>
+                                {u.email || "—"}
+                              </a>
+                            </td>
+                            <td style={TD}>{u.name || "—"}</td>
+                            <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#F5F3FF", color: "#7C3AED" }}>Enterprise</span></td>
+                            <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
+                            <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF", whiteSpace: "nowrap" }}>{new Date(u.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
+                            <td style={TD}>
+                              <button onClick={() => removeInfluencer(u.id)}
+                                style={{ padding: "4px 12px", background: "#FEF2F2", color: "#DC2626", border: "1px solid #FCA5A5", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT }}>
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {influencers.length === 0 && (
+                          <tr><td colSpan={6} style={{ padding: "48px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>No influencer accounts yet. Add one above.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
             )}
 
           </div>

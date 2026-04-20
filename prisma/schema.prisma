@@ -48,6 +48,7 @@ model User {
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
   location      String?
+  isInfluencer  Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
