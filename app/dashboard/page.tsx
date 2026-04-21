@@ -4,15 +4,18 @@ import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  Sparkles, Plus, Globe, Edit3, Trash2, ExternalLink,
-  Copy, BarChart2, Settings, LogOut, Crown, Clock,
-  AlertCircle, CheckCircle, Zap
+  Sparkles, Globe, Edit3, Trash2, ExternalLink,
+  Settings, LogOut, Crown, Clock,
+  AlertCircle, Zap, BarChart2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
 import { timeUntilReset } from "@/lib/utils";
+
+const BLUE = "#1877F2";
+const FONT = "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif";
 
 type Website = {
   id: string; name: string; type: string; subdomain: string | null;
@@ -51,12 +54,9 @@ function DashboardContent() {
   }, [status, router]);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      fetchData();
-    }
+    if (status === "authenticated") fetchData();
   }, [status]);
 
-  // Auto-generate if prompt passed in URL
   useEffect(() => {
     const urlPrompt = searchParams.get("generate");
     if (urlPrompt && !isGenerating && credits?.canGenerate) {
@@ -65,7 +65,6 @@ function DashboardContent() {
     }
   }, [searchParams, credits]);
 
-  // Countdown timer
   useEffect(() => {
     if (!credits?.resetAt) return;
     const interval = setInterval(() => {
@@ -74,7 +73,6 @@ function DashboardContent() {
     return () => clearInterval(interval);
   }, [credits?.resetAt]);
 
-  // Cycle through generation steps
   useEffect(() => {
     if (!isGenerating) return;
     const interval = setInterval(() => {
@@ -86,10 +84,7 @@ function DashboardContent() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [wsRes, crRes] = await Promise.all([
-        fetch("/api/websites"),
-        fetch("/api/credits"),
-      ]);
+      const [wsRes, crRes] = await Promise.all([fetch("/api/websites"), fetch("/api/credits")]);
       const wsData = await wsRes.json();
       const crData = await crRes.json();
       setWebsites(wsData.websites || []);
@@ -141,18 +136,10 @@ function DashboardContent() {
   async function handlePublish(id: string) {
     const res = await fetch(`/api/websites/${id}/publish`, { method: "POST" });
     const data = await res.json();
-    if (res.ok) {
-      toast.success(`Live at ${data.url}`);
-      fetchData();
-    }
+    if (res.ok) { toast.success(`Live at ${data.url}`); fetchData(); }
   }
 
   async function handleDuplicate(id: string) {
-    // Get source website
-    const res = await fetch(`/api/websites/${id}`);
-    const data = await res.json();
-    if (!res.ok) { toast.error("Failed to duplicate"); return; }
-    const src = data.website;
     const dupRes = await fetch("/api/websites/duplicate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -164,8 +151,9 @@ function DashboardContent() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+      <div style={{ minHeight: "100vh", background: "#F0F2F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, border: `3px solid #E7F3FF`, borderTop: `3px solid ${BLUE}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
@@ -173,57 +161,60 @@ function DashboardContent() {
   const isPro = credits?.plan === "PRO";
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div style={{ minHeight: "100vh", background: "#F0F2F5", fontFamily: FONT }}>
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-60 bg-zinc-950 border-r border-white/6 flex flex-col z-40">
-        <div className="p-5 border-b border-white/6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
-              <Sparkles size={15} className="text-white" />
+      <aside style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 240, background: "#fff", borderRight: "1px solid #E4E6EB", display: "flex", flexDirection: "column", zIndex: 40 }}>
+        {/* Logo */}
+        <div style={{ padding: "20px", borderBottom: "1px solid #E4E6EB" }}>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <div style={{ width: 36, height: 36, background: BLUE, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Sparkles size={16} color="#fff" />
             </div>
-            <span className="font-bold text-sm" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>Storebuilder.ph</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: "#1C1E21", fontFamily: FONT }}>Storebuilder.ph</span>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          <div className="px-3 py-2 rounded-lg bg-white/5 flex items-center gap-3 text-sm font-medium">
-            <Globe size={16} className="text-violet-400" />
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ padding: "9px 12px", borderRadius: 8, background: "#E7F3FF", display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 600, color: BLUE }}>
+            <Globe size={16} />
             My Websites
           </div>
-          <Link href="/dashboard/settings" className="px-3 py-2 rounded-lg hover:bg-white/5 flex items-center gap-3 text-sm text-white/50 hover:text-white transition-colors">
+          <Link href="/dashboard/settings" style={{ padding: "9px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#65676B", textDecoration: "none", transition: "background 0.15s" }}
+            onMouseOver={(e) => (e.currentTarget.style.background = "#F0F2F5")}
+            onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
             <Settings size={16} />
             Settings
           </Link>
           {session?.user?.role === "ADMIN" && (
-            <Link href="/admin" className="px-3 py-2 rounded-lg hover:bg-white/5 flex items-center gap-3 text-sm text-amber-400/80 hover:text-amber-400 transition-colors">
+            <Link href="/admin" style={{ padding: "9px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#B45309", textDecoration: "none" }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "#FEF3C7")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
               <BarChart2 size={16} />
               Admin
             </Link>
           )}
         </nav>
 
-        <div className="p-4 space-y-3 border-t border-white/6">
-          {/* Credits widget */}
+        {/* Bottom */}
+        <div style={{ padding: "12px 8px", borderTop: "1px solid #E4E6EB", display: "flex", flexDirection: "column", gap: 8 }}>
           {credits && (
-            <div className="p-3 rounded-xl bg-white/3 border border-white/8">
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "#F0F2F5", border: "1px solid #E4E6EB" }}>
               {isPro ? (
-                <div className="flex items-center gap-2">
-                  <Crown size={14} className="text-amber-400" />
-                  <span className="text-xs font-semibold text-amber-400">Pro Plan</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Crown size={14} color="#B45309" />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#B45309" }}>Pro Plan</span>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-white/50">Daily credits</span>
-                    <span className="text-xs font-bold text-white">{credits.remaining}/{credits.limit}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: "#65676B" }}>Daily credits</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#1C1E21" }}>{credits.remaining}/{credits.limit}</span>
                   </div>
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
-                    <div
-                      className="h-full bg-violet-500 rounded-full transition-all"
-                      style={{ width: `${(credits.remaining / credits.limit) * 100}%` }}
-                    />
+                  <div style={{ height: 5, background: "#E4E6EB", borderRadius: 99, overflow: "hidden", marginBottom: 6 }}>
+                    <div style={{ height: "100%", background: BLUE, borderRadius: 99, width: `${(credits.remaining / credits.limit) * 100}%`, transition: "width 0.3s" }} />
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-white/30">
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#8A8D91" }}>
                     <Clock size={11} />
                     Resets in {resetIn}
                   </div>
@@ -233,146 +224,138 @@ function DashboardContent() {
           )}
 
           {!isPro && (
-            <Link href="/upgrade" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-violet-900/50 to-indigo-900/50 border border-violet-700/30 text-xs font-medium text-violet-300 hover:from-violet-900/70 transition-colors">
+            <Link href="/upgrade" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 8, background: "#E7F3FF", border: `1px solid ${BLUE}30`, fontSize: 12, fontWeight: 600, color: BLUE, textDecoration: "none" }}>
               <Crown size={13} />
               Upgrade to Pro
             </Link>
           )}
 
-          <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 text-sm text-white/40 hover:text-white/70 transition-colors w-full"
-          >
+          <button onClick={() => signOut({ callbackUrl: "/" })}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, fontSize: 13, color: "#65676B", background: "transparent", border: "none", cursor: "pointer", width: "100%", fontFamily: FONT }}
+            onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F0F2F5"; }}
+            onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
             <LogOut size={14} />
             Sign out
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="ml-60 p-8">
+      {/* Main */}
+      <main style={{ marginLeft: 240, padding: "32px" }}>
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div style={{ marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1C1E21", margin: 0, fontFamily: FONT }}>
               Good {getGreeting()}, {session?.user?.name?.split(" ")[0]} 👋
             </h1>
-            <p className="text-white/40 text-sm mt-1">
+            <p style={{ fontSize: 13, color: "#65676B", marginTop: 4 }}>
               {websites.length === 0 ? "Create your first website below" : `You have ${websites.length} website${websites.length !== 1 ? "s" : ""}`}
             </p>
           </div>
         </div>
 
         {/* Generation box */}
-        <div className="mb-8 p-6 rounded-2xl bg-zinc-950 border border-white/8">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
-            <Sparkles size={18} className="text-violet-400" />
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E4E6EB", padding: "22px 24px", marginBottom: 24 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={16} color={BLUE} />
             Generate a new website
           </h2>
 
           {isGenerating ? (
-            <div className="py-8 text-center">
-              <div className="w-12 h-12 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm text-violet-300 font-medium animate-pulse">{GENERATION_STEPS[generationStep]}</p>
-              <p className="text-xs text-white/30 mt-2">This takes about 10-20 seconds</p>
+            <div style={{ padding: "32px 0", textAlign: "center" }}>
+              <div style={{ width: 40, height: 40, border: `3px solid #E7F3FF`, borderTop: `3px solid ${BLUE}`, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+              <p style={{ fontSize: 13, color: BLUE, fontWeight: 600 }}>{GENERATION_STEPS[generationStep]}</p>
+              <p style={{ fontSize: 12, color: "#8A8D91", marginTop: 6 }}>This takes about 10–20 seconds</p>
             </div>
           ) : (
-            <div className="flex gap-3">
+            <div style={{ display: "flex", gap: 10 }}>
               <input
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
                 placeholder='e.g. "Barbershop called Kings Cut with a masculine dark design"'
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-violet-500/40 transition-colors"
                 disabled={!credits?.canGenerate && !isPro}
+                style={{ flex: 1, background: "#F0F2F5", border: "1px solid #E4E6EB", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#1C1E21", outline: "none", fontFamily: FONT }}
+                onFocus={(e) => { e.target.style.border = `1px solid ${BLUE}`; e.target.style.background = "#fff"; }}
+                onBlur={(e) => { e.target.style.border = "1px solid #E4E6EB"; e.target.style.background = "#F0F2F5"; }}
               />
               <button
                 onClick={() => handleGenerate()}
                 disabled={!credits?.canGenerate && !isPro}
-                className="px-5 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap"
-              >
-                <Sparkles size={16} />
+                style={{ padding: "10px 20px", background: BLUE, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: FONT, opacity: (!credits?.canGenerate && !isPro) ? 0.4 : 1, whiteSpace: "nowrap" }}>
+                <Sparkles size={15} />
                 Generate
               </button>
             </div>
           )}
 
           {!isGenerating && credits && !isPro && credits.remaining === 0 && (
-            <div className="mt-3 flex items-center gap-2 text-xs text-amber-400/80">
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#B45309" }}>
               <AlertCircle size={13} />
-              No credits left today. Resets in {resetIn} · <Link href="/upgrade" className="underline hover:text-amber-400">Upgrade to Pro</Link>
+              No credits left today. Resets in {resetIn} ·{" "}
+              <Link href="/upgrade" style={{ color: BLUE, textDecoration: "underline" }}>Upgrade to Pro</Link>
             </div>
           )}
         </div>
 
         {/* Websites grid */}
         {websites.length === 0 ? (
-          <div className="text-center py-24 text-white/25">
-            <Globe size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="text-lg font-medium mb-2">No websites yet</p>
-            <p className="text-sm">Type a prompt above and click Generate to create your first website</p>
+          <div style={{ textAlign: "center", padding: "80px 0", color: "#BCC0C4" }}>
+            <Globe size={48} style={{ margin: "0 auto 16px", opacity: 0.4 }} />
+            <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, color: "#8A8D91" }}>No websites yet</p>
+            <p style={{ fontSize: 13 }}>Type a prompt above and click Generate to create your first website</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {websites.map((site) => (
               <motion.div
                 key={site.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-zinc-950 border border-white/8 rounded-2xl overflow-hidden hover:border-white/15 transition-colors group"
-              >
+                style={{ background: "#fff", border: "1px solid #E4E6EB", borderRadius: 14, overflow: "hidden" }}>
                 {/* Thumbnail */}
-                <div className="h-36 bg-gradient-to-br from-violet-950/60 to-indigo-950/40 flex items-center justify-center relative">
-                  <Globe size={32} className="text-violet-800/60" />
+                <div style={{ height: 140, background: "linear-gradient(135deg, #E7F3FF 0%, #EEF2FF 100%)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                  <Globe size={32} color="#BFDBFE" />
                   {site.published && (
-                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <div style={{ position: "absolute", top: 10, right: 10, display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 99, background: "#D1FAE5", border: "1px solid #A7F3D0", color: "#065F46", fontSize: 11, fontWeight: 600 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
                       Live
                     </div>
                   )}
                 </div>
 
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-1">
-                    <h3 className="font-semibold truncate">{site.name}</h3>
-                    <span className="text-xs text-white/30 ml-2 shrink-0">{site.type}</span>
+                <div style={{ padding: "14px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{site.name}</h3>
+                    <span style={{ fontSize: 11, color: "#8A8D91", marginLeft: 8, flexShrink: 0 }}>{site.type}</span>
                   </div>
-                  <p className="text-xs text-white/35 mb-4">
+                  <p style={{ fontSize: 11, color: "#8A8D91", marginBottom: 12 }}>
                     Edited {new Date(site.updatedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
                   </p>
 
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/editor/${site.id}`}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-medium transition-colors"
-                    >
-                      <Edit3 size={13} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Link href={`/editor/${site.id}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderRadius: 8, background: BLUE, color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                      <Edit3 size={12} />
                       Edit
                     </Link>
                     {!site.published ? (
-                      <button
-                        onClick={() => handlePublish(site.id)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/12 hover:border-emerald-500/40 hover:text-emerald-400 text-xs transition-colors"
-                      >
-                        <Zap size={13} />
+                      <button onClick={() => handlePublish(site.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #E4E6EB", background: "#fff", color: "#1C1E21", fontSize: 12, cursor: "pointer", fontFamily: FONT }}>
+                        <Zap size={12} />
                         Publish
                       </button>
                     ) : (
-                      <a
-                        href={`https://${site.subdomain}.storebuilder.ph`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/12 hover:border-white/25 text-xs transition-colors"
-                      >
-                        <ExternalLink size={13} />
+                      <a href={`https://${site.subdomain}.storebuilder.ph`} target="_blank" rel="noopener noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #E4E6EB", background: "#fff", color: "#1C1E21", fontSize: 12, textDecoration: "none" }}>
+                        <ExternalLink size={12} />
                         View
                       </a>
                     )}
-                    <button
-                      onClick={() => handleDelete(site.id, site.name)}
-                      className="p-2 rounded-lg border border-white/8 hover:border-red-500/30 hover:text-red-400 text-white/40 text-xs transition-colors"
-                    >
+                    <button onClick={() => handleDelete(site.id, site.name)}
+                      style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #E4E6EB", background: "#fff", color: "#8A8D91", cursor: "pointer" }}
+                      onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#DC2626"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#FCA5A5"; }}
+                      onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8A8D91"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#E4E6EB"; }}>
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -382,6 +365,8 @@ function DashboardContent() {
           </div>
         )}
       </main>
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
@@ -395,7 +380,12 @@ function getGreeting() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" /></div>}>
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", background: "#F0F2F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, border: "3px solid #E7F3FF", borderTop: `3px solid #1877F2`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    }>
       <DashboardContent />
     </Suspense>
   );
