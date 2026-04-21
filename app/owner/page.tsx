@@ -199,7 +199,7 @@ export default function OwnerPage() {
   };
 
   const BIG_NUM: React.CSSProperties = {
-    fontSize: "32px", fontWeight: 700, lineHeight: 1, margin: "12px 0 4px", color: "#111827",
+    fontSize: "22px", fontWeight: 700, lineHeight: 1, margin: "12px 0 4px", color: "#111827",
   };
 
   return (
@@ -378,11 +378,10 @@ export default function OwnerPage() {
                   {[
                     { label: "Total Users",    value: stats.totalUsers.toLocaleString(),  sub: "registered accounts" },
                     { label: "Active Members", value: stats.proUsers.toLocaleString(),    sub: "currently subscribed" },
-                    { label: "Active Subs",    value: stats.activeSubs.toLocaleString(),  sub: "running subscriptions" },
                   ].map((c) => (
                     <div key={c.label} style={{ background: "#fff", borderRadius: "14px", border: "1px solid #E5E7EB", padding: "22px 24px" }}>
                       <div style={{ fontSize: "11px", fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.07em" }}>{c.label}</div>
-                      <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, margin: "10px 0 4px", color: "#111827" }}>{c.value}</div>
+                      <div style={{ fontSize: "22px", fontWeight: 700, lineHeight: 1, margin: "10px 0 4px", color: "#111827" }}>{c.value}</div>
                       <div style={{ fontSize: "11px", color: "#9CA3AF" }}>{c.sub}</div>
                     </div>
                   ))}
