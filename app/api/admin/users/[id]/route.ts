@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureInfluencerColumn } from "@/lib/influencer-column";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureInfluencerColumn();
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       select: {
@@ -33,13 +35,8 @@ export async function GET(
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    let isInfluencer = false;
-    try {
-      const rows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
-      isInfluencer = rows[0]?.isInfluencer ?? false;
-    } catch {
-      // isInfluencer column not migrated yet
-    }
+    const rows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
+    const isInfluencer = rows[0]?.isInfluencer ?? false;
     return NextResponse.json({ user: { ...user, isInfluencer } });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureInfluencerColumn } from "@/lib/influencer-column";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +17,8 @@ export async function POST(req: NextRequest) {
     });
     if (!found) return NextResponse.json({ error: "No account found with that email address" }, { status: 404 });
 
-    try {
-      await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
-    } catch (e: any) {
-      if (e?.message?.includes("isInfluencer")) {
-        return NextResponse.json({ error: "Database not migrated. Run `npx prisma db push` to add the isInfluencer column." }, { status: 500 });
-      }
-      throw e;
-    }
+    await ensureInfluencerColumn();
+    await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
     const user = await prisma.user.update({
       where: { id: found.id },
       data: { plan: plan as "FREE" | "PRO" },
@@ -41,6 +36,7 @@ export async function DELETE(req: NextRequest) {
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
 
+    await ensureInfluencerColumn();
     await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = false WHERE "id" = ${userId}`;
 
     return NextResponse.json({ success: true });

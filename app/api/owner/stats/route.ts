@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureInfluencerColumn } from "@/lib/influencer-column";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await ensureInfluencerColumn();
     const [totalUsers, proUsers, totalWebsites, activeSubs, users, subscriptions, websites] =
       await Promise.all([
         prisma.user.count(),
@@ -39,13 +41,8 @@ export async function GET() {
         }),
       ]);
 
-    const influencerSet = new Set<string>();
-    try {
-      const influencerRows = await prisma.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "isInfluencer" = true`;
-      influencerRows.forEach((r) => influencerSet.add(r.id));
-    } catch {
-      // isInfluencer column not migrated yet — treat all users as non-influencers
-    }
+    const influencerRows = await prisma.$queryRaw<{ id: string }[]>`SELECT "id" FROM "User" WHERE "isInfluencer" = true`;
+    const influencerSet = new Set(influencerRows.map((r) => r.id));
     const usersWithInfluencer = users.map((u) => ({ ...u, isInfluencer: influencerSet.has(u.id) }));
 
     return NextResponse.json({
