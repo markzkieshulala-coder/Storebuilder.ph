@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Save, Eye, Globe, Smartphone, Monitor,
-  Tablet, Undo2, Redo2, Plus, Sparkles, ExternalLink,
-  CheckCircle, Loader2, Settings2, Layers, Type, Palette
+  Tablet, Undo2, Redo2, Sparkles, ExternalLink,
+  CheckCircle, Loader2, Edit3,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
@@ -35,20 +35,25 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
-  const [activePanel, setActivePanel] = useState<"sections" | "properties" | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
+  const [editLimit, setEditLimit] = useState<number>(30);
+  const editCheckRef = useRef(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/signin");
   }, [status, router]);
 
   useEffect(() => {
-    if (status === "authenticated") fetchWebsite();
+    if (status === "authenticated") {
+      fetchWebsite();
+      fetchEditCredits();
+    }
   }, [status, params.id]);
 
-  // Auto-save every 30 seconds
+  // Auto-save every 30 seconds (does NOT consume edit credits)
   useEffect(() => {
     if (!website) return;
     const timer = setInterval(() => autoSave(), 30000);
@@ -61,10 +66,29 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); handleSave(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); handleUndo(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "y") { e.preventDefault(); handleRedo(); }
+      // Select All within focused text element
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        const el = document.activeElement;
+        if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+          e.preventDefault();
+          el.select();
+        }
+      }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [website, historyIndex, history]);
+
+  async function fetchEditCredits() {
+    try {
+      const res = await fetch("/api/user/edits");
+      if (res.ok) {
+        const d = await res.json();
+        setEditsRemaining(d.remaining);
+        setEditLimit(d.limit);
+      }
+    } catch {}
+  }
 
   async function fetchWebsite() {
     setLoading(true);
@@ -83,7 +107,24 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     }
   }
 
-  function pushHistory(newWebsite: GeneratedWebsite) {
+  async function consumeEdit(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/user/edits", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) {
+        toast.error(d.error || "Edit limit reached");
+        return false;
+      }
+      setEditsRemaining(d.remaining);
+      return true;
+    } catch {
+      return true; // allow on network error
+    }
+  }
+
+  async function pushHistory(newWebsite: GeneratedWebsite) {
+    const allowed = await consumeEdit();
+    if (!allowed) return;
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newWebsite);
     setHistory(newHistory);
@@ -152,11 +193,14 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     if (!website) return;
     const newWebsite = {
       ...website,
-      sections: website.sections.map((s) =>
-        s.id === sectionId ? { ...s, ...updates } : s
-      ),
+      sections: website.sections.map((s) => s.id === sectionId ? { ...s, ...updates } : s),
     };
     pushHistory(newWebsite);
+  }
+
+  function updateGlobal(updates: Partial<GeneratedWebsite>) {
+    if (!website) return;
+    pushHistory({ ...website, ...updates });
   }
 
   function moveSection(sectionId: string, direction: "up" | "down") {
@@ -197,6 +241,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     );
   }
 
+  const editsLow = editsRemaining !== null && editsRemaining <= 3;
+  const editsOut = editsRemaining !== null && editsRemaining <= 0;
+
   return (
     <div className="h-screen flex flex-col bg-zinc-950 text-white overflow-hidden">
       {/* Top toolbar */}
@@ -211,19 +258,30 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             <p className="text-xs text-white/30 mt-0.5">
               {saved ? (
                 <span className="text-emerald-400 flex items-center gap-1"><CheckCircle size={10} /> Saved</span>
-              ) : "Click to edit"}
+              ) : (
+                <span className="flex items-center gap-1"><Edit3 size={10} /> Click to edit</span>
+              )}
             </p>
           </div>
         </div>
 
+        {/* Edit credits badge */}
+        {editsRemaining !== null && (
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+            editsOut ? "bg-red-500/15 text-red-400 border border-red-500/20" :
+            editsLow ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
+            "bg-white/5 text-white/40"
+          }`}>
+            <Edit3 size={11} />
+            {editsRemaining}/{editLimit} edits today
+          </div>
+        )}
+
         {/* View controls */}
         <div className="flex items-center gap-1 bg-black/30 rounded-lg p-1">
           {([["desktop", Monitor], ["tablet", Tablet], ["mobile", Smartphone]] as const).map(([mode, Icon]) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`p-2 rounded-md transition-colors ${viewMode === mode ? "bg-violet-600 text-white" : "text-white/40 hover:text-white"}`}
-            >
+            <button key={mode} onClick={() => setViewMode(mode)}
+              className={`p-2 rounded-md transition-colors ${viewMode === mode ? "bg-violet-600 text-white" : "text-white/40 hover:text-white"}`}>
               <Icon size={16} />
             </button>
           ))}
@@ -231,43 +289,42 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
-          <button onClick={handleUndo} disabled={historyIndex <= 0} className="p-2 rounded-lg hover:bg-white/8 text-white/40 hover:text-white disabled:opacity-20 transition-colors" title="Undo (Ctrl+Z)">
+          <button onClick={handleUndo} disabled={historyIndex <= 0}
+            className="p-2 rounded-lg hover:bg-white/8 text-white/40 hover:text-white disabled:opacity-20 transition-colors" title="Undo (Ctrl+Z)">
             <Undo2 size={16} />
           </button>
-          <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-2 rounded-lg hover:bg-white/8 text-white/40 hover:text-white disabled:opacity-20 transition-colors" title="Redo (Ctrl+Y)">
+          <button onClick={handleRedo} disabled={historyIndex >= history.length - 1}
+            className="p-2 rounded-lg hover:bg-white/8 text-white/40 hover:text-white disabled:opacity-20 transition-colors" title="Redo (Ctrl+Y)">
             <Redo2 size={16} />
           </button>
           <div className="w-px h-5 bg-white/10" />
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/12 hover:border-white/25 text-sm transition-colors disabled:opacity-50"
-          >
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/12 hover:border-white/25 text-sm transition-colors disabled:opacity-50">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Save
           </button>
           {published ? (
-            <a
-              href={`https://${rawWebsite?.subdomain}.storebuilder.ph`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 text-sm transition-colors"
-            >
+            <a href={`https://${rawWebsite?.subdomain}.storebuilder.ph`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 text-sm transition-colors">
               <ExternalLink size={14} />
               View live
             </a>
           ) : (
-            <button
-              onClick={handlePublish}
-              disabled={publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-sm font-medium transition-colors"
-            >
+            <button onClick={handlePublish} disabled={publishing}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-sm font-medium transition-colors">
               {publishing ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
               Publish
             </button>
           )}
         </div>
       </header>
+
+      {/* Edit limit warning banner */}
+      {editsOut && (
+        <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 text-xs text-red-400 text-center">
+          Daily edit limit reached ({editLimit} edits). Edits reset at midnight PH time.
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel — Sections list */}
@@ -295,10 +352,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Canvas */}
         <main className="flex-1 overflow-auto bg-zinc-800/30 flex items-start justify-center p-6">
-          <div
-            className="transition-all duration-300 bg-white shadow-2xl overflow-auto max-h-full"
-            style={{ width: VIEW_WIDTHS[viewMode], minHeight: "100%", borderRadius: viewMode !== "desktop" ? "24px" : "8px" }}
-          >
+          <div className="transition-all duration-300 bg-white shadow-2xl overflow-auto max-h-full"
+            style={{ width: VIEW_WIDTHS[viewMode], minHeight: "100%", borderRadius: viewMode !== "desktop" ? "24px" : "8px" }}>
             <WebsiteRenderer website={website} isPreview />
           </div>
         </main>
@@ -316,6 +371,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
                 section={website.sections.find((s) => s.id === selectedSection)!}
                 website={website}
                 onUpdate={(updates) => updateSection(selectedSection, updates)}
+                onUpdateGlobal={updateGlobal}
                 onClose={() => setSelectedSection(null)}
               />
             </motion.aside>

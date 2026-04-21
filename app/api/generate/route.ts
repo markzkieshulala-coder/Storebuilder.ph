@@ -22,10 +22,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { prompt } = generateSchema.parse(body);
 
-    // Check and consume credit
+    // Check website slot + generation credit
+    const websiteCount = await prisma.website.count({ where: { userId: session.user.id } });
     const creditCheck = await checkAndConsumeCredit(
       session.user.id,
-      session.user.plan as Plan
+      session.user.plan as Plan,
+      websiteCount
     );
 
     if (!creditCheck.success) {

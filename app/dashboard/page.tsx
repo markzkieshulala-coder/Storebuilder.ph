@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import {
   Sparkles, Globe, Edit3, Trash2, ExternalLink,
   Settings, LogOut, Crown, Clock,
-  AlertCircle, Zap, BarChart2,
+  AlertCircle, Zap, BarChart2, Camera, CheckCircle2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -26,6 +26,8 @@ type Website = {
 type Credits = {
   used: number; limit: number; remaining: number;
   canGenerate: boolean; resetAt: string; plan: string;
+  slots?: { used: number; limit: number; remaining: number };
+  edits?: { used: number; limit: number; remaining: number; canEdit: boolean };
 };
 
 const GENERATION_STEPS = [
@@ -48,13 +50,18 @@ function DashboardContent() {
   const [generationStep, setGenerationStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [resetIn, setResetIn] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/signin");
   }, [status, router]);
 
   useEffect(() => {
-    if (status === "authenticated") fetchData();
+    if (status === "authenticated") {
+      fetchData();
+      if (session?.user?.image) setAvatarUrl(session.user.image);
+    }
   }, [status]);
 
   useEffect(() => {
@@ -147,6 +154,23 @@ function DashboardContent() {
     });
     if (dupRes.ok) { toast.success("Website duplicated"); fetchData(); }
     else toast.error("Failed to duplicate");
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const form = new FormData();
+      form.append("avatar", file);
+      const res = await fetch("/api/user/avatar", { method: "POST", body: form });
+      const data = await res.json();
+      if (res.ok) { setAvatarUrl(data.image); toast.success("Profile picture updated!"); }
+      else toast.error(data.error || "Upload failed");
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
   }
 
   if (status === "loading" || loading) {
@@ -243,16 +267,64 @@ function DashboardContent() {
       {/* Main */}
       <main style={{ marginLeft: 240, padding: "32px" }}>
         {/* Header */}
-        <div style={{ marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1C1E21", margin: 0, fontFamily: FONT }}>
-              Good {getGreeting()}, {session?.user?.name?.split(" ")[0]} 👋
-            </h1>
-            <p style={{ fontSize: 13, color: "#65676B", marginTop: 4 }}>
-              {websites.length === 0 ? "Create your first website below" : `You have ${websites.length} website${websites.length !== 1 ? "s" : ""}`}
-            </p>
+        <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {/* Avatar */}
+            <label style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
+              <div style={{ width: 52, height: 52, borderRadius: "50%", background: BLUE, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: "2px solid #E4E6EB" }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>{(session?.user?.name || session?.user?.email || "?")[0].toUpperCase()}</span>
+                }
+              </div>
+              <div style={{ position: "absolute", bottom: -2, right: -2, width: 20, height: 20, background: "#fff", borderRadius: "50%", border: "1px solid #E4E6EB", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {avatarUploading ? <div style={{ width: 10, height: 10, border: `2px solid ${BLUE}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> : <Camera size={10} color="#65676B" />}
+              </div>
+              <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleAvatarUpload} style={{ display: "none" }} disabled={avatarUploading} />
+            </label>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1C1E21", margin: 0, fontFamily: FONT }}>
+                Good {getGreeting()}, {session?.user?.name?.split(" ")[0]} 👋
+              </h1>
+              <p style={{ fontSize: 13, color: "#65676B", marginTop: 2 }}>
+                {websites.length === 0 ? "Create your first website below" : `You have ${websites.length} website${websites.length !== 1 ? "s" : ""}`}
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Plan Benefits card */}
+        {credits && (
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E4E6EB", padding: "16px 20px", marginBottom: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Plan</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: isPro ? "#B45309" : "#1C1E21" }}>{isPro ? "Pro" : "Free"}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Website Slots</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21" }}>
+                {credits.slots?.used ?? websites.length} / {credits.slots?.limit ?? (isPro ? 10 : 5)}
+                <span style={{ fontSize: 11, fontWeight: 400, color: "#8A8D91", marginLeft: 4 }}>used</span>
+              </p>
+            </div>
+            {isPro && (
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Monthly Generations</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21" }}>
+                  {credits.remaining} / {credits.limit}
+                  <span style={{ fontSize: 11, fontWeight: 400, color: "#8A8D91", marginLeft: 4 }}>left</span>
+                </p>
+              </div>
+            )}
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Daily Edits</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: (credits.edits?.remaining ?? 0) <= 2 ? "#DC2626" : "#1C1E21" }}>
+                {credits.edits?.remaining ?? (isPro ? 30 : 5)} / {isPro ? 30 : 5}
+                <span style={{ fontSize: 11, fontWeight: 400, color: "#8A8D91", marginLeft: 4 }}>left</span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Generation box */}
         <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E4E6EB", padding: "22px 24px", marginBottom: 24 }}>

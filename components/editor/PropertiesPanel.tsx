@@ -7,6 +7,7 @@ interface Props {
   section: Section;
   website: GeneratedWebsite;
   onUpdate: (updates: Partial<{ data: any; styles: any }>) => void;
+  onUpdateGlobal: (updates: Partial<GeneratedWebsite>) => void;
   onClose: () => void;
 }
 
@@ -17,7 +18,13 @@ const SECTION_LABELS: Record<string, string> = {
   cta: "CTA Banner", team: "Team", gallery: "Gallery", process: "Process",
 };
 
-export default function PropertiesPanel({ section, website, onUpdate, onClose }: Props) {
+const GOOGLE_FONTS = [
+  "Product Sans", "Open Sans", "Roboto", "Montserrat", "Playfair Display",
+  "Lato", "Poppins", "Inter", "Raleway", "Oswald", "Merriweather",
+  "Nunito", "Syne", "DM Sans", "Space Grotesk", "Outfit",
+];
+
+export default function PropertiesPanel({ section, website, onUpdate, onUpdateGlobal, onClose }: Props) {
   const d = section.data as any;
 
   function updateData(key: string, value: string) {
@@ -27,6 +34,10 @@ export default function PropertiesPanel({ section, website, onUpdate, onClose }:
   function updateStyle(key: string, value: string) {
     onUpdate({ styles: { ...section.styles, [key]: value } });
   }
+
+  const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-violet-500/50 text-white/80 font-mono";
+  const textareaCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80 resize-none";
+  const labelCls = "flex items-center gap-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3";
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
@@ -41,102 +52,96 @@ export default function PropertiesPanel({ section, website, onUpdate, onClose }:
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
         {/* Background color */}
         <div>
-          <label className="flex items-center gap-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-            <Palette size={12} />
-            Background
-          </label>
+          <label className={labelCls}><Palette size={12} />Background</label>
           <div className="flex items-center gap-3">
-            <input
-              type="color"
+            <input type="color"
               value={section.styles?.background?.startsWith("#") ? section.styles.background : website.colors?.background || "#0d0d1a"}
               onChange={(e) => updateStyle("background", e.target.value)}
               className="w-10 h-10 rounded-lg border border-white/10 bg-transparent cursor-pointer"
             />
-            <input
-              type="text"
-              value={section.styles?.background || ""}
-              onChange={(e) => updateStyle("background", e.target.value)}
-              placeholder="#000000 or gradient"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-violet-500/50 text-white/80 font-mono"
-            />
+            <input type="text" value={section.styles?.background || ""} onChange={(e) => updateStyle("background", e.target.value)}
+              placeholder="#000000 or gradient" className={inputCls} />
           </div>
         </div>
 
         {/* Text color */}
         <div>
-          <label className="flex items-center gap-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-            <Type size={12} />
-            Text Color
-          </label>
+          <label className={labelCls}><Type size={12} />Text Color</label>
           <div className="flex items-center gap-3">
-            <input
-              type="color"
+            <input type="color"
               value={section.styles?.textColor || website.colors?.text || "#ffffff"}
               onChange={(e) => updateStyle("textColor", e.target.value)}
               className="w-10 h-10 rounded-lg border border-white/10 bg-transparent cursor-pointer"
             />
-            <input
-              type="text"
-              value={section.styles?.textColor || ""}
-              onChange={(e) => updateStyle("textColor", e.target.value)}
-              placeholder="#ffffff"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-violet-500/50 text-white/80 font-mono"
-            />
+            <input type="text" value={section.styles?.textColor || ""} onChange={(e) => updateStyle("textColor", e.target.value)}
+              placeholder="#ffffff" className={inputCls} />
           </div>
         </div>
 
-        {/* Content editing — show editable fields based on section type */}
+        {/* Typography — global fonts */}
+        <div>
+          <label className={labelCls}><Type size={12} />Typography</label>
+          <link href={`https://fonts.googleapis.com/css2?family=${GOOGLE_FONTS.map(f => f.replace(/ /g, "+")).join("&family=")}&display=swap`} rel="stylesheet" />
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-white/40 mb-1.5">Heading font</p>
+              <select
+                value={website.fonts?.heading || "Playfair Display"}
+                onChange={(e) => onUpdateGlobal({ fonts: { ...website.fonts, heading: e.target.value } })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-violet-500/50"
+                style={{ fontFamily: website.fonts?.heading || "Playfair Display" }}
+              >
+                {GOOGLE_FONTS.map((f) => (
+                  <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className="text-xs text-white/40 mb-1.5">Body font</p>
+              <select
+                value={website.fonts?.body || "Syne"}
+                onChange={(e) => onUpdateGlobal({ fonts: { ...website.fonts, body: e.target.value } })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-violet-500/50"
+                style={{ fontFamily: website.fonts?.body || "Syne" }}
+              >
+                {GOOGLE_FONTS.map((f) => (
+                  <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Content editing by section type */}
         {(section.type === "hero" || section.type === "cta") && (
           <div>
-            <label className="flex items-center gap-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-              <Type size={12} />
-              Content
-            </label>
+            <label className={labelCls}><Type size={12} />Content</label>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-white/40 mb-1 block">Headline</label>
-                <textarea
-                  value={d.headline || ""}
-                  onChange={(e) => updateData("headline", e.target.value)}
-                  rows={2}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80 resize-none"
-                />
+                <textarea value={d.headline || ""} onChange={(e) => updateData("headline", e.target.value)} rows={2} className={textareaCls} />
               </div>
               {d.subheadline !== undefined && (
                 <div>
                   <label className="text-xs text-white/40 mb-1 block">Subheadline</label>
-                  <input
-                    value={d.subheadline || ""}
-                    onChange={(e) => updateData("subheadline", e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80"
-                  />
+                  <input value={d.subheadline || ""} onChange={(e) => updateData("subheadline", e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80" />
                 </div>
               )}
               {d.description !== undefined && (
                 <div>
                   <label className="text-xs text-white/40 mb-1 block">Description</label>
-                  <textarea
-                    value={d.description || ""}
-                    onChange={(e) => updateData("description", e.target.value)}
-                    rows={3}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80 resize-none"
-                  />
+                  <textarea value={d.description || ""} onChange={(e) => updateData("description", e.target.value)} rows={3} className={textareaCls} />
                 </div>
               )}
               {d.backgroundImage !== undefined && (
                 <div>
-                  <label className="flex items-center gap-1 text-xs text-white/40 mb-1">
-                    <Image size={11} />
-                    Background Image URL
-                  </label>
-                  <input
-                    value={d.backgroundImage || ""}
-                    onChange={(e) => updateData("backgroundImage", e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-violet-500/50 text-white/80 font-mono"
-                  />
+                  <label className="flex items-center gap-1 text-xs text-white/40 mb-1"><Image size={11} />Background Image URL</label>
+                  <input value={d.backgroundImage || ""} onChange={(e) => updateData("backgroundImage", e.target.value)}
+                    placeholder="https://..." className={inputCls} />
                 </div>
               )}
             </div>
@@ -145,27 +150,16 @@ export default function PropertiesPanel({ section, website, onUpdate, onClose }:
 
         {(section.type === "features" || section.type === "about" || section.type === "stats" || section.type === "newsletter") && (
           <div>
-            <label className="flex items-center gap-2 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-              <Type size={12} />
-              Headline
-            </label>
-            <textarea
-              value={d.headline || ""}
-              onChange={(e) => updateData("headline", e.target.value)}
-              rows={2}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80 resize-none"
-            />
+            <label className={labelCls}><Type size={12} />Headline</label>
+            <textarea value={d.headline || ""} onChange={(e) => updateData("headline", e.target.value)} rows={2} className={textareaCls} />
           </div>
         )}
 
         {section.type === "nav" && (
           <div>
             <label className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3 block">Logo Text</label>
-            <input
-              value={d.logo || ""}
-              onChange={(e) => updateData("logo", e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80"
-            />
+            <input value={d.logo || ""} onChange={(e) => updateData("logo", e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-violet-500/50 text-white/80" />
           </div>
         )}
       </div>

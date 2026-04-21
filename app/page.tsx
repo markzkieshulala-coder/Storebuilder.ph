@@ -676,7 +676,6 @@ export default function HomePage() {
               <p className="text-xs text-gray-400 mb-5">or ₱4,299/year (save 25%)</p>
               <ul className="space-y-2.5 mb-7">
                 {[
-                  "Payment required",
                   "Unlimited editing",
                   "Built-in CRM system for each generated website",
                   "Add own payment method (any type of payment links)",

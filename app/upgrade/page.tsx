@@ -154,7 +154,6 @@ export default function UpgradePage() {
                 )}
                 <ul className="space-y-3 mb-6">
                   {[
-                    { icon: CreditCard, text: "Payment required" },
                     { icon: Check, text: "Unlimited editing" },
                     { icon: Zap, text: "Built-in CRM system for each generated website" },
                     { icon: CreditCard, text: "Add own payment method (any type of payment links)" },
