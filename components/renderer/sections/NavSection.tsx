@@ -2,6 +2,7 @@
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { useEditor } from "@/components/editor/EditorContext";
 
 export default function NavSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -9,26 +10,32 @@ export default function NavSection({ section, website }: { section: Section; web
   const bg = section.styles?.background || "transparent";
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = website.colors?.secondary || "#c9a84c";
+  const { isEditable, onTextChange, onSectionClick } = useEditor();
 
   return (
     <nav
       className="sticky top-0 z-50 w-full"
       style={{ background: bg === "transparent" ? "rgba(0,0,0,0.7)" : bg, backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      onClick={() => isEditable && onSectionClick(section.id)}
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div>
-          <span className="text-xl font-bold tracking-wider" style={{ fontFamily: "var(--heading-font)", color: accent }}>
+          <span
+            className="text-xl font-bold tracking-wider"
+            style={{ fontFamily: "var(--heading-font)", color: accent }}
+            contentEditable={isEditable}
+            suppressContentEditableWarning
+            onBlur={(e) => isEditable && onTextChange(section.id, "logo", e.currentTarget.innerText)}
+            onClick={(e) => isEditable && e.stopPropagation()}
+          >
             {d.logo || website.name}
           </span>
-          {d.logoSubtext && (
-            <span className="ml-2 text-xs opacity-40" style={{ color: textColor }}>{d.logoSubtext}</span>
-          )}
+          {d.logoSubtext && <span className="ml-2 text-xs opacity-40" style={{ color: textColor }}>{d.logoSubtext}</span>}
         </div>
 
-        {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8">
           {(d.links || []).map((link: any) => (
-            <a key={link.label} href={link.href} className="text-sm opacity-70 hover:opacity-100 transition-opacity" style={{ color: textColor }}>
+            <a key={link.label} href={isEditable ? undefined : link.href} className="text-sm opacity-70 hover:opacity-100 transition-opacity" style={{ color: textColor }}>
               {link.label}
             </a>
           ))}
@@ -41,7 +48,7 @@ export default function NavSection({ section, website }: { section: Section; web
             </button>
           )}
           {d.ctaText && (
-            <a href={d.ctaHref || "#"} className="hidden md:block px-5 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
+            <a href={isEditable ? undefined : (d.ctaHref || "#")} className="hidden md:block px-5 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
               {d.ctaText}
             </a>
           )}
@@ -51,7 +58,6 @@ export default function NavSection({ section, website }: { section: Section; web
         </div>
       </div>
 
-      {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden px-6 pb-4 border-t border-white/5" style={{ background: website.colors?.primary || "#1a1a2e" }}>
           {(d.links || []).map((link: any) => (

@@ -13,6 +13,7 @@ import {
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
+import { EditorContextType } from "@/components/editor/EditorContext";
 import SectionPanel from "@/components/editor/SectionPanel";
 import PropertiesPanel from "@/components/editor/PropertiesPanel";
 
@@ -41,6 +42,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
   const [editLimit, setEditLimit] = useState<number>(30);
   const editCheckRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pendingImageUpload = useRef<{ sectionId: string; field: string } | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/signin");
@@ -230,6 +233,67 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     pushHistory({ ...website, sections: newSections });
   }
 
+  function handleTextChange(sectionId: string, field: string, value: string) {
+    if (!website) return;
+    const section = website.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const parts = field.split(".");
+    const newData = { ...(section.data as any) };
+    if (parts.length === 1) {
+      newData[parts[0]] = value;
+    } else if (parts.length === 2) {
+      newData[parts[0]] = { ...newData[parts[0]], [parts[1]]: value };
+    }
+    updateSection(sectionId, { data: newData });
+  }
+
+  function handleNestedTextChange(sectionId: string, arrayField: string, index: number, key: string, value: string) {
+    if (!website) return;
+    const section = website.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const newData = { ...(section.data as any) };
+    const arr = [...(newData[arrayField] || [])];
+    arr[index] = { ...arr[index], [key]: value };
+    newData[arrayField] = arr;
+    updateSection(sectionId, { data: newData });
+  }
+
+  function handleImageUpload(sectionId: string, field: string) {
+    pendingImageUpload.current = { sectionId, field };
+    imageInputRef.current?.click();
+  }
+
+  async function handleFileSelected(e: { target: HTMLInputElement }) {
+    const file = e.target.files?.[0];
+    if (!file || !pendingImageUpload.current) return;
+    e.target.value = "";
+    const { sectionId, field } = pendingImageUpload.current;
+    pendingImageUpload.current = null;
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      toast.loading("Uploading image...", { id: "img-upload" });
+      const res = await fetch("/api/media/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success("Image uploaded!", { id: "img-upload" });
+      const section = website?.sections.find((s) => s.id === sectionId);
+      if (!section) return;
+      const newData = { ...(section.data as any) };
+      const parts = field.split(".");
+      if (parts.length === 1) {
+        newData[parts[0]] = data.url;
+      } else if (parts.length === 3 && !isNaN(Number(parts[1]))) {
+        const arr = [...(newData[parts[0]] || [])];
+        arr[Number(parts[1])] = { ...arr[Number(parts[1])], [parts[2]]: data.url };
+        newData[parts[0]] = arr;
+      }
+      updateSection(sectionId, { data: newData });
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed", { id: "img-upload" });
+    }
+  }
+
   if (loading || !website) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -243,6 +307,14 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   const editsLow = editsRemaining !== null && editsRemaining <= 3;
   const editsOut = editsRemaining !== null && editsRemaining <= 0;
+
+  const editorCtx: EditorContextType = {
+    isEditable: !editsOut,
+    onTextChange: handleTextChange,
+    onNestedTextChange: handleNestedTextChange,
+    onImageUpload: handleImageUpload,
+    onSectionClick: (sectionId) => setSelectedSection(sectionId),
+  };
 
   return (
     <div className="h-screen flex flex-col bg-zinc-950 text-white overflow-hidden">
@@ -354,7 +426,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         <main className="flex-1 overflow-auto bg-zinc-800/30 flex items-start justify-center p-6">
           <div className="transition-all duration-300 bg-white shadow-2xl overflow-auto max-h-full"
             style={{ width: VIEW_WIDTHS[viewMode], minHeight: "100%", borderRadius: viewMode !== "desktop" ? "24px" : "8px" }}>
-            <WebsiteRenderer website={website} isPreview />
+            <WebsiteRenderer website={website} editorContext={editorCtx} />
           </div>
         </main>
 
@@ -378,6 +450,13 @@ export default function EditorPage({ params }: { params: { id: string } }) {
           )}
         </AnimatePresence>
       </div>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
     </div>
   );
 }

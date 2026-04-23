@@ -1,6 +1,7 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { Leaf, Hand, Recycle, Heart, Shield, Star, Zap, Globe, Award, Users, Clock, Truck } from "lucide-react";
+import { useEditor } from "@/components/editor/EditorContext";
 
 const ICON_MAP: Record<string, any> = { leaf: Leaf, hand: Hand, recycle: Recycle, heart: Heart, shield: Shield, star: Star, zap: Zap, globe: Globe, award: Award, users: Users, clock: Clock, truck: Truck };
 
@@ -9,12 +10,22 @@ export default function FeaturesSection({ section, website }: { section: Section
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
+  const { isEditable, onTextChange, onSectionClick } = useEditor();
 
   return (
-    <section id="features" className="py-24 px-6" style={{ background: bg }}>
+    <section id="features" className="py-24 px-6" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ fontFamily: "var(--heading-font)", color: textColor }}>{d.headline}</h2>
+          <h2
+            className="text-3xl md:text-5xl font-bold mb-4"
+            style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
+            contentEditable={isEditable}
+            suppressContentEditableWarning
+            onBlur={(e) => isEditable && onTextChange(section.id, "headline", e.currentTarget.innerText)}
+            onClick={(e) => isEditable && e.stopPropagation()}
+          >
+            {d.headline}
+          </h2>
           {d.subheadline && <p className="text-lg opacity-60" style={{ color: textColor }}>{d.subheadline}</p>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
