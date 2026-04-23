@@ -26,24 +26,32 @@ export default function SectionPanel({ section, index, total, isSelected, onSele
   return (
     <div
       onClick={onSelect}
-      className={`group flex items-center gap-2 p-2.5 rounded-lg mb-1 cursor-pointer transition-colors ${isSelected ? "bg-violet-600/20 border border-violet-500/30" : "hover:bg-white/5 border border-transparent"}`}
+      className={`group flex items-center gap-2 p-2.5 rounded-lg mb-0.5 cursor-pointer transition-all ${
+        isSelected
+          ? "bg-blue-50 border border-blue-200"
+          : "hover:bg-gray-50 border border-transparent"
+      }`}
     >
-      <GripVertical size={14} className="text-white/20 shrink-0" />
+      <GripVertical size={14} className="text-gray-300 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{SECTION_LABELS[section.type] || section.type}</p>
-        <p className="text-xs text-white/30 truncate">{(section.data as any).headline || (section.data as any).logo || section.type}</p>
+        <p className={`text-sm font-medium truncate ${isSelected ? "text-blue-700" : "text-gray-700"}`}>
+          {SECTION_LABELS[section.type] || section.type}
+        </p>
+        <p className="text-xs text-gray-400 truncate">
+          {(section.data as any).headline || (section.data as any).logo || section.type}
+        </p>
       </div>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onMoveUp} disabled={index === 0} className="p-1 hover:bg-white/10 rounded disabled:opacity-20">
+        <button onClick={onMoveUp} disabled={index === 0} className="p-1 hover:bg-gray-100 rounded text-gray-400 disabled:opacity-20 transition-colors">
           <ChevronUp size={12} />
         </button>
-        <button onClick={onMoveDown} disabled={index === total - 1} className="p-1 hover:bg-white/10 rounded disabled:opacity-20">
+        <button onClick={onMoveDown} disabled={index === total - 1} className="p-1 hover:bg-gray-100 rounded text-gray-400 disabled:opacity-20 transition-colors">
           <ChevronDown size={12} />
         </button>
-        <button onClick={onDuplicate} className="p-1 hover:bg-white/10 rounded">
+        <button onClick={onDuplicate} className="p-1 hover:bg-gray-100 rounded text-gray-400 transition-colors">
           <Copy size={12} />
         </button>
-        <button onClick={onDelete} className="p-1 hover:bg-red-500/20 hover:text-red-400 rounded">
+        <button onClick={onDelete} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400 transition-colors">
           <Trash2 size={12} />
         </button>
       </div>

@@ -7,12 +7,18 @@ export default function CTASection({ section, website }: { section: Section; web
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || `linear-gradient(135deg, ${website.colors?.primary || "#1a1a2e"}, #2d1b4e)`;
-  const { isEditable, onTextChange, onSectionClick } = useEditor();
+  const { isEditable, onTextChange, onSectionClick, onShowToolbar } = useEditor();
+
+  function showToolbar(e: React.FocusEvent<HTMLElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
+  }
 
   const editableProps = (field: string) => isEditable ? {
     contentEditable: true as const,
     suppressContentEditableWarning: true,
     onBlur: (e: React.FocusEvent<HTMLElement>) => onTextChange(section.id, field, e.currentTarget.innerText),
+    onFocus: showToolbar,
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
     style: { outline: "none", cursor: "text" },
   } : {};

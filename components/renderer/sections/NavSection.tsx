@@ -10,7 +10,12 @@ export default function NavSection({ section, website }: { section: Section; web
   const bg = section.styles?.background || "transparent";
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = website.colors?.secondary || "#c9a84c";
-  const { isEditable, onTextChange, onSectionClick } = useEditor();
+  const { isEditable, onTextChange, onSectionClick, onShowToolbar } = useEditor();
+
+  function showToolbar(e: React.FocusEvent<HTMLElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
+  }
 
   return (
     <nav
@@ -26,6 +31,7 @@ export default function NavSection({ section, website }: { section: Section; web
             contentEditable={isEditable}
             suppressContentEditableWarning
             onBlur={(e) => isEditable && onTextChange(section.id, "logo", e.currentTarget.innerText)}
+            onFocus={(e) => isEditable && showToolbar(e)}
             onClick={(e) => isEditable && e.stopPropagation()}
           >
             {d.logo || website.name}

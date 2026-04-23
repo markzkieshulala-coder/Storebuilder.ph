@@ -8,7 +8,12 @@ export default function AboutSection({ section, website }: { section: Section; w
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
-  const { isEditable, onTextChange, onImageUpload, onSectionClick } = useEditor();
+  const { isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar } = useEditor();
+
+  function showToolbar(e: React.FocusEvent<HTMLElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
+  }
 
   return (
     <section id="about" className="py-24 px-6" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
@@ -36,6 +41,7 @@ export default function AboutSection({ section, website }: { section: Section; w
               contentEditable={isEditable}
               suppressContentEditableWarning
               onBlur={(e) => isEditable && onTextChange(section.id, "headline", e.currentTarget.innerText)}
+              onFocus={(e) => isEditable && showToolbar(e)}
               onClick={(e) => isEditable && e.stopPropagation()}
             >
               {d.headline}
@@ -46,6 +52,7 @@ export default function AboutSection({ section, website }: { section: Section; w
               contentEditable={isEditable}
               suppressContentEditableWarning
               onBlur={(e) => isEditable && onTextChange(section.id, "story", e.currentTarget.innerText)}
+              onFocus={(e) => isEditable && showToolbar(e)}
               onClick={(e) => isEditable && e.stopPropagation()}
             >
               {d.story}

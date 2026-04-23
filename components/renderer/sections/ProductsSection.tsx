@@ -12,7 +12,12 @@ export default function ProductsSection({ section, website }: { section: Section
   const bg = section.styles?.background || website.colors?.background || "#0d0d1a";
   const products = d.products || [];
   const filtered = activeCategory === "All" ? products : products.filter((p: any) => p.category === activeCategory);
-  const { isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick } = useEditor();
+  const { isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar } = useEditor();
+
+  function showToolbar(e: React.FocusEvent<HTMLElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
+  }
 
   return (
     <section id="products" className="py-24 px-6" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
@@ -24,6 +29,7 @@ export default function ProductsSection({ section, website }: { section: Section
             contentEditable={isEditable}
             suppressContentEditableWarning
             onBlur={(e) => isEditable && onTextChange(section.id, "headline", e.currentTarget.innerText)}
+            onFocus={(e) => isEditable && showToolbar(e)}
             onClick={(e) => isEditable && e.stopPropagation()}
           >
             {d.headline}
@@ -70,6 +76,7 @@ export default function ProductsSection({ section, website }: { section: Section
                   contentEditable={isEditable}
                   suppressContentEditableWarning
                   onBlur={(e) => isEditable && onNestedTextChange(section.id, "products", i, "name", e.currentTarget.innerText)}
+                  onFocus={(e) => isEditable && showToolbar(e)}
                   onClick={(e) => isEditable && e.stopPropagation()}
                 >
                   {product.name}
