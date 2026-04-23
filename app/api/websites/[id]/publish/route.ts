@@ -31,3 +31,28 @@ export async function POST(
     website: updated,
   });
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const website = await prisma.website.findFirst({
+    where: { id: params.id, userId: session.user.id },
+  });
+
+  if (!website) {
+    return NextResponse.json({ error: "Website not found" }, { status: 404 });
+  }
+
+  await prisma.website.update({
+    where: { id: params.id },
+    data: { published: false },
+  });
+
+  return NextResponse.json({ success: true });
+}
