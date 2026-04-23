@@ -8,9 +8,9 @@ export const PRO_SLOT_LIMIT = 10;
 // Monthly generation credits (PRO only — 10 per 30-day rolling window)
 export const PRO_MONTHLY_GEN_LIMIT = 10;
 
-// Daily edit limits
-export const FREE_DAILY_EDIT_LIMIT = 5;
-export const PRO_DAILY_EDIT_LIMIT = 30;
+// Daily edit limits — removed: all plans now support unlimited editing
+export const FREE_DAILY_EDIT_LIMIT = 999999;
+export const PRO_DAILY_EDIT_LIMIT = 999999;
 
 export function getPhilippineDate(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }); // YYYY-MM-DD

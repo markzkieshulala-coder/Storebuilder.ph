@@ -7,13 +7,13 @@ import Link from "next/link";
 import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
-  CheckCircle, Loader2, Edit3,
+  CheckCircle, Loader2, Eye, PanelLeft,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { EditorContextType, FloatingToolbarTarget } from "@/components/editor/EditorContext";
-import SectionPanel from "@/components/editor/SectionPanel";
+import OptionsPanel from "@/components/editor/OptionsPanel";
 import FloatingToolbar from "@/components/editor/FloatingToolbar";
 
 type ViewMode = "desktop" | "tablet" | "mobile";
@@ -35,12 +35,10 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
-  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
-  const [editLimit, setEditLimit] = useState<number>(30);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingImageUpload = useRef<{ sectionId: string; field: string } | null>(null);
 
@@ -49,18 +47,17 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   }, [status, router]);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      fetchWebsite();
-      fetchEditCredits();
-    }
+    if (status === "authenticated") fetchWebsite();
   }, [status, params.id]);
 
+  // Auto-save every 30s
   useEffect(() => {
     if (!website) return;
-    const timer = setInterval(() => autoSave(), 30000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => autoSave(), 30000);
+    return () => clearInterval(t);
   }, [website]);
 
+  // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); handleSave(); }
@@ -71,30 +68,18 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [website, historyIndex, history]);
 
-  // Hide floating toolbar on outside click
+  // Close floating toolbar on outside click
   useEffect(() => {
     if (!toolbarTarget) return;
     function handleOutside(e: MouseEvent) {
       const toolbar = document.getElementById("floating-toolbar");
       if (toolbar && toolbar.contains(e.target as Node)) return;
-      const t = e.target as HTMLElement;
-      if (t.contentEditable === "true") return;
+      if ((e.target as HTMLElement).contentEditable === "true") return;
       setToolbarTarget(null);
     }
     document.addEventListener("mousedown", handleOutside, true);
     return () => document.removeEventListener("mousedown", handleOutside, true);
   }, [toolbarTarget]);
-
-  async function fetchEditCredits() {
-    try {
-      const res = await fetch("/api/user/edits");
-      if (res.ok) {
-        const d = await res.json();
-        setEditsRemaining(d.remaining);
-        setEditLimit(d.limit);
-      }
-    } catch {}
-  }
 
   async function fetchWebsite() {
     setLoading(true);
@@ -113,28 +98,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     }
   }
 
-  async function consumeEdit(): Promise<boolean> {
-    try {
-      const res = await fetch("/api/user/edits", { method: "POST" });
-      const d = await res.json();
-      if (!res.ok) { toast.error(d.error || "Edit limit reached"); return false; }
-      setEditsRemaining(d.remaining);
-      return true;
-    } catch { return true; }
-  }
-
-  async function pushHistory(newWebsite: GeneratedWebsite) {
-    const allowed = await consumeEdit();
-    if (!allowed) return;
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newWebsite);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setWebsite(newWebsite);
-  }
-
-  // Apply style/font changes without consuming edit credits
-  function applyDirect(newWebsite: GeneratedWebsite) {
+  function pushHistory(newWebsite: GeneratedWebsite) {
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newWebsite);
     setHistory(newHistory);
@@ -192,33 +156,36 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     } finally { setPublishing(false); }
   }
 
+  function handlePreview() {
+    window.open(`/editor/${params.id}/preview`, "_blank");
+  }
+
   function updateSection(sectionId: string, updates: Partial<{ data: any; styles: any }>) {
     if (!website) return;
     pushHistory({ ...website, sections: website.sections.map((s) => s.id === sectionId ? { ...s, ...updates } : s) });
   }
 
-  function updateGlobal(updates: Partial<GeneratedWebsite>) {
-    if (!website) return;
-    pushHistory({ ...website, ...updates });
-  }
-
   function applySectionStyle(sectionId: string, key: string, value: string) {
     if (!website) return;
-    applyDirect({
+    pushHistory({
       ...website,
       sections: website.sections.map((s) =>
         s.id === sectionId ? { ...s, styles: { ...(s.styles || {}), [key]: value } } : s
       ),
     });
-    // Keep toolbar open with updated colors
-    if (toolbarTarget && toolbarTarget.sectionId === sectionId) {
-      setToolbarTarget((prev) => prev ? { ...prev, [key === "textColor" ? "textColor" : key === "background" ? "bgColor" : key === "accentColor" ? "accentColor" : key]: value } : prev);
+    if (toolbarTarget?.sectionId === sectionId) {
+      setToolbarTarget((prev) => prev ? {
+        ...prev,
+        textColor: key === "textColor" ? value : prev.textColor,
+        bgColor: key === "background" ? value : prev.bgColor,
+        accentColor: key === "accentColor" ? value : prev.accentColor,
+      } : prev);
     }
   }
 
   function applyGlobalStyle(updates: Partial<GeneratedWebsite>) {
     if (!website) return;
-    applyDirect({ ...website, ...updates });
+    pushHistory({ ...website, ...updates });
   }
 
   function moveSection(sectionId: string, direction: "up" | "down") {
@@ -226,9 +193,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     const idx = website.sections.findIndex((s) => s.id === sectionId);
     if (idx < 0) return;
     const newSections = [...website.sections];
-    const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= newSections.length) return;
-    [newSections[idx], newSections[newIdx]] = [newSections[newIdx], newSections[idx]];
+    const ni = direction === "up" ? idx - 1 : idx + 1;
+    if (ni < 0 || ni >= newSections.length) return;
+    [newSections[idx], newSections[ni]] = [newSections[ni], newSections[idx]];
     pushHistory({ ...website, sections: newSections });
   }
 
@@ -243,9 +210,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     if (idx < 0) return;
     const original = website.sections[idx];
     const copy = { ...original, id: `${original.id}-copy-${Date.now()}` };
-    const newSections = [...website.sections];
-    newSections.splice(idx + 1, 0, copy);
-    pushHistory({ ...website, sections: newSections });
+    const ns = [...website.sections];
+    ns.splice(idx + 1, 0, copy);
+    pushHistory({ ...website, sections: ns });
   }
 
   function handleTextChange(sectionId: string, field: string, value: string) {
@@ -317,141 +284,149 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const editsLow = editsRemaining !== null && editsRemaining <= 3;
-  const editsOut = editsRemaining !== null && editsRemaining <= 0;
-
   const editorCtx: EditorContextType = {
-    isEditable: !editsOut,
+    isEditable: true,
     onTextChange: handleTextChange,
     onNestedTextChange: handleNestedTextChange,
     onImageUpload: handleImageUpload,
-    onSectionClick: (sectionId) => setSelectedSection(sectionId),
+    onSectionClick: () => {},
     onShowToolbar: (target) => setToolbarTarget(target),
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 text-gray-900 overflow-hidden">
-      {/* Top toolbar */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-50 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors">
-            <ArrowLeft size={18} />
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+
+      {/* ── Top toolbar ── */}
+      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-4 shrink-0 z-50 shadow-sm gap-2">
+
+        {/* Left: back + site name */}
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Mobile sidebar toggle */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors lg:hidden"
+            title="Toggle panel"
+          >
+            <PanelLeft size={18} />
+          </button>
+          <Link href="/dashboard" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors hidden sm:flex">
+            <ArrowLeft size={17} />
           </Link>
-          <div className="w-px h-5 bg-gray-200" />
-          <div>
-            <p className="text-sm font-semibold leading-none text-gray-900">{website.name}</p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {saved ? (
-                <span className="text-emerald-600 flex items-center gap-1"><CheckCircle size={10} /> Saved</span>
-              ) : (
-                <span className="flex items-center gap-1 text-gray-400"><Edit3 size={10} /> Click text to edit</span>
-              )}
+          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
+          <div className="min-w-0 hidden sm:block">
+            <p className="text-sm font-semibold leading-none text-gray-900 truncate">{website.name}</p>
+            <p className="text-[11px] mt-0.5">
+              {saved
+                ? <span className="text-emerald-600 flex items-center gap-1"><CheckCircle size={10} /> Saved</span>
+                : <span className="text-gray-400">Click text on canvas to edit</span>
+              }
             </p>
           </div>
         </div>
 
-        {/* Edit credits badge */}
-        {editsRemaining !== null && (
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
-            editsOut ? "bg-red-50 text-red-600 border border-red-200" :
-            editsLow ? "bg-amber-50 text-amber-600 border border-amber-200" :
-            "bg-gray-100 text-gray-500"
-          }`}>
-            <Edit3 size={11} />
-            {editsRemaining}/{editLimit} edits today
-          </div>
-        )}
-
-        {/* Viewport controls */}
-        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+        {/* Centre: viewport toggle */}
+        <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1 shrink-0">
           {([["desktop", Monitor, "Desktop"], ["tablet", Tablet, "Tablet"], ["mobile", Smartphone, "Mobile"]] as const).map(([mode, Icon, label]) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
               title={label}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 viewMode === mode
                   ? "bg-white text-blue-600 shadow-sm border border-gray-200"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              <Icon size={14} />
-              <span className="hidden sm:inline">{label}</span>
+              <Icon size={13} />
+              <span className="hidden md:inline">{label}</span>
             </button>
           ))}
         </div>
 
-        {/* Right actions */}
-        <div className="flex items-center gap-2">
+        {/* Right: actions */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button onClick={handleUndo} disabled={historyIndex <= 0}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors" title="Undo (Ctrl+Z)">
-            <Undo2 size={16} />
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden sm:flex" title="Undo (Ctrl+Z)">
+            <Undo2 size={15} />
           </button>
           <button onClick={handleRedo} disabled={historyIndex >= history.length - 1}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors" title="Redo (Ctrl+Y)">
-            <Redo2 size={16} />
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden sm:flex" title="Redo (Ctrl+Y)">
+            <Redo2 size={15} />
           </button>
-          <div className="w-px h-5 bg-gray-200" />
+          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
+
+          {/* Preview */}
+          <button
+            onClick={handlePreview}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-sm text-gray-700 font-medium transition-colors"
+            title="Open preview in new tab"
+          >
+            <Eye size={14} />
+            <span className="hidden sm:inline">Preview</span>
+          </button>
+
+          {/* Save */}
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-sm text-gray-700 font-medium transition-colors disabled:opacity-50">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            Save
+            <span className="hidden sm:inline">Save</span>
           </button>
+
+          {/* Publish / View live */}
           {published ? (
             <a href={`https://${rawWebsite?.subdomain}.storebuilder.ph`} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-sm font-medium transition-colors">
               <ExternalLink size={14} />
-              View live
+              <span className="hidden sm:inline">Live</span>
             </a>
           ) : (
             <button onClick={handlePublish} disabled={publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-sm font-medium text-white transition-colors shadow-sm">
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-sm font-semibold text-white transition-colors shadow-sm">
               {publishing ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
-              Publish
+              <span className="hidden sm:inline">Publish</span>
             </button>
           )}
         </div>
       </header>
 
-      {editsOut && (
-        <div className="bg-red-50 border-b border-red-100 px-4 py-2 text-xs text-red-600 text-center font-medium">
-          Daily edit limit reached ({editLimit} edits). Resets at midnight PH time.
-        </div>
-      )}
+      {/* ── Body ── */}
+      <div className="flex flex-1 overflow-hidden relative">
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel — Sections list */}
-        <aside className="w-56 bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0">
-          <div className="px-3 py-3 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sections</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2">
-            {website.sections.map((section, i) => (
-              <SectionPanel
-                key={section.id}
-                section={section}
-                index={i}
-                total={website.sections.length}
-                isSelected={selectedSection === section.id}
-                onSelect={() => setSelectedSection(selectedSection === section.id ? null : section.id)}
-                onMoveUp={() => moveSection(section.id, "up")}
-                onMoveDown={() => moveSection(section.id, "down")}
-                onDelete={() => deleteSection(section.id)}
-                onDuplicate={() => duplicateSection(section.id)}
-              />
-            ))}
-          </div>
+        {/* Options panel — slides in from left on mobile */}
+        <aside
+          className={`
+            bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0 transition-all duration-300
+            ${sidebarOpen ? "w-56" : "w-0"}
+            absolute inset-y-0 left-0 z-40 lg:relative lg:z-auto
+          `}
+        >
+          {sidebarOpen && (
+            <OptionsPanel
+              website={website}
+              onUpdateWebsite={(updates) => pushHistory({ ...website, ...updates } as GeneratedWebsite)}
+              onMoveSection={moveSection}
+              onDeleteSection={deleteSection}
+              onDuplicateSection={duplicateSection}
+            />
+          )}
         </aside>
 
-        {/* Canvas */}
-        <main className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-6 sm:p-8">
+        {/* Overlay for mobile sidebar */}
+        {sidebarOpen && (
           <div
-            className="transition-all duration-300 bg-white shadow-xl overflow-hidden"
+            className="absolute inset-0 bg-black/20 z-30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Canvas */}
+        <main className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-4 sm:p-6 lg:p-8">
+          <div
+            className="transition-all duration-300 bg-white shadow-xl overflow-hidden w-full"
             style={{
-              width: VIEW_WIDTHS[viewMode],
-              minHeight: "100%",
-              borderRadius: viewMode !== "desktop" ? "24px" : "12px",
-              maxWidth: "100%",
+              maxWidth: VIEW_WIDTHS[viewMode],
+              minHeight: "calc(100vh - 56px)",
+              borderRadius: viewMode !== "desktop" ? "20px" : "10px",
             }}
           >
             <WebsiteRenderer website={website} editorContext={editorCtx} />
@@ -460,7 +435,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Floating toolbar */}
-      {toolbarTarget && website && (
+      {toolbarTarget && (
         <FloatingToolbar
           target={toolbarTarget}
           website={website}

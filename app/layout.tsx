@@ -84,13 +84,8 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://fonts.cdnfonts.com" />
         <link
-          href="https://fonts.cdnfonts.com/css/product-sans"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
           rel="stylesheet"
         />
         <script
@@ -139,7 +134,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased bg-white text-gray-900" style={{ fontFamily: "'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, sans-serif" }}>
+      <body className="antialiased bg-white text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', 'Google Sans', system-ui, -apple-system, sans-serif" }}>
         <Providers>{children}</Providers>
         <Toaster
           position="bottom-right"

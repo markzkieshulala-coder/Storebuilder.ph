@@ -21,6 +21,21 @@ export type GeneratedWebsite = {
     text: string;
   };
   sections: Section[];
+  settings?: {
+    payments?: {
+      gcash?: boolean;
+      paymaya?: boolean;
+      creditCard?: boolean;
+      cod?: boolean;
+      bankTransfer?: boolean;
+      grabpay?: boolean;
+    };
+    contact?: {
+      phone?: string;
+      email?: string;
+      address?: string;
+    };
+  };
 };
 
 export type Section = {
