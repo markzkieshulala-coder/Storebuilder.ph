@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import {
   Sparkles, Globe, Edit3, Trash2, ExternalLink,
   Settings, LogOut, Crown, Clock,
-  AlertCircle, Zap, BarChart2, Camera, CheckCircle2,
+  AlertCircle, Zap, BarChart2, Camera,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -316,13 +316,6 @@ function DashboardContent() {
                 </p>
               </div>
             )}
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Daily Edits</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: (credits.edits?.remaining ?? 0) <= 2 ? "#DC2626" : "#1C1E21" }}>
-                {credits.edits?.remaining ?? (isPro ? 30 : 5)} / {isPro ? 30 : 5}
-                <span style={{ fontSize: 11, fontWeight: 400, color: "#8A8D91", marginLeft: 4 }}>left</span>
-              </p>
-            </div>
           </div>
         )}
 

@@ -37,7 +37,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [published, setPublished] = useState(false);
   const [liveMenuOpen, setLiveMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -47,6 +47,11 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/signin");
   }, [status, router]);
+
+  // Open sidebar by default only on desktop
+  useEffect(() => {
+    setSidebarOpen(window.innerWidth >= 1024);
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") fetchWebsite();
