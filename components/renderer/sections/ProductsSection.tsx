@@ -20,11 +20,11 @@ export default function ProductsSection({ section, website }: { section: Section
   }
 
   return (
-    <section id="products" className="py-24 px-6" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 sm:mb-12">
           <h2
-            className="text-3xl md:text-5xl font-bold mb-3"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 sm:mb-3"
             style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
             contentEditable={isEditable}
             suppressContentEditableWarning
@@ -34,22 +34,25 @@ export default function ProductsSection({ section, website }: { section: Section
           >
             {d.headline}
           </h2>
-          {d.subheadline && <p className="text-lg opacity-60 mb-8" style={{ color: textColor }}>{d.subheadline}</p>}
+          {d.subheadline && <p className="text-sm sm:text-base lg:text-lg opacity-60 mb-6 sm:mb-8" style={{ color: textColor }}>{d.subheadline}</p>}
           {d.categories && (
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
               {d.categories.map((cat: string) => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className="px-5 py-2 rounded-full text-sm font-medium transition-all"
-                  style={activeCategory === cat ? { background: accent, color: website.colors?.primary || "#1a1a2e" } : { background: `${accent}15`, color: textColor, border: `1px solid ${accent}30` }}>
+                <button key={cat} onClick={() => setActiveCategory(cat)}
+                  className="px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all min-h-[36px]"
+                  style={activeCategory === cat
+                    ? { background: accent, color: website.colors?.primary || "#1a1a2e" }
+                    : { background: `${accent}15`, color: textColor, border: `1px solid ${accent}30` }}>
                   {cat}
                 </button>
               ))}
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filtered.map((product: any, i: number) => (
             <div key={product.id || i} className="group rounded-2xl overflow-hidden border transition-all hover:-translate-y-1" style={{ background: `${accent}06`, borderColor: `${accent}15` }}>
-              <div className="relative h-64 overflow-hidden bg-black/20">
+              <div className="relative h-48 sm:h-56 lg:h-64 overflow-hidden bg-black/20">
                 {product.image
                   ? <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                   : <div className="w-full h-full flex items-center justify-center opacity-20"><ShoppingCart size={40} /></div>
@@ -69,9 +72,9 @@ export default function ProductsSection({ section, website }: { section: Section
                   </div>
                 )}
               </div>
-              <div className="p-5">
+              <div className="p-4 sm:p-5">
                 <h3
-                  className="font-bold text-lg mb-1"
+                  className="font-bold text-base sm:text-lg mb-1"
                   style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
                   contentEditable={isEditable}
                   suppressContentEditableWarning
@@ -81,11 +84,11 @@ export default function ProductsSection({ section, website }: { section: Section
                 >
                   {product.name}
                 </h3>
-                {product.description && <p className="text-sm opacity-60 mb-3 leading-relaxed" style={{ color: textColor }}>{product.description}</p>}
-                <div className="flex items-center justify-between">
-                  <div>
+                {product.description && <p className="text-xs sm:text-sm opacity-60 mb-3 leading-relaxed" style={{ color: textColor }}>{product.description}</p>}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <span
-                      className="text-xl font-bold"
+                      className="text-lg sm:text-xl font-bold"
                       style={{ color: accent, outline: "none" }}
                       contentEditable={isEditable}
                       suppressContentEditableWarning
@@ -95,11 +98,11 @@ export default function ProductsSection({ section, website }: { section: Section
                       ₱{product.price?.toLocaleString()}
                     </span>
                     {product.originalPrice && (
-                      <span className="ml-2 text-sm line-through opacity-40" style={{ color: textColor }}>₱{product.originalPrice?.toLocaleString()}</span>
+                      <span className="ml-2 text-xs sm:text-sm line-through opacity-40" style={{ color: textColor }}>₱{product.originalPrice?.toLocaleString()}</span>
                     )}
                   </div>
-                  <button className="p-2.5 rounded-xl transition-opacity hover:opacity-80" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
-                    <ShoppingCart size={18} />
+                  <button className="p-2.5 rounded-xl transition-opacity hover:opacity-80 shrink-0 min-w-[40px] min-h-[40px] flex items-center justify-center" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
+                    <ShoppingCart size={17} />
                   </button>
                 </div>
               </div>

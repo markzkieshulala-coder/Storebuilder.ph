@@ -24,18 +24,30 @@ export default function CTASection({ section, website }: { section: Section; web
   } : {};
 
   return (
-    <section className="py-20 px-6 text-center" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24 text-center" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-2xl mx-auto">
-        <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ fontFamily: "var(--heading-font)", color: textColor }} {...editableProps("headline")}>
+        <h2
+          className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4"
+          style={{ fontFamily: "var(--heading-font)", color: textColor }}
+          {...editableProps("headline")}
+        >
           {d.headline}
         </h2>
         {d.subheadline !== undefined && (
-          <p className="text-lg opacity-70 mb-8" style={{ color: textColor }} {...editableProps("subheadline")}>
+          <p
+            className="text-sm sm:text-base lg:text-lg opacity-70 mb-7 sm:mb-8"
+            style={{ color: textColor }}
+            {...editableProps("subheadline")}
+          >
             {d.subheadline}
           </p>
         )}
         {d.ctaText && (
-          <a href={isEditable ? undefined : (d.ctaHref || "#")} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity hover:opacity-80" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
+          <a
+            href={isEditable ? undefined : (d.ctaHref || "#")}
+            className="inline-flex items-center justify-center w-full sm:w-auto px-8 py-4 rounded-xl font-semibold text-base transition-opacity hover:opacity-80 min-h-[52px]"
+            style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
+          >
             {d.ctaText}
           </a>
         )}

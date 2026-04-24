@@ -16,12 +16,12 @@ export default function AboutSection({ section, website }: { section: Section; w
   }
 
   return (
-    <section id="about" className="py-24 px-6" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-16 items-center">
           {(d.image || isEditable) && (
-            <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
-              {d.image && <img src={d.image} alt={d.headline} className="w-full h-full object-cover" />}
+            <div className="relative rounded-2xl overflow-hidden aspect-[4/3] w-full">
+              {d.image && <img src={d.image} alt={d.headline} className="w-full h-full object-cover" style={{ maxWidth: "100%" }} />}
               {isEditable && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "image"); }}
@@ -36,7 +36,7 @@ export default function AboutSection({ section, website }: { section: Section; w
           )}
           <div>
             <h2
-              className="text-3xl md:text-5xl font-bold mb-6"
+              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6"
               style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
               contentEditable={isEditable}
               suppressContentEditableWarning
@@ -47,7 +47,7 @@ export default function AboutSection({ section, website }: { section: Section; w
               {d.headline}
             </h2>
             <div
-              className="text-base leading-relaxed opacity-70 whitespace-pre-line mb-8"
+              className="text-sm sm:text-base leading-relaxed opacity-70 whitespace-pre-line mb-6 sm:mb-8"
               style={{ color: textColor, outline: "none" }}
               contentEditable={isEditable}
               suppressContentEditableWarning
@@ -58,11 +58,11 @@ export default function AboutSection({ section, website }: { section: Section; w
               {d.story}
             </div>
             {d.stats && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {d.stats.map((s: any, i: number) => (
-                  <div key={i} className="p-4 rounded-xl" style={{ background: `${accent}12` }}>
-                    <div className="text-2xl font-bold" style={{ color: accent, fontFamily: "var(--heading-font)" }}>{s.value}</div>
-                    <div className="text-sm opacity-60" style={{ color: textColor }}>{s.label}</div>
+                  <div key={i} className="p-3 sm:p-4 rounded-xl" style={{ background: `${accent}12` }}>
+                    <div className="text-xl sm:text-2xl font-bold" style={{ color: accent, fontFamily: "var(--heading-font)" }}>{s.value}</div>
+                    <div className="text-xs sm:text-sm opacity-60 mt-0.5" style={{ color: textColor }}>{s.label}</div>
                   </div>
                 ))}
               </div>
