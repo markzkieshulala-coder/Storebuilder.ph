@@ -19,9 +19,8 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const GOOGLE_FONTS = [
-  "Product Sans", "Open Sans", "Roboto", "Montserrat", "Playfair Display",
-  "Lato", "Poppins", "Inter", "Raleway", "Oswald", "Merriweather",
-  "Nunito", "Syne", "DM Sans", "Space Grotesk", "Outfit",
+  "Google Sans", "Roboto", "Open Sans", "Inter", "Montserrat",
+  "Poppins", "Lato", "Nunito", "Raleway", "DM Sans", "Outfit",
 ];
 
 export default function PropertiesPanel({ section, website, onUpdate, onUpdateGlobal, onClose }: Props) {

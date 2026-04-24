@@ -323,7 +323,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
 
       {/* ── Top toolbar ── */}
       <header className="h-12 sm:h-14 bg-white border-b border-gray-200 flex items-center px-2 sm:px-4 shrink-0 z-50 shadow-sm gap-1.5 sm:gap-2 overflow-hidden">

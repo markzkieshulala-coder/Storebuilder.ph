@@ -14,8 +14,8 @@ const PAYMENT_METHODS = [
 ];
 
 const FONTS = [
-  "Plus Jakarta Sans", "Playfair Display", "DM Serif Display", "Cormorant Garamond",
-  "Syne", "Bricolage Grotesque", "Inter", "Poppins", "Raleway", "Montserrat", "Outfit",
+  "Google Sans", "Roboto", "Inter", "Poppins", "Montserrat",
+  "Raleway", "DM Sans", "Outfit", "Nunito", "Lato", "Open Sans",
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -150,13 +150,13 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
           <div className="space-y-4">
             <div>
               <label className={lbl}>Heading Font</label>
-              <select value={website.fonts?.heading || "Plus Jakarta Sans"} onChange={(e) => onUpdateWebsite({ fonts: { ...website.fonts, heading: e.target.value } })} className={inp}>
+              <select value={website.fonts?.heading || "Google Sans"} onChange={(e) => onUpdateWebsite({ fonts: { ...website.fonts, heading: e.target.value } })} className={inp}>
                 {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
               <label className={lbl}>Body Font</label>
-              <select value={website.fonts?.body || "Plus Jakarta Sans"} onChange={(e) => onUpdateWebsite({ fonts: { ...website.fonts, body: e.target.value } })} className={inp}>
+              <select value={website.fonts?.body || "Google Sans"} onChange={(e) => onUpdateWebsite({ fonts: { ...website.fonts, body: e.target.value } })} className={inp}>
                 {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>

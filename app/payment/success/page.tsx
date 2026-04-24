@@ -30,7 +30,7 @@ export default function PaymentSuccessPage() {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
+        <h1 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
           Welcome to Pro! 🎉
         </h1>
         <p className="text-white/50 mb-8">

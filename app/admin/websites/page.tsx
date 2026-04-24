@@ -87,7 +87,7 @@ export default function AdminWebsitesPage() {
   const draftCount = websites.filter((w) => !w.published).length;
 
   return (
-    <div className="p-8" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
+    <div className="p-8" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Websites</h1>

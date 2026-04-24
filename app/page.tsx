@@ -21,7 +21,7 @@ const EXAMPLE_PROMPTS = [
   "Coffee shop called Brew and Co",
 ];
 
-const PF = "'Product Sans','Google Sans',Roboto,system-ui,sans-serif";
+const PF = "'Google Sans',Roboto,Arial,system-ui,sans-serif";
 
 function EthicaPreview() {
   return (
@@ -400,7 +400,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-white text-gray-900" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">

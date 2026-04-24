@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 
 const BLUE = "#1877F2";
-const FONT = '"Product Sans", "Google Sans", "Google Sans Text", Roboto, "DM Sans", system-ui, -apple-system, sans-serif';
+const FONT = '"Google Sans", Roboto, Arial, system-ui, sans-serif';
 const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
 const MENU = ["Overview", "Total Users", "Influencers"] as const;
 type Tab = (typeof MENU)[number];

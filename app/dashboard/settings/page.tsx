@@ -7,7 +7,7 @@ import { ArrowLeft, User, Mail, Crown, CreditCard, AlertTriangle } from "lucide-
 import toast from "react-hot-toast";
 
 const BLUE = "#1877F2";
-const FONT = "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif";
+const FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";
 
 const CARD: React.CSSProperties = {
   background: "#fff",

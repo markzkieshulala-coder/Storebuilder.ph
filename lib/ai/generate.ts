@@ -50,7 +50,7 @@ const SYSTEM_PROMPT = `You are a world-class web designer creating premium, prod
 ABSOLUTE RULES — ZERO EXCEPTIONS:
 1. Output ONLY valid JSON — no markdown fences, no explanation, no comments
 2. Every website MUST look like a real, live premium business website — clean, corporate, and modern
-3. Font for ALL text (heading AND body): "Plus Jakarta Sans" — no other font whatsoever
+3. Font for ALL text (heading AND body): "Google Sans" — no other font whatsoever
 4. Color palettes MUST be professional and restrained — use exactly 3 colors maximum:
    - Dark anchor: deep navy (#0F172A), charcoal (#1C1C1C), dark slate (#1E293B), or near-black
    - Light base: white (#FFFFFF) or warm off-white (#FAFAF8) for backgrounds
@@ -126,8 +126,8 @@ OUTPUT FORMAT (strict JSON only):
   "seoTitle": "Under 60 chars",
   "seoDesc": "Under 160 chars",
   "fonts": {
-    "heading": "Plus Jakarta Sans",
-    "body": "Plus Jakarta Sans"
+    "heading": "Google Sans",
+    "body": "Google Sans"
   },
   "colors": {
     "primary": "#hexcolor",
@@ -206,7 +206,7 @@ export async function generateWebsite(
     jsonText = jsonText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
 
-  // Force Plus Jakarta Sans regardless of what the model returned
+  // Force Google Sans regardless of what the model returned
   let website: GeneratedWebsite;
   try {
     website = JSON.parse(jsonText);
@@ -214,7 +214,7 @@ export async function generateWebsite(
     throw new Error("Claude returned invalid JSON. Please try again.");
   }
 
-  website.fonts = { heading: "Plus Jakarta Sans", body: "Plus Jakarta Sans" };
+  website.fonts = { heading: "Google Sans", body: "Google Sans" };
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;

@@ -42,7 +42,7 @@ const DEFAULT_CONTEXT: EditorContextType = {
   onSectionClick: () => {},
 };
 
-const SITE_FONT = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+const SITE_FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";
 
 export default function WebsiteRenderer({ website, isPreview = false, editorContext }: Props) {
   return (

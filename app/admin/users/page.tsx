@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="p-8" style={{ fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
+    <div className="p-8" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

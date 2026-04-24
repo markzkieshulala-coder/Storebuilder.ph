@@ -6,7 +6,7 @@ export default async function AdminPage() {
   const totalWebsites = await prisma.website.count();
 
   return (
-    <div style={{ padding: "40px", fontFamily: "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif" }}>
+    <div style={{ padding: "40px", fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       <h1>Admin Dashboard</h1>
       <p>Total Users: {totalUsers}</p>
       <p>Pro Users: {proUsers}</p>
