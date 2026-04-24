@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 import { timeUntilReset } from "@/lib/utils";
 
 const BLUE = "#1877F2";
-const FONT = "'Product Sans', 'Google Sans', Roboto, system-ui, sans-serif";
+const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 type Website = {
   id: string; name: string; type: string; subdomain: string | null;

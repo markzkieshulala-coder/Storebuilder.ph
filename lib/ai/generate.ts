@@ -45,100 +45,89 @@ export type Section = {
   styles: Record<string, string>;
 };
 
-const SYSTEM_PROMPT = `You are an elite web designer creating stunning, production-ready websites for Philippine businesses.
+const SYSTEM_PROMPT = `You are a world-class web designer creating premium, production-ready websites for Philippine businesses.
 
-CRITICAL RULES:
-1. Output ONLY valid JSON — no markdown, no explanation, no code blocks
-2. Every website must look like a LIVE, professional site — not an AI demo or wireframe
-3. Use ONLY these fonts: Playfair Display, DM Serif Display, Cormorant Garamond, Syne, Bricolage Grotesque
-4. Colors must be bold and intentional — never safe or boring
-5. Generate 7-9 unique sections minimum
-6. All prices must be in Philippine Peso (₱) with realistic market pricing
-7. ALL images MUST use real Unsplash photo URLs from the curated list below — never leave image fields empty
-8. Content must be hyper-realistic: real-sounding business names, addresses, staff names, product names
-9. All layouts must be mobile-first and fully responsive (hero text scales from 40px mobile to 80px desktop)
+ABSOLUTE RULES — ZERO EXCEPTIONS:
+1. Output ONLY valid JSON — no markdown fences, no explanation, no comments
+2. Every website MUST look like a real, live premium business website — clean, corporate, and modern
+3. Font for ALL text (heading AND body): "Plus Jakarta Sans" — no other font whatsoever
+4. Color palettes MUST be professional and restrained — use exactly 3 colors maximum:
+   - Dark anchor: deep navy (#0F172A), charcoal (#1C1C1C), dark slate (#1E293B), or near-black
+   - Light base: white (#FFFFFF) or warm off-white (#FAFAF8) for backgrounds
+   - One muted accent: slate blue (#3B4FCD), deep teal (#0D7377), muted gold (#A87C2A), forest green (#166534), or burgundy (#7F1D1D)
+   - NEVER use: bright neon colors, vivid rainbow combinations, or more than 3 distinct colors
+   - NEVER use bright red, hot pink, electric blue, lime green as primary or accent
+5. NO EMOJIS — not in headings, body text, button labels, testimonials, stats, feature names, or anywhere at all
+6. Generate 7-9 sections minimum that suit this specific business type
+7. All prices in Philippine Peso (₱) with realistic Metro Manila market pricing
+8. ALL images MUST use Unsplash photo URLs from the curated list below — never empty image fields
+9. Business content must feel real: specific PH neighborhoods (Makati, BGC, Ortigas, Cebu IT Park, Poblacion), Filipino names for testimonials/team, realistic product/service names
+10. Writing style: confident, professional, concise — no hype, no exclamation spam, no buzzword salads
+11. Sections must have generous whitespace, clear typographic hierarchy, and minimal decoration
 
-REAL UNSPLASH PHOTO IDs — use these as: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
-For wider hero backgrounds use: https://images.unsplash.com/photo-{ID}?w=1400&h=800&fit=crop&q=80
+REAL UNSPLASH PHOTO IDs — use as: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
+Hero/banner backgrounds: https://images.unsplash.com/photo-{ID}?w=1400&h=800&fit=crop&q=80
 
 FOOD & RESTAURANT:
-- 1414235077428-338989a2e8c0 (restaurant food spread)
-- 1476224203421-74177e9bcce6 (Asian cuisine plating)
-- 1504674900247-0877df9cc836 (healthy meal bowl)
-- 1555396273-367ea4eb4db5 (upscale restaurant interior)
-- 1565299624946-b28f40a0ae38 (pizza close-up)
-- 1490645935967-10de6ba17061 (salad bowl)
-- 1482049016688-2d3e1b311543 (breakfast spread)
+- 1414235077428-338989a2e8c0
+- 1476224203421-74177e9bcce6
+- 1504674900247-0877df9cc836
+- 1555396273-367ea4eb4db5
+- 1565299624946-b28f40a0ae38
+- 1490645935967-10de6ba17061
+- 1482049016688-2d3e1b311543
 
-FASHION & CLOTHING:
-- 1483985986-9e7dcf2e1a8e (fashion shopping bags)
-- 1529903672776-b51b5379fcf4 (model in stylish outfit)
-- 1539109136881-3be0616acf4b (clothing detail)
-- 1542291026-7eec264c27ff (sneakers product shot)
-- 1516762689-1b8e44c75a0b (jewelry accessories)
-- 1445205170230-053b83016050 (fashion lifestyle)
+FASHION & RETAIL:
+- 1483985986-9e7dcf2e1a8e
+- 1529903672776-b51b5379fcf4
+- 1539109136881-3be0616acf4b
+- 1542291026-7eec264c27ff
+- 1516762689-1b8e44c75a0b
+- 1445205170230-053b83016050
 
 BEAUTY & WELLNESS:
-- 1487412947147-5cebf96ef2ff (makeup and cosmetics)
-- 1560066984-138dadb4c035 (salon interior)
-- 1596462502278-27bfdc403348 (skincare products)
-- 1515688594-0eebcca23e55 (beauty treatment)
-- 1571019613454-1cb2f99b2d8b (fitness workout)
-- 1544367567-0f2fcb009e0b (wellness spa)
+- 1487412947147-5cebf96ef2ff
+- 1560066984-138dadb4c035
+- 1596462502278-27bfdc403348
+- 1515688594-0eebcca23e55
+- 1571019613454-1cb2f99b2d8b
+- 1544367567-0f2fcb009e0b
 
-TECHNOLOGY & BUSINESS:
-- 1518770660439-4636190af475 (tech circuit board)
-- 1497366216548-37526070297c (modern office)
-- 1552664730-d307ca884978 (business team meeting)
-- 1519389950473-47ba0277781c (startup workspace)
-- 1461749280684-dccba630e2f6 (code on screen)
-- 1504868584819-f8e8b4b6d7e3 (laptop workspace)
+TECHNOLOGY & PROFESSIONAL SERVICES:
+- 1518770660439-4636190af475
+- 1497366216548-37526070297c
+- 1552664730-d307ca884978
+- 1519389950473-47ba0277781c
+- 1461749280684-dccba630e2f6
+- 1504868584819-f8e8b4b6d7e3
 
 PEOPLE & PORTRAITS:
-- 1494790108377-be9c29b29330 (woman professional headshot)
-- 1507003211169-0a1dd7228f2d (man professional headshot)
-- 1438761681033-6461ffad8d80 (woman smiling)
-- 1472099645785-5658abf4ff4e (man casual portrait)
-- 1500648767791-00dcc994a43e (man with glasses)
-- 1580489944761-15a19d654956 (woman confident pose)
+- 1494790108377-be9c29b29330
+- 1507003211169-0a1dd7228f2d
+- 1438761681033-6461ffad8d80
+- 1472099645785-5658abf4ff4e
+- 1500648767791-00dcc994a43e
+- 1580489944761-15a19d654956
 
-LIFESTYLE & GENERAL:
-- 1506905925346-21bda4d32df4 (scenic Philippines landscape)
-- 1557804506-669a67965ba0 (abstract business)
-- 1497366811353-6870744d04b2 (modern interior)
-- 1524758631624-e2822e304c36 (product flat lay)
-- 1600880292203-757bb62b4baf (clean product mockup)
+INTERIOR & LIFESTYLE:
+- 1506905925346-21bda4d32df4
+- 1497366811353-6870744d04b2
+- 1524758631624-e2822e304c36
+- 1600880292203-757bb62b4baf
+- 1557804506-669a67965ba0
 
 AVAILABLE SECTION TYPES:
-- hero: fullscreen hero with headline, subheading, CTA buttons
-- nav: navigation with logo and menu items
-- features: grid of features/benefits with icons
-- products: product grid with prices in ₱
-- testimonials: customer reviews carousel
-- about: brand story section
-- team: team member grid
-- gallery: image gallery (masonry/grid)
-- pricing: pricing plans comparison
-- faq: accordion FAQ section
-- stats: impressive numbers/statistics
-- blog: blog post preview cards
-- newsletter: email signup section
-- contact: contact form with details
-- footer: page footer with links
-- cta: call-to-action banner
-- video: video showcase section
-- process: how it works steps
-- trust: trust badges and certifications
+hero, nav, features, products, testimonials, about, footer, newsletter, pricing, faq, stats, contact, cta, team, gallery, process
 
-OUTPUT FORMAT (strict JSON):
+OUTPUT FORMAT (strict JSON only):
 {
   "name": "Business Name",
   "type": "STORE|BUSINESS|PORTFOLIO|RESTAURANT|SALON|LANDING",
-  "seoTitle": "SEO optimized title under 60 chars",
-  "seoDesc": "SEO meta description under 160 chars",
+  "seoTitle": "Under 60 chars",
+  "seoDesc": "Under 160 chars",
   "fonts": {
-    "heading": "Font name for headings",
-    "body": "Font name for body text"
+    "heading": "Plus Jakarta Sans",
+    "body": "Plus Jakarta Sans"
   },
   "colors": {
     "primary": "#hexcolor",
@@ -151,30 +140,30 @@ OUTPUT FORMAT (strict JSON):
     {
       "id": "unique-id",
       "type": "section-type",
-      "data": { ... section-specific data ... },
+      "data": {},
       "styles": {
-        "background": "#color or gradient string",
+        "background": "#color",
         "textColor": "#color",
-        "padding": "py-20 or similar"
+        "padding": "py-20"
       }
     }
   ]
 }`;
 
 function buildUserPrompt(userPrompt: string): string {
-  return `Create a complete, live-looking professional website for: "${userPrompt}"
+  return `Create a complete, professional website for: "${userPrompt}"
 
-MANDATORY requirements — no exceptions:
-1. Pick 4-6 Unsplash photo IDs from the list above that best match this business type and assign them to: hero backgroundImage, about image, and product/team images
-2. All hero sections need a backgroundImage with a real Unsplash URL
-3. Write copy as if this is a real, established Philippine business — specific neighborhood (Makati, BGC, Cebu, etc.), real-sounding staff names, actual-sounding product descriptions
-4. Products must have realistic names, descriptions, prices in ₱, and images from the Unsplash list
-5. Testimonials must use authentic Filipino full names (e.g. "Maria Santos", "Juan dela Cruz", "Angela Reyes") and specific locations
-6. Features/benefits must be concrete and business-specific, not generic ("Fast Delivery" → "Same-day delivery within BGC, Makati, and Pasig")
-7. Stats must look real: format as "1,200+" or "4.9★" or "Since 2018"
-8. Generate 7-9 sections that make sense for this exact type of business
-9. First section: nav → hero, last section: footer
-10. Design must use a strong, intentional color palette — not white-and-blue or generic corporate
+MANDATORY requirements:
+1. Choose 4-6 Unsplash photo IDs from the list that match this business type — assign to hero backgroundImage, about image, and product/team images
+2. Hero section must have a real backgroundImage URL from the Unsplash list
+3. Write copy as a real, established Philippine business — name a specific neighborhood (e.g. Salcedo Village, BGC, Lahug Cebu), use real-sounding Filipino staff names, write actual-sounding product/service descriptions
+4. Products/services must have realistic names, descriptions, and prices in ₱
+5. Testimonials: use authentic Filipino full names (e.g. "Maria Santos", "Ramon dela Cruz", "Angela Reyes") and their city/area
+6. Features/benefits: be specific to this business, not generic ("Delivery within Makati and BGC" not just "Fast Delivery")
+7. Stats: use credible numbers formatted as "1,200+" or "4.9/5" or "Est. 2019" — no emojis
+8. Order: nav first, footer last, 7-9 total sections
+9. Professional tone throughout — no exclamation spam, no emojis, no hype language
+10. Colors: pick from the professional palettes described — dark anchor + white/off-white + one muted accent
 
 Output only the JSON object, nothing else.`;
 }
@@ -189,7 +178,7 @@ export async function generateWebsite(
   // MOCK MODE - skip API call entirely
   if (process.env.MOCK_MODE === "true") {
     console.log("[MOCK MODE] Returning mock website data");
-    await new Promise((r) => setTimeout(r, 2000)); // Simulate delay
+    await new Promise((r) => setTimeout(r, 2000));
     return {
       website: MOCK_WEBSITE_JSON as GeneratedWebsite,
       usage: { inputTokens: 0, outputTokens: 0, model: "mock", costUsd: 0, costPhp: 0 },
@@ -211,18 +200,21 @@ export async function generateWebsite(
     throw new Error("Unexpected response type from Claude");
   }
 
-  // Parse JSON - strip any accidental markdown
+  // Strip any accidental markdown fences
   let jsonText = content.text.trim();
   if (jsonText.startsWith("```")) {
     jsonText = jsonText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
 
+  // Force Plus Jakarta Sans regardless of what the model returned
   let website: GeneratedWebsite;
   try {
     website = JSON.parse(jsonText);
   } catch {
     throw new Error("Claude returned invalid JSON. Please try again.");
   }
+
+  website.fonts = { heading: "Plus Jakarta Sans", body: "Plus Jakarta Sans" };
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;

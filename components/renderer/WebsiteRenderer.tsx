@@ -42,33 +42,29 @@ const DEFAULT_CONTEXT: EditorContextType = {
   onSectionClick: () => {},
 };
 
-export default function WebsiteRenderer({ website, isPreview = false, editorContext }: Props) {
-  const headingFont = website.fonts?.heading || "Open Sans";
-  const bodyFont = website.fonts?.body || "Open Sans";
+const SITE_FONT = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
 
+export default function WebsiteRenderer({ website, isPreview = false, editorContext }: Props) {
   return (
     <EditorContext.Provider value={editorContext ?? DEFAULT_CONTEXT}>
       <div
         className="website-render"
         style={{
-          "--heading-font": `"${headingFont}", "Open Sans", "Product Sans", sans-serif`,
-          "--body-font": `"${bodyFont}", "Open Sans", "Inter", sans-serif`,
-          "--color-primary": website.colors?.primary || "#1a1a2e",
-          "--color-secondary": website.colors?.secondary || "#c9a84c",
-          "--color-accent": website.colors?.accent || "#e8d5b7",
+          "--heading-font": SITE_FONT,
+          "--body-font": SITE_FONT,
+          "--color-primary": website.colors?.primary || "#0F172A",
+          "--color-secondary": website.colors?.secondary || "#475569",
+          "--color-accent": website.colors?.accent || "#1E40AF",
           "--color-bg": website.colors?.background || "#ffffff",
-          "--color-text": website.colors?.text || "#1a1a2e",
-          fontFamily: `"${bodyFont}", "Open Sans", "Inter", sans-serif`,
-          color: website.colors?.text || "#1a1a2e",
+          "--color-text": website.colors?.text || "#0F172A",
+          fontFamily: SITE_FONT,
+          color: website.colors?.text || "#0F172A",
           backgroundColor: website.colors?.background || "#ffffff",
           minHeight: "100vh",
+          overflowX: "hidden",
+          maxWidth: "100%",
         } as React.CSSProperties}
       >
-        {/* Load Google Fonts */}
-        <link
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont).replace(/%20/g, "+")}:wght@400;600;700;800&family=${encodeURIComponent(bodyFont).replace(/%20/g, "+")}:wght@400;500;600&family=Open+Sans:wght@400;500;600;700&display=swap`}
-          rel="stylesheet"
-        />
         {website.sections?.map((section) => {
           const SectionComponent = SECTION_MAP[section.type];
           if (!SectionComponent) {

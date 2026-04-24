@@ -326,102 +326,102 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
 
       {/* ── Top toolbar ── */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-4 shrink-0 z-50 shadow-sm gap-2">
+      <header className="h-12 sm:h-14 bg-white border-b border-gray-200 flex items-center px-2 sm:px-4 shrink-0 z-50 shadow-sm gap-1.5 sm:gap-2 overflow-hidden">
 
-        {/* Left: back + site name */}
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Mobile sidebar toggle */}
+        {/* Left: sidebar toggle + back + name */}
+        <div className="flex items-center gap-1 min-w-0 shrink-0">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors lg:hidden"
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
             title="Toggle panel"
           >
-            <PanelLeft size={18} />
+            <PanelLeft size={16} />
           </button>
-          <Link href="/dashboard" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors hidden sm:flex">
-            <ArrowLeft size={17} />
+          <Link href="/dashboard" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors hidden sm:flex" title="Back to dashboard">
+            <ArrowLeft size={16} />
           </Link>
-          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
-          <div className="min-w-0 hidden sm:block">
-            <p className="text-sm font-semibold leading-none text-gray-900 truncate">{website.name}</p>
-            <p className="text-[11px] mt-0.5">
+          <div className="hidden sm:flex flex-col min-w-0 ml-0.5">
+            <p className="text-xs sm:text-sm font-semibold leading-none text-gray-900 truncate max-w-[120px] md:max-w-[200px]">{website.name}</p>
+            <p className="text-[10px] mt-0.5 hidden md:block">
               {saved
-                ? <span className="text-emerald-600 flex items-center gap-1"><CheckCircle size={10} /> Saved</span>
-                : <span className="text-gray-400">Click text on canvas to edit</span>
+                ? <span className="text-emerald-600 flex items-center gap-1"><CheckCircle size={9} /> Saved</span>
+                : <span className="text-gray-400">Tap text to edit</span>
               }
             </p>
           </div>
         </div>
 
-        {/* Centre: viewport toggle */}
-        <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1 shrink-0">
-          {([["desktop", Monitor, "Desktop"], ["tablet", Tablet, "Tablet"], ["mobile", Smartphone, "Mobile"]] as const).map(([mode, Icon, label]) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              title={label}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                viewMode === mode
-                  ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <Icon size={13} />
-              <span className="hidden md:inline">{label}</span>
-            </button>
-          ))}
+        {/* Centre: viewport toggle — hidden on xs, shown sm+ */}
+        <div className="hidden sm:flex flex-1 items-center justify-center">
+          <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1">
+            {([["desktop", Monitor, "Desktop"], ["tablet", Tablet, "Tablet"], ["mobile", Smartphone, "Mobile"]] as const).map(([mode, Icon, label]) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                title={label}
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  viewMode === mode
+                    ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Icon size={13} />
+                <span className="hidden lg:inline">{label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Spacer on xs */}
+        <div className="flex-1 sm:hidden" />
+
         {/* Right: actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Undo/Redo: desktop only */}
           <button onClick={handleUndo} disabled={historyIndex <= 0}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden sm:flex" title="Undo (Ctrl+Z)">
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden lg:flex" title="Undo (Ctrl+Z)">
             <Undo2 size={15} />
           </button>
           <button onClick={handleRedo} disabled={historyIndex >= history.length - 1}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden sm:flex" title="Redo (Ctrl+Y)">
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden lg:flex" title="Redo (Ctrl+Y)">
             <Redo2 size={15} />
           </button>
-          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
           {/* Preview */}
           <button
             onClick={handlePreview}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-sm text-gray-700 font-medium transition-colors"
-            title="Open preview in new tab"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-xs sm:text-sm text-gray-700 font-medium transition-colors"
+            title="Preview"
           >
-            <Eye size={14} />
-            <span className="hidden sm:inline">Preview</span>
+            <Eye size={13} />
+            <span className="hidden md:inline">Preview</span>
           </button>
 
           {/* Save */}
           <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-sm text-gray-700 font-medium transition-colors disabled:opacity-50">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            <span className="hidden sm:inline">Save</span>
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-xs sm:text-sm text-gray-700 font-medium transition-colors disabled:opacity-50">
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            <span className="hidden md:inline">Save</span>
           </button>
 
           {/* Publish / Live + Unpublish */}
           {published ? (
             <div className="relative flex items-center">
-              {/* View live */}
               <a
                 href={`https://${rawWebsite?.subdomain}.storebuilder.ph`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-l-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-sm font-medium transition-colors"
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-l-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs sm:text-sm font-medium transition-colors"
               >
-                <ExternalLink size={13} />
+                <ExternalLink size={12} />
                 <span className="hidden sm:inline">Live</span>
               </a>
-              {/* Dropdown toggle */}
               <button
                 onClick={() => setLiveMenuOpen((o) => !o)}
-                className="flex items-center px-1.5 py-2 rounded-r-lg border border-l-0 border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                className="flex items-center px-1 sm:px-1.5 py-1.5 sm:py-2 rounded-r-lg border border-l-0 border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
               >
-                <ChevronDown size={13} />
+                <ChevronDown size={12} />
               </button>
-              {/* Dropdown */}
               {liveMenuOpen && (
                 <div className="absolute top-full right-0 mt-1 w-40 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
                   <a
@@ -448,8 +448,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             </div>
           ) : (
             <button onClick={handlePublish} disabled={publishing}
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-sm font-semibold text-white transition-colors shadow-sm">
-              {publishing ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm font-semibold text-white transition-colors shadow-sm">
+              {publishing ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
               <span className="hidden sm:inline">Publish</span>
             </button>
           )}
@@ -457,17 +457,19 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       </header>
 
       {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative min-h-0">
 
-        {/* Options panel — slides in from left on mobile */}
+        {/* Options panel — overlay drawer on mobile/tablet, inline on lg+ */}
         <aside
           className={`
-            bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0 transition-all duration-300
-            ${sidebarOpen ? "w-56" : "w-0"}
-            absolute inset-y-0 left-0 z-40 lg:relative lg:z-auto
+            bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0
+            transition-[width] duration-300 ease-in-out
+            absolute inset-y-0 left-0 z-40
+            lg:relative lg:z-auto
+            ${sidebarOpen ? "w-64 sm:w-60" : "w-0"}
           `}
         >
-          {sidebarOpen && (
+          <div className="w-64 sm:w-60 h-full overflow-hidden">
             <OptionsPanel
               website={website}
               onUpdateWebsite={(updates) => pushHistory({ ...website, ...updates } as GeneratedWebsite)}
@@ -475,25 +477,25 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               onDeleteSection={deleteSection}
               onDuplicateSection={duplicateSection}
             />
-          )}
+          </div>
         </aside>
 
-        {/* Overlay for mobile sidebar */}
+        {/* Overlay for mobile/tablet sidebar */}
         {sidebarOpen && (
           <div
-            className="absolute inset-0 bg-black/20 z-30 lg:hidden"
+            className="absolute inset-0 bg-black/30 z-30 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
         {/* Canvas */}
-        <main className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-2 sm:p-4 lg:p-8 min-w-0">
           <div
-            className="transition-all duration-300 bg-white shadow-xl overflow-hidden w-full"
+            className="transition-all duration-300 bg-white shadow-xl overflow-x-hidden w-full"
             style={{
               maxWidth: VIEW_WIDTHS[viewMode],
-              minHeight: "calc(100vh - 56px)",
-              borderRadius: viewMode !== "desktop" ? "20px" : "10px",
+              minHeight: "calc(100dvh - 48px)",
+              borderRadius: viewMode !== "desktop" ? "16px" : "8px",
             }}
           >
             <WebsiteRenderer website={website} editorContext={editorCtx} />

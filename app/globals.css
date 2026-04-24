@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -26,24 +26,25 @@
     --input: 214 20% 90%;
     --ring: 214 91% 54%;
     --radius: 0.5rem;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-    font-family: 'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
   }
   html, body {
     @apply bg-white text-gray-900;
-    font-family: 'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, -apple-system, sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6,
   p, span, div, a, button, input, textarea, select, label, li, td, th {
-    font-family: 'Product Sans', 'Google Sans', 'Google Sans Text', Roboto, 'DM Sans', system-ui, -apple-system, sans-serif !important;
+    font-family: var(--font-sans) !important;
   }
 }
 
