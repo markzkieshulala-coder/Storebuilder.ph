@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, Globe, Edit3, Trash2, ExternalLink,
-  Settings, LogOut, Crown, Clock,
-  AlertCircle, Zap, BarChart2, Camera,
+  Sparkles, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
+  Crown, Clock, AlertCircle, Zap, Camera, CheckCircle2, Menu, X,
+  EyeOff, ChevronDown,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -27,7 +27,6 @@ type Credits = {
   used: number; limit: number; remaining: number;
   canGenerate: boolean; resetAt: string; plan: string;
   slots?: { used: number; limit: number; remaining: number };
-  edits?: { used: number; limit: number; remaining: number; canEdit: boolean };
 };
 
 const GENERATION_STEPS = [
@@ -52,60 +51,55 @@ function DashboardContent() {
   const [resetIn, setResetIn] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/signin");
-  }, [status, router]);
-
+  useEffect(() => { if (status === "unauthenticated") router.push("/auth/signin"); }, [status, router]);
   useEffect(() => {
     if (status === "authenticated") {
       fetchData();
       if (session?.user?.image) setAvatarUrl(session.user.image);
     }
   }, [status]);
-
   useEffect(() => {
-    const urlPrompt = searchParams.get("generate");
-    if (urlPrompt && !isGenerating && credits?.canGenerate) {
-      setPrompt(urlPrompt);
-      handleGenerate(urlPrompt);
-    }
+    const url = searchParams.get("generate");
+    if (url && !isGenerating && credits?.canGenerate) { setPrompt(url); handleGenerate(url); }
   }, [searchParams, credits]);
-
   useEffect(() => {
     if (!credits?.resetAt) return;
-    const interval = setInterval(() => {
-      setResetIn(timeUntilReset(new Date(credits.resetAt)));
-    }, 1000);
-    return () => clearInterval(interval);
+    const t = setInterval(() => setResetIn(timeUntilReset(new Date(credits.resetAt))), 1000);
+    return () => clearInterval(t);
   }, [credits?.resetAt]);
-
   useEffect(() => {
     if (!isGenerating) return;
-    const interval = setInterval(() => {
-      setGenerationStep((s) => (s + 1) % GENERATION_STEPS.length);
-    }, 1800);
-    return () => clearInterval(interval);
+    const t = setInterval(() => setGenerationStep(s => (s + 1) % GENERATION_STEPS.length), 1800);
+    return () => clearInterval(t);
   }, [isGenerating]);
+  // Close card menu on outside click
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handler(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openMenuId]);
 
   async function fetchData() {
     setLoading(true);
     try {
       const [wsRes, crRes] = await Promise.all([fetch("/api/websites"), fetch("/api/credits")]);
-      const wsData = await wsRes.json();
-      const crData = await crRes.json();
-      setWebsites(wsData.websites || []);
-      setCredits(crData);
-    } finally {
-      setLoading(false);
-    }
+      setWebsites((await wsRes.json()).websites || []);
+      setCredits(await crRes.json());
+    } finally { setLoading(false); }
   }
 
   async function handleGenerate(overridePrompt?: string) {
-    const finalPrompt = overridePrompt || prompt;
-    if (!finalPrompt.trim()) { toast.error("Please enter a prompt"); return; }
+    const fp = overridePrompt || prompt;
+    if (!fp.trim()) { toast.error("Please enter a prompt"); return; }
     if (!credits?.canGenerate && credits?.plan === "FREE") {
-      toast.error("You've used your free generations for today. Come back tomorrow or upgrade to Pro!");
+      toast.error("You've used your free generations for today. Upgrade to Pro!");
       return;
     }
     setIsGenerating(true);
@@ -114,23 +108,16 @@ function DashboardContent() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: finalPrompt }),
+        body: JSON.stringify({ prompt: fp }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        if (data.code === "CREDIT_LIMIT") toast.error(data.error);
-        else toast.error(data.error || "Generation failed");
-        return;
-      }
+      if (!res.ok) { toast.error(data.error || "Generation failed"); return; }
       toast.success("Website generated!");
       setPrompt("");
       await fetchData();
       router.push(`/editor/${data.website.id}`);
-    } catch {
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setIsGenerating(false);
-    }
+    } catch { toast.error("Something went wrong. Please try again."); }
+    finally { setIsGenerating(false); }
   }
 
   async function handleDelete(id: string, name: string) {
@@ -146,14 +133,11 @@ function DashboardContent() {
     if (res.ok) { toast.success(`Live at ${data.url}`); fetchData(); }
   }
 
-  async function handleDuplicate(id: string) {
-    const dupRes = await fetch("/api/websites/duplicate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ websiteId: id }),
-    });
-    if (dupRes.ok) { toast.success("Website duplicated"); fetchData(); }
-    else toast.error("Failed to duplicate");
+  async function handleUnpublish(id: string) {
+    const res = await fetch(`/api/websites/${id}/publish`, { method: "DELETE" });
+    if (res.ok) { toast.success("Website unpublished"); fetchData(); }
+    else toast.error("Failed to unpublish");
+    setOpenMenuId(null);
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -167,271 +151,401 @@ function DashboardContent() {
       const data = await res.json();
       if (res.ok) { setAvatarUrl(data.image); toast.success("Profile picture updated!"); }
       else toast.error(data.error || "Upload failed");
-    } finally {
-      setAvatarUploading(false);
-      e.target.value = "";
-    }
+    } finally { setAvatarUploading(false); e.target.value = ""; }
   }
 
   if (status === "loading" || loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#F0F2F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 36, height: 36, border: `3px solid #E7F3FF`, borderTop: `3px solid ${BLUE}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center">
+        <div className="w-9 h-9 border-[3px] border-blue-100 border-t-blue-600 rounded-full animate-spin" />
       </div>
     );
   }
 
   const isPro = credits?.plan === "PRO";
+  const initials = (session?.user?.name || session?.user?.email || "?")[0].toUpperCase();
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0F2F5", fontFamily: FONT }}>
-      {/* Sidebar */}
-      <aside style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 240, background: "#fff", borderRight: "1px solid #E4E6EB", display: "flex", flexDirection: "column", zIndex: 40 }}>
-        {/* Logo */}
-        <div style={{ padding: "20px", borderBottom: "1px solid #E4E6EB" }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div style={{ width: 36, height: 36, background: BLUE, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Sparkles size={16} color="#fff" />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 14, color: "#1C1E21", fontFamily: FONT }}>Storebuilder.ph</span>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-[#F0F2F5]" style={{ fontFamily: FONT }}>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ padding: "9px 12px", borderRadius: 8, background: "#E7F3FF", display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 600, color: BLUE }}>
-            <Globe size={16} />
-            My Websites
+      {/* ── Mobile top bar ── */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-[#E4E6EB] flex items-center px-4 gap-3">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: BLUE }}>
+            <Sparkles size={13} color="#fff" />
           </div>
-          <Link href="/dashboard/settings" style={{ padding: "9px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#65676B", textDecoration: "none", transition: "background 0.15s" }}
-            onMouseOver={(e) => (e.currentTarget.style.background = "#F0F2F5")}
-            onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
-            <Settings size={16} />
-            Settings
-          </Link>
-          {session?.user?.role === "ADMIN" && (
-            <Link href="/admin" style={{ padding: "9px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#B45309", textDecoration: "none" }}
-              onMouseOver={(e) => (e.currentTarget.style.background = "#FEF3C7")}
-              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
-              <BarChart2 size={16} />
-              Admin
-            </Link>
-          )}
-        </nav>
-
-        {/* Bottom */}
-        <div style={{ padding: "12px 8px", borderTop: "1px solid #E4E6EB", display: "flex", flexDirection: "column", gap: 8 }}>
-          {credits && (
-            <div style={{ padding: "10px 12px", borderRadius: 10, background: "#F0F2F5", border: "1px solid #E4E6EB" }}>
-              {isPro ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Crown size={14} color="#B45309" />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#B45309" }}>Pro Plan</span>
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: "#65676B" }}>Daily credits</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#1C1E21" }}>{credits.remaining}/{credits.limit}</span>
-                  </div>
-                  <div style={{ height: 5, background: "#E4E6EB", borderRadius: 99, overflow: "hidden", marginBottom: 6 }}>
-                    <div style={{ height: "100%", background: BLUE, borderRadius: 99, width: `${(credits.remaining / credits.limit) * 100}%`, transition: "width 0.3s" }} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#8A8D91" }}>
-                    <Clock size={11} />
-                    Resets in {resetIn}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {!isPro && (
-            <Link href="/upgrade" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 8, background: "#E7F3FF", border: `1px solid ${BLUE}30`, fontSize: 12, fontWeight: 600, color: BLUE, textDecoration: "none" }}>
-              <Crown size={13} />
-              Upgrade to Pro
-            </Link>
-          )}
-
-          <button onClick={() => signOut({ callbackUrl: "/" })}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, fontSize: 13, color: "#65676B", background: "transparent", border: "none", cursor: "pointer", width: "100%", fontFamily: FONT }}
-            onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F0F2F5"; }}
-            onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
-            <LogOut size={14} />
-            Sign out
-          </button>
+          <span className="font-bold text-sm text-gray-900">Storebuilder.ph</span>
         </div>
+      </div>
+
+      {/* ── Sidebar overlay (mobile) ── */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="lg:hidden fixed inset-0 bg-black/40 z-40"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
+              transition={{ type: "tween", duration: 0.25 }}
+              className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-[#E4E6EB] z-50 flex flex-col"
+            >
+              <SidebarContent
+                session={session}
+                isPro={isPro}
+                credits={credits}
+                resetIn={resetIn}
+                avatarUrl={avatarUrl}
+                avatarUploading={avatarUploading}
+                onAvatarUpload={handleAvatarUpload}
+                onClose={() => setSidebarOpen(false)}
+                showClose
+              />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Sidebar (desktop, always visible) ── */}
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-60 bg-white border-r border-[#E4E6EB] flex-col z-40">
+        <SidebarContent
+          session={session}
+          isPro={isPro}
+          credits={credits}
+          resetIn={resetIn}
+          avatarUrl={avatarUrl}
+          avatarUploading={avatarUploading}
+          onAvatarUpload={handleAvatarUpload}
+        />
       </aside>
 
-      {/* Main */}
-      <main style={{ marginLeft: 240, padding: "32px" }}>
-        {/* Header */}
-        <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* Avatar */}
-            <label style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
-              <div style={{ width: 52, height: 52, borderRadius: "50%", background: BLUE, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: "2px solid #E4E6EB" }}>
-                {avatarUrl
-                  ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>{(session?.user?.name || session?.user?.email || "?")[0].toUpperCase()}</span>
-                }
-              </div>
-              <div style={{ position: "absolute", bottom: -2, right: -2, width: 20, height: 20, background: "#fff", borderRadius: "50%", border: "1px solid #E4E6EB", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {avatarUploading ? <div style={{ width: 10, height: 10, border: `2px solid ${BLUE}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> : <Camera size={10} color="#65676B" />}
-              </div>
-              <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleAvatarUpload} style={{ display: "none" }} disabled={avatarUploading} />
-            </label>
-            <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1C1E21", margin: 0, fontFamily: FONT }}>
-                Good {getGreeting()}, {session?.user?.name?.split(" ")[0]} 👋
-              </h1>
-              <p style={{ fontSize: 13, color: "#65676B", marginTop: 2 }}>
-                {websites.length === 0 ? "Create your first website below" : `You have ${websites.length} website${websites.length !== 1 ? "s" : ""}`}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* ── Main content ── */}
+      <main className="lg:ml-60 pt-14 lg:pt-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
-        {/* Plan Benefits card */}
-        {credits && (
-          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E4E6EB", padding: "16px 20px", marginBottom: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Plan</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: isPro ? "#B45309" : "#1C1E21" }}>{isPro ? "Pro" : "Free"}</p>
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-lg sm:text-xl font-bold text-[#1C1E21]">
+              Good {getGreeting()}, {session?.user?.name?.split(" ")[0] || "there"}
+            </h1>
+            <p className="text-sm text-[#65676B] mt-1">
+              {websites.length === 0 ? "Create your first website below" : `${websites.length} website${websites.length !== 1 ? "s" : ""} in your account`}
+            </p>
+          </div>
+
+          {/* Plan card */}
+          {credits && !isPro && (
+            <div className="bg-white rounded-2xl border border-[#E4E6EB] p-4 sm:p-5 mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Crown size={18} color="#8A8D91" />
+                <div>
+                  <p className="text-sm font-semibold text-[#1C1E21]">Free Plan</p>
+                  <p className="text-xs text-[#65676B]">{credits.remaining} generation{credits.remaining !== 1 ? "s" : ""} remaining · Resets in {resetIn}</p>
+                </div>
+              </div>
+              <Link href="/upgrade" className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 whitespace-nowrap" style={{ background: BLUE }}>
+                <Crown size={13} />
+                Upgrade to Pro
+              </Link>
             </div>
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Website Slots</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21" }}>
-                {credits.slots?.used ?? websites.length} / {credits.slots?.limit ?? (isPro ? 10 : 5)}
-                <span style={{ fontSize: 11, fontWeight: 400, color: "#8A8D91", marginLeft: 4 }}>used</span>
-              </p>
-            </div>
-            {isPro && (
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 600, color: "#8A8D91", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Monthly Generations</p>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21" }}>
-                  {credits.remaining} / {credits.limit}
-                  <span style={{ fontSize: 11, fontWeight: 400, color: "#8A8D91", marginLeft: 4 }}>left</span>
-                </p>
+          )}
+
+          {/* Generation box */}
+          <div className="bg-white rounded-2xl border border-[#E4E6EB] p-4 sm:p-6 mb-6">
+            <h2 className="text-sm font-bold text-[#1C1E21] mb-4 flex items-center gap-2">
+              <Sparkles size={15} style={{ color: BLUE }} />
+              Generate a new website
+            </h2>
+            {isGenerating ? (
+              <div className="py-8 text-center">
+                <div className="w-10 h-10 border-[3px] border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-sm font-semibold" style={{ color: BLUE }}>{GENERATION_STEPS[generationStep]}</p>
+                <p className="text-xs text-[#8A8D91] mt-1">This takes about 10–20 seconds</p>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                  placeholder='e.g. "Barbershop called Kings Cut in Makati"'
+                  disabled={!credits?.canGenerate && !isPro}
+                  className="flex-1 bg-[#F0F2F5] border border-[#E4E6EB] rounded-xl px-4 py-3 text-sm text-[#1C1E21] outline-none transition-all focus:border-blue-400 focus:bg-white disabled:opacity-50"
+                  style={{ fontFamily: FONT }}
+                />
+                <button
+                  onClick={() => handleGenerate()}
+                  disabled={!credits?.canGenerate && !isPro}
+                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
+                  style={{ background: BLUE, fontFamily: FONT }}
+                >
+                  <Sparkles size={15} />
+                  Generate
+                </button>
+              </div>
+            )}
+            {!isGenerating && credits && !isPro && credits.remaining === 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-amber-700">
+                <AlertCircle size={12} />
+                No credits left today. Resets in {resetIn} ·{" "}
+                <Link href="/upgrade" className="underline" style={{ color: BLUE }}>Upgrade to Pro</Link>
               </div>
             )}
           </div>
-        )}
 
-        {/* Generation box */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E4E6EB", padding: "22px 24px", marginBottom: 24 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            <Sparkles size={16} color={BLUE} />
-            Generate a new website
-          </h2>
-
-          {isGenerating ? (
-            <div style={{ padding: "32px 0", textAlign: "center" }}>
-              <div style={{ width: 40, height: 40, border: `3px solid #E7F3FF`, borderTop: `3px solid ${BLUE}`, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-              <p style={{ fontSize: 13, color: BLUE, fontWeight: 600 }}>{GENERATION_STEPS[generationStep]}</p>
-              <p style={{ fontSize: 12, color: "#8A8D91", marginTop: 6 }}>This takes about 10–20 seconds</p>
+          {/* Websites grid */}
+          {websites.length === 0 ? (
+            <div className="text-center py-20 text-[#BCC0C4]">
+              <Globe size={44} className="mx-auto mb-4 opacity-40" />
+              <p className="text-base font-semibold text-[#8A8D91] mb-1">No websites yet</p>
+              <p className="text-sm">Type a prompt above and click Generate</p>
             </div>
           ) : (
-            <div style={{ display: "flex", gap: 10 }}>
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                placeholder='e.g. "Barbershop called Kings Cut with a masculine dark design"'
-                disabled={!credits?.canGenerate && !isPro}
-                style={{ flex: 1, background: "#F0F2F5", border: "1px solid #E4E6EB", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#1C1E21", outline: "none", fontFamily: FONT }}
-                onFocus={(e) => { e.target.style.border = `1px solid ${BLUE}`; e.target.style.background = "#fff"; }}
-                onBlur={(e) => { e.target.style.border = "1px solid #E4E6EB"; e.target.style.background = "#F0F2F5"; }}
-              />
-              <button
-                onClick={() => handleGenerate()}
-                disabled={!credits?.canGenerate && !isPro}
-                style={{ padding: "10px 20px", background: BLUE, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: FONT, opacity: (!credits?.canGenerate && !isPro) ? 0.4 : 1, whiteSpace: "nowrap" }}>
-                <Sparkles size={15} />
-                Generate
-              </button>
-            </div>
-          )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {websites.map((site) => (
+                <motion.div
+                  key={site.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white border border-[#E4E6EB] rounded-2xl overflow-hidden"
+                >
+                  {/* Thumbnail */}
+                  <div className="h-32 sm:h-36 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative">
+                    <Globe size={28} className="text-blue-200" />
+                    {site.published && (
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Live
+                      </div>
+                    )}
+                  </div>
 
-          {!isGenerating && credits && !isPro && credits.remaining === 0 && (
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#B45309" }}>
-              <AlertCircle size={13} />
-              No credits left today. Resets in {resetIn} ·{" "}
-              <Link href="/upgrade" style={{ color: BLUE, textDecoration: "underline" }}>Upgrade to Pro</Link>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="text-sm font-bold text-[#1C1E21] leading-snug truncate">{site.name}</h3>
+                      <span className="text-[10px] text-[#8A8D91] shrink-0 mt-0.5">{site.type}</span>
+                    </div>
+                    <p className="text-xs text-[#8A8D91] mb-4">
+                      Edited {new Date(site.updatedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
+                    </p>
+
+                    <div className="flex gap-2">
+                      {/* Edit */}
+                      <Link
+                        href={`/editor/${site.id}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                        style={{ background: BLUE }}
+                      >
+                        <Edit3 size={12} />
+                        Edit
+                      </Link>
+
+                      {/* Publish / Live split button */}
+                      {!site.published ? (
+                        <button
+                          onClick={() => handlePublish(site.id)}
+                          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#E4E6EB] bg-white text-xs font-medium text-[#1C1E21] transition-colors hover:bg-gray-50"
+                          style={{ fontFamily: FONT }}
+                        >
+                          <Zap size={12} />
+                          Publish
+                        </button>
+                      ) : (
+                        <div className="relative flex items-center" ref={openMenuId === site.id ? menuRef : undefined}>
+                          <a
+                            href={`https://${site.subdomain}.storebuilder.ph`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2.5 py-2.5 rounded-l-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 transition-colors"
+                          >
+                            <ExternalLink size={11} />
+                            Live
+                          </a>
+                          <button
+                            onClick={() => setOpenMenuId(openMenuId === site.id ? null : site.id)}
+                            className="flex items-center px-1.5 py-2.5 rounded-r-xl border border-l-0 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                          >
+                            <ChevronDown size={11} />
+                          </button>
+                          {openMenuId === site.id && (
+                            <div className="absolute top-full right-0 mt-1 w-40 bg-white rounded-xl border border-[#E4E6EB] shadow-lg z-20 overflow-hidden">
+                              <a
+                                href={`https://${site.subdomain}.storebuilder.ph`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-3 py-2.5 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                onClick={() => setOpenMenuId(null)}
+                              >
+                                <ExternalLink size={12} className="text-gray-400" />
+                                View live site
+                              </a>
+                              <div className="h-px bg-gray-100" />
+                              <button
+                                onClick={() => handleUnpublish(site.id)}
+                                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <EyeOff size={12} />
+                                Unpublish
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Delete */}
+                      <button
+                        onClick={() => handleDelete(site.id, site.name)}
+                        className="p-2.5 rounded-xl border border-[#E4E6EB] bg-white text-[#8A8D91] hover:text-red-500 hover:border-red-200 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           )}
         </div>
+      </main>
+    </div>
+  );
+}
 
-        {/* Websites grid */}
-        {websites.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 0", color: "#BCC0C4" }}>
-            <Globe size={48} style={{ margin: "0 auto 16px", opacity: 0.4 }} />
-            <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, color: "#8A8D91" }}>No websites yet</p>
-            <p style={{ fontSize: 13 }}>Type a prompt above and click Generate to create your first website</p>
+function SidebarContent({
+  session, isPro, credits, resetIn, avatarUrl, avatarUploading, onAvatarUpload, onClose, showClose,
+}: {
+  session: any; isPro: boolean; credits: Credits | null; resetIn: string;
+  avatarUrl: string | null; avatarUploading: boolean;
+  onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClose?: () => void; showClose?: boolean;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="px-5 py-4 border-b border-[#E4E6EB] flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5 no-underline" onClick={onClose}>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#1877F2" }}>
+            <Sparkles size={14} color="#fff" />
           </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-            {websites.map((site) => (
-              <motion.div
-                key={site.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{ background: "#fff", border: "1px solid #E4E6EB", borderRadius: 14, overflow: "hidden" }}>
-                {/* Thumbnail */}
-                <div style={{ height: 140, background: "linear-gradient(135deg, #E7F3FF 0%, #EEF2FF 100%)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                  <Globe size={32} color="#BFDBFE" />
-                  {site.published && (
-                    <div style={{ position: "absolute", top: 10, right: 10, display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 99, background: "#D1FAE5", border: "1px solid #A7F3D0", color: "#065F46", fontSize: 11, fontWeight: 600 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
-                      Live
-                    </div>
-                  )}
-                </div>
+          <span className="font-bold text-sm text-[#1C1E21]" style={{ fontFamily: FONT }}>Storebuilder.ph</span>
+        </Link>
+        {showClose && (
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+            <X size={16} />
+          </button>
+        )}
+      </div>
 
-                <div style={{ padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1C1E21", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{site.name}</h3>
-                    <span style={{ fontSize: 11, color: "#8A8D91", marginLeft: 8, flexShrink: 0 }}>{site.type}</span>
-                  </div>
-                  <p style={{ fontSize: 11, color: "#8A8D91", marginBottom: 12 }}>
-                    Edited {new Date(site.updatedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
-                  </p>
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <Link href={`/editor/${site.id}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderRadius: 8, background: BLUE, color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                      <Edit3 size={12} />
-                      Edit
-                    </Link>
-                    {!site.published ? (
-                      <button onClick={() => handlePublish(site.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #E4E6EB", background: "#fff", color: "#1C1E21", fontSize: 12, cursor: "pointer", fontFamily: FONT }}>
-                        <Zap size={12} />
-                        Publish
-                      </button>
-                    ) : (
-                      <a href={`https://${site.subdomain}.storebuilder.ph`} target="_blank" rel="noopener noreferrer"
-                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #E4E6EB", background: "#fff", color: "#1C1E21", fontSize: 12, textDecoration: "none" }}>
-                        <ExternalLink size={12} />
-                        View
-                      </a>
-                    )}
-                    <button onClick={() => handleDelete(site.id, site.name)}
-                      style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #E4E6EB", background: "#fff", color: "#8A8D91", cursor: "pointer" }}
-                      onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#DC2626"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#FCA5A5"; }}
-                      onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8A8D91"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#E4E6EB"; }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+      {/* Avatar */}
+      <div className="px-5 py-4 border-b border-[#E4E6EB]">
+        <label className="relative cursor-pointer block w-fit">
+          <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-[#E4E6EB]" style={{ background: "#1877F2" }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                  {(session?.user?.name || session?.user?.email || "?")[0].toUpperCase()}
                 </div>
-              </motion.div>
-            ))}
+            }
+          </div>
+          <div className="absolute bottom-0 right-0 w-5 h-5 bg-white rounded-full border border-[#E4E6EB] flex items-center justify-center">
+            {avatarUploading
+              ? <div className="w-2.5 h-2.5 border border-blue-600 border-t-transparent rounded-full animate-spin" />
+              : <Camera size={9} color="#65676B" />
+            }
+          </div>
+          <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={onAvatarUpload} className="hidden" disabled={avatarUploading} />
+        </label>
+        <p className="text-sm font-semibold text-[#1C1E21] mt-2 truncate">{session?.user?.name || "User"}</p>
+        <p className="text-xs text-[#8A8D91] truncate">{session?.user?.email}</p>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-3 flex flex-col gap-0.5">
+        <Link
+          href="/dashboard"
+          onClick={onClose}
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold no-underline transition-colors"
+          style={{ background: "#E7F3FF", color: "#1877F2" }}
+        >
+          <Globe size={15} />
+          My Websites
+        </Link>
+        <Link
+          href="/dashboard/settings"
+          onClick={onClose}
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-[#65676B] no-underline transition-colors hover:bg-gray-50"
+        >
+          <Settings size={15} />
+          Settings
+        </Link>
+        {session?.user?.role === "ADMIN" && (
+          <Link
+            href="/admin"
+            onClick={onClose}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-amber-700 no-underline hover:bg-amber-50 transition-colors"
+          >
+            <CheckCircle2 size={15} />
+            Admin
+          </Link>
+        )}
+      </nav>
+
+      {/* Bottom */}
+      <div className="px-3 pb-4 border-t border-[#E4E6EB] pt-3 flex flex-col gap-2">
+        {credits && (
+          <div className="px-3 py-2.5 rounded-xl bg-[#F0F2F5] border border-[#E4E6EB]">
+            {isPro ? (
+              <div className="flex items-center gap-2">
+                <Crown size={13} color="#B45309" />
+                <span className="text-xs font-bold text-amber-700">Pro Plan</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-[11px] text-[#65676B]">Generations</span>
+                  <span className="text-[11px] font-bold text-[#1C1E21]">{credits.remaining}/{credits.limit}</span>
+                </div>
+                <div className="h-1 bg-[#E4E6EB] rounded-full overflow-hidden mb-1.5">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, (credits.remaining / credits.limit) * 100)}%`, background: "#1877F2" }} />
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-[#8A8D91]">
+                  <Clock size={9} />
+                  Resets in {resetIn}
+                </div>
+              </>
+            )}
           </div>
         )}
-      </main>
-
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        {!isPro && (
+          <Link
+            href="/upgrade"
+            onClick={onClose}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold no-underline transition-colors"
+            style={{ background: "#E7F3FF", border: "1px solid rgba(24,119,242,0.2)", color: "#1877F2" }}
+          >
+            <Crown size={13} />
+            Upgrade to Pro
+          </Link>
+        )}
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-[#65676B] bg-transparent border-none cursor-pointer w-full text-left hover:bg-gray-50 transition-colors"
+          style={{ fontFamily: FONT }}
+        >
+          <LogOut size={14} />
+          Sign out
+        </button>
+      </div>
     </div>
   );
 }
@@ -446,9 +560,8 @@ function getGreeting() {
 export default function DashboardPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: "100vh", background: "#F0F2F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 36, height: 36, border: "3px solid #E7F3FF", borderTop: `3px solid #1877F2`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center">
+        <div className="w-9 h-9 border-[3px] border-blue-100 border-t-blue-600 rounded-full animate-spin" />
       </div>
     }>
       <DashboardContent />

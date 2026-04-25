@@ -27,10 +27,10 @@ export default function ContactPage() {
     <div className="min-h-screen bg-white" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image src="/logo.svg" alt="Storebuilder.ph" width={30} height={30} />
-            <span className="font-bold text-gray-900">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
+            <span className="font-bold text-gray-900 truncate">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
             <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
@@ -39,22 +39,23 @@ export default function ContactPage() {
             <Link href="/contact" className="transition-colors" style={{ color: BLUE }}>Contact</Link>
             <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
           </div>
-          <Link href="/auth/register" className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: BLUE }}>
-            Get started free
+          <Link href="/auth/register" className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white whitespace-nowrap shrink-0" style={{ backgroundColor: BLUE }}>
+            <span className="sm:hidden">Sign up</span>
+            <span className="hidden sm:inline">Get started free</span>
           </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="py-14 px-4 text-center" style={{ background: "linear-gradient(180deg, #EBF3FF 0%, #fff 100%)" }}>
+      <section className="py-12 sm:py-14 lg:py-16 px-4 sm:px-6 text-center" style={{ background: "linear-gradient(180deg, #EBF3FF 0%, #fff 100%)" }}>
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Get in Touch</h1>
-          <p className="text-gray-500 text-lg">Have a question? We are here to help.</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">Get in Touch</h1>
+          <p className="text-gray-500 text-base sm:text-lg">Have a question? We are here to help.</p>
         </div>
       </section>
 
-      <section className="py-14 px-4">
-        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-10">
+      <section className="py-10 sm:py-14 lg:py-16 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 sm:gap-10">
           {/* Info */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
@@ -96,7 +97,7 @@ export default function ContactPage() {
           </div>
 
           {/* Form */}
-          <div className="bg-white rounded-xl border border-gray-200 p-7 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-7 shadow-sm">
             {sent ? (
               <div className="text-center py-10">
                 <CheckCircle size={48} className="mx-auto mb-4" style={{ color: BLUE }} />
@@ -185,8 +186,8 @@ export default function ContactPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8 px-4 text-center text-sm mt-8">
-        <div className="flex flex-wrap justify-center gap-6 mb-4">
+      <footer className="bg-gray-900 text-gray-400 py-8 px-4 sm:px-6 text-center text-sm mt-8">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-4">
           <Link href="/" className="hover:text-white transition-colors">Home</Link>
           <Link href="/about" className="hover:text-white transition-colors">About</Link>
           <Link href="/upgrade" className="hover:text-white transition-colors">Pricing</Link>

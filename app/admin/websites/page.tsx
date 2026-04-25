@@ -87,10 +87,10 @@ export default function AdminWebsitesPage() {
   const draftCount = websites.filter((w) => !w.published).length;
 
   return (
-    <div className="p-8" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
+    <div className="p-4 sm:p-6 lg:p-8" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Websites</h1>
+      <div className="mb-5 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Websites</h1>
         <p className="text-gray-500 text-sm mt-1">
           {total.toLocaleString()} AI-generated websites ·{" "}
           <span className="text-green-600 font-medium">

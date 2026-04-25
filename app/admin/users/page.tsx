@@ -93,11 +93,11 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="p-8" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
+    <div className="p-4 sm:p-6 lg:p-8" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5 sm:mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-500 text-sm mt-1">
             {total.toLocaleString()} registered users
           </p>

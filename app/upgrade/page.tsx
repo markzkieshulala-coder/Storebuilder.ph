@@ -49,10 +49,10 @@ export default function UpgradePage() {
     <div className="min-h-screen bg-white" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image src="/logo.svg" alt="Storebuilder.ph" width={30} height={30} />
-            <span className="font-bold text-gray-900">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
+            <span className="font-bold text-gray-900 truncate">Storebuilder<span style={{ color: BLUE }}>.ph</span></span>
           </Link>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-600">
             <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
@@ -61,16 +61,16 @@ export default function UpgradePage() {
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
           </div>
-          <Link href="/dashboard" className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: BLUE }}>
+          <Link href="/dashboard" className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white whitespace-nowrap shrink-0" style={{ backgroundColor: BLUE }}>
             Dashboard
           </Link>
         </div>
       </nav>
 
-      <div className="py-16 px-4">
-        <div className="text-center mb-12 max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Plans and Pricing</h1>
-          <p className="text-gray-500 text-lg">
+      <div className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
+        <div className="text-center mb-10 sm:mb-12 max-w-2xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">Plans and Pricing</h1>
+          <p className="text-gray-500 text-base sm:text-lg">
             Start free. Upgrade when you need more features.
           </p>
         </div>
@@ -105,11 +105,11 @@ export default function UpgradePage() {
               </button>
             </div>
 
-            <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-6">
+            <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-4 sm:gap-6">
               {/* Free */}
-              <div className="p-8 rounded-2xl border border-gray-200 bg-white">
+              <div className="p-6 sm:p-8 rounded-2xl border border-gray-200 bg-white">
                 <h2 className="text-xl font-bold text-gray-900 mb-1">Free</h2>
-                <div className="text-5xl font-bold text-gray-900 mb-1">₱0</div>
+                <div className="text-4xl sm:text-5xl font-bold text-gray-900 mb-1">₱0</div>
                 <p className="text-gray-400 text-sm mb-6">No credit card · Free forever</p>
                 <ul className="space-y-3 mb-8">
                   {[
@@ -136,16 +136,16 @@ export default function UpgradePage() {
               </div>
 
               {/* Pro */}
-              <div className="p-8 rounded-2xl border-2 bg-white relative overflow-hidden" style={{ borderColor: BLUE }}>
-                <div className="absolute top-5 right-5 px-3 py-1 rounded-full text-white text-xs font-bold" style={{ background: BLUE }}>
+              <div className="p-6 sm:p-8 rounded-2xl border-2 bg-white relative overflow-hidden" style={{ borderColor: BLUE }}>
+                <div className="absolute top-4 right-4 sm:top-5 sm:right-5 px-2.5 py-1 rounded-full text-white text-[10px] sm:text-xs font-bold" style={{ background: BLUE }}>
                   POPULAR
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-1">Pro</h2>
-                <div className="flex items-end gap-2 mb-1">
-                  <span className="text-5xl font-bold text-gray-900">
+                <div className="flex items-end gap-2 mb-1 flex-wrap">
+                  <span className="text-4xl sm:text-5xl font-bold text-gray-900">
                     {billingCycle === "monthly" ? "₱499" : "₱358"}
                   </span>
-                  <span className="text-gray-400 text-sm mb-2">/month</span>
+                  <span className="text-gray-400 text-sm mb-1 sm:mb-2">/month</span>
                 </div>
                 {billingCycle === "yearly" ? (
                   <p className="text-sm text-green-600 font-medium mb-6">Billed ₱4,299/year · Save ₱1,689</p>
@@ -218,8 +218,8 @@ export default function UpgradePage() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8 px-4 text-center text-sm mt-8">
-        <div className="flex flex-wrap justify-center gap-6 mb-4">
+      <footer className="bg-gray-900 text-gray-400 py-8 px-4 sm:px-6 text-center text-sm mt-8">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-4">
           <Link href="/" className="hover:text-white transition-colors">Home</Link>
           <Link href="/about" className="hover:text-white transition-colors">About</Link>
           <Link href="/upgrade" className="hover:text-white transition-colors">Pricing</Link>
