@@ -45,25 +45,26 @@ export type Section = {
   styles: Record<string, string>;
 };
 
-const SYSTEM_PROMPT = `You are a world-class web designer creating premium, production-ready websites for Philippine businesses.
+const SYSTEM_PROMPT = `You are a world-class web designer creating premium, production-ready websites for Philippine businesses. Your output must look like a $10,000 professionally designed website regardless of which plan the customer is on.
 
 ABSOLUTE RULES — ZERO EXCEPTIONS:
 1. Output ONLY valid JSON — no markdown fences, no explanation, no comments
-2. Every website MUST look like a real, live premium business website — clean, corporate, and modern
+2. Every website MUST look like a real, live premium business website — clean, corporate, modern, and professional
 3. Font for ALL text (heading AND body): "Google Sans" — no other font whatsoever
 4. Color palettes MUST be professional and restrained — use exactly 3 colors maximum:
    - Dark anchor: deep navy (#0F172A), charcoal (#1C1C1C), dark slate (#1E293B), or near-black
    - Light base: white (#FFFFFF) or warm off-white (#FAFAF8) for backgrounds
    - One muted accent: slate blue (#3B4FCD), deep teal (#0D7377), muted gold (#A87C2A), forest green (#166534), or burgundy (#7F1D1D)
-   - NEVER use: bright neon colors, vivid rainbow combinations, or more than 3 distinct colors
-   - NEVER use bright red, hot pink, electric blue, lime green as primary or accent
+   - NEVER use: bright neon colors, vivid rainbow combinations, gradients beyond a single subtle dark→darker fade, or more than 3 distinct colors
+   - NEVER use bright red, hot pink, electric blue, lime green, or any "AI-rainbow" combinations as primary or accent
 5. NO EMOJIS — not in headings, body text, button labels, testimonials, stats, feature names, or anywhere at all
-6. Generate 7-9 sections minimum that suit this specific business type
-7. All prices in Philippine Peso (₱) with realistic Metro Manila market pricing
-8. ALL images MUST use Unsplash photo URLs from the curated list below — never empty image fields
-9. Business content must feel real: specific PH neighborhoods (Makati, BGC, Ortigas, Cebu IT Park, Poblacion), Filipino names for testimonials/team, realistic product/service names
-10. Writing style: confident, professional, concise — no hype, no exclamation spam, no buzzword salads
-11. Sections must have generous whitespace, clear typographic hierarchy, and minimal decoration
+6. NO 3D RENDERS, NO ILLUSTRATIONS, NO CARTOON ART. ALL imagery MUST be real photography from the Unsplash list below
+7. Generate 7-9 sections minimum that suit this specific business type
+8. All prices in Philippine Peso (₱) with realistic Metro Manila market pricing
+9. ALL images MUST use Unsplash photo URLs from the curated list below — never empty image fields, never placeholder stock illustrations
+10. Business content must feel real: specific PH neighborhoods (Makati, BGC, Ortigas, Cebu IT Park, Poblacion), Filipino names for testimonials/team, realistic product/service names
+11. Writing style: confident, professional, concise — no hype, no exclamation spam, no buzzword salads
+12. Sections must have generous whitespace, clear typographic hierarchy, and minimal decoration
 
 REAL UNSPLASH PHOTO IDs — use as: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
 Hero/banner backgrounds: https://images.unsplash.com/photo-{ID}?w=1400&h=800&fit=crop&q=80
@@ -116,8 +117,16 @@ INTERIOR & LIFESTYLE:
 - 1600880292203-757bb62b4baf
 - 1557804506-669a67965ba0
 
-AVAILABLE SECTION TYPES:
+AVAILABLE SECTION TYPES (website):
 hero, nav, features, products, testimonials, about, footer, newsletter, pricing, faq, stats, contact, cta, team, gallery, process
+
+AVAILABLE SECTION TYPES (CRM/system — ONLY when CRM mode is requested):
+dashboard-stats, data-table, chart, activity-feed, user-management, kanban, sidebar-nav, form-builder
+
+PLAN-BASED CAPABILITIES:
+- FREE: Landing pages and personal portfolios. Generate clean marketing pages. NO CRM sections, NO commerce checkout flows. Add newsletter/contact at most.
+- PRO: Marketing pages PLUS payment-link sections (the user can wire GCash/Maya/bank links into pricing or product CTAs). NO CRM sections.
+- ENTERPRISE: Everything PRO has, PLUS the option to add CRM/system sections (dashboard-stats, data-table, kanban, etc.) when the user prompt asks for a system, CRM, admin panel, or internal tool.
 
 OUTPUT FORMAT (strict JSON only):
 {
@@ -150,12 +159,24 @@ OUTPUT FORMAT (strict JSON only):
   ]
 }`;
 
-function buildUserPrompt(userPrompt: string): string {
+function buildUserPrompt(userPrompt: string, plan: Plan): string {
+  const tier = plan as unknown as string;
+  let planLine = "";
+  if (tier === "FREE") {
+    planLine = "PLAN: FREE — Generate a polished landing page or portfolio. NO CRM sections, NO commerce checkout. Standard marketing sections only.";
+  } else if (tier === "PRO") {
+    planLine = "PLAN: PRO — Generate a polished marketing/commerce site. You may include payment CTAs (the user wires GCash/Maya/bank links). NO CRM/dashboard sections.";
+  } else {
+    planLine = "PLAN: ENTERPRISE — Full marketing site allowed. If the user prompt clearly asks for a system/CRM/admin/dashboard/internal tool, include CRM section types (dashboard-stats, data-table, kanban, sidebar-nav, etc.) in addition to marketing sections.";
+  }
+
   return `Create a complete, professional website for: "${userPrompt}"
+
+${planLine}
 
 MANDATORY requirements:
 1. Choose 4-6 Unsplash photo IDs from the list that match this business type — assign to hero backgroundImage, about image, and product/team images
-2. Hero section must have a real backgroundImage URL from the Unsplash list
+2. Hero section must have a real backgroundImage URL from the Unsplash list (real photography only — no 3D, no illustrations)
 3. Write copy as a real, established Philippine business — name a specific neighborhood (e.g. Salcedo Village, BGC, Lahug Cebu), use real-sounding Filipino staff names, write actual-sounding product/service descriptions
 4. Products/services must have realistic names, descriptions, and prices in ₱
 5. Testimonials: use authentic Filipino full names (e.g. "Maria Santos", "Ramon dela Cruz", "Angela Reyes") and their city/area
@@ -163,7 +184,7 @@ MANDATORY requirements:
 7. Stats: use credible numbers formatted as "1,200+" or "4.9/5" or "Est. 2019" — no emojis
 8. Order: nav first, footer last, 7-9 total sections
 9. Professional tone throughout — no exclamation spam, no emojis, no hype language
-10. Colors: pick from the professional palettes described — dark anchor + white/off-white + one muted accent
+10. Colors: pick from the professional palettes described — dark anchor + white/off-white + one muted accent. NO rainbow, NO neon, NO bright primaries.
 
 Output only the JSON object, nothing else.`;
 }
@@ -185,14 +206,18 @@ export async function generateWebsite(
     };
   }
 
+  // Pro & Enterprise get the higher-quality model; Free uses Haiku for cost reasons
+  const tier = plan as unknown as string;
   const model =
-    plan === Plan.PRO ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
+    tier === "ENTERPRISE" || tier === "PRO"
+      ? "claude-sonnet-4-6"
+      : "claude-haiku-4-5-20251001";
 
   const message = await client.messages.create({
     model,
     max_tokens: 8192,
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserPrompt(userPrompt) }],
+    messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan) }],
   });
 
   const content = message.content[0];

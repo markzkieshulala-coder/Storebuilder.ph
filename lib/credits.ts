@@ -1,23 +1,25 @@
 import { prisma } from "./prisma";
 import { Plan } from "@prisma/client";
+import { getPlan } from "./plans";
 
-// Website slot limits
+// Legacy exports kept for back-compat in code that hasn't been migrated yet
 export const FREE_SLOT_LIMIT = 5;
 export const PRO_SLOT_LIMIT = 10;
-
-// Monthly generation credits (PRO only — 10 per 30-day rolling window)
+export const ENTERPRISE_SLOT_LIMIT = 20;
 export const PRO_MONTHLY_GEN_LIMIT = 10;
-
-// Daily edit limits — removed: all plans now support unlimited editing
 export const FREE_DAILY_EDIT_LIMIT = 999999;
 export const PRO_DAILY_EDIT_LIMIT = 999999;
 
+export function planSlotLimit(plan: Plan | string): number {
+  return getPlan(plan as any).maxWebsitesPerMonth;
+}
+
 export function getPhilippineDate(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }); // YYYY-MM-DD
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
 export function getPhilippineMonth(): string {
-  return getPhilippineDate().slice(0, 7); // YYYY-MM
+  return getPhilippineDate().slice(0, 7);
 }
 
 export function getNextResetTime(): Date {
@@ -28,65 +30,60 @@ export function getNextResetTime(): Date {
   return new Date(tomorrow.getTime() - phOffset * 60 * 1000);
 }
 
-// ── Generation credits (PRO: 10 per 30-day rolling window) ──────────────────
+// ── Generation credits (per-month website creation, by plan) ────────────────
 
 export async function getUserCredits(userId: string, plan: Plan) {
-  const today = getPhilippineDate();
-
-  // PRO: 10 generation credits per calendar month
-  if (plan === Plan.PRO) {
-    const month = getPhilippineMonth();
-    const usage = await prisma.creditUsage.findUnique({
-      where: { userId_date: { userId, date: month } },
-    });
-    const used = usage?.count ?? 0;
-    const remaining = Math.max(0, PRO_MONTHLY_GEN_LIMIT - used);
-    return { used, limit: PRO_MONTHLY_GEN_LIMIT, remaining, canGenerate: used < PRO_MONTHLY_GEN_LIMIT, resetAt: getNextResetTime() };
-  }
-
-  // FREE: no monthly generation credits — slot count is the only limit
-  // (we just return a dummy so the UI has something to display)
-  return { used: 0, limit: FREE_SLOT_LIMIT, remaining: FREE_SLOT_LIMIT, canGenerate: true, resetAt: getNextResetTime() };
+  const limit = planSlotLimit(plan);
+  const month = getPhilippineMonth();
+  const usage = await prisma.creditUsage.findUnique({
+    where: { userId_date: { userId, date: month } },
+  });
+  const used = usage?.count ?? 0;
+  const remaining = Math.max(0, limit - used);
+  return {
+    used,
+    limit,
+    remaining,
+    canGenerate: used < limit,
+    resetAt: getNextResetTime(),
+  };
 }
 
 export async function checkAndConsumeCredit(
   userId: string,
   plan: Plan,
-  currentWebsiteCount: number
+  _currentWebsiteCount: number
 ): Promise<{ success: boolean; message?: string }> {
-  const slotLimit = plan === Plan.PRO ? PRO_SLOT_LIMIT : FREE_SLOT_LIMIT;
+  const limit = planSlotLimit(plan);
+  const month = getPhilippineMonth();
+  const usage = await prisma.creditUsage.findUnique({
+    where: { userId_date: { userId, date: month } },
+  });
+  const used = usage?.count ?? 0;
 
-  if (currentWebsiteCount >= slotLimit) {
+  if (used >= limit) {
+    const planLabel = plan === "ENTERPRISE" ? "Enterprise" : plan === "PRO" ? "Pro" : "Free";
+    const upgradeHint = plan === "FREE"
+      ? "Upgrade to Pro for 10/month or Enterprise for 20/month."
+      : plan === "PRO"
+        ? "Upgrade to Enterprise for 20 websites per month."
+        : "Resets next month.";
     return {
       success: false,
-      message: plan === Plan.PRO
-        ? `You've reached your ${PRO_SLOT_LIMIT} website slot limit. Delete a website to generate a new one.`
-        : `Free plan allows up to ${FREE_SLOT_LIMIT} websites. Delete one or upgrade to Pro.`,
+      message: `You've used all ${limit} ${planLabel} websites this month. ${upgradeHint}`,
     };
   }
 
-  if (plan === Plan.PRO) {
-    const month = getPhilippineMonth();
-    const usage = await prisma.creditUsage.findUnique({
-      where: { userId_date: { userId, date: month } },
-    });
-    if ((usage?.count ?? 0) >= PRO_MONTHLY_GEN_LIMIT) {
-      return {
-        success: false,
-        message: `You've used all ${PRO_MONTHLY_GEN_LIMIT} monthly generation credits. Resets next month.`,
-      };
-    }
-    await prisma.creditUsage.upsert({
-      where: { userId_date: { userId, date: month } },
-      update: { count: { increment: 1 } },
-      create: { userId, date: month, count: 1 },
-    });
-  }
+  await prisma.creditUsage.upsert({
+    where: { userId_date: { userId, date: month } },
+    update: { count: { increment: 1 } },
+    create: { userId, date: month, count: 1 },
+  });
 
   return { success: true };
 }
 
-// ── Edit credits (per 24-hour period, PH timezone) ──────────────────────────
+// ── Edit credits ────────────────────────────────────────────────────────────
 
 async function ensureEditTable(): Promise<boolean> {
   try {
@@ -108,8 +105,8 @@ async function ensureEditTable(): Promise<boolean> {
   }
 }
 
-export async function getEditCredits(userId: string, plan: Plan) {
-  const limit = plan === Plan.PRO ? PRO_DAILY_EDIT_LIMIT : FREE_DAILY_EDIT_LIMIT;
+export async function getEditCredits(userId: string, _plan: Plan) {
+  const limit = 999999;
   const today = getPhilippineDate();
   await ensureEditTable();
   try {
@@ -132,7 +129,5 @@ export async function consumeEditCredit(userId: string): Promise<void> {
       VALUES (gen_random_uuid()::text, ${userId}, ${today}, 1, NOW(), NOW())
       ON CONFLICT ("userId", "date") DO UPDATE SET "count" = "EditUsage"."count" + 1, "updatedAt" = NOW()
     `;
-  } catch {
-    // Silently fail — don't block the user if tracking fails
-  }
+  } catch {}
 }

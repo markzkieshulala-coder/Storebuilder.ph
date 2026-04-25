@@ -52,16 +52,16 @@ export async function PATCH(
     const data: Record<string, unknown> = {};
 
     if (body.plan !== undefined) {
-      if (!["FREE", "PRO"].includes(body.plan))
+      if (!["FREE", "PRO", "ENTERPRISE"].includes(body.plan))
         return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
       data.plan = body.plan;
       if (body.billingDate === undefined) {
-        if (body.plan === "PRO") {
+        if (body.plan === "FREE") {
+          data.planExpiresAt = null;
+        } else {
           const expiresAt = new Date();
           expiresAt.setFullYear(expiresAt.getFullYear() + 1);
           data.planExpiresAt = expiresAt;
-        } else {
-          data.planExpiresAt = null;
         }
       }
     }

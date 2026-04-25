@@ -30,15 +30,16 @@ export async function POST(req: NextRequest) {
 
     // Parse remarks: "userId:xxx|plan:PRO|cycle:monthly"
     const userIdMatch = remarks.match(/userId:([^|]+)/);
+    const planMatch = remarks.match(/plan:([^|]+)/);
     const cycleMatch = remarks.match(/cycle:([^|]+)/);
     const userId = userIdMatch?.[1];
+    const tier = planMatch?.[1] === "ENTERPRISE" ? "ENTERPRISE" : "PRO";
     const billingCycle = cycleMatch?.[1] || "monthly";
 
     if (!userId) {
       return NextResponse.json({ error: "No userId in remarks" }, { status: 400 });
     }
 
-    // Calculate plan expiry
     const expiresAt = new Date();
     if (billingCycle === "yearly") {
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -46,22 +47,20 @@ export async function POST(req: NextRequest) {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // Upgrade user to Pro
     await prisma.user.update({
       where: { id: userId },
       data: {
-        plan: "PRO",
+        plan: tier as any,
         planExpiresAt: expiresAt,
       },
     });
 
-    // Update subscription status
     await prisma.subscription.updateMany({
       where: { paymongoId: linkId },
       data: { status: "ACTIVE" },
     });
 
-    console.log(`✅ User ${userId} upgraded to Pro via PayMongo link ${linkId}`);
+    console.log(`✅ User ${userId} upgraded to ${tier} via PayMongo link ${linkId}`);
   }
 
   return NextResponse.json({ received: true });

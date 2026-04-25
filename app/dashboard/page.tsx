@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
   Crown, Clock, AlertCircle, Zap, Camera, CheckCircle2, Menu, X,
-  EyeOff, ChevronDown,
+  EyeOff, ChevronDown, Share2, Copy, Check,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -26,6 +26,8 @@ type Website = {
 type Credits = {
   used: number; limit: number; remaining: number;
   canGenerate: boolean; resetAt: string; plan: string;
+  planLabel?: string;
+  features?: { canShareTemplates?: boolean; canGenerateCRM?: boolean; canAddPaymentLinks?: boolean };
   slots?: { used: number; limit: number; remaining: number };
 };
 
@@ -140,6 +142,22 @@ function DashboardContent() {
     setOpenMenuId(null);
   }
 
+  async function handleShareTemplate(id: string) {
+    setOpenMenuId(null);
+    const res = await fetch(`/api/websites/${id}/template`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || "Failed to create template link");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(data.shareUrl);
+      toast.success("Template link copied to clipboard", { duration: 4000 });
+    } catch {
+      toast.success(`Template link: ${data.shareUrl}`, { duration: 8000 });
+    }
+  }
+
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -162,7 +180,8 @@ function DashboardContent() {
     );
   }
 
-  const isPro = credits?.plan === "PRO";
+  const isPro = credits?.plan === "PRO" || credits?.plan === "ENTERPRISE";
+  const canShareTemplate = !!credits?.features?.canShareTemplates;
   const initials = (session?.user?.name || session?.user?.email || "?")[0].toUpperCase();
 
   return (
@@ -352,14 +371,38 @@ function DashboardContent() {
 
                       {/* Publish / Live split button */}
                       {!site.published ? (
-                        <button
-                          onClick={() => handlePublish(site.id)}
-                          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#E4E6EB] bg-white text-xs font-medium text-[#1C1E21] transition-colors hover:bg-gray-50"
-                          style={{ fontFamily: FONT }}
-                        >
-                          <Zap size={12} />
-                          Publish
-                        </button>
+                        <div className="relative flex items-center" ref={openMenuId === site.id ? menuRef : undefined}>
+                          <button
+                            onClick={() => handlePublish(site.id)}
+                            className={`flex items-center gap-1.5 px-3 py-2.5 ${canShareTemplate ? "rounded-l-xl" : "rounded-xl"} border border-[#E4E6EB] bg-white text-xs font-medium text-[#1C1E21] transition-colors hover:bg-gray-50`}
+                            style={{ fontFamily: FONT }}
+                          >
+                            <Zap size={12} />
+                            Publish
+                          </button>
+                          {canShareTemplate && (
+                            <>
+                              <button
+                                onClick={() => setOpenMenuId(openMenuId === site.id ? null : site.id)}
+                                className="flex items-center px-1.5 py-2.5 rounded-r-xl border border-l-0 border-[#E4E6EB] bg-white text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                aria-label="More actions"
+                              >
+                                <ChevronDown size={11} />
+                              </button>
+                              {openMenuId === site.id && (
+                                <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-xl border border-[#E4E6EB] shadow-lg z-20 overflow-hidden">
+                                  <button
+                                    onClick={() => handleShareTemplate(site.id)}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                  >
+                                    <Share2 size={12} className="text-gray-400" />
+                                    Share as template
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       ) : (
                         <div className="relative flex items-center" ref={openMenuId === site.id ? menuRef : undefined}>
                           <a
@@ -374,11 +417,12 @@ function DashboardContent() {
                           <button
                             onClick={() => setOpenMenuId(openMenuId === site.id ? null : site.id)}
                             className="flex items-center px-1.5 py-2.5 rounded-r-xl border border-l-0 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                            aria-label="More actions"
                           >
                             <ChevronDown size={11} />
                           </button>
                           {openMenuId === site.id && (
-                            <div className="absolute top-full right-0 mt-1 w-40 bg-white rounded-xl border border-[#E4E6EB] shadow-lg z-20 overflow-hidden">
+                            <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-xl border border-[#E4E6EB] shadow-lg z-20 overflow-hidden">
                               <a
                                 href={`https://${site.subdomain}.storebuilder.ph`}
                                 target="_blank"
@@ -389,6 +433,18 @@ function DashboardContent() {
                                 <ExternalLink size={12} className="text-gray-400" />
                                 View live site
                               </a>
+                              {canShareTemplate && (
+                                <>
+                                  <div className="h-px bg-gray-100" />
+                                  <button
+                                    onClick={() => handleShareTemplate(site.id)}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                  >
+                                    <Share2 size={12} className="text-gray-400" />
+                                    Share as template
+                                  </button>
+                                </>
+                              )}
                               <div className="h-px bg-gray-100" />
                               <button
                                 onClick={() => handleUnpublish(site.id)}
@@ -504,29 +560,24 @@ function SidebarContent({
       <div className="px-3 pb-4 border-t border-[#E4E6EB] pt-3 flex flex-col gap-2">
         {credits && (
           <div className="px-3 py-2.5 rounded-xl bg-[#F0F2F5] border border-[#E4E6EB]">
-            {isPro ? (
-              <div className="flex items-center gap-2">
-                <Crown size={13} color="#B45309" />
-                <span className="text-xs font-bold text-amber-700">Pro Plan</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between mb-1.5">
-                  <span className="text-[11px] text-[#65676B]">Generations</span>
-                  <span className="text-[11px] font-bold text-[#1C1E21]">{credits.remaining}/{credits.limit}</span>
-                </div>
-                <div className="h-1 bg-[#E4E6EB] rounded-full overflow-hidden mb-1.5">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, (credits.remaining / credits.limit) * 100)}%`, background: "#1877F2" }} />
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-[#8A8D91]">
-                  <Clock size={9} />
-                  Resets in {resetIn}
-                </div>
-              </>
-            )}
+            <div className="flex items-center gap-2 mb-2">
+              {isPro && <Crown size={13} color="#B45309" />}
+              <span className="text-xs font-bold text-[#1C1E21]">{credits.planLabel || (isPro ? "Pro" : "Free")} Plan</span>
+            </div>
+            <div className="flex justify-between mb-1.5">
+              <span className="text-[11px] text-[#65676B]">Websites this month</span>
+              <span className="text-[11px] font-bold text-[#1C1E21]">{credits.used}/{credits.limit}</span>
+            </div>
+            <div className="h-1 bg-[#E4E6EB] rounded-full overflow-hidden mb-1.5">
+              <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, ((credits.limit - credits.remaining) / credits.limit) * 100)}%`, background: "#1877F2" }} />
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-[#8A8D91]">
+              <Clock size={9} />
+              Resets in {resetIn}
+            </div>
           </div>
         )}
-        {!isPro && (
+        {credits?.plan !== "ENTERPRISE" && (
           <Link
             href="/upgrade"
             onClick={onClose}
@@ -534,7 +585,7 @@ function SidebarContent({
             style={{ background: "#E7F3FF", border: "1px solid rgba(24,119,242,0.2)", color: "#1877F2" }}
           >
             <Crown size={13} />
-            Upgrade to Pro
+            {credits?.plan === "PRO" ? "Upgrade to Enterprise" : "Upgrade plan"}
           </Link>
         )}
         <button

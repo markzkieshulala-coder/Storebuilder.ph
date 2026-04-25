@@ -10,9 +10,9 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Only Pro users can add custom domains
-  if (session.user.plan !== "PRO") {
-    return NextResponse.json({ error: "Custom domains require Pro plan" }, { status: 403 });
+  // Only paid plans can add custom domains
+  if (session.user.plan !== "PRO" && session.user.plan !== "ENTERPRISE") {
+    return NextResponse.json({ error: "Custom domains require the Pro or Enterprise plan" }, { status: 403 });
   }
 
   const { websiteId, domain } = await req.json();

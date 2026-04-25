@@ -85,6 +85,10 @@ model Website {
   thumbnail   String?
   seoTitle    String?
   seoDesc     String?
+  templateSlug    String?  @unique  // public slug for "Use template" link
+  templateShared  Boolean  @default(false)  // is this site shared as a template?
+  templateUseCount Int     @default(0)  // how many times template was used
+  clonedFromId    String?  // if this site was created from a template
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -92,6 +96,7 @@ model Website {
 
   @@index([userId])
   @@index([subdomain])
+  @@index([templateSlug])
 }
 
 model CreditUsage {
@@ -166,6 +171,7 @@ enum Role {
 enum Plan {
   FREE
   PRO
+  ENTERPRISE
 }
 
 enum WebsiteType {

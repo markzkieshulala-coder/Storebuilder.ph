@@ -41,7 +41,9 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<TabId>("account");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const isPro = session?.user?.plan === "PRO";
+  const planTier = (session?.user?.plan || "FREE") as "FREE" | "PRO" | "ENTERPRISE";
+  const isPro = planTier === "PRO" || planTier === "ENTERPRISE";
+  const isEnterprise = planTier === "ENTERPRISE";
 
   return (
     <div
@@ -129,7 +131,7 @@ export default function SettingsPage() {
             </div>
 
             {tab === "account" && <AccountTab session={session} update={update} />}
-            {tab === "billing" && <BillingTab session={session} update={update} isPro={isPro} />}
+            {tab === "billing" && <BillingTab session={session} update={update} planTier={planTier} />}
             {tab === "payments" && <PaymentsTab />}
             {tab === "domain" && <DomainTab isPro={isPro} />}
             {tab === "integrations" && <IntegrationsTab />}
@@ -263,22 +265,47 @@ function AccountTab({ session, update }: any) {
 
 /* ---------- Billing ---------- */
 
-function BillingTab({ session, update, isPro }: any) {
+const PLAN_INFO: Record<string, { label: string; tagline: string; features: string[]; nextLabel?: string; nextHref?: string }> = {
+  FREE: {
+    label: "Free Plan",
+    tagline: "Best for landing pages & personal portfolios",
+    features: ["Up to 5 websites per month", "All editor features", "Free .storebuilder.ph subdomain"],
+    nextLabel: "Upgrade to Pro",
+    nextHref: "/upgrade",
+  },
+  PRO: {
+    label: "Pro Plan",
+    tagline: "Best for online sellers & freelancers",
+    features: ["Up to 10 websites per month", "Add payment links (GCash, Maya, bank, PayPal)", "Template link sharing", "Custom domain", "Remove branding"],
+    nextLabel: "Upgrade to Enterprise",
+    nextHref: "/upgrade",
+  },
+  ENTERPRISE: {
+    label: "Enterprise Plan",
+    tagline: "Advanced systems for business owners",
+    features: ["Up to 20 websites per month", "Payment links", "System / CRM generation", "Template link sharing", "Custom domain", "Priority generation"],
+  },
+};
+
+function BillingTab({ session, update, planTier }: any) {
   const [sub, setSub] = useState<Sub | null>(null);
   const [loadingSub, setLoadingSub] = useState(true);
   const [cancelling, setCancelling] = useState(false);
 
+  const isPaid = planTier === "PRO" || planTier === "ENTERPRISE";
+  const planInfo = PLAN_INFO[planTier] || PLAN_INFO.FREE;
+
   useEffect(() => {
-    if (!isPro) { setLoadingSub(false); return; }
+    if (!isPaid) { setLoadingSub(false); return; }
     fetch("/api/user/subscription")
       .then((r) => r.json())
       .then((s) => { if (s.subscription) setSub(s.subscription); })
       .catch(() => {})
       .finally(() => setLoadingSub(false));
-  }, [isPro]);
+  }, [isPaid]);
 
   async function cancel() {
-    if (!confirm("Cancel your Pro subscription? You'll be downgraded to Free immediately.")) return;
+    if (!confirm(`Cancel your ${planInfo.label}? You'll be downgraded to Free immediately.`)) return;
     setCancelling(true);
     try {
       const res = await fetch("/api/user/subscription/cancel", { method: "POST" });
@@ -291,30 +318,41 @@ function BillingTab({ session, update, isPro }: any) {
     } finally { setCancelling(false); }
   }
 
+  const planAccent =
+    planTier === "ENTERPRISE" ? "bg-gray-900 border-gray-900 text-white"
+    : planTier === "PRO" ? "bg-blue-50 border-blue-200"
+    : "bg-[#F0F2F5] border-[#E4E6EB]";
+
   return (
     <>
       <Card title="Current Plan" icon={Crown}>
-        <div className={`p-4 rounded-xl border ${isPro ? "bg-amber-50 border-amber-200" : "bg-[#F0F2F5] border-[#E4E6EB]"}`}>
+        <div className={`p-4 rounded-xl border ${planAccent}`}>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <p className="text-base font-bold text-[#1C1E21]">{isPro ? "Pro Plan" : "Free Plan"}</p>
-              <p className="text-xs sm:text-sm text-[#65676B] mt-1">
-                {isPro
-                  ? "Unlimited editing · Custom domain · Priority support · CRM & Dashboards"
-                  : "Free subdomain · Drag-and-drop builder · Limited generations"}
+              <p className={`text-base font-bold ${planTier === "ENTERPRISE" ? "text-white" : "text-[#1C1E21]"}`}>{planInfo.label}</p>
+              <p className={`text-xs sm:text-sm mt-1 ${planTier === "ENTERPRISE" ? "text-gray-300" : "text-[#65676B]"}`}>
+                {planInfo.tagline}
               </p>
+              <ul className={`mt-3 space-y-1 text-xs ${planTier === "ENTERPRISE" ? "text-gray-300" : "text-[#65676B]"}`}>
+                {planInfo.features.map((f) => (
+                  <li key={f} className="flex items-center gap-1.5">
+                    <span className={`w-1 h-1 rounded-full ${planTier === "ENTERPRISE" ? "bg-gray-300" : "bg-[#1877F2]"}`} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
             </div>
-            {!isPro && (
-              <Link href="/upgrade" className={btnPrimary}>
+            {planInfo.nextLabel && planInfo.nextHref && (
+              <Link href={planInfo.nextHref} className={btnPrimary}>
                 <Crown size={14} />
-                Upgrade to Pro
+                {planInfo.nextLabel}
               </Link>
             )}
           </div>
         </div>
       </Card>
 
-      {isPro && !loadingSub && sub && (
+      {isPaid && !loadingSub && sub && (
         <Card title="Subscription Details" icon={CreditCard}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <Row label="Plan" value={`${sub.plan} — ${sub.billingCycle}`} />
@@ -325,7 +363,7 @@ function BillingTab({ session, update, isPro }: any) {
         </Card>
       )}
 
-      {isPro && (
+      {isPaid && (
         <>
           <Card title="Payment Method" desc="Update the card or wallet used for billing." icon={CreditCard}>
             <p className="text-xs sm:text-sm text-[#65676B] mb-4">
@@ -340,7 +378,7 @@ function BillingTab({ session, update, isPro }: any) {
               <div>
                 <p className="text-sm font-semibold text-red-600">This action cannot be undone</p>
                 <p className="text-xs text-[#65676B] mt-1">
-                  Cancelling will immediately downgrade you to the Free plan. Your published sites stay online but you'll lose Pro features.
+                  Cancelling will immediately downgrade you to the Free plan. Your published sites stay online but you'll lose paid features.
                 </p>
               </div>
             </div>
