@@ -1,6 +1,7 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { useEditor } from "@/components/editor/EditorContext";
+import EditableField from "@/components/editor/EditableField";
 import { ImagePlus } from "lucide-react";
 
 export default function AboutSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
@@ -8,12 +9,22 @@ export default function AboutSection({ section, website }: { section: Section; w
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
-  const { isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar } = useEditor();
+  const {
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
+    selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+  } = useEditor();
 
-  function showToolbar(e: React.FocusEvent<HTMLElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
-  }
+  const isSelected = (field: string) =>
+    !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
+
+  const fieldProps = (field: string) => ({
+    sectionId: section.id, field,
+    editor: getEditorState(section.id, field),
+    isEditable, selected: isSelected(field),
+    onSelect: onSelectField, onUpdateEditor, onResetEditor,
+    onTextChange, onShowToolbar,
+    textColor, bgColor: bg, accentColor: accent,
+  });
 
   return (
     <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
@@ -35,28 +46,24 @@ export default function AboutSection({ section, website }: { section: Section; w
             </div>
           )}
           <div>
-            <h2
+            <EditableField
+              {...fieldProps("headline")}
+              tag="h2"
               className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6"
-              style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
-              contentEditable={isEditable}
-              suppressContentEditableWarning
-              onBlur={(e) => isEditable && onTextChange(section.id, "headline", e.currentTarget.innerText)}
-              onFocus={(e) => isEditable && showToolbar(e)}
-              onClick={(e) => isEditable && e.stopPropagation()}
+              style={{ fontFamily: "var(--heading-font)", color: textColor }}
             >
               {d.headline}
-            </h2>
-            <div
+            </EditableField>
+
+            <EditableField
+              {...fieldProps("story")}
+              tag="div"
               className="text-sm sm:text-base leading-relaxed opacity-70 whitespace-pre-line mb-6 sm:mb-8"
-              style={{ color: textColor, outline: "none" }}
-              contentEditable={isEditable}
-              suppressContentEditableWarning
-              onBlur={(e) => isEditable && onTextChange(section.id, "story", e.currentTarget.innerText)}
-              onFocus={(e) => isEditable && showToolbar(e)}
-              onClick={(e) => isEditable && e.stopPropagation()}
+              style={{ color: textColor }}
             >
               {d.story}
-            </div>
+            </EditableField>
+
             {d.stats && (
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {d.stats.map((s: any, i: number) => (

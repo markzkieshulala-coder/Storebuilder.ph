@@ -12,7 +12,8 @@ import {
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
-import { EditorContextType, FloatingToolbarTarget } from "@/components/editor/EditorContext";
+import { EditorContextType, FloatingToolbarTarget, SelectedField } from "@/components/editor/EditorContext";
+import { EditorFieldState } from "@/components/editor/EditableField";
 import OptionsPanel from "@/components/editor/OptionsPanel";
 import FloatingToolbar from "@/components/editor/FloatingToolbar";
 
@@ -39,6 +40,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
+  const [selectedField, setSelectedField] = useState<SelectedField>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeSaving, setIframeSaving] = useState(false);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
@@ -72,6 +74,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); handleSave(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); handleUndo(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "y") { e.preventDefault(); handleRedo(); }
+      if (e.key === "Escape") { setSelectedField(null); setToolbarTarget(null); }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -221,6 +224,44 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     pushHistory({ ...website, ...updates });
   }
 
+  // ── Per-field editor state (drag/resize positioning) ─────────────────────
+  function getFieldEditor(sectionId: string, field: string): EditorFieldState | undefined {
+    const section = website?.sections.find((s) => s.id === sectionId);
+    const editors = (section?.data as any)?._editor as Record<string, EditorFieldState> | undefined;
+    return editors?.[field];
+  }
+
+  function updateFieldEditor(sectionId: string, field: string, updates: EditorFieldState) {
+    if (!website) return;
+    pushHistory({
+      ...website,
+      sections: website.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+        const data = (s.data || {}) as any;
+        const editors = (data._editor || {}) as Record<string, EditorFieldState>;
+        const next: Record<string, EditorFieldState> = {
+          ...editors,
+          [field]: { ...(editors[field] || {}), ...updates },
+        };
+        return { ...s, data: { ...data, _editor: next } };
+      }),
+    });
+  }
+
+  function resetFieldEditor(sectionId: string, field: string) {
+    if (!website) return;
+    pushHistory({
+      ...website,
+      sections: website.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+        const data = (s.data || {}) as any;
+        const editors = { ...((data._editor || {}) as Record<string, EditorFieldState>) };
+        delete editors[field];
+        return { ...s, data: { ...data, _editor: editors } };
+      }),
+    });
+  }
+
   async function switchViewMode(mode: ViewMode) {
     if (mode !== "desktop" && viewMode === "desktop" && website) {
       setIframeSaving(true);
@@ -352,6 +393,11 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         fontScale: scale,
       });
     },
+    selectedField,
+    onSelectField: (sectionId, field) => setSelectedField({ sectionId, field }),
+    onUpdateEditor: updateFieldEditor,
+    onResetEditor: resetFieldEditor,
+    getEditorState: getFieldEditor,
   };
 
   return (
@@ -521,7 +567,10 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Canvas */}
-        <main className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-2 sm:p-4 lg:p-8 min-w-0">
+        <main
+          className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-2 sm:p-4 lg:p-8 min-w-0"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedField(null); }}
+        >
           {viewMode === "desktop" ? (
             <div
               className="bg-white shadow-xl overflow-x-hidden w-full"

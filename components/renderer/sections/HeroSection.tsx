@@ -1,6 +1,7 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { useEditor } from "@/components/editor/EditorContext";
+import EditableField from "@/components/editor/EditableField";
 import { ImagePlus } from "lucide-react";
 
 export default function HeroSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
@@ -8,19 +9,13 @@ export default function HeroSection({ section, website }: { section: Section; we
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.background || "#0d0d1a";
-  const { isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar } = useEditor();
+  const {
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
+    selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+  } = useEditor();
 
-  function showToolbar(e: React.FocusEvent<HTMLElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
-  }
-
-  const editableProps = (field: string) => isEditable ? {
-    contentEditable: true as const,
-    suppressContentEditableWarning: true,
-    onBlur: (e: React.FocusEvent<HTMLElement>) => onTextChange(section.id, field, e.currentTarget.innerText),
-    onFocus: showToolbar,
-  } : {};
+  const isSelected = (field: string) =>
+    !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
 
   return (
     <section
@@ -52,32 +47,50 @@ export default function HeroSection({ section, website }: { section: Section; we
           </div>
         )}
 
-        <h1
+        <EditableField
+          sectionId={section.id} field="headline"
+          editor={getEditorState(section.id, "headline")}
+          isEditable={isEditable} selected={isSelected("headline")}
+          onSelect={onSelectField} onUpdateEditor={onUpdateEditor} onResetEditor={onResetEditor}
+          onTextChange={onTextChange} onShowToolbar={onShowToolbar}
+          textColor={textColor} bgColor={bg} accentColor={accent}
+          tag="h1"
           className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-tight"
           style={{ fontFamily: "var(--heading-font)", color: textColor }}
-          {...editableProps("headline")}
         >
           {d.headline}
-        </h1>
+        </EditableField>
 
         {d.subheadline !== undefined && (
-          <h2
+          <EditableField
+            sectionId={section.id} field="subheadline"
+            editor={getEditorState(section.id, "subheadline")}
+            isEditable={isEditable} selected={isSelected("subheadline")}
+            onSelect={onSelectField} onUpdateEditor={onUpdateEditor} onResetEditor={onResetEditor}
+            onTextChange={onTextChange} onShowToolbar={onShowToolbar}
+            textColor={textColor} bgColor={bg} accentColor={accent}
+            tag="h2"
             className="text-base sm:text-xl md:text-2xl font-medium mb-3 sm:mb-4 opacity-80"
             style={{ color: textColor }}
-            {...editableProps("subheadline")}
           >
             {d.subheadline}
-          </h2>
+          </EditableField>
         )}
 
         {d.description !== undefined && (
-          <p
+          <EditableField
+            sectionId={section.id} field="description"
+            editor={getEditorState(section.id, "description")}
+            isEditable={isEditable} selected={isSelected("description")}
+            onSelect={onSelectField} onUpdateEditor={onUpdateEditor} onResetEditor={onResetEditor}
+            onTextChange={onTextChange} onShowToolbar={onShowToolbar}
+            textColor={textColor} bgColor={bg} accentColor={accent}
+            tag="p"
             className="text-sm sm:text-base md:text-lg max-w-2xl mx-auto mb-8 sm:mb-10 opacity-60 leading-relaxed"
             style={{ color: textColor }}
-            {...editableProps("description")}
           >
             {d.description}
-          </p>
+          </EditableField>
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
@@ -87,7 +100,17 @@ export default function HeroSection({ section, website }: { section: Section; we
               className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold text-base transition-opacity hover:opacity-90 text-center"
               style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
             >
-              <span {...editableProps("ctaPrimary.text")}>{d.ctaPrimary.text}</span>
+              <EditableField
+                sectionId={section.id} field="ctaPrimary.text"
+                editor={getEditorState(section.id, "ctaPrimary.text")}
+                isEditable={isEditable} selected={isSelected("ctaPrimary.text")}
+                onSelect={onSelectField} onUpdateEditor={onUpdateEditor} onResetEditor={onResetEditor}
+                onTextChange={onTextChange} onShowToolbar={onShowToolbar}
+                textColor={textColor} bgColor={bg} accentColor={accent}
+                tag="span"
+              >
+                {d.ctaPrimary.text}
+              </EditableField>
             </a>
           )}
           {d.ctaSecondary && (
@@ -96,7 +119,17 @@ export default function HeroSection({ section, website }: { section: Section; we
               className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold text-base border transition-colors hover:bg-white/5 text-center"
               style={{ borderColor: `${textColor}30`, color: textColor }}
             >
-              <span {...editableProps("ctaSecondary.text")}>{d.ctaSecondary.text}</span>
+              <EditableField
+                sectionId={section.id} field="ctaSecondary.text"
+                editor={getEditorState(section.id, "ctaSecondary.text")}
+                isEditable={isEditable} selected={isSelected("ctaSecondary.text")}
+                onSelect={onSelectField} onUpdateEditor={onUpdateEditor} onResetEditor={onResetEditor}
+                onTextChange={onTextChange} onShowToolbar={onShowToolbar}
+                textColor={textColor} bgColor={bg} accentColor={accent}
+                tag="span"
+              >
+                {d.ctaSecondary.text}
+              </EditableField>
             </a>
           )}
         </div>

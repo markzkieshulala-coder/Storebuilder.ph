@@ -41,6 +41,11 @@ const DEFAULT_CONTEXT: EditorContextType = {
   onImageUpload: () => {},
   onSectionClick: () => {},
   onShowToolbar: () => {},
+  selectedField: null,
+  onSelectField: () => {},
+  onUpdateEditor: () => {},
+  onResetEditor: () => {},
+  getEditorState: () => undefined,
 };
 
 const SITE_FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";

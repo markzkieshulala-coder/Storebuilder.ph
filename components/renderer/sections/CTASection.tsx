@@ -1,46 +1,53 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { useEditor } from "@/components/editor/EditorContext";
+import EditableField from "@/components/editor/EditableField";
 
 export default function CTASection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || `linear-gradient(135deg, ${website.colors?.primary || "#1a1a2e"}, #2d1b4e)`;
-  const { isEditable, onTextChange, onSectionClick, onShowToolbar } = useEditor();
+  const {
+    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+  } = useEditor();
 
-  function showToolbar(e: React.FocusEvent<HTMLElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
-  }
+  const isSelected = (field: string) =>
+    !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
 
-  const editableProps = (field: string) => isEditable ? {
-    contentEditable: true as const,
-    suppressContentEditableWarning: true,
-    onBlur: (e: React.FocusEvent<HTMLElement>) => onTextChange(section.id, field, e.currentTarget.innerText),
-    onFocus: showToolbar,
-    onClick: (e: React.MouseEvent) => e.stopPropagation(),
-  } : {};
+  const fieldProps = (field: string) => ({
+    sectionId: section.id, field,
+    editor: getEditorState(section.id, field),
+    isEditable, selected: isSelected(field),
+    onSelect: onSelectField, onUpdateEditor, onResetEditor,
+    onTextChange, onShowToolbar,
+    textColor, bgColor: bg, accentColor: accent,
+  });
 
   return (
     <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24 text-center" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-2xl mx-auto">
-        <h2
+        <EditableField
+          {...fieldProps("headline")}
+          tag="h2"
           className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4"
           style={{ fontFamily: "var(--heading-font)", color: textColor }}
-          {...editableProps("headline")}
         >
           {d.headline}
-        </h2>
+        </EditableField>
+
         {d.subheadline !== undefined && (
-          <p
+          <EditableField
+            {...fieldProps("subheadline")}
+            tag="p"
             className="text-sm sm:text-base lg:text-lg opacity-70 mb-7 sm:mb-8"
             style={{ color: textColor }}
-            {...editableProps("subheadline")}
           >
             {d.subheadline}
-          </p>
+          </EditableField>
         )}
+
         {d.ctaText && (
           <a
             href={isEditable ? undefined : (d.ctaHref || "#")}
