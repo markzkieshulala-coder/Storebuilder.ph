@@ -66,16 +66,32 @@ export default function WebsiteRenderer({ website, isPreview = false, editorCont
           maxWidth: "100%",
         } as React.CSSProperties}
       >
-        {website.sections?.map((section) => {
+        {website.sections?.map((section, i) => {
           const SectionComponent = SECTION_MAP[section.type];
+          // Anchor id: use section.type for first occurrence (so href="#products" works),
+          // fallback to section.id for duplicates so each is uniquely targetable
+          const isFirstOfType = website.sections?.findIndex((s) => s.type === section.type) === i;
+          const anchorId = isFirstOfType ? section.type : section.id;
           if (!SectionComponent) {
             return (
-              <div key={section.id} className="py-12 px-6 text-center opacity-40">
+              <div key={section.id} id={anchorId} className="py-12 px-6 text-center opacity-40">
                 <p className="text-sm">Section type &quot;{section.type}&quot; — coming soon</p>
               </div>
             );
           }
-          return <SectionComponent key={section.id} section={section} website={website} />;
+          const sectionAlign = section.styles?.textAlign as "left" | "center" | "right" | undefined;
+          return (
+            <div
+              key={section.id}
+              id={anchorId}
+              style={{
+                scrollMarginTop: "80px",
+                textAlign: sectionAlign || undefined,
+              }}
+            >
+              <SectionComponent section={section} website={website} />
+            </div>
+          );
         })}
       </div>
     </EditorContext.Provider>

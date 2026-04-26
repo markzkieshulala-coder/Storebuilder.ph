@@ -210,6 +210,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         textColor: key === "textColor" ? value : prev.textColor,
         bgColor: key === "background" ? value : prev.bgColor,
         accentColor: key === "accentColor" ? value : prev.accentColor,
+        textAlign: key === "textAlign" ? (value as "left" | "center" | "right") : prev.textAlign,
+        fontScale: key === "fontScale" ? Number(value) : prev.fontScale,
       } : prev);
     }
   }
@@ -339,7 +341,17 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     onNestedTextChange: handleNestedTextChange,
     onImageUpload: handleImageUpload,
     onSectionClick: () => {},
-    onShowToolbar: (target) => setToolbarTarget(target),
+    onShowToolbar: (target) => {
+      // Enrich the target with the section's persisted alignment + scale
+      const section = website?.sections.find((s) => s.id === target.sectionId);
+      const align = (section?.styles as any)?.textAlign as "left" | "center" | "right" | undefined;
+      const scale = section?.styles?.fontScale ? Number(section.styles.fontScale) : 1;
+      setToolbarTarget({
+        ...target,
+        textAlign: align ?? "left",
+        fontScale: scale,
+      });
+    },
   };
 
   return (

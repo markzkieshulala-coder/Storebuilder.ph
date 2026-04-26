@@ -35,6 +35,9 @@
     @apply border-border;
     font-family: var(--font-sans);
   }
+  html {
+    scroll-behavior: smooth;
+  }
   html, body {
     @apply bg-white text-gray-900;
     font-family: var(--font-sans) !important;
@@ -102,7 +105,29 @@
 .website-render [contenteditable] {
   outline: none;
   cursor: text;
+  position: relative;
+  transition: box-shadow 0.12s ease, background-color 0.12s ease;
+  border-radius: 4px;
+}
+.website-render [contenteditable]:hover {
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.35);
+  background-color: rgba(24, 119, 242, 0.04);
 }
 .website-render [contenteditable]:focus {
   outline: none;
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.9);
+  background-color: rgba(24, 119, 242, 0.06);
+}
+/* Resize handle visual hint at bottom-right of focused text */
+.website-render [contenteditable]:focus::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
+  background: #1877f2;
+  border: 2px solid white;
+  border-radius: 50%;
+  pointer-events: none;
 }

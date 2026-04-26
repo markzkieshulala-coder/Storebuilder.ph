@@ -6,6 +6,8 @@ export type FloatingToolbarTarget = {
   textColor: string;
   bgColor: string;
   accentColor: string;
+  fontScale?: number; // 0.7..1.6 multiplier on default font sizes
+  textAlign?: "left" | "center" | "right";
   rect: { top: number; left: number; width: number; height: number };
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -40,8 +40,24 @@ export default function SettingsPage() {
   const { data: session, update } = useSession();
   const [tab, setTab] = useState<TabId>("account");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [livePlan, setLivePlan] = useState<"FREE" | "PRO" | "ENTERPRISE" | null>(null);
+  const refreshedRef = useRef(false);
 
-  const planTier = (session?.user?.plan || "FREE") as "FREE" | "PRO" | "ENTERPRISE";
+  // On first mount: force a session refresh so the latest plan from DB
+  // is reflected immediately (no need for the user to log out and back in).
+  // Also fetch the live plan from /api/credits as a guaranteed source of truth.
+  useEffect(() => {
+    if (refreshedRef.current) return;
+    refreshedRef.current = true;
+    update();
+    fetch("/api/credits")
+      .then((r) => r.json())
+      .then((d) => { if (d?.plan) setLivePlan(d.plan); })
+      .catch(() => {});
+  }, [update]);
+
+  const sessionPlan = (session?.user?.plan || "FREE") as "FREE" | "PRO" | "ENTERPRISE";
+  const planTier = (livePlan || sessionPlan) as "FREE" | "PRO" | "ENTERPRISE";
   const isPro = planTier === "PRO" || planTier === "ENTERPRISE";
   const isEnterprise = planTier === "ENTERPRISE";
 

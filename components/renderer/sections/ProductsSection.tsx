@@ -49,10 +49,10 @@ export default function ProductsSection({ section, website }: { section: Section
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           {filtered.map((product: any, i: number) => (
             <div key={product.id || i} className="group rounded-2xl overflow-hidden border transition-all hover:-translate-y-1" style={{ background: `${accent}06`, borderColor: `${accent}15` }}>
-              <div className="relative h-48 sm:h-56 lg:h-64 overflow-hidden bg-black/20">
+              <div className="relative aspect-square overflow-hidden bg-black/20">
                 {product.image
                   ? <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                   : <div className="w-full h-full flex items-center justify-center opacity-20"><ShoppingCart size={40} /></div>
@@ -72,9 +72,9 @@ export default function ProductsSection({ section, website }: { section: Section
                   </div>
                 )}
               </div>
-              <div className="p-4 sm:p-5">
+              <div className="p-3 sm:p-4 lg:p-5">
                 <h3
-                  className="font-bold text-base sm:text-lg mb-1"
+                  className="font-bold text-sm sm:text-base lg:text-lg mb-1 line-clamp-2"
                   style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
                   contentEditable={isEditable}
                   suppressContentEditableWarning
@@ -84,11 +84,11 @@ export default function ProductsSection({ section, website }: { section: Section
                 >
                   {product.name}
                 </h3>
-                {product.description && <p className="text-xs sm:text-sm opacity-60 mb-3 leading-relaxed" style={{ color: textColor }}>{product.description}</p>}
-                <div className="flex items-center justify-between gap-2">
+                {product.description && <p className="hidden sm:block text-xs sm:text-sm opacity-60 mb-3 leading-relaxed line-clamp-2" style={{ color: textColor }}>{product.description}</p>}
+                <div className="flex items-center justify-between gap-2 mt-1.5 sm:mt-0">
                   <div className="min-w-0">
                     <span
-                      className="text-lg sm:text-xl font-bold"
+                      className="text-sm sm:text-lg lg:text-xl font-bold whitespace-nowrap"
                       style={{ color: accent, outline: "none" }}
                       contentEditable={isEditable}
                       suppressContentEditableWarning
@@ -98,11 +98,11 @@ export default function ProductsSection({ section, website }: { section: Section
                       ₱{product.price?.toLocaleString()}
                     </span>
                     {product.originalPrice && (
-                      <span className="ml-2 text-xs sm:text-sm line-through opacity-40" style={{ color: textColor }}>₱{product.originalPrice?.toLocaleString()}</span>
+                      <span className="hidden sm:inline ml-2 text-xs sm:text-sm line-through opacity-40" style={{ color: textColor }}>₱{product.originalPrice?.toLocaleString()}</span>
                     )}
                   </div>
-                  <button className="p-2.5 rounded-xl transition-opacity hover:opacity-80 shrink-0 min-w-[40px] min-h-[40px] flex items-center justify-center" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
-                    <ShoppingCart size={17} />
+                  <button className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-opacity hover:opacity-80 shrink-0 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
+                    <ShoppingCart size={15} className="sm:w-[17px] sm:h-[17px]" />
                   </button>
                 </div>
               </div>
