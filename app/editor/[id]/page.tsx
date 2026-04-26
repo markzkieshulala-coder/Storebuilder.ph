@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
-  CheckCircle, Loader2, Eye, PanelLeft, EyeOff, ChevronDown,
+  CheckCircle, Loader2, Eye, PanelLeft, EyeOff, ChevronDown, Info,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
@@ -39,6 +39,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
+  const [iframeSaving, setIframeSaving] = useState(false);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +219,24 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     pushHistory({ ...website, ...updates });
   }
 
+  async function switchViewMode(mode: ViewMode) {
+    if (mode !== "desktop" && viewMode === "desktop" && website) {
+      setIframeSaving(true);
+      try {
+        await fetch(`/api/websites/${params.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonContent: website }),
+        });
+        setIframeKey((k) => k + 1);
+      } finally {
+        setIframeSaving(false);
+      }
+    }
+    setViewMode(mode);
+    setToolbarTarget(null);
+  }
+
   function moveSection(sectionId: string, direction: "up" | "down") {
     if (!website) return;
     const idx = website.sections.findIndex((s) => s.id === sectionId);
@@ -357,7 +377,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             {([["desktop", Monitor, "Desktop"], ["tablet", Tablet, "Tablet"], ["mobile", Smartphone, "Mobile"]] as const).map(([mode, Icon, label]) => (
               <button
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => switchViewMode(mode)}
                 title={label}
                 className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   viewMode === mode
@@ -490,16 +510,53 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Canvas */}
         <main className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-2 sm:p-4 lg:p-8 min-w-0">
-          <div
-            className="transition-all duration-300 bg-white shadow-xl overflow-x-hidden w-full"
-            style={{
-              maxWidth: VIEW_WIDTHS[viewMode],
-              minHeight: "calc(100dvh - 48px)",
-              borderRadius: viewMode !== "desktop" ? "16px" : "8px",
-            }}
-          >
-            <WebsiteRenderer website={website} editorContext={editorCtx} />
-          </div>
+          {viewMode === "desktop" ? (
+            <div
+              className="bg-white shadow-xl overflow-x-hidden w-full"
+              style={{ maxWidth: "100%", minHeight: "calc(100dvh - 48px)", borderRadius: "8px" }}
+            >
+              <WebsiteRenderer website={website} editorContext={editorCtx} />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 pb-8">
+              {/* Device frame */}
+              <div
+                className="relative overflow-hidden shadow-2xl shrink-0"
+                style={{
+                  width: VIEW_WIDTHS[viewMode],
+                  height: viewMode === "mobile" ? "812px" : "1024px",
+                  borderRadius: viewMode === "mobile" ? "44px" : "24px",
+                  border: `${viewMode === "mobile" ? "10px" : "8px"} solid #1c1c2e`,
+                  boxShadow: "0 30px 80px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.06)",
+                }}
+              >
+                {/* Notch for mobile */}
+                {viewMode === "mobile" && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-28 h-7 bg-[#1c1c2e] rounded-b-2xl" />
+                )}
+                {iframeSaving ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                      <p className="text-gray-400 text-xs">Saving...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    key={iframeKey}
+                    src={`/editor/${params.id}/preview?raw=1`}
+                    className="w-full h-full border-0"
+                    title={`${viewMode} preview`}
+                  />
+                )}
+              </div>
+              {/* Hint */}
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+                <Info size={11} />
+                <span>Showing saved version — switch to Desktop to edit</span>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 

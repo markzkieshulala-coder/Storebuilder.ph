@@ -20,7 +20,6 @@ export default function CTASection({ section, website }: { section: Section; web
     onBlur: (e: React.FocusEvent<HTMLElement>) => onTextChange(section.id, field, e.currentTarget.innerText),
     onFocus: showToolbar,
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
-    style: { outline: "none", cursor: "text" },
   } : {};
 
   return (

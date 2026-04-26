@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { ExternalLink, X } from "lucide-react";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 
 export default function PreviewPage({ params }: { params: { id: string } }) {
   const { status } = useSession();
+  const searchParams = useSearchParams();
+  const isRaw = searchParams.get("raw") === "1";
   const [website, setWebsite] = useState<GeneratedWebsite | null>(null);
   const [subdomain, setSubdomain] = useState("");
   const [published, setPublished] = useState(false);
@@ -39,6 +42,11 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
         </div>
       </div>
     );
+  }
+
+  // Raw embed mode (used by editor iframe for tablet/mobile preview)
+  if (isRaw) {
+    return website ? <WebsiteRenderer website={website} /> : null;
   }
 
   return (

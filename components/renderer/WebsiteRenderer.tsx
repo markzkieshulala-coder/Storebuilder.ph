@@ -40,6 +40,7 @@ const DEFAULT_CONTEXT: EditorContextType = {
   onNestedTextChange: () => {},
   onImageUpload: () => {},
   onSectionClick: () => {},
+  onShowToolbar: () => {},
 };
 
 const SITE_FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";

@@ -20,7 +20,6 @@ export default function HeroSection({ section, website }: { section: Section; we
     suppressContentEditableWarning: true,
     onBlur: (e: React.FocusEvent<HTMLElement>) => onTextChange(section.id, field, e.currentTarget.innerText),
     onFocus: showToolbar,
-    style: { outline: "none", cursor: "text" },
   } : {};
 
   return (
