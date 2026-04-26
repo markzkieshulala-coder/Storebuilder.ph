@@ -80,32 +80,36 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       if (user) {
+        // Fresh sign-in — seed token from user object
         token.id = user.id;
         // @ts-ignore
         token.role = user.role;
         // @ts-ignore
         token.plan = user.plan;
-
-        // Ensure admin email always gets ADMIN role in token
         if (user.email === "Storebuilderph@gmail.com") {
           token.role = "ADMIN";
         }
       }
 
-      // Refresh user data on session update
-      if (trigger === "update" && session) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { role: true, plan: true, name: true, email: true, image: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.plan = dbUser.plan;
-          token.name = dbUser.name;
-          token.email = dbUser.email;
-          token.picture = dbUser.image;
+      // ALWAYS re-read plan + role from DB so upgrades take effect immediately
+      // without requiring the user to sign out and back in.
+      if (token.id) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true, plan: true, name: true, email: true, image: true },
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.plan = dbUser.plan;
+            token.name = dbUser.name ?? token.name;
+            token.email = dbUser.email ?? token.email;
+            token.picture = dbUser.image ?? token.picture;
+          }
+        } catch {
+          // DB unavailable — keep existing token values
         }
       }
 

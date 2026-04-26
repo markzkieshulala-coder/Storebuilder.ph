@@ -22,11 +22,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { prompt } = generateSchema.parse(body);
 
+    // Always fetch the freshest plan directly from DB — never trust the JWT cookie
+    // so that plan upgrades take effect immediately without requiring re-login.
+    const freshUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { plan: true, planExpiresAt: true },
+    });
+
+    let activePlan: Plan = freshUser?.plan ?? "FREE";
+
+    // Treat expired paid plans as FREE
+    if (activePlan !== "FREE" && freshUser?.planExpiresAt && freshUser.planExpiresAt < new Date()) {
+      activePlan = "FREE";
+    }
+
     // Check website slot + generation credit
     const websiteCount = await prisma.website.count({ where: { userId: session.user.id } });
     const creditCheck = await checkAndConsumeCredit(
       session.user.id,
-      session.user.plan as Plan,
+      activePlan,
       websiteCount
     );
 
@@ -37,10 +51,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate website with AI
+    // Generate website with AI using the verified plan
     const { website, usage } = await generateWebsite(
       prompt,
-      session.user.plan as Plan
+      activePlan
     );
 
     // Generate unique subdomain

@@ -12,7 +12,17 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const plan = session.user.plan as Plan;
+  // Always read the freshest plan from DB — session JWT may be stale after an upgrade
+  const freshUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true, planExpiresAt: true },
+  });
+
+  let plan: Plan = freshUser?.plan ?? "FREE";
+  if (plan !== "FREE" && freshUser?.planExpiresAt && freshUser.planExpiresAt < new Date()) {
+    plan = "FREE";
+  }
+
   const planInfo = getPlan(plan);
 
   const [credits, editCredits, websiteCount] = await Promise.all([
