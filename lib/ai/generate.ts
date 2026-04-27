@@ -79,6 +79,14 @@ function isNeonOrBright(hex: string): boolean {
   return hsl.s > 0.55 && hsl.l > 0.35 && hsl.l < 0.80;
 }
 
+// Backgrounds must be dark. Anything with L > 20% is too light for a bg.
+function isTooLight(hex: string): boolean {
+  if (!hex || !hex.startsWith("#") || hex.length < 7) return false;
+  const hsl = hexToHsl(hex);
+  if (!hsl) return false;
+  return hsl.l > 0.20;
+}
+
 function pickPalette(seed: string): typeof PROFESSIONAL_PALETTES[0] {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
@@ -88,13 +96,17 @@ function pickPalette(seed: string): typeof PROFESSIONAL_PALETTES[0] {
 function sanitizeColors(website: GeneratedWebsite): GeneratedWebsite {
   const palette = pickPalette(website.name || "default");
 
-  // Enforce safe global colors
+  // Dark colors only: reject neon/bright AND anything too light for bg use
+  const safeDark = (val: string, fallback: string) =>
+    val && val.startsWith("#") && !isNeonOrBright(val) && !isTooLight(val) ? val : fallback;
+
+  // Accent/text are allowed to be light; only reject neon
   const safeColor = (val: string, fallback: string) =>
     val && val.startsWith("#") && !isNeonOrBright(val) ? val : fallback;
 
   website.colors = {
-    background: safeColor(website.colors?.background, palette.background),
-    primary:    safeColor(website.colors?.primary,    palette.primary),
+    background: safeDark(website.colors?.background, palette.background),
+    primary:    safeDark(website.colors?.primary,    palette.primary),
     secondary:  safeColor(website.colors?.secondary,  palette.secondary),
     accent:     safeColor(website.colors?.accent,     palette.accent),
     text:       safeColor(website.colors?.text,       palette.text),
@@ -107,11 +119,11 @@ function sanitizeColors(website: GeneratedWebsite): GeneratedWebsite {
     const acc = s.styles?.accentColor;
     const newStyles: Record<string, string> = { ...s.styles };
 
-    // Background — allow linear-gradient only with dark anchors; reject vivid ones
-    if (bg && bg.startsWith("#") && isNeonOrBright(bg)) {
-      newStyles.background = palette.primary;
+    // Background: reject vivid/neon colors AND light/white colors
+    if (bg && bg.startsWith("#") && (isNeonOrBright(bg) || isTooLight(bg))) {
+      newStyles.background = palette.background;
     }
-    if (bg && bg.startsWith("linear-gradient") && /(?:red|blue|green|yellow|purple|pink|orange|cyan|lime)/i.test(bg)) {
+    if (bg && bg.startsWith("linear-gradient") && /(?:red|blue|green|yellow|purple|pink|orange|cyan|lime|white|#[fF][fF]|#[eE][eE])/i.test(bg)) {
       newStyles.background = `linear-gradient(135deg, ${palette.background} 0%, ${palette.primary} 100%)`;
     }
 
@@ -244,11 +256,11 @@ OUTPUT
 COLORS — THIS IS THE MOST IMPORTANT RULE
 • Pick ONE dark professional background from this list EXACTLY:
   #0F172A | #1C1C1C | #111827 | #0d0d1a | #1E1B18 | #18181B | #0F1923 | #1A0F0F
-• Use white (#FFFFFF) or warm off-white (#F5F0E8 / #FAFAF8) as the text color
+• Use white (#FFFFFF) or warm off-white (#F5F0E8 / #FAFAF8) as the text color only — NEVER as a background.
 • Pick ONE muted accent from: #c9a84c | #A87C2A | #3B82F6 | #0D7377 | #166534 | #7F1D1D | #1E40AF
 • That is it. Three values total. No rainbow. No gradients with bright colors.
-• BANNED forever: red (#FF0000), lime green, hot pink, electric blue, bright orange, cyan, magenta, any color with saturation > 55% and lightness between 35–80%.
-• Section backgrounds must alternate only between your two darkest values. Never use a bright color as a section background.
+• BANNED forever: white (#FFFFFF), near-white, light grey, any hex with lightness above 20% as a background or section background. Also banned: red (#FF0000), lime green, hot pink, electric blue, bright orange, cyan, magenta, any color with saturation > 55% and lightness between 35–80%.
+• Section backgrounds must alternate only between your two darkest hex values. EVERY section must have a dark background. Zero exceptions.
 
 IMAGERY
 • ALL images MUST be real Unsplash photography URLs in this exact format:
@@ -354,7 +366,7 @@ function buildUserPrompt(userPrompt: string, plan: Plan): string {
 ${planBlock}
 
 REQUIRED in every generation:
-1. Colors: Choose ONE background from the approved dark list. One muted accent. White or warm-white text. Nothing else.
+1. Colors: Choose ONE background from the approved dark list. One muted accent. White or warm-white TEXT only — NEVER as a background. ALL section style "background" values must be dark hex (#0F172A, #111827, etc). Any light color as a background is a critical error.
 2. Hero: Must have backgroundImage using a real Unsplash URL matching this business type (w=1400&h=800).
 3. About section: Include a real Unsplash image URL (w=1000&h=750).
 4. Products/team: Each item must have a real Unsplash image URL.

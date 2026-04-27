@@ -8,7 +8,7 @@ import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
   CheckCircle, Loader2, Eye, PanelLeft, EyeOff, ChevronDown, Info,
-  Share2, Plus,
+  Share2, Plus, X, Copy,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
@@ -47,6 +47,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [sharingTemplate, setSharingTemplate] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalUrl, setShareModalUrl] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingImageUpload = useRef<{ sectionId: string; field: string } | null>(null);
 
@@ -207,13 +209,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         toast.error(data.error || "Failed to generate template link");
         return;
       }
-      const shareUrl = data.shareUrl || `${window.location.origin}/template/${data.templateSlug}`;
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success("Template link copied to clipboard");
-      } catch {
-        toast.success(`Template link: ${shareUrl}`);
-      }
+      const url = data.shareUrl || `${window.location.origin}/template/${data.templateSlug}`;
+      setShareModalUrl(url);
+      setShareModalOpen(true);
     } catch {
       toast.error("Failed to share template");
     } finally {
@@ -713,6 +711,77 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         className="hidden"
         onChange={handleFileSelected}
       />
+
+      {/* Share Template modal */}
+      {shareModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShareModalOpen(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Share Template</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Send this link to your client — they can copy the site and start editing.</p>
+              </div>
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-5 space-y-4">
+              {/* URL row */}
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={shareModalUrl}
+                  className="flex-1 px-3 py-2.5 text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 truncate"
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareModalUrl).then(() => {
+                      toast.success("Link copied!");
+                    }).catch(() => {
+                      toast.error("Could not copy — please copy manually.");
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors shrink-0"
+                >
+                  <Copy size={13} />
+                  Copy
+                </button>
+              </div>
+
+              {/* Info blurb */}
+              <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700 space-y-1 leading-relaxed">
+                <p className="font-semibold">How it works</p>
+                <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+                  <li>Client opens the link in their browser</li>
+                  <li>They create a free account (or sign in)</li>
+                  <li>An independent copy is added to their workspace</li>
+                  <li>They can edit and publish it as their own site</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 pb-5">
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
