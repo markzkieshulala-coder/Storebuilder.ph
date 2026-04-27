@@ -13,13 +13,28 @@ function generateTemplateSlug(name: string): string {
   return `${base}-${suffix}`;
 }
 
-// POST → enable template sharing for this website
+// POST → enable template sharing for this website (PRO + ENTERPRISE only)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Read the FRESH plan from the DB (not the JWT), so newly upgraded users
+  // can share immediately without signing out / back in.
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true },
+  });
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  if (user.plan !== "PRO" && user.plan !== "ENTERPRISE") {
+    return NextResponse.json(
+      { error: "Template sharing is available on the Pro and Enterprise plans. Upgrade to share templates." },
+      { status: 403 }
+    );
+  }
 
   const website = await prisma.website.findFirst({
     where: { id: params.id, userId: session.user.id },
@@ -36,12 +51,23 @@ export async function POST(
     if (!slug) return NextResponse.json({ error: "Could not generate slug" }, { status: 500 });
   }
 
-  const updated = await prisma.website.update({
-    where: { id: params.id },
-    data: { templateShared: true, templateSlug: slug },
-  });
+  let updated;
+  try {
+    updated = await prisma.website.update({
+      where: { id: params.id },
+      data: { templateShared: true, templateSlug: slug },
+    });
+  } catch (err: any) {
+    console.error("[template share] update failed:", err);
+    return NextResponse.json(
+      { error: "Could not enable template sharing. Please try again." },
+      { status: 500 }
+    );
+  }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${req.headers.get("host") || "storebuilder.ph"}`;
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("host") || "storebuilder.ph"}`;
   return NextResponse.json({
     success: true,
     templateSlug: updated.templateSlug,
