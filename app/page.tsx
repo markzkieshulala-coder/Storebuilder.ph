@@ -77,7 +77,7 @@ function BrewCoPreview() {
   return (
     <div style={{ width: 900, fontFamily: PF, background: "#1C0A00", lineHeight: "normal" }}>
       <div style={{ height: 52, background: "#1C0A00", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 700, fontSize: 20, color: "#F59E0B", letterSpacing: "0.04em" }}>☕ Brew & Co</span>
+        <span style={{ fontWeight: 700, fontSize: 20, color: "#F59E0B", letterSpacing: "0.04em" }}>Brew & Co</span>
         <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
           {["Menu","About","Locations","Rewards"].map(n => <span key={n} style={{ fontSize: 14, color: "rgba(255,255,255,0.65)" }}>{n}</span>)}
           <div style={{ padding: "8px 20px", background: "#F59E0B", color: "#1C0A00", borderRadius: 6, fontSize: 14, fontWeight: 700 }}>Order Now</div>
@@ -124,7 +124,7 @@ function KingsCutPreview() {
   return (
     <div style={{ width: 900, fontFamily: PF, background: "#0a0a0a", lineHeight: "normal" }}>
       <div style={{ height: 52, background: "#0a0a0a", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 900, fontSize: 20, color: "#F59E0B", letterSpacing: "0.1em", textTransform: "uppercase" }}>✂ KingsCut</span>
+        <span style={{ fontWeight: 900, fontSize: 20, color: "#F59E0B", letterSpacing: "0.1em", textTransform: "uppercase" }}>KingsCut</span>
         <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
           {["Services","Gallery","Barbers","Contact"].map(n => <span key={n} style={{ fontSize: 14, color: "rgba(255,255,255,0.55)" }}>{n}</span>)}
           <div style={{ padding: "8px 20px", background: "#F59E0B", color: "#0a0a0a", borderRadius: 6, fontSize: 14, fontWeight: 800 }}>Book Now</div>
@@ -147,12 +147,11 @@ function KingsCutPreview() {
         <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Our Services</div>
         <div style={{ display: "flex", gap: 14 }}>
           {[
-            { name: "Classic Haircut", desc: "Consultation, cut & style", price: "₱250", icon: "✂" },
-            { name: "Beard Grooming",  desc: "Shape, trim & hot towel",   price: "₱180", icon: "🪒" },
-            { name: "Full Package",    desc: "Haircut + beard + wash",     price: "₱420", icon: "👑" },
+            { name: "Classic Haircut", desc: "Consultation, cut & style", price: "₱250" },
+            { name: "Beard Grooming",  desc: "Shape, trim & hot towel",   price: "₱180" },
+            { name: "Full Package",    desc: "Haircut + beard + wash",     price: "₱420" },
           ].map(s => (
             <div key={s.name} style={{ flex: 1, background: "#1a1a1a", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(245,158,11,0.2)" }}>
-              <div style={{ fontSize: 28, marginBottom: 10 }}>{s.icon}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{s.name}</div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>{s.desc}</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#F59E0B" }}>{s.price}</div>
@@ -209,7 +208,7 @@ function SelahPreview() {
   return (
     <div style={{ width: 900, fontFamily: PF, background: "#fff", lineHeight: "normal" }}>
       <div style={{ height: 52, background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", padding: "0 32px", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 700, fontSize: 20, color: "#065F46", letterSpacing: "0.04em" }}>✿ Selah</span>
+        <span style={{ fontWeight: 700, fontSize: 20, color: "#065F46", letterSpacing: "0.04em" }}>Selah</span>
         <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
           {["Classes","Schedule","Pricing","Contact"].map(n => <span key={n} style={{ fontSize: 14, color: "#6B7280" }}>{n}</span>)}
           <div style={{ padding: "8px 20px", background: "#065F46", color: "#fff", borderRadius: 6, fontSize: 14, fontWeight: 600 }}>Join Now</div>

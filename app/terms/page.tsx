@@ -166,7 +166,7 @@ export default function TermsPage() {
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
         </div>
-        <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built with 💙 in the Philippines</p>
+        <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines</p>
       </footer>
     </div>
   );

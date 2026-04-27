@@ -248,7 +248,7 @@ export default function AdminUserDetailPage() {
               {user.role === "ADMIN" && <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#EDE9FE", color: "#5B21B6" }}>ADMIN</span>}
             </div>
             <div style={{ fontSize: "14px", color: "#6B7280", marginTop: "4px" }}>{user.email}</div>
-            {user.location && <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "3px" }}>📍 {user.location}</div>}
+            {user.location && <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "3px" }}>{user.location}</div>}
           </div>
           <button onClick={handleRefund} disabled={refunding || !activeSub}
             style={{ padding: "10px 22px", background: activeSub ? "#DC2626" : "#F3F4F6", color: activeSub ? "#fff" : "#9CA3AF", border: "none", borderRadius: "8px", cursor: activeSub && !refunding ? "pointer" : "not-allowed", fontSize: "13px", fontWeight: 600, fontFamily: FONT }}>

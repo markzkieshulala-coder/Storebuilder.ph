@@ -5,12 +5,12 @@ import { CreditCard, Store, Palette, Layers, ChevronUp, ChevronDown, Trash2, Cop
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 
 const PAYMENT_METHODS = [
-  { key: "gcash", label: "GCash", emoji: "📱" },
-  { key: "paymaya", label: "Maya (PayMaya)", emoji: "💚" },
-  { key: "creditCard", label: "Credit / Debit Card", emoji: "💳" },
-  { key: "cod", label: "Cash on Delivery", emoji: "🏠" },
-  { key: "bankTransfer", label: "Bank Transfer", emoji: "🏦" },
-  { key: "grabpay", label: "GrabPay", emoji: "🟢" },
+  { key: "gcash", label: "GCash" },
+  { key: "paymaya", label: "Maya (PayMaya)" },
+  { key: "creditCard", label: "Credit / Debit Card" },
+  { key: "cod", label: "Cash on Delivery" },
+  { key: "bankTransfer", label: "Bank Transfer" },
+  { key: "grabpay", label: "GrabPay" },
 ];
 
 const FONTS = [
@@ -131,7 +131,6 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
                     : "bg-white border-gray-150 hover:bg-gray-50 border-gray-200"
                 }`}
               >
-                <span className="text-base leading-none">{pm.emoji}</span>
                 <span className={`flex-1 text-sm font-medium ${payments[pm.key] ? "text-blue-700" : "text-gray-700"}`}>
                   {pm.label}
                 </span>

@@ -31,7 +31,7 @@ export default function PaymentSuccessPage() {
         </div>
 
         <h1 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
-          Welcome to Pro! 🎉
+          Welcome to Pro!
         </h1>
         <p className="text-white/50 mb-8">
           Your account has been upgraded. You now have unlimited website generations powered by Claude Sonnet.

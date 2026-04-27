@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       data: { status: "ACTIVE" },
     });
 
-    console.log(`✅ User ${userId} upgraded to ${tier} via PayMongo link ${linkId}`);
+    console.log(`User ${userId} upgraded to ${tier} via PayMongo link ${linkId}`);
   }
 
   return NextResponse.json({ received: true });

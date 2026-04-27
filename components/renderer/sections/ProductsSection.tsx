@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { ShoppingCart, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
+import EditableField from "@/components/editor/EditableField";
 
 export default function ProductsSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -12,7 +13,22 @@ export default function ProductsSection({ section, website }: { section: Section
   const bg = section.styles?.background || website.colors?.background || "#0d0d1a";
   const products = d.products || [];
   const filtered = activeCategory === "All" ? products : products.filter((p: any) => p.category === activeCategory);
-  const { isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar } = useEditor();
+  const {
+    isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar,
+    selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+  } = useEditor();
+
+  const isSelected = (field: string) =>
+    !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
+
+  const fieldProps = (field: string) => ({
+    sectionId: section.id, field,
+    editor: getEditorState(section.id, field),
+    isEditable, selected: isSelected(field),
+    onSelect: onSelectField, onUpdateEditor, onResetEditor,
+    onTextChange, onShowToolbar,
+    textColor, bgColor: bg, accentColor: accent,
+  });
 
   function showToolbar(e: React.FocusEvent<HTMLElement>) {
     const r = e.currentTarget.getBoundingClientRect();
@@ -23,18 +39,24 @@ export default function ProductsSection({ section, website }: { section: Section
     <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8 sm:mb-12">
-          <h2
+          <EditableField
+            {...fieldProps("headline")}
+            tag="h2"
             className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 sm:mb-3"
-            style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
-            contentEditable={isEditable}
-            suppressContentEditableWarning
-            onBlur={(e) => isEditable && onTextChange(section.id, "headline", e.currentTarget.innerText)}
-            onFocus={(e) => isEditable && showToolbar(e)}
-            onClick={(e) => isEditable && e.stopPropagation()}
+            style={{ fontFamily: "var(--heading-font)", color: textColor }}
           >
             {d.headline}
-          </h2>
-          {d.subheadline && <p className="text-sm sm:text-base lg:text-lg opacity-60 mb-6 sm:mb-8" style={{ color: textColor }}>{d.subheadline}</p>}
+          </EditableField>
+          {d.subheadline !== undefined && (
+            <EditableField
+              {...fieldProps("subheadline")}
+              tag="p"
+              className="text-sm sm:text-base lg:text-lg opacity-60 mb-6 sm:mb-8"
+              style={{ color: textColor }}
+            >
+              {d.subheadline}
+            </EditableField>
+          )}
           {d.categories && (
             <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
               {d.categories.map((cat: string) => (

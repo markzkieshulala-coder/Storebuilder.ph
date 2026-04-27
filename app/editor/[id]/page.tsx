@@ -8,6 +8,7 @@ import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
   CheckCircle, Loader2, Eye, PanelLeft, EyeOff, ChevronDown, Info,
+  Share2, Plus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
@@ -45,6 +46,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [iframeSaving, setIframeSaving] = useState(false);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [sharingTemplate, setSharingTemplate] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingImageUpload = useRef<{ sectionId: string; field: string } | null>(null);
 
@@ -192,6 +194,53 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   function handlePreview() {
     window.open(`/editor/${params.id}/preview`, "_blank");
+  }
+
+  async function handleShareTemplate() {
+    if (sharingTemplate) return;
+    setSharingTemplate(true);
+    try {
+      await handleSave();
+      const res = await fetch(`/api/websites/${params.id}/template`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to generate template link");
+        return;
+      }
+      const shareUrl = data.shareUrl || `${window.location.origin}/template/${data.templateSlug}`;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success("Template link copied to clipboard");
+      } catch {
+        toast.success(`Template link: ${shareUrl}`);
+      }
+    } catch {
+      toast.error("Failed to share template");
+    } finally {
+      setSharingTemplate(false);
+    }
+  }
+
+  function handleAddProduct() {
+    if (!website) return;
+    const productSection = website.sections.find((s) => s.type === "products");
+    if (!productSection) return;
+    const data = (productSection.data || {}) as any;
+    const existing = (data.products || []) as any[];
+    const newProduct = {
+      id: `product-${Date.now()}`,
+      name: "New Product",
+      price: 0,
+      description: "Add a description for your product.",
+      image: "",
+      category: data.categories?.[0] || "All",
+    };
+    const newData = { ...data, products: [...existing, newProduct] };
+    pushHistory({
+      ...website,
+      sections: website.sections.map((s) => s.id === productSection.id ? { ...s, data: newData } : s),
+    });
+    toast.success("New product added");
   }
 
   function updateSection(sectionId: string, updates: Partial<{ data: any; styles: any }>) {
@@ -376,6 +425,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     );
   }
 
+  const hasProductsSection = website.sections?.some((s) => s.type === "products");
+
   const editorCtx: EditorContextType = {
     isEditable: true,
     onTextChange: handleTextChange,
@@ -463,6 +514,29 @@ export default function EditorPage({ params }: { params: { id: string } }) {
           <button onClick={handleRedo} disabled={historyIndex >= history.length - 1}
             className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors hidden lg:flex" title="Redo (Ctrl+Y)">
             <Redo2 size={15} />
+          </button>
+
+          {/* Add Product (only for stores) */}
+          {hasProductsSection && (
+            <button
+              onClick={handleAddProduct}
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-xs sm:text-sm text-gray-700 font-medium transition-colors"
+              title="Add new product"
+            >
+              <Plus size={13} />
+              <span className="hidden lg:inline">Add Product</span>
+            </button>
+          )}
+
+          {/* Share template link */}
+          <button
+            onClick={handleShareTemplate}
+            disabled={sharingTemplate}
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-xs sm:text-sm text-gray-700 font-medium transition-colors disabled:opacity-50"
+            title="Copy a shareable template link"
+          >
+            {sharingTemplate ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />}
+            <span className="hidden lg:inline">Share Template</span>
           </button>
 
           {/* Preview */}

@@ -487,7 +487,7 @@ export default function OwnerPage() {
                   </div>
                   {infMsg && (
                     <div style={{ marginTop: "12px", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", background: infMsg.ok ? "#F0FDF4" : "#FEF2F2", color: infMsg.ok ? "#065F46" : "#DC2626", border: `1px solid ${infMsg.ok ? "#BBF7D0" : "#FCA5A5"}` }}>
-                      {infMsg.ok ? "✓ " : "✕ "}{infMsg.text}
+                      {infMsg.text}
                     </div>
                   )}
                 </div>

@@ -130,7 +130,7 @@ export default function UpgradePage() {
           ))}
           {features.excluded?.map((t) => (
             <li key={t} className="flex items-start gap-2.5 text-sm text-gray-300 line-through">
-              <span className="w-5 h-5 mt-0.5 shrink-0 text-center leading-5 text-gray-200">✕</span>
+              <span className="w-5 h-5 mt-0.5 shrink-0 text-center leading-5 text-gray-200">x</span>
               <span>{t}</span>
             </li>
           ))}
@@ -243,7 +243,7 @@ export default function UpgradePage() {
         {/* No Refund Notice */}
         <div className="max-w-2xl mx-auto mt-8 p-4 rounded-xl border border-amber-200 bg-amber-50">
           <p className="text-xs text-amber-700 text-center font-medium">
-            ⚠️ All payments are final and non-refundable. Generation credits are consumed immediately upon use.
+            All payments are final and non-refundable. Generation credits are consumed immediately upon use.
           </p>
         </div>
       </div>
@@ -257,7 +257,7 @@ export default function UpgradePage() {
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
         </div>
-        <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built with 💙 in the Philippines</p>
+        <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines</p>
       </footer>
     </div>
   );

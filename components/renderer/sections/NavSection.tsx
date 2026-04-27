@@ -3,6 +3,7 @@ import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useEditor } from "@/components/editor/EditorContext";
+import EditableField from "@/components/editor/EditableField";
 
 export default function NavSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -10,12 +11,22 @@ export default function NavSection({ section, website }: { section: Section; web
   const bg = section.styles?.background || "transparent";
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = website.colors?.secondary || "#c9a84c";
-  const { isEditable, onTextChange, onSectionClick, onShowToolbar } = useEditor();
+  const {
+    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+  } = useEditor();
 
-  function showToolbar(e: React.FocusEvent<HTMLElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    onShowToolbar({ sectionId: section.id, textColor, bgColor: bg, accentColor: accent, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
-  }
+  const isSelected = (field: string) =>
+    !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
+
+  const fieldProps = (field: string) => ({
+    sectionId: section.id, field,
+    editor: getEditorState(section.id, field),
+    isEditable, selected: isSelected(field),
+    onSelect: onSelectField, onUpdateEditor, onResetEditor,
+    onTextChange, onShowToolbar,
+    textColor, bgColor: bg === "transparent" ? "rgba(0,0,0,0.75)" : bg, accentColor: accent,
+  });
 
   return (
     <nav
@@ -25,17 +36,14 @@ export default function NavSection({ section, website }: { section: Section; web
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1 sm:flex-none">
-          <span
+          <EditableField
+            {...fieldProps("logo")}
+            tag="span"
             className="text-base sm:text-xl font-bold tracking-wide block truncate"
             style={{ fontFamily: "var(--heading-font)", color: accent }}
-            contentEditable={isEditable}
-            suppressContentEditableWarning
-            onBlur={(e) => isEditable && onTextChange(section.id, "logo", e.currentTarget.innerText)}
-            onFocus={(e) => isEditable && showToolbar(e)}
-            onClick={(e) => isEditable && e.stopPropagation()}
           >
             {d.logo || website.name}
-          </span>
+          </EditableField>
           {d.logoSubtext && <span className="hidden sm:inline ml-2 text-xs opacity-40" style={{ color: textColor }}>{d.logoSubtext}</span>}
         </div>
 

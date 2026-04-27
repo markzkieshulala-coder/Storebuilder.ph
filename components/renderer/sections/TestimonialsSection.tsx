@@ -1,17 +1,42 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { Star, Quote } from "lucide-react";
+import { useEditor } from "@/components/editor/EditorContext";
+import EditableField from "@/components/editor/EditableField";
 
 export default function TestimonialsSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
+  const {
+    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+  } = useEditor();
+
+  const isSelected = (field: string) =>
+    !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
+
+  const fieldProps = (field: string) => ({
+    sectionId: section.id, field,
+    editor: getEditorState(section.id, field),
+    isEditable, selected: isSelected(field),
+    onSelect: onSelectField, onUpdateEditor, onResetEditor,
+    onTextChange, onShowToolbar,
+    textColor, bgColor: bg, accentColor: accent,
+  });
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }}>
+    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-10 sm:mb-14 lg:mb-16" style={{ fontFamily: "var(--heading-font)", color: textColor }}>{d.headline}</h2>
+        <EditableField
+          {...fieldProps("headline")}
+          tag="h2"
+          className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-10 sm:mb-14 lg:mb-16"
+          style={{ fontFamily: "var(--heading-font)", color: textColor }}
+        >
+          {d.headline}
+        </EditableField>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {(d.testimonials || []).map((t: any, i: number) => (
             <div key={i} className="p-5 sm:p-6 rounded-2xl border" style={{ background: `${accent}08`, borderColor: `${accent}15` }}>

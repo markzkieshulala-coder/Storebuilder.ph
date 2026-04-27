@@ -4,9 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  ArrowLeft, User, Mail, Crown, CreditCard, AlertTriangle, Globe, Plug,
-  Code, Image as ImageIcon, Shield, Copy, Check, Menu, X, Zap, BarChart3,
-  MessageSquare, Webhook, Settings as SettingsIcon,
+  ArrowLeft, User, Mail, Crown, CreditCard, AlertTriangle, Globe,
+  Shield, Menu, X, Settings as SettingsIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -23,17 +22,13 @@ type Sub = {
 };
 
 type TabId =
-  | "account" | "billing" | "payments" | "domain"
-  | "integrations" | "api" | "branding";
+  | "account" | "billing" | "payments" | "domain";
 
 const TABS: { id: TabId; label: string; Icon: any; pro?: boolean }[] = [
   { id: "account", label: "Account", Icon: User },
   { id: "billing", label: "Billing & Plan", Icon: Crown },
   { id: "payments", label: "Payment Methods", Icon: CreditCard },
   { id: "domain", label: "Custom Domain", Icon: Globe, pro: true },
-  { id: "integrations", label: "Integrations", Icon: Plug },
-  { id: "api", label: "API & Webhooks", Icon: Code, pro: true },
-  { id: "branding", label: "Branding", Icon: ImageIcon },
 ];
 
 export default function SettingsPage() {
@@ -150,9 +145,6 @@ export default function SettingsPage() {
             {tab === "billing" && <BillingTab session={session} update={update} planTier={planTier} />}
             {tab === "payments" && <PaymentsTab />}
             {tab === "domain" && <DomainTab isPro={isPro} />}
-            {tab === "integrations" && <IntegrationsTab />}
-            {tab === "api" && <ApiTab isPro={isPro} />}
-            {tab === "branding" && <BrandingTab isPro={isPro} />}
           </div>
         </div>
       </div>
@@ -424,12 +416,12 @@ function Row({ label, value, valueClass = "" }: any) {
 /* ---------- Payment Methods ---------- */
 
 const PAYMENT_OPTIONS = [
-  { key: "gcash", label: "GCash", emoji: "📱", help: "Most popular Philippine e-wallet." },
-  { key: "paymaya", label: "Maya (PayMaya)", emoji: "💚", help: "Maya wallet & online banking." },
-  { key: "creditCard", label: "Credit / Debit Card", emoji: "💳", help: "Visa, Mastercard, JCB." },
-  { key: "cod", label: "Cash on Delivery", emoji: "🏠", help: "Pay when item arrives." },
-  { key: "bankTransfer", label: "Bank Transfer", emoji: "🏦", help: "BPI, BDO, UnionBank, etc." },
-  { key: "grabpay", label: "GrabPay", emoji: "🟢", help: "Pay using GrabPay wallet." },
+  { key: "gcash", label: "GCash", help: "Most popular Philippine e-wallet." },
+  { key: "paymaya", label: "Maya (PayMaya)", help: "Maya wallet & online banking." },
+  { key: "creditCard", label: "Credit / Debit Card", help: "Visa, Mastercard, JCB." },
+  { key: "cod", label: "Cash on Delivery", help: "Pay when item arrives." },
+  { key: "bankTransfer", label: "Bank Transfer", help: "BPI, BDO, UnionBank, etc." },
+  { key: "grabpay", label: "GrabPay", help: "Pay using GrabPay wallet." },
 ];
 
 function PaymentsTab() {
@@ -482,7 +474,6 @@ function PaymentsTab() {
                   : "bg-white border-[#E4E6EB] hover:border-[#BCC0C4]"
               }`}
             >
-              <span className="text-2xl leading-none shrink-0">{p.emoji}</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold truncate ${enabled[p.key] ? "text-[#1877F2]" : "text-[#1C1E21]"}`}>
                   {p.label}
@@ -615,278 +606,3 @@ function DomainTab({ isPro }: any) {
   );
 }
 
-/* ---------- Integrations ---------- */
-
-function IntegrationsTab() {
-  const [integrations, setIntegrations] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/user/profile").then((r) => r.json()).then((d) => {
-      if (d?.settings?.integrations) setIntegrations(d.settings.integrations);
-    }).catch(() => {});
-  }, []);
-
-  async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { integrations } }),
-      });
-      if (res.ok) toast.success("Integrations saved");
-      else toast.error("Failed to save");
-    } finally { setSaving(false); }
-  }
-
-  const fields = [
-    { key: "ga4", label: "Google Analytics 4 (Measurement ID)", placeholder: "G-XXXXXXXXXX", icon: BarChart3 },
-    { key: "gtm", label: "Google Tag Manager (Container ID)", placeholder: "GTM-XXXXXXX", icon: BarChart3 },
-    { key: "fbPixel", label: "Facebook Pixel ID", placeholder: "1234567890123456", icon: BarChart3 },
-    { key: "messengerPageId", label: "Messenger Chat (Page ID)", placeholder: "123456789012345", icon: MessageSquare },
-    { key: "whatsapp", label: "WhatsApp Number", placeholder: "+63 9XX XXX XXXX", icon: MessageSquare },
-    { key: "sendgridKey", label: "SendGrid API Key (email)", placeholder: "SG.xxx", icon: Mail },
-    { key: "mailchimpKey", label: "Mailchimp API Key", placeholder: "xxxxxxxx-us1", icon: Mail },
-  ];
-
-  return (
-    <>
-      <Card title="Marketing & Analytics" desc="Plug in third-party services. Empty fields stay disabled." icon={Plug}>
-        <div className="space-y-4">
-          {fields.map((f) => (
-            <div key={f.key}>
-              <label className={labelCls + " flex items-center gap-2"}>
-                <f.icon size={12} />
-                {f.label}
-              </label>
-              <input
-                value={integrations[f.key] || ""}
-                onChange={(e) => setIntegrations({ ...integrations, [f.key]: e.target.value })}
-                className={inputCls + " font-mono text-xs sm:text-sm"}
-                placeholder={f.placeholder}
-              />
-            </div>
-          ))}
-          <button onClick={save} disabled={saving} className={btnPrimary}>
-            {saving ? "Saving…" : "Save integrations"}
-          </button>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-/* ---------- API & Webhooks ---------- */
-
-function ApiTab({ isPro }: any) {
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/user/profile").then((r) => r.json()).then((d) => {
-      if (d?.settings?.apiKey) setApiKey(d.settings.apiKey);
-      if (d?.settings?.webhookUrl) setWebhookUrl(d.settings.webhookUrl);
-    }).catch(() => {});
-  }, []);
-
-  async function generate() {
-    if (apiKey && !confirm("This will replace your existing API key. Continue?")) return;
-    setGenerating(true);
-    try {
-      const newKey = "sb_live_" + Array.from(crypto.getRandomValues(new Uint8Array(24)))
-        .map((b) => b.toString(16).padStart(2, "0")).join("");
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { apiKey: newKey } }),
-      });
-      if (res.ok) { setApiKey(newKey); toast.success("New API key generated"); }
-      else toast.error("Failed to generate key");
-    } finally { setGenerating(false); }
-  }
-
-  async function saveWebhook() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { webhookUrl } }),
-      });
-      if (res.ok) toast.success("Webhook saved");
-      else toast.error("Failed to save");
-    } finally { setSaving(false); }
-  }
-
-  function copy() {
-    if (!apiKey) return;
-    navigator.clipboard.writeText(apiKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  if (!isPro) {
-    return (
-      <Card title="API & Webhooks" desc="Programmatically access your sites." icon={Code}>
-        <div className="text-center py-8">
-          <Crown size={32} className="text-amber-400 mx-auto mb-3" />
-          <p className="text-sm font-semibold text-[#1C1E21] mb-1">Pro feature</p>
-          <p className="text-xs text-[#65676B] mb-4">Upgrade to access API keys and webhook integrations.</p>
-          <Link href="/upgrade" className={btnPrimary}>Upgrade to Pro</Link>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <>
-      <Card title="API Key" desc="Use this key to authenticate API requests." icon={Code}>
-        {apiKey ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 bg-[#F0F2F5] border border-[#E4E6EB] rounded-lg p-3">
-              <code className="flex-1 text-xs sm:text-sm font-mono text-[#1C1E21] truncate">{apiKey}</code>
-              <button
-                onClick={copy}
-                className="shrink-0 p-2 rounded-lg hover:bg-white text-[#65676B] hover:text-[#1877F2]"
-                aria-label="Copy API key"
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
-            </div>
-            <button onClick={generate} disabled={generating} className={btnSecondary}>
-              {generating ? "Generating…" : "Regenerate key"}
-            </button>
-          </div>
-        ) : (
-          <button onClick={generate} disabled={generating} className={btnPrimary}>
-            <Zap size={14} />
-            {generating ? "Generating…" : "Generate API key"}
-          </button>
-        )}
-      </Card>
-
-      <Card title="Webhooks" desc="POST events to a URL when orders or form submissions happen." icon={Webhook}>
-        <div className="space-y-4">
-          <div>
-            <label className={labelCls}>Endpoint URL</label>
-            <input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} className={inputCls + " font-mono text-xs sm:text-sm"} placeholder="https://your-server.com/webhook" />
-          </div>
-          <div className="bg-[#F0F2F5] rounded-lg p-3 text-xs text-[#65676B]">
-            <p className="font-semibold text-[#1C1E21] mb-1">Events fired:</p>
-            <ul className="space-y-1">
-              <li>• <code className="font-mono">order.created</code> — new order placed</li>
-              <li>• <code className="font-mono">form.submitted</code> — contact form submitted</li>
-              <li>• <code className="font-mono">subscriber.added</code> — newsletter signup</li>
-            </ul>
-          </div>
-          <button onClick={saveWebhook} disabled={saving} className={btnPrimary}>
-            {saving ? "Saving…" : "Save webhook"}
-          </button>
-        </div>
-      </Card>
-
-      <Card title="API Documentation" icon={Code}>
-        <div className="space-y-2 text-xs sm:text-sm text-[#65676B]">
-          <p>Base URL: <code className="font-mono text-[#1C1E21] bg-[#F0F2F5] px-1.5 py-0.5 rounded break-all">https://api.storebuilder.ph/v1</code></p>
-          <p>Auth header: <code className="font-mono text-[#1C1E21] bg-[#F0F2F5] px-1.5 py-0.5 rounded break-all">Authorization: Bearer YOUR_KEY</code></p>
-          <p>Endpoints: <code className="font-mono">/sites</code>, <code className="font-mono">/orders</code>, <code className="font-mono">/contacts</code></p>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-/* ---------- Branding ---------- */
-
-function BrandingTab({ isPro }: any) {
-  const [branding, setBranding] = useState<Record<string, any>>({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/user/profile").then((r) => r.json()).then((d) => {
-      if (d?.settings?.branding) setBranding(d.settings.branding);
-    }).catch(() => {});
-  }, []);
-
-  async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { branding } }),
-      });
-      if (res.ok) toast.success("Branding saved");
-      else toast.error("Failed to save");
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <>
-      <Card title="Logo & Identity" desc="Used across all of your generated sites." icon={ImageIcon}>
-        <div className="space-y-4">
-          <div>
-            <label className={labelCls}>Brand name</label>
-            <input value={branding.name || ""} onChange={(e) => setBranding({ ...branding, name: e.target.value })} className={inputCls} placeholder="Your business name" />
-          </div>
-          <div>
-            <label className={labelCls}>Logo URL</label>
-            <input value={branding.logoUrl || ""} onChange={(e) => setBranding({ ...branding, logoUrl: e.target.value })} className={inputCls + " font-mono text-xs sm:text-sm"} placeholder="https://..." />
-            {branding.logoUrl && (
-              <div className="mt-3 p-3 bg-[#F0F2F5] rounded-lg">
-                <img src={branding.logoUrl} alt="Logo preview" className="max-h-16 max-w-full" />
-              </div>
-            )}
-          </div>
-          <div>
-            <label className={labelCls}>Favicon URL</label>
-            <input value={branding.faviconUrl || ""} onChange={(e) => setBranding({ ...branding, faviconUrl: e.target.value })} className={inputCls + " font-mono text-xs sm:text-sm"} placeholder="https://..." />
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Brand Colors" desc="Defaults for new sites. You can override per site in the editor." icon={ImageIcon}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(["primary", "secondary", "accent", "text"] as const).map((k) => (
-            <div key={k} className="flex items-center gap-3 p-3 bg-[#F0F2F5] rounded-lg">
-              <input
-                type="color"
-                value={branding[k] || "#1877F2"}
-                onChange={(e) => setBranding({ ...branding, [k]: e.target.value })}
-                className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
-              />
-              <span className="text-xs font-medium text-[#65676B] capitalize">{k}</span>
-              <span className="ml-auto text-[10px] text-[#8A8D91] font-mono">{branding[k] || "—"}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Watermark" desc="Show a 'Made with Storebuilder.ph' badge on your sites." icon={Shield}>
-        <label className="flex items-center gap-3 p-3 bg-[#F0F2F5] rounded-lg cursor-pointer">
-          <input
-            type="checkbox"
-            checked={!!branding.showWatermark}
-            onChange={(e) => setBranding({ ...branding, showWatermark: e.target.checked })}
-            className="w-4 h-4"
-            disabled={!isPro}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#1C1E21]">Show watermark</p>
-            <p className="text-xs text-[#65676B] mt-0.5">
-              {isPro ? "Toggle to hide on Pro plan." : "Free plan always shows watermark. Upgrade to remove."}
-            </p>
-          </div>
-        </label>
-      </Card>
-
-      <button onClick={save} disabled={saving} className={btnPrimary}>
-        {saving ? "Saving…" : "Save branding"}
-      </button>
-    </>
-  );
-}

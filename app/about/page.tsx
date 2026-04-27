@@ -71,7 +71,6 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="rounded-2xl p-8 text-center" style={{ background: "#EBF3FF" }}>
-              <div className="text-5xl mb-4">🚀</div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Our Mission</h3>
               <p className="text-gray-600 text-sm leading-relaxed">
                 Help every Filipino entrepreneur get online in minutes — using AI, for free, without the complexity.
@@ -106,12 +105,11 @@ export default function AboutPage() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-8 sm:mb-10">Our Values</h2>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             {[
-              { emoji: "🇵🇭", title: "Filipino First", desc: "Every decision we make is focused on the Filipino market — GCash, Peso pricing, and local culture." },
-              { emoji: "⚡", title: "Simplicity", desc: "Technology should be a tool, not an obstacle. We make everything simple for everyone." },
-              { emoji: "💙", title: "Accessible to All", desc: "We believe every business owner, big or small, deserves a professional online presence." },
+              { title: "Filipino First", desc: "Every decision we make is focused on the Filipino market — GCash, Peso pricing, and local culture." },
+              { title: "Simplicity", desc: "Technology should be a tool, not an obstacle. We make everything simple for everyone." },
+              { title: "Accessible to All", desc: "We believe every business owner, big or small, deserves a professional online presence." },
             ].map((v) => (
               <div key={v.title} className="p-6 rounded-xl border border-gray-100 text-center">
-                <div className="text-3xl mb-3">{v.emoji}</div>
                 <h3 className="font-semibold text-gray-900 mb-2">{v.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{v.desc}</p>
               </div>
@@ -123,9 +121,6 @@ export default function AboutPage() {
       {/* Founder */}
       <section className="py-12 sm:py-14 lg:py-16 px-4 sm:px-6" style={{ background: "#F7FAFF" }}>
         <div className="max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl sm:text-3xl" style={{ background: "#EBF3FF" }}>
-            👨‍💻
-          </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">Mark Ocdenaria</h3>
           <p className="text-sm font-medium mb-4" style={{ color: BLUE }}>Founder, Storebuilder.ph</p>
           <p className="text-gray-600 text-sm leading-relaxed max-w-xl mx-auto">
@@ -152,7 +147,7 @@ export default function AboutPage() {
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
         </div>
-        <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built with 💙 in the Philippines by Mark Ocdenaria</p>
+        <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines by Mark Ocdenaria</p>
       </footer>
     </div>
   );
