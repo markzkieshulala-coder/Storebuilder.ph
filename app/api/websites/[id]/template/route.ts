@@ -13,86 +13,92 @@ function generateTemplateSlug(name: string): string {
   return `${base}-${suffix}`;
 }
 
-// POST → enable template sharing for this website (PRO + ENTERPRISE only)
+// POST → enable template sharing (PRO + ENTERPRISE only)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Read the FRESH plan from the DB (not the JWT), so newly upgraded users
-  // can share immediately without signing out / back in.
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { plan: true },
-  });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  if (user.plan !== "PRO" && user.plan !== "ENTERPRISE") {
-    return NextResponse.json(
-      { error: "Template sharing is available on the Pro and Enterprise plans. Upgrade to share templates." },
-      { status: 403 }
-    );
-  }
-
-  const website = await prisma.website.findFirst({
-    where: { id: params.id, userId: session.user.id },
-  });
-  if (!website) return NextResponse.json({ error: "Website not found" }, { status: 404 });
-
-  let slug = website.templateSlug;
-  if (!slug) {
-    for (let i = 0; i < 5; i++) {
-      const candidate = generateTemplateSlug(website.name);
-      const exists = await prisma.website.findUnique({ where: { templateSlug: candidate } });
-      if (!exists) { slug = candidate; break; }
-    }
-    if (!slug) return NextResponse.json({ error: "Could not generate slug" }, { status: 500 });
-  }
-
-  let updated;
   try {
-    updated = await prisma.website.update({
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // session.user.plan is refreshed from DB on every JWT cycle (see lib/auth.ts)
+    const plan = session.user.plan;
+    if (plan !== "PRO" && plan !== "ENTERPRISE") {
+      return NextResponse.json(
+        { error: "Template sharing is available on the Pro and Enterprise plans." },
+        { status: 403 }
+      );
+    }
+
+    const website = await prisma.website.findFirst({
+      where: { id: params.id, userId: session.user.id },
+    });
+    if (!website) {
+      return NextResponse.json({ error: "Website not found" }, { status: 404 });
+    }
+
+    let slug = website.templateSlug;
+    if (!slug) {
+      for (let i = 0; i < 5; i++) {
+        const candidate = generateTemplateSlug(website.name);
+        const exists = await prisma.website.findUnique({ where: { templateSlug: candidate } });
+        if (!exists) { slug = candidate; break; }
+      }
+      if (!slug) {
+        return NextResponse.json({ error: "Could not generate a unique link. Please try again." }, { status: 500 });
+      }
+    }
+
+    const updated = await prisma.website.update({
       where: { id: params.id },
       data: { templateShared: true, templateSlug: slug },
     });
-  } catch (err: any) {
-    console.error("[template share] update failed:", err);
-    return NextResponse.json(
-      { error: "Could not enable template sharing. Please try again." },
-      { status: 500 }
-    );
-  }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("host") || "storebuilder.ph"}`;
-  return NextResponse.json({
-    success: true,
-    templateSlug: updated.templateSlug,
-    shareUrl: `${appUrl}/template/${updated.templateSlug}`,
-    useCount: updated.templateUseCount,
-  });
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("host") || "storebuilder.ph"}`;
+
+    return NextResponse.json({
+      success: true,
+      templateSlug: updated.templateSlug,
+      shareUrl: `${appUrl}/template/${updated.templateSlug}`,
+      useCount: updated.templateUseCount,
+    });
+  } catch (err: any) {
+    console.error("[POST /api/websites/[id]/template]", err);
+    return NextResponse.json({ error: "Internal server error: " + (err?.message ?? "unknown") }, { status: 500 });
+  }
 }
 
-// DELETE → disable template sharing (slug remains so old links 404)
+// DELETE → disable template sharing
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const website = await prisma.website.findFirst({
-    where: { id: params.id, userId: session.user.id },
-  });
-  if (!website) return NextResponse.json({ error: "Website not found" }, { status: 404 });
+    const website = await prisma.website.findFirst({
+      where: { id: params.id, userId: session.user.id },
+    });
+    if (!website) {
+      return NextResponse.json({ error: "Website not found" }, { status: 404 });
+    }
 
-  await prisma.website.update({
-    where: { id: params.id },
-    data: { templateShared: false },
-  });
+    await prisma.website.update({
+      where: { id: params.id },
+      data: { templateShared: false },
+    });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("[DELETE /api/websites/[id]/template]", err);
+    return NextResponse.json({ error: "Internal server error: " + (err?.message ?? "unknown") }, { status: 500 });
+  }
 }
