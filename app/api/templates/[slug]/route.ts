@@ -33,10 +33,34 @@ export async function GET(
       return NextResponse.json({ error: "Template not found or no longer shared." }, { status: 404 });
     }
 
+    // Derive a preview image from jsonContent if no thumbnail exists.
+    // Look in this order: hero backgroundImage → about image → first product
+    // image → first team member image → first gallery image.
+    function extractPreviewImage(json: any): string | null {
+      if (!json || !Array.isArray(json.sections)) return null;
+      for (const s of json.sections) {
+        const d = s?.data || {};
+        if (s.type === "hero" && typeof d.backgroundImage === "string" && d.backgroundImage.startsWith("https://")) return d.backgroundImage;
+      }
+      for (const s of json.sections) {
+        const d = s?.data || {};
+        if (s.type === "about" && typeof d.image === "string" && d.image.startsWith("https://")) return d.image;
+        if (s.type === "products" && Array.isArray(d.products) && d.products[0]?.image?.startsWith?.("https://")) return d.products[0].image;
+        if (s.type === "team" && Array.isArray(d.members) && d.members[0]?.image?.startsWith?.("https://")) return d.members[0].image;
+        if (s.type === "gallery" && Array.isArray(d.images)) {
+          const first = typeof d.images[0] === "string" ? d.images[0] : d.images[0]?.url;
+          if (typeof first === "string" && first.startsWith("https://")) return first;
+        }
+      }
+      return null;
+    }
+
+    const previewImage = website.thumbnail || extractPreviewImage(website.jsonContent);
+
     return NextResponse.json({
       name: website.name,
       type: website.type,
-      thumbnail: website.thumbnail,
+      thumbnail: previewImage,
       seoTitle: website.seoTitle,
       seoDesc: website.seoDesc,
       useCount: Number(website.templateUseCount ?? 0),

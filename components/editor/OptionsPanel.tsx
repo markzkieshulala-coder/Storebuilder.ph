@@ -1,21 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Store, Palette, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin } from "lucide-react";
+import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon } from "lucide-react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 
 const PAYMENT_METHODS = [
-  { key: "gcash", label: "GCash" },
-  { key: "paymaya", label: "Maya (PayMaya)" },
-  { key: "creditCard", label: "Credit / Debit Card" },
-  { key: "cod", label: "Cash on Delivery" },
-  { key: "bankTransfer", label: "Bank Transfer" },
-  { key: "grabpay", label: "GrabPay" },
-];
-
-const FONTS = [
-  "Google Sans", "Roboto", "Inter", "Poppins", "Montserrat",
-  "Raleway", "DM Sans", "Outfit", "Nunito", "Lato", "Open Sans",
+  { key: "hitpay", label: "Hitpay", linkKey: "hitpayLink", placeholder: "https://hitpay.example/link" },
+  { key: "paymongo", label: "Paymongo", linkKey: "paymongoLink", placeholder: "https://pm.link/your-link" },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -25,7 +16,7 @@ const SECTION_LABELS: Record<string, string> = {
   contact: "Contact", team: "Team", gallery: "Gallery", process: "Process",
 };
 
-type Tab = "site" | "payments" | "design" | "pages";
+type Tab = "site" | "payments" | "pages";
 
 interface Props {
   website: GeneratedWebsite;
@@ -54,14 +45,17 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
     updateSettings("payments", { ...payments, [method]: !payments[method] });
   }
 
+  function setPaymentLink(linkKey: string, value: string) {
+    updateSettings("payments", { ...payments, [linkKey]: value });
+  }
+
   const inp = "w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:bg-white text-gray-800 transition-colors";
   const lbl = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
 
   const tabs = [
     { id: "site" as Tab, Icon: Store, label: "Site" },
-    { id: "payments" as Tab, Icon: CreditCard, label: "Payments" },
-    { id: "design" as Tab, Icon: Palette, label: "Design" },
     { id: "pages" as Tab, Icon: Layers, label: "Pages" },
+    { id: "payments" as Tab, Icon: CreditCard, label: "Payments" },
   ];
 
   return (
@@ -119,64 +113,43 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
 
         {/* PAYMENTS */}
         {tab === "payments" && (
-          <div className="space-y-2">
-            <p className="text-xs text-gray-400 pb-1">Toggle accepted payment methods</p>
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400 pb-1">Toggle accepted payment methods and add your own checkout links</p>
             {PAYMENT_METHODS.map((pm) => (
-              <button
-                key={pm.key}
-                onClick={() => togglePayment(pm.key)}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left ${
-                  payments[pm.key]
-                    ? "bg-blue-50 border-blue-300"
-                    : "bg-white border-gray-150 hover:bg-gray-50 border-gray-200"
-                }`}
-              >
-                <span className={`flex-1 text-sm font-medium ${payments[pm.key] ? "text-blue-700" : "text-gray-700"}`}>
-                  {pm.label}
-                </span>
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                  payments[pm.key] ? "bg-blue-600 border-blue-600" : "border-gray-300"
-                }`}>
-                  {payments[pm.key] && <div className="w-2 h-2 bg-white rounded-full" />}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* DESIGN */}
-        {tab === "design" && (
-          <div className="space-y-4">
-            <div>
-              <label className={lbl}>Heading Font</label>
-              <select value={website.fonts?.heading || "Google Sans"} onChange={(e) => onUpdateWebsite({ fonts: { ...website.fonts, heading: e.target.value } })} className={inp}>
-                {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Body Font</label>
-              <select value={website.fonts?.body || "Google Sans"} onChange={(e) => onUpdateWebsite({ fonts: { ...website.fonts, body: e.target.value } })} className={inp}>
-                {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Colors</label>
-              <div className="grid grid-cols-1 gap-2">
-                {(["primary", "secondary", "accent", "background", "text"] as const).map((key) => (
-                  <div key={key} className="flex items-center gap-2.5 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                    <input
-                      type="color"
-                      value={website.colors?.[key] || "#000000"}
-                      onChange={(e) => onUpdateWebsite({ colors: { ...website.colors, [key]: e.target.value } })}
-                      className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
-                      style={{ padding: "2px" }}
-                    />
-                    <span className="text-xs font-medium text-gray-600 capitalize">{key}</span>
-                    <span className="ml-auto text-[10px] text-gray-400 font-mono">{website.colors?.[key] || ""}</span>
+              <div key={pm.key} className="space-y-2">
+                <button
+                  onClick={() => togglePayment(pm.key)}
+                  className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left ${
+                    payments[pm.key]
+                      ? "bg-blue-50 border-blue-300"
+                      : "bg-white border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <span className={`flex-1 text-sm font-medium ${payments[pm.key] ? "text-blue-700" : "text-gray-700"}`}>
+                    {pm.label}
+                  </span>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                    payments[pm.key] ? "bg-blue-600 border-blue-600" : "border-gray-300"
+                  }`}>
+                    {payments[pm.key] && <div className="w-2 h-2 bg-white rounded-full" />}
                   </div>
-                ))}
+                </button>
+                {payments[pm.key] && (
+                  <div className="pl-2 pr-1">
+                    <label className={lbl}>{pm.label} payment link</label>
+                    <div className="relative">
+                      <LinkIcon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        value={payments[pm.linkKey] || ""}
+                        onChange={(e) => setPaymentLink(pm.linkKey, e.target.value)}
+                        className={inp + " pl-8"}
+                        placeholder={pm.placeholder}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            ))}
           </div>
         )}
 

@@ -28,7 +28,7 @@ const PLAN_FEATURES: Record<"FREE" | "PRO" | "ENTERPRISE", { included: { icon: a
     included: [
       { icon: Sparkles, text: "Up to 10 websites per month" },
       { icon: Check, text: "Access to all editor features" },
-      { icon: CreditCard, text: "Add any payment links (GCash, Maya, bank, PayPal, etc.)" },
+      { icon: CreditCard, text: "Add Hitpay & Paymongo payment links" },
       { icon: Share2, text: "Template link sharing for generated websites" },
       { icon: Globe, text: "Custom domain connection" },
       { icon: Shield, text: "Remove Storebuilder.ph branding" },
@@ -38,7 +38,7 @@ const PLAN_FEATURES: Record<"FREE" | "PRO" | "ENTERPRISE", { included: { icon: a
     included: [
       { icon: Sparkles, text: "Up to 20 websites per month" },
       { icon: Check, text: "Access to all editor features" },
-      { icon: CreditCard, text: "Add any payment links" },
+      { icon: CreditCard, text: "Add Hitpay & Paymongo payment links" },
       { icon: Database, text: "System / CRM generation for each website" },
       { icon: Share2, text: "Template link sharing" },
       { icon: Globe, text: "Custom domain connection" },

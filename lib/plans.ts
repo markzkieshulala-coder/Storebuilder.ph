@@ -46,7 +46,7 @@ export const PLANS: Record<PlanTier, PlanFeatures> = {
     maxWebsitesPerMonth: 10,
     canShareTemplates: true,
     canAddPaymentLinks: true,
-    canGenerateCRM: false,
+    canGenerateCRM: true,
     canUseCustomDomain: true,
     canRemoveBranding: true,
     hasApiAccess: true,

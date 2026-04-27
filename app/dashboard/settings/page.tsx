@@ -284,7 +284,7 @@ const PLAN_INFO: Record<string, { label: string; tagline: string; features: stri
   PRO: {
     label: "Pro Plan",
     tagline: "Best for online sellers & freelancers",
-    features: ["Up to 10 websites per month", "Add payment links (GCash, Maya, bank, PayPal)", "Template link sharing", "Custom domain", "Remove branding"],
+    features: ["Up to 10 websites per month", "Add Hitpay & Paymongo payment links", "Template link sharing", "Custom domain", "Remove branding"],
     nextLabel: "Upgrade to Enterprise",
     nextHref: "/upgrade",
   },
@@ -416,12 +416,8 @@ function Row({ label, value, valueClass = "" }: any) {
 /* ---------- Payment Methods ---------- */
 
 const PAYMENT_OPTIONS = [
-  { key: "gcash", label: "GCash", help: "Most popular Philippine e-wallet." },
-  { key: "paymaya", label: "Maya (PayMaya)", help: "Maya wallet & online banking." },
-  { key: "creditCard", label: "Credit / Debit Card", help: "Visa, Mastercard, JCB." },
-  { key: "cod", label: "Cash on Delivery", help: "Pay when item arrives." },
-  { key: "bankTransfer", label: "Bank Transfer", help: "BPI, BDO, UnionBank, etc." },
-  { key: "grabpay", label: "GrabPay", help: "Pay using GrabPay wallet." },
+  { key: "hitpay", label: "Hitpay", help: "Hitpay checkout link." },
+  { key: "paymongo", label: "Paymongo", help: "Paymongo payment link." },
 ];
 
 function PaymentsTab() {
@@ -488,30 +484,18 @@ function PaymentsTab() {
         </div>
       </Card>
 
-      <Card title="Payment Details" desc="Account numbers shown to your customers at checkout." icon={CreditCard}>
+      <Card title="Payment Links" desc="Paste your own Hitpay and Paymongo checkout links — these are shown to your customers at checkout." icon={CreditCard}>
         <div className="space-y-4">
-          {enabled.gcash && (
+          {enabled.hitpay && (
             <div>
-              <label className={labelCls}>GCash number</label>
-              <input value={details.gcashNumber || ""} onChange={(e) => setDetails({ ...details, gcashNumber: e.target.value })} className={inputCls} placeholder="+63 9XX XXX XXXX" />
+              <label className={labelCls}>Hitpay payment link</label>
+              <input value={details.hitpayLink || ""} onChange={(e) => setDetails({ ...details, hitpayLink: e.target.value })} className={inputCls} placeholder="https://hitpay.example/link" />
             </div>
           )}
-          {enabled.paymaya && (
+          {enabled.paymongo && (
             <div>
-              <label className={labelCls}>Maya number</label>
-              <input value={details.payMayaNumber || ""} onChange={(e) => setDetails({ ...details, payMayaNumber: e.target.value })} className={inputCls} placeholder="+63 9XX XXX XXXX" />
-            </div>
-          )}
-          {enabled.bankTransfer && (
-            <div>
-              <label className={labelCls}>Bank account details</label>
-              <textarea value={details.bankDetails || ""} onChange={(e) => setDetails({ ...details, bankDetails: e.target.value })} className={inputCls + " resize-none"} rows={3} placeholder="BPI · 1234-5678-90 · Juan Dela Cruz" />
-            </div>
-          )}
-          {enabled.grabpay && (
-            <div>
-              <label className={labelCls}>GrabPay number</label>
-              <input value={details.grabPayNumber || ""} onChange={(e) => setDetails({ ...details, grabPayNumber: e.target.value })} className={inputCls} placeholder="+63 9XX XXX XXXX" />
+              <label className={labelCls}>Paymongo payment link</label>
+              <input value={details.paymongoLink || ""} onChange={(e) => setDetails({ ...details, paymongoLink: e.target.value })} className={inputCls} placeholder="https://pm.link/your-link" />
             </div>
           )}
           <button onClick={save} disabled={saving} className={btnPrimary}>

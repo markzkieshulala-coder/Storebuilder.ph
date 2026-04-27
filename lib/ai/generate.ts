@@ -144,7 +144,8 @@ const FREE_BLOCKED_TYPES = new Set(["products"]);
 
 function enforcePlanSections(website: GeneratedWebsite, plan: string): GeneratedWebsite {
   website.sections = website.sections.filter((s) => {
-    if (CRM_SECTION_TYPES.has(s.type) && plan !== "ENTERPRISE") return false;
+    // CRM sections allowed on PRO + ENTERPRISE
+    if (CRM_SECTION_TYPES.has(s.type) && plan !== "ENTERPRISE" && plan !== "PRO") return false;
     if (FREE_BLOCKED_TYPES.has(s.type) && plan === "FREE") return false;
     return true;
   });
@@ -316,8 +317,8 @@ INTERIOR & LIFESTYLE:
 PLAN-BASED SECTION RULES
 ══════════════════════════════════════════
 FREE   → Landing pages & portfolios only. Sections: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. NO products. NO pricing. NO CRM.
-PRO    → Add products, pricing, gallery, team, process sections. May include payment CTA text (GCash, Maya, bank). NO CRM dashboard sections.
-ENTERPRISE → All PRO sections PLUS: dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder — only when the prompt explicitly asks for a system, admin panel, CRM, or internal tool.
+PRO    → Full marketing/commerce site. Add products, pricing, gallery, team, process sections. May include Hitpay & Paymongo payment links. ALSO eligible for CRM dashboard sections (dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder) — include these when the prompt asks for a system, admin panel, CRM, or internal tool.
+ENTERPRISE → All PRO sections PLUS dedicated CRM dashboard sections — include these when the prompt explicitly asks for a system, admin panel, CRM, or internal tool.
 
 ══════════════════════════════════════════
 JSON SCHEMA (strict)
@@ -357,7 +358,7 @@ function buildUserPrompt(userPrompt: string, plan: Plan): string {
     tier === "ENTERPRISE"
       ? `PLAN: ENTERPRISE — Full site + optional CRM. If the prompt asks for a system, CRM, admin panel, or internal tool, include those section types in addition to marketing sections. Otherwise generate a premium marketing site.`
       : tier === "PRO"
-      ? `PLAN: PRO — Generate a premium marketing/commerce site. You may include product grids, pricing tables, and payment CTA text (GCash, Maya, bank transfer, etc.). No CRM sections.`
+      ? `PLAN: PRO — Generate a premium marketing/commerce site. You may include product grids, pricing tables, and Hitpay/Paymongo payment links. If the prompt asks for a system, CRM, admin panel, or internal tool, include CRM dashboard section types (dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder) in addition to the marketing sections.`
       : `PLAN: FREE — Generate a polished landing page or portfolio. Use only: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. Absolutely NO product grids (type "products"), NO pricing tables. Focus on showcase and lead generation.`;
 
   return `Generate a complete, premium website for this business:
