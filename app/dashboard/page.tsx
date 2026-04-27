@@ -124,9 +124,20 @@ function DashboardContent() {
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    const res = await fetch(`/api/websites/${id}`, { method: "DELETE" });
-    if (res.ok) { toast.success("Website deleted"); fetchData(); }
-    else toast.error("Failed to delete");
+    try {
+      const res = await fetch(`/api/websites/${id}`, { method: "DELETE" });
+      let data: any = {};
+      try { data = await res.json(); } catch {}
+      if (res.ok) {
+        toast.success("Website deleted");
+        fetchData();
+      } else {
+        toast.error(data.error || `Failed to delete (${res.status})`);
+      }
+    } catch (err: any) {
+      console.error("[delete]", err);
+      toast.error("Network error — please try again.");
+    }
   }
 
   async function handlePublish(id: string) {
