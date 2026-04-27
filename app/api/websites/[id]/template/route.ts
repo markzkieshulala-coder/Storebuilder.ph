@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPlan } from "@/lib/plans";
 
 function generateTemplateSlug(name: string): string {
   const base = name
@@ -21,14 +20,6 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const planInfo = getPlan(session.user.plan);
-  if (!planInfo.canShareTemplates) {
-    return NextResponse.json(
-      { error: "Template sharing requires the Pro or Enterprise plan." },
-      { status: 403 }
-    );
-  }
 
   const website = await prisma.website.findFirst({
     where: { id: params.id, userId: session.user.id },
