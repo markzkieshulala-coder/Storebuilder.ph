@@ -202,9 +202,14 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     if (sharingTemplate) return;
     setSharingTemplate(true);
     try {
-      await handleSave();
       const res = await fetch(`/api/websites/${params.id}/template`, { method: "POST" });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        toast.error("Server returned an unexpected response. Please try again.");
+        return;
+      }
       if (!res.ok) {
         toast.error(data.error || "Failed to generate template link");
         return;
@@ -212,8 +217,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       const url = data.shareUrl || `${window.location.origin}/template/${data.templateSlug}`;
       setShareModalUrl(url);
       setShareModalOpen(true);
-    } catch {
-      toast.error("Failed to share template");
+    } catch (err: any) {
+      console.error("[share template]", err);
+      toast.error("Network error — please check your connection and try again.");
     } finally {
       setSharingTemplate(false);
     }
