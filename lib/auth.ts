@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 
 // Known Account table columns. Strip any extra fields Google/other providers
@@ -14,28 +15,52 @@ const ACCOUNT_FIELDS = new Set([
   "scope", "id_token", "session_state", "refresh_token_expires_in",
 ]);
 
+let columnsEnsured = false;
+async function ensureAccountColumnsOnce() {
+  if (columnsEnsured) return;
+  try {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "refresh_token_expires_in" INTEGER`
+    );
+  } catch {}
+  columnsEnsured = true;
+}
+
 function makeAdapter() {
   // @ts-expect-error - PrismaAdapter type mismatch between next-auth versions
   const base = PrismaAdapter(prisma);
   return {
     ...base,
     async linkAccount(account: any) {
+      // Make sure the schema has the column before we try to insert into it.
+      await ensureAccountColumnsOnce();
+
       // Strip any provider-specific fields that aren't in the Account schema
       const data: Record<string, any> = {};
       for (const key of Object.keys(account)) {
         if (ACCOUNT_FIELDS.has(key)) data[key] = account[key];
       }
-      return prisma.$executeRawUnsafe(
+
+      // JS-generated UUID — avoids depending on pgcrypto / gen_random_uuid()
+      const id = randomUUID();
+
+      await prisma.$executeRawUnsafe(
         `INSERT INTO "Account" (id, "userId", type, provider, "providerAccountId",
            refresh_token, access_token, expires_at, token_type, scope, id_token,
            session_state, refresh_token_expires_in)
-         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          ON CONFLICT (provider, "providerAccountId") DO UPDATE SET
+           "userId" = EXCLUDED."userId",
+           type = EXCLUDED.type,
            access_token = EXCLUDED.access_token,
            refresh_token = EXCLUDED.refresh_token,
            expires_at = EXCLUDED.expires_at,
+           token_type = EXCLUDED.token_type,
+           scope = EXCLUDED.scope,
            id_token = EXCLUDED.id_token,
+           session_state = EXCLUDED.session_state,
            refresh_token_expires_in = EXCLUDED.refresh_token_expires_in`,
+        id,
         data.userId ?? null,
         data.type ?? null,
         data.provider ?? null,
@@ -49,6 +74,9 @@ function makeAdapter() {
         data.session_state ?? null,
         data.refresh_token_expires_in ?? null,
       );
+
+      // NextAuth v4 expects linkAccount to return the account or void.
+      return data as any;
     },
   };
 }
