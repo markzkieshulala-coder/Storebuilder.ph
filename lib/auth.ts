@@ -1,100 +1,18 @@
 import { NextAuthOptions } from "next-auth";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 
-// Known Account table columns. Strip any extra fields Google/other providers
-// send that Prisma doesn't know about (e.g. refresh_token_expires_in was the
-// one that caused the sign-in loop before the schema was updated).
-const ACCOUNT_FIELDS = new Set([
-  "userId", "type", "provider", "providerAccountId",
-  "refresh_token", "access_token", "expires_at", "token_type",
-  "scope", "id_token", "session_state", "refresh_token_expires_in",
-]);
-
-let columnsEnsured = false;
-async function ensureAccountColumnsOnce() {
-  if (columnsEnsured) return;
-  try {
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "refresh_token_expires_in" INTEGER`
-    );
-  } catch {}
-  columnsEnsured = true;
-}
-
-function makeAdapter() {
-  // @ts-expect-error - PrismaAdapter type mismatch between next-auth versions
-  const base = PrismaAdapter(prisma);
-  return {
-    ...base,
-
-    // getUserByAccount runs FIRST in the OAuth flow (before linkAccount).
-    // It does a full Prisma SELECT on Account including refresh_token_expires_in.
-    // If that column doesn't exist in the DB yet, the query fails and the entire
-    // OAuth flow falls through to the error page. Ensure the column exists here.
-    async getUserByAccount(providerAccount: { provider: string; providerAccountId: string }) {
-      await ensureAccountColumnsOnce();
-      return (base as any).getUserByAccount(providerAccount);
-    },
-
-    async linkAccount(account: any) {
-      // Column is already guaranteed by getUserByAccount, but call again for
-      // the edge case where linkAccount is reached without getUserByAccount.
-      await ensureAccountColumnsOnce();
-
-      // Strip any provider-specific fields that aren't in the Account schema
-      const data: Record<string, any> = {};
-      for (const key of Object.keys(account)) {
-        if (ACCOUNT_FIELDS.has(key)) data[key] = account[key];
-      }
-
-      // JS-generated UUID — avoids depending on pgcrypto / gen_random_uuid()
-      const id = randomUUID();
-
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "Account" (id, "userId", type, provider, "providerAccountId",
-           refresh_token, access_token, expires_at, token_type, scope, id_token,
-           session_state, refresh_token_expires_in)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-         ON CONFLICT (provider, "providerAccountId") DO UPDATE SET
-           "userId" = EXCLUDED."userId",
-           type = EXCLUDED.type,
-           access_token = EXCLUDED.access_token,
-           refresh_token = EXCLUDED.refresh_token,
-           expires_at = EXCLUDED.expires_at,
-           token_type = EXCLUDED.token_type,
-           scope = EXCLUDED.scope,
-           id_token = EXCLUDED.id_token,
-           session_state = EXCLUDED.session_state,
-           refresh_token_expires_in = EXCLUDED.refresh_token_expires_in`,
-        id,
-        data.userId ?? null,
-        data.type ?? null,
-        data.provider ?? null,
-        data.providerAccountId ?? null,
-        data.refresh_token ?? null,
-        data.access_token ?? null,
-        data.expires_at ?? null,
-        data.token_type ?? null,
-        data.scope ?? null,
-        data.id_token ?? null,
-        data.session_state ?? null,
-        data.refresh_token_expires_in ?? null,
-      );
-
-      // NextAuth v4 expects linkAccount to return the account or void.
-      return data as any;
-    },
-  };
-}
+// We deliberately do NOT use a PrismaAdapter here. The combination of
+// `@auth/prisma-adapter@2` (which targets Auth.js v5) with `next-auth@4`
+// caused subtle runtime breakage in the Google OAuth flow that produced
+// an endless redirect back to the sign-in page. With the JWT session
+// strategy we don't actually need an adapter — we just persist / look
+// up the user manually in the signIn callback, which gives us full
+// control and zero version-mismatch surface.
 
 export const authOptions: NextAuthOptions = {
-  adapter: makeAdapter() as any,
-  debug: true, // temporary — shows full NextAuth errors in server logs
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -103,6 +21,7 @@ export const authOptions: NextAuthOptions = {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
+  debug: true, // surface any remaining errors in server logs
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -149,35 +68,87 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      // Auto-promote the owner account to ADMIN on every login
-      if (user.email === "Storebuilderph@gmail.com") {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            select: { id: true, role: true },
+    async signIn({ user, account }) {
+      // Credentials sign-in: nothing extra to do.
+      if (account?.provider !== "google") return true;
+      if (!user.email) return false;
+
+      try {
+        // Find existing user by email, or create a fresh row for new Google users.
+        let dbUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          select: { id: true, role: true, plan: true, name: true, image: true },
+        });
+
+        if (!dbUser) {
+          const created = await prisma.user.create({
+            data: {
+              email: user.email,
+              name: user.name ?? null,
+              image: user.image ?? null,
+              emailVerified: new Date(),
+            },
+            select: { id: true, role: true, plan: true, name: true, image: true },
           });
-          if (dbUser && dbUser.role !== "ADMIN") {
-            await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { role: "ADMIN" },
+          dbUser = created;
+
+          // Seed credit-usage record so the dashboard doesn't 404 on day-zero.
+          const today = new Date().toLocaleDateString("en-CA", {
+            timeZone: "Asia/Manila",
+          });
+          try {
+            await prisma.creditUsage.create({
+              data: { userId: dbUser.id, date: today, count: 0 },
             });
-          }
-        } catch {}
+          } catch {}
+        } else if (
+          (user.name && dbUser.name !== user.name) ||
+          (user.image && dbUser.image !== user.image)
+        ) {
+          // Keep profile fields in sync with Google.
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: {
+              name: user.name ?? dbUser.name,
+              image: user.image ?? dbUser.image,
+            },
+          });
+        }
+
+        // Promote the owner account to ADMIN on every login.
+        if (
+          user.email === "Storebuilderph@gmail.com" &&
+          dbUser.role !== "ADMIN"
+        ) {
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: { role: "ADMIN" },
+          });
+          dbUser.role = "ADMIN" as typeof dbUser.role;
+        }
+
+        // Carry the DB id/role/plan into the JWT via the user object.
+        user.id = dbUser.id;
+        // @ts-ignore - extending the next-auth user type
+        user.role = dbUser.role;
+        // @ts-ignore
+        user.plan = dbUser.plan;
+
+        return true;
+      } catch (e) {
+        console.error("[auth] signIn google callback failed:", e);
+        return false;
       }
-      return true;
     },
     async jwt({ token, user }) {
       if (user) {
-        // Fresh sign-in — seed token from user object
+        // Fresh sign-in — seed token from the user object the signIn
+        // callback populated above.
         token.id = user.id;
         // @ts-ignore
         token.role = user.role;
         // @ts-ignore
         token.plan = user.plan;
-        if (user.email === "Storebuilderph@gmail.com") {
-          token.role = "ADMIN";
-        }
       }
 
       // ALWAYS re-read plan + role from DB so upgrades take effect immediately
@@ -211,21 +182,6 @@ export const authOptions: NextAuthOptions = {
         session.user.plan = token.plan;
       }
       return session;
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      // Initialize credit usage record for new users
-      const today = new Date().toLocaleDateString("en-CA", {
-        timeZone: "Asia/Manila",
-      }); // YYYY-MM-DD in PH time
-      try {
-        await prisma.creditUsage.upsert({
-          where: { userId_date: { userId: user.id!, date: today } },
-          update: {},
-          create: { userId: user.id!, date: today, count: 0 },
-        });
-      } catch {}
     },
   },
 };
