@@ -5,9 +5,56 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
-export const authOptions: NextAuthOptions = {
+// Known Account table columns. Strip any extra fields Google/other providers
+// send that Prisma doesn't know about (e.g. refresh_token_expires_in was the
+// one that caused the sign-in loop before the schema was updated).
+const ACCOUNT_FIELDS = new Set([
+  "userId", "type", "provider", "providerAccountId",
+  "refresh_token", "access_token", "expires_at", "token_type",
+  "scope", "id_token", "session_state", "refresh_token_expires_in",
+]);
+
+function makeAdapter() {
   // @ts-expect-error - PrismaAdapter type mismatch between next-auth versions
-  adapter: PrismaAdapter(prisma),
+  const base = PrismaAdapter(prisma);
+  return {
+    ...base,
+    async linkAccount(account: any) {
+      // Strip any provider-specific fields that aren't in the Account schema
+      const data: Record<string, any> = {};
+      for (const key of Object.keys(account)) {
+        if (ACCOUNT_FIELDS.has(key)) data[key] = account[key];
+      }
+      return prisma.$executeRawUnsafe(
+        `INSERT INTO "Account" (id, "userId", type, provider, "providerAccountId",
+           refresh_token, access_token, expires_at, token_type, scope, id_token,
+           session_state, refresh_token_expires_in)
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (provider, "providerAccountId") DO UPDATE SET
+           access_token = EXCLUDED.access_token,
+           refresh_token = EXCLUDED.refresh_token,
+           expires_at = EXCLUDED.expires_at,
+           id_token = EXCLUDED.id_token,
+           refresh_token_expires_in = EXCLUDED.refresh_token_expires_in`,
+        data.userId ?? null,
+        data.type ?? null,
+        data.provider ?? null,
+        data.providerAccountId ?? null,
+        data.refresh_token ?? null,
+        data.access_token ?? null,
+        data.expires_at ?? null,
+        data.token_type ?? null,
+        data.scope ?? null,
+        data.id_token ?? null,
+        data.session_state ?? null,
+        data.refresh_token_expires_in ?? null,
+      );
+    },
+  };
+}
+
+export const authOptions: NextAuthOptions = {
+  adapter: makeAdapter() as any,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -132,11 +179,13 @@ export const authOptions: NextAuthOptions = {
       const today = new Date().toLocaleDateString("en-CA", {
         timeZone: "Asia/Manila",
       }); // YYYY-MM-DD in PH time
-      await prisma.creditUsage.upsert({
-        where: { userId_date: { userId: user.id!, date: today } },
-        update: {},
-        create: { userId: user.id!, date: today, count: 0 },
-      });
+      try {
+        await prisma.creditUsage.upsert({
+          where: { userId_date: { userId: user.id!, date: today } },
+          update: {},
+          create: { userId: user.id!, date: today, count: 0 },
+        });
+      } catch {}
     },
   },
 };
