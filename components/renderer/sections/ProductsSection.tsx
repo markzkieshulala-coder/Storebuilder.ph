@@ -36,8 +36,23 @@ export default function ProductsSection({ section, website }: { section: Section
   }
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-7xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-8 sm:mb-12">
           <EditableField
             {...fieldProps("headline")}
@@ -106,7 +121,18 @@ export default function ProductsSection({ section, website }: { section: Section
                 >
                   {product.name}
                 </h3>
-                {product.description && <p className="hidden sm:block text-xs sm:text-sm opacity-60 mb-3 leading-relaxed line-clamp-2" style={{ color: textColor }}>{product.description}</p>}
+                {(product.description || isEditable) && (
+                  <p
+                    className="text-xs sm:text-sm opacity-60 mb-3 leading-relaxed line-clamp-2"
+                    style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                    contentEditable={isEditable}
+                    suppressContentEditableWarning
+                    onBlur={(e) => isEditable && onNestedTextChange(section.id, "products", i, "description", e.currentTarget.innerText)}
+                    onClick={(e) => isEditable && e.stopPropagation()}
+                  >
+                    {product.description}
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-2 mt-1.5 sm:mt-0">
                   <div className="min-w-0">
                     <span

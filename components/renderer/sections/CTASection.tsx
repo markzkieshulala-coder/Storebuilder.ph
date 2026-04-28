@@ -2,6 +2,7 @@
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
+import { ImagePlus } from "lucide-react";
 
 export default function CTASection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -9,7 +10,7 @@ export default function CTASection({ section, website }: { section: Section; web
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || `linear-gradient(135deg, ${website.colors?.primary || "#1a1a2e"}, #2d1b4e)`;
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -26,8 +27,23 @@ export default function CTASection({ section, website }: { section: Section; web
   });
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24 text-center" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-2xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 text-center overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-2xl mx-auto relative z-10">
         <EditableField
           {...fieldProps("headline")}
           tag="h2"
@@ -54,7 +70,12 @@ export default function CTASection({ section, website }: { section: Section; web
             className="inline-flex items-center justify-center w-full sm:w-auto px-8 py-4 rounded-xl font-semibold text-base transition-opacity hover:opacity-80 min-h-[52px]"
             style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
           >
-            {d.ctaText}
+            <EditableField
+              {...fieldProps("ctaText")}
+              tag="span"
+            >
+              {d.ctaText}
+            </EditableField>
           </a>
         )}
       </div>

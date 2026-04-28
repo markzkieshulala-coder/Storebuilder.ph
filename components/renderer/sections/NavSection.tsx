@@ -12,7 +12,7 @@ export default function NavSection({ section, website }: { section: Section; web
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = website.colors?.secondary || "#c9a84c";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onNestedTextChange, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -27,6 +27,22 @@ export default function NavSection({ section, website }: { section: Section; web
     onTextChange, onShowToolbar,
     textColor, bgColor: bg === "transparent" ? "rgba(0,0,0,0.75)" : bg, accentColor: accent,
   });
+
+  const editableLink = (label: string, i: number, className: string, onClickAfter?: () => void) => (
+    <span
+      className={className}
+      style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : "pointer" }}
+      contentEditable={isEditable}
+      suppressContentEditableWarning
+      onBlur={(e) => isEditable && onNestedTextChange(section.id, "links", i, "label", e.currentTarget.innerText)}
+      onClick={(e) => {
+        if (isEditable) { e.stopPropagation(); return; }
+        onClickAfter?.();
+      }}
+    >
+      {label}
+    </span>
+  );
 
   return (
     <nav
@@ -48,11 +64,12 @@ export default function NavSection({ section, website }: { section: Section; web
         </div>
 
         <div className="hidden md:flex items-center gap-6 lg:gap-8">
-          {(d.links || []).map((link: any) => (
-            <a key={link.label} href={isEditable ? undefined : link.href}
+          {(d.links || []).map((link: any, i: number) => (
+            <a key={i} href={isEditable ? undefined : link.href}
               className="text-sm opacity-70 hover:opacity-100 transition-opacity whitespace-nowrap"
-              style={{ color: textColor }}>
-              {link.label}
+              style={{ color: textColor }}
+              onClick={(e) => isEditable && e.preventDefault()}>
+              {editableLink(link.label, i, "")}
             </a>
           ))}
         </div>
@@ -67,7 +84,12 @@ export default function NavSection({ section, website }: { section: Section; web
             <a href={isEditable ? undefined : (d.ctaHref || "#")}
               className="hidden md:inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity whitespace-nowrap"
               style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
-              {d.ctaText}
+              <EditableField
+                {...fieldProps("ctaText")}
+                tag="span"
+              >
+                {d.ctaText}
+              </EditableField>
             </a>
           )}
           <button
@@ -84,12 +106,12 @@ export default function NavSection({ section, website }: { section: Section; web
       {menuOpen && (
         <div className="md:hidden border-t" style={{ background: website.colors?.primary || "#1a1a2e", borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="px-4 pb-4">
-            {(d.links || []).map((link: any) => (
-              <a key={link.label} href={link.href}
+            {(d.links || []).map((link: any, i: number) => (
+              <a key={i} href={link.href}
                 className="flex items-center min-h-[48px] text-sm opacity-70 hover:opacity-100 border-b transition-opacity"
                 style={{ color: textColor, borderColor: "rgba(255,255,255,0.06)" }}
-                onClick={() => setMenuOpen(false)}>
-                {link.label}
+                onClick={(e) => { if (!isEditable) setMenuOpen(false); else e.preventDefault(); }}>
+                {editableLink(link.label, i, "")}
               </a>
             ))}
             {d.ctaText && (

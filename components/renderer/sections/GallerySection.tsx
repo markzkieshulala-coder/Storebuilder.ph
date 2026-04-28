@@ -2,6 +2,7 @@
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
+import { ImagePlus } from "lucide-react";
 
 export default function GallerySection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -10,7 +11,7 @@ export default function GallerySection({ section, website }: { section: Section;
   const bg = section.styles?.background || website.colors?.background || "#0d0d1a";
   const images = d.images || [];
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -27,8 +28,23 @@ export default function GallerySection({ section, website }: { section: Section;
   });
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-6xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-6xl mx-auto relative z-10">
         {(d.headline || isEditable) && (
           <EditableField
             {...fieldProps("headline")}
@@ -40,16 +56,28 @@ export default function GallerySection({ section, website }: { section: Section;
           </EditableField>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
-          {images.map((img: any, i: number) => (
-            <div key={i} className={`rounded-xl overflow-hidden ${i === 0 ? "sm:col-span-2 sm:row-span-2" : ""}`}>
-              <img
-                src={typeof img === "string" ? img : img.url}
-                alt={typeof img === "string" ? "" : (img.caption || "")}
-                className="w-full h-full object-cover aspect-square hover:scale-105 transition-transform"
-                style={{ maxWidth: "100%" }}
-              />
-            </div>
-          ))}
+          {images.map((img: any, i: number) => {
+            const url = typeof img === "string" ? img : img.url;
+            return (
+              <div key={i} className={`relative group rounded-xl overflow-hidden ${i === 0 ? "sm:col-span-2 sm:row-span-2" : ""}`}>
+                <img
+                  src={url}
+                  alt={typeof img === "string" ? "" : (img.caption || "")}
+                  className="w-full h-full object-cover aspect-square hover:scale-105 transition-transform"
+                  style={{ maxWidth: "100%" }}
+                />
+                {isEditable && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, `images.${i}.url`); }}
+                    className="absolute inset-0 flex items-center justify-center gap-2 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(24,119,242,0.75)", color: "#fff", cursor: "pointer" }}
+                  >
+                    <ImagePlus size={16} /> Replace image
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
+import { ImagePlus } from "lucide-react";
 
 export default function ProcessSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -9,7 +10,7 @@ export default function ProcessSection({ section, website }: { section: Section;
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -26,8 +27,23 @@ export default function ProcessSection({ section, website }: { section: Section;
   });
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-3xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-3xl mx-auto relative z-10">
         <div className="text-center mb-10 sm:mb-14 lg:mb-16">
           <EditableField
             {...fieldProps("headline")}
@@ -57,9 +73,27 @@ export default function ProcessSection({ section, website }: { section: Section;
               >
                 {i + 1}
               </div>
-              <div className="pt-0.5 min-w-0">
-                <h3 className="font-bold text-base sm:text-lg mb-1" style={{ fontFamily: "var(--heading-font)", color: textColor }}>{step.title}</h3>
-                <p className="text-xs sm:text-sm opacity-60 leading-relaxed" style={{ color: textColor }}>{step.description}</p>
+              <div className="pt-0.5 min-w-0 flex-1">
+                <h3
+                  className="font-bold text-base sm:text-lg mb-1"
+                  style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                  contentEditable={isEditable}
+                  suppressContentEditableWarning
+                  onBlur={(e) => isEditable && onNestedTextChange(section.id, "steps", i, "title", e.currentTarget.innerText)}
+                  onClick={(e) => isEditable && e.stopPropagation()}
+                >
+                  {step.title}
+                </h3>
+                <p
+                  className="text-xs sm:text-sm opacity-60 leading-relaxed"
+                  style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                  contentEditable={isEditable}
+                  suppressContentEditableWarning
+                  onBlur={(e) => isEditable && onNestedTextChange(section.id, "steps", i, "description", e.currentTarget.innerText)}
+                  onClick={(e) => isEditable && e.stopPropagation()}
+                >
+                  {step.description}
+                </p>
               </div>
             </div>
           ))}

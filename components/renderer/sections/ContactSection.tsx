@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -13,7 +13,7 @@ export default function ContactSection({ section, website }: { section: Section;
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -32,9 +32,42 @@ export default function ContactSection({ section, website }: { section: Section;
   const inputClass = "w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors min-h-[48px]";
   const inputStyle = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: textColor };
 
+  const editableInline = (path: string, value: string, className: string) => (
+    <span
+      className={className}
+      style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+      contentEditable={isEditable}
+      suppressContentEditableWarning
+      onBlur={(e) => {
+        if (!isEditable) return;
+        // path is "details.address" / "details.email" / "details.phone"
+        const [, key] = path.split(".");
+        onTextChange(section.id, `details.${key}`, e.currentTarget.innerText);
+      }}
+      onClick={(e) => isEditable && e.stopPropagation()}
+    >
+      {value}
+    </span>
+  );
+
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-4xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-4xl mx-auto relative z-10">
         <EditableField
           {...fieldProps("headline")}
           tag="h2"
@@ -45,22 +78,22 @@ export default function ContactSection({ section, website }: { section: Section;
         </EditableField>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 lg:gap-12">
           <div className="space-y-4">
-            {d.details?.address && (
+            {(d.details?.address || isEditable) && (
               <div className="flex items-start gap-3">
                 <MapPin size={17} style={{ color: accent }} className="mt-0.5 shrink-0" />
-                <p className="text-sm opacity-70" style={{ color: textColor }}>{d.details.address}</p>
+                {editableInline("details.address", d.details?.address || "", "text-sm opacity-70")}
               </div>
             )}
-            {d.details?.email && (
+            {(d.details?.email || isEditable) && (
               <div className="flex items-center gap-3">
                 <Mail size={17} style={{ color: accent }} className="shrink-0" />
-                <a href={`mailto:${d.details.email}`} className="text-sm opacity-70 hover:opacity-100 break-all" style={{ color: textColor }}>{d.details.email}</a>
+                {editableInline("details.email", d.details?.email || "", "text-sm opacity-70 break-all")}
               </div>
             )}
-            {d.details?.phone && (
+            {(d.details?.phone || isEditable) && (
               <div className="flex items-center gap-3">
                 <Phone size={17} style={{ color: accent }} className="shrink-0" />
-                <a href={`tel:${d.details.phone}`} className="text-sm opacity-70 hover:opacity-100" style={{ color: textColor }}>{d.details.phone}</a>
+                {editableInline("details.phone", d.details?.phone || "", "text-sm opacity-70")}
               </div>
             )}
           </div>

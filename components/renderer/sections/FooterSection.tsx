@@ -1,6 +1,6 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { Instagram, Facebook } from "lucide-react";
+import { Instagram, Facebook, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -11,7 +11,7 @@ export default function FooterSection({ section, website }: { section: Section; 
   const bg = section.styles?.background || "#080814";
   const linkGroups = d.links || {};
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -28,8 +28,23 @@ export default function FooterSection({ section, website }: { section: Section; 
   });
 
   return (
-    <footer className="pt-12 pb-6 px-4 sm:pt-16 sm:pb-8 sm:px-6 border-t" style={{ background: bg, borderColor: "rgba(255,255,255,0.06)" }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-6xl mx-auto">
+    <footer className="relative pt-12 pb-6 px-4 sm:pt-16 sm:pb-8 sm:px-6 border-t overflow-hidden" style={{ background: bg, borderColor: "rgba(255,255,255,0.06)" }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10 sm:mb-12">
           <div className="col-span-2 sm:col-span-2 md:col-span-1">
             <EditableField
@@ -68,11 +83,20 @@ export default function FooterSection({ section, website }: { section: Section; 
             <div key={groupName}>
               <h4 className="text-xs font-semibold uppercase tracking-wider mb-3 sm:mb-4 opacity-40" style={{ color: textColor }}>{groupName}</h4>
               <ul className="space-y-2 sm:space-y-2.5">
-                {(links as any[]).map((link: any) => (
-                  <li key={link.label}>
-                    <a href={link.href || "#"} className="text-xs sm:text-sm opacity-60 hover:opacity-100 transition-opacity block min-h-[28px] flex items-center" style={{ color: textColor }}>
+                {(links as any[]).map((link: any, i: number) => (
+                  <li key={i}>
+                    <span
+                      className="text-xs sm:text-sm opacity-60 hover:opacity-100 transition-opacity block min-h-[28px] flex items-center"
+                      style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : "pointer" }}
+                      contentEditable={isEditable}
+                      suppressContentEditableWarning
+                      onClick={(e) => {
+                        if (isEditable) { e.stopPropagation(); return; }
+                        if (link.href) window.location.href = link.href;
+                      }}
+                    >
                       {link.label}
-                    </a>
+                    </span>
                   </li>
                 ))}
               </ul>

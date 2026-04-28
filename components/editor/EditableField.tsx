@@ -6,7 +6,7 @@ import { GripVertical, RotateCcw } from "lucide-react";
 export type EditorFieldState = {
   x?: number;       // pixel offset from natural position
   y?: number;       // pixel offset from natural position
-  fontSize?: number; // multiplier on the field's natural font-size (default 1)
+  fontSize?: number; // actual font size in px (undefined = use natural size from CSS)
   width?: number;   // pixel width override (max-width)
 };
 
@@ -55,9 +55,10 @@ export default function EditableField({
 
   const x = editor?.x ?? 0;
   const y = editor?.y ?? 0;
-  const fontScale = editor?.fontSize ?? 1;
+  // fontSize is a real px value (> 4) or undefined (use Tailwind/CSS)
+  const fsPx = (editor?.fontSize != null && editor.fontSize > 4) ? editor.fontSize : null;
   const widthPx = editor?.width;
-  const hasOverrides = !!(editor && (editor.x || editor.y || editor.fontSize !== undefined || editor.width !== undefined));
+  const hasOverrides = !!(editor && (editor.x || editor.y || fsPx != null || editor.width != null));
 
   // ── Drag handler (move the entire field via transform) ────────────────────
   function startDrag(e: ReactPointerEvent<HTMLElement>) {
@@ -99,7 +100,12 @@ export default function EditableField({
       const startClientX = e.clientX;
       const startClientY = e.clientY;
       const startW = widthPx ?? rect.width;
-      const startFs = fontScale;
+
+      // Capture the actual rendered font size in px as the drag baseline
+      const computedFs = innerRef.current
+        ? parseFloat(getComputedStyle(innerRef.current as HTMLElement).fontSize)
+        : 16;
+      const startFsPx = fsPx ?? computedFs;
 
       const onMove = (ev: PointerEvent) => {
         const dx = ev.clientX - startClientX;
@@ -109,10 +115,10 @@ export default function EditableField({
           updates.width = Math.max(60, Math.round(startW + dx));
         }
         if (corner === "se" || corner === "s") {
-          // 100px of drag = +/- 50% font size
+          // 100px of drag = +/- 50% of current font size
           const scale = 1 + dy / 200;
-          const next = Math.max(0.4, Math.min(4, startFs * scale));
-          updates.fontSize = Math.round(next * 100) / 100;
+          const next = Math.max(8, Math.min(120, Math.round(startFsPx * scale)));
+          updates.fontSize = next;
         }
         onUpdateEditor(sectionId, field, updates);
       };
@@ -149,7 +155,7 @@ export default function EditableField({
   // ── Render: non-editor mode is a plain element ─────────────────────────────
   if (!isEditable) {
     const finalStyle: CSSProperties = { ...style };
-    if (fontScale !== 1) finalStyle.fontSize = `calc(${fontScale} * 1em)`;
+    if (fsPx != null) finalStyle.fontSize = `${fsPx}px`;
     if (widthPx) finalStyle.maxWidth = widthPx;
     if (x || y) finalStyle.transform = `translate(${x}px, ${y}px)`;
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
@@ -170,7 +176,7 @@ export default function EditableField({
 
   const innerStyle: CSSProperties = {
     ...style,
-    fontSize: fontScale !== 1 ? `calc(${fontScale} * 1em)` : style?.fontSize,
+    fontSize: fsPx != null ? `${fsPx}px` : style?.fontSize,
     cursor: "text",
     outline: "none",
   };

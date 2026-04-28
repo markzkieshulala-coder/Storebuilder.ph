@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { Mail } from "lucide-react";
+import { Mail, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -13,7 +13,7 @@ export default function NewsletterSection({ section, website }: { section: Secti
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || "#1a1a2e";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -30,8 +30,23 @@ export default function NewsletterSection({ section, website }: { section: Secti
   });
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-xl mx-auto text-center">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-xl mx-auto text-center relative z-10">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6" style={{ background: `${accent}20` }}>
           <Mail size={22} style={{ color: accent }} />
         </div>
@@ -44,9 +59,14 @@ export default function NewsletterSection({ section, website }: { section: Secti
           {d.headline}
         </EditableField>
         {d.incentive && (
-          <div className="inline-block px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold mb-3" style={{ background: `${accent}20`, color: accent }}>
+          <EditableField
+            {...fieldProps("incentive")}
+            tag="div"
+            className="inline-block px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold mb-3"
+            style={{ background: `${accent}20`, color: accent }}
+          >
             {d.incentive}
-          </div>
+          </EditableField>
         )}
         {d.subheadline !== undefined && (
           <EditableField
@@ -81,7 +101,16 @@ export default function NewsletterSection({ section, website }: { section: Secti
             You&apos;re subscribed! Check your inbox.
           </div>
         )}
-        {d.privacy && <p className="text-xs opacity-30 mt-3" style={{ color: textColor }}>{d.privacy}</p>}
+        {d.privacy && (
+          <EditableField
+            {...fieldProps("privacy")}
+            tag="p"
+            className="text-xs opacity-30 mt-3"
+            style={{ color: textColor }}
+          >
+            {d.privacy}
+          </EditableField>
+        )}
       </div>
     </section>
   );

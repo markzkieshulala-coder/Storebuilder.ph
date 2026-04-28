@@ -1,6 +1,6 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { Check } from "lucide-react";
+import { Check, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -10,7 +10,7 @@ export default function PricingSection({ section, website }: { section: Section;
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.background || "#0d0d1a";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -26,9 +26,37 @@ export default function PricingSection({ section, website }: { section: Section;
     textColor, bgColor: bg, accentColor: accent,
   });
 
+  const editableNested = (field: string, i: number, key: string, value: string, className: string, style: React.CSSProperties) => (
+    <span
+      className={className}
+      style={{ ...style, outline: "none", cursor: isEditable ? "text" : undefined }}
+      contentEditable={isEditable}
+      suppressContentEditableWarning
+      onBlur={(e) => isEditable && onNestedTextChange(section.id, "plans", i, key, e.currentTarget.innerText)}
+      onClick={(e) => isEditable && e.stopPropagation()}
+    >
+      {value}
+    </span>
+  );
+
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-5xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-5xl mx-auto relative z-10">
         <div className="text-center mb-10 sm:mb-14 lg:mb-16">
           <EditableField
             {...fieldProps("headline")}
@@ -57,24 +85,41 @@ export default function PricingSection({ section, website }: { section: Section;
                   POPULAR
                 </div>
               )}
-              <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: textColor, fontFamily: "var(--heading-font)" }}>{plan.name}</h3>
+              {editableNested("plans", i, "name", plan.name || "", "text-lg sm:text-xl font-bold mb-2 block", { color: textColor, fontFamily: "var(--heading-font)" })}
               <div className="text-3xl sm:text-4xl font-bold mb-1" style={{ color: accent }}>
-                {plan.price}
-                <span className="text-base font-normal opacity-50 ml-1" style={{ color: textColor }}>{plan.period}</span>
+                {editableNested("plans", i, "price", plan.price || "", "", { color: accent })}
+                <span className="text-base font-normal opacity-50 ml-1" style={{ color: textColor }}>
+                  {editableNested("plans", i, "period", plan.period || "", "", { color: textColor })}
+                </span>
               </div>
-              {plan.description && <p className="text-xs sm:text-sm opacity-60 mb-5 sm:mb-6 mt-1" style={{ color: textColor }}>{plan.description}</p>}
+              {plan.description !== undefined && (
+                editableNested("plans", i, "description", plan.description, "text-xs sm:text-sm opacity-60 mb-5 sm:mb-6 mt-1 block", { color: textColor })
+              )}
               <ul className="space-y-2.5 sm:space-y-3 mb-7 sm:mb-8 flex-1">
                 {(plan.features || []).map((f: string, j: number) => (
                   <li key={j} className="flex items-start gap-2 text-xs sm:text-sm" style={{ color: textColor }}>
                     <Check size={15} className="mt-0.5 shrink-0" style={{ color: accent }} />
-                    {f}
+                    <span
+                      style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                      contentEditable={isEditable}
+                      suppressContentEditableWarning
+                      onBlur={(e) => {
+                        if (!isEditable) return;
+                        const features = [...(plan.features || [])];
+                        features[j] = e.currentTarget.innerText;
+                        onNestedTextChange(section.id, "plans", i, "features", features as any);
+                      }}
+                      onClick={(e) => isEditable && e.stopPropagation()}
+                    >
+                      {f}
+                    </span>
                   </li>
                 ))}
               </ul>
               <a href={plan.ctaHref || "#"}
                 className="block text-center py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 min-h-[48px] flex items-center justify-center"
                 style={plan.popular ? { background: accent, color: website.colors?.primary || "#1a1a2e" } : { border: `1px solid ${accent}40`, color: textColor }}>
-                {plan.ctaText || "Get started"}
+                {editableNested("plans", i, "ctaText", plan.ctaText || "Get started", "", {})}
               </a>
             </div>
           ))}

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -12,7 +12,7 @@ export default function FAQSection({ section, website }: { section: Section; web
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -28,9 +28,29 @@ export default function FAQSection({ section, website }: { section: Section; web
     textColor, bgColor: bg, accentColor: accent,
   });
 
+  const items = d.faqs || d.items || [];
+  const arrayKey = d.faqs ? "faqs" : "items";
+  const questionKey = items[0]?.question !== undefined ? "question" : "q";
+  const answerKey = items[0]?.answer !== undefined ? "answer" : "a";
+
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-2xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-2xl mx-auto relative z-10">
         <EditableField
           {...fieldProps("headline")}
           tag="h2"
@@ -40,18 +60,44 @@ export default function FAQSection({ section, website }: { section: Section; web
           {d.headline || "Frequently Asked Questions"}
         </EditableField>
         <div className="space-y-2">
-          {(d.faqs || d.items || []).map((item: any, i: number) => (
+          {items.map((item: any, i: number) => (
             <div key={i} className="rounded-xl overflow-hidden border" style={{ borderColor: `${accent}20` }}>
-              <button
-                onClick={() => setOpen(open === i ? null : i)}
+              <div
                 className="w-full text-left px-4 sm:px-6 py-4 flex items-center justify-between gap-3 min-h-[56px]"
                 style={{ color: textColor }}
               >
-                <span className="font-medium text-sm sm:text-base">{item.question || item.q}</span>
-                <ChevronDown size={18} className={`opacity-50 transition-transform shrink-0 ${open === i ? "rotate-180" : ""}`} />
-              </button>
-              {open === i && (
-                <div className="px-4 sm:px-6 pb-4 text-xs sm:text-sm opacity-60 leading-relaxed" style={{ color: textColor }}>
+                <span
+                  className="font-medium text-sm sm:text-base flex-1"
+                  style={{ outline: "none", cursor: isEditable ? "text" : "pointer" }}
+                  contentEditable={isEditable}
+                  suppressContentEditableWarning
+                  onBlur={(e) => isEditable && onNestedTextChange(section.id, arrayKey, i, questionKey, e.currentTarget.innerText)}
+                  onClick={(e) => {
+                    if (isEditable) { e.stopPropagation(); return; }
+                    setOpen(open === i ? null : i);
+                  }}
+                >
+                  {item.question || item.q}
+                </span>
+                {!isEditable && (
+                  <button
+                    onClick={() => setOpen(open === i ? null : i)}
+                    className="shrink-0"
+                    aria-label="Toggle"
+                  >
+                    <ChevronDown size={18} className={`opacity-50 transition-transform ${open === i ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
+              {(open === i || isEditable) && (
+                <div
+                  className="px-4 sm:px-6 pb-4 text-xs sm:text-sm opacity-60 leading-relaxed"
+                  style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                  contentEditable={isEditable}
+                  suppressContentEditableWarning
+                  onBlur={(e) => isEditable && onNestedTextChange(section.id, arrayKey, i, answerKey, e.currentTarget.innerText)}
+                  onClick={(e) => isEditable && e.stopPropagation()}
+                >
                   {item.answer || item.a}
                 </div>
               )}

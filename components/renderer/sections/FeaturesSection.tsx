@@ -1,6 +1,6 @@
 "use client";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { Leaf, Hand, Recycle, Heart, Shield, Star, Zap, Globe, Award, Users, Clock, Truck } from "lucide-react";
+import { Leaf, Hand, Recycle, Heart, Shield, Star, Zap, Globe, Award, Users, Clock, Truck, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -12,7 +12,7 @@ export default function FeaturesSection({ section, website }: { section: Section
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
   const {
-    isEditable, onTextChange, onSectionClick, onShowToolbar,
+    isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
 
@@ -29,8 +29,23 @@ export default function FeaturesSection({ section, website }: { section: Section
   });
 
   return (
-    <section className="py-14 px-4 sm:py-20 sm:px-6 lg:py-24" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
-      <div className="max-w-6xl mx-auto">
+    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+      {d.backgroundImage && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
+      {isEditable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onImageUpload(section.id, "backgroundImage"); }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
+        >
+          <ImagePlus size={13} /> Change background
+        </button>
+      )}
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-10 sm:mb-14 lg:mb-16">
           <EditableField
             {...fieldProps("headline")}
@@ -59,8 +74,26 @@ export default function FeaturesSection({ section, website }: { section: Section
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-3 sm:mb-4" style={{ background: `${accent}20` }}>
                   <Icon size={20} style={{ color: accent }} />
                 </div>
-                <h3 className="text-base sm:text-lg font-bold mb-2" style={{ fontFamily: "var(--heading-font)", color: textColor }}>{f.title}</h3>
-                <p className="text-sm opacity-60 leading-relaxed" style={{ color: textColor }}>{f.description}</p>
+                <h3
+                  className="text-base sm:text-lg font-bold mb-2"
+                  style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                  contentEditable={isEditable}
+                  suppressContentEditableWarning
+                  onBlur={(e) => isEditable && onNestedTextChange(section.id, "features", i, "title", e.currentTarget.innerText)}
+                  onClick={(e) => isEditable && e.stopPropagation()}
+                >
+                  {f.title}
+                </h3>
+                <p
+                  className="text-sm opacity-60 leading-relaxed"
+                  style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
+                  contentEditable={isEditable}
+                  suppressContentEditableWarning
+                  onBlur={(e) => isEditable && onNestedTextChange(section.id, "features", i, "description", e.currentTarget.innerText)}
+                  onClick={(e) => isEditable && e.stopPropagation()}
+                >
+                  {f.description}
+                </p>
               </div>
             );
           })}
