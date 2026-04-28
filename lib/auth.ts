@@ -31,8 +31,19 @@ function makeAdapter() {
   const base = PrismaAdapter(prisma);
   return {
     ...base,
+
+    // getUserByAccount runs FIRST in the OAuth flow (before linkAccount).
+    // It does a full Prisma SELECT on Account including refresh_token_expires_in.
+    // If that column doesn't exist in the DB yet, the query fails and the entire
+    // OAuth flow falls through to the error page. Ensure the column exists here.
+    async getUserByAccount(providerAccount: { provider: string; providerAccountId: string }) {
+      await ensureAccountColumnsOnce();
+      return (base as any).getUserByAccount(providerAccount);
+    },
+
     async linkAccount(account: any) {
-      // Make sure the schema has the column before we try to insert into it.
+      // Column is already guaranteed by getUserByAccount, but call again for
+      // the edge case where linkAccount is reached without getUserByAccount.
       await ensureAccountColumnsOnce();
 
       // Strip any provider-specific fields that aren't in the Account schema
@@ -83,6 +94,7 @@ function makeAdapter() {
 
 export const authOptions: NextAuthOptions = {
   adapter: makeAdapter() as any,
+  debug: true, // temporary — shows full NextAuth errors in server logs
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
