@@ -38,7 +38,12 @@ export default function RegisterPage() {
         return;
       }
       toast.success("Account created! Signing you in...");
-      await signIn("credentials", { email, password, callbackUrl: "/dashboard" });
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      window.location.href = "/";
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -48,7 +53,7 @@ export default function RegisterPage() {
 
   async function handleGoogle() {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/dashboard" });
+    await signIn("google", { callbackUrl: "/" });
   }
 
   return (

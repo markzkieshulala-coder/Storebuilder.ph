@@ -13,7 +13,10 @@ const BLUE = "#1877F2";
 export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  // Default to homepage so the user lands on a public page that doesn't
+  // do its own session check; protected pages can still pass an explicit
+  // callbackUrl in the query string.
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,11 +30,13 @@ export default function SignInPage() {
       const result = await signIn("credentials", { email, password, redirect: false });
       if (result?.error) {
         toast.error(result.error);
-      } else {
-        router.push(callbackUrl);
-        router.refresh();
+        setLoading(false);
+        return;
       }
-    } finally {
+      // Hard navigation so the new session cookie is read on the next page
+      // load and useSession() doesn't see stale state.
+      window.location.href = callbackUrl;
+    } catch {
       setLoading(false);
     }
   }
