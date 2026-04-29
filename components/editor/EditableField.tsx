@@ -1,13 +1,17 @@
 "use client";
 
-import { useRef, ReactNode, CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { GripVertical, RotateCcw } from "lucide-react";
+import { useRef, ReactNode, CSSProperties } from "react";
+import { useEditor } from "./EditorContext";
 
 export type EditorFieldState = {
-  x?: number;       // pixel offset from natural position
-  y?: number;       // pixel offset from natural position
-  fontSize?: number; // actual font size in px (undefined = use natural size from CSS)
-  width?: number;   // pixel width override (max-width)
+  // Kept on the type for backwards-compat with previously saved sites.
+  // The per-field move/resize handles have been removed — only sections
+  // are now adjustable. We still read these so old saved overrides
+  // continue to render at their stored size.
+  x?: number;
+  y?: number;
+  fontSize?: number;
+  width?: number;
 };
 
 interface Props {
@@ -22,6 +26,7 @@ interface Props {
 
   // Inline editing forwarded to the inner element
   onTextChange?: (sectionId: string, field: string, value: string) => void;
+  onImagePaste?: (sectionId: string, field: string, file: File) => void;
   onShowToolbar?: (info: {
     sectionId: string;
     textColor: string;
@@ -43,97 +48,55 @@ interface Props {
 
 export default function EditableField({
   sectionId, field, editor, isEditable, selected,
-  onSelect, onUpdateEditor, onResetEditor,
-  onTextChange, onShowToolbar,
+  onSelect,
+  onTextChange, onImagePaste: onImagePasteProp, onShowToolbar,
   textColor = "#fff", bgColor = "#0d0d1a", accentColor = "#c9a84c",
   tag = "div", className, style, children,
 }: Props) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLElement>(null);
+  // Sections don't pass onImagePaste through fieldProps — pull it from
+  // context so paste-an-image works without touching every section.
+  const ctx = useEditor();
+  const onImagePaste = onImagePasteProp ?? ctx.onImagePaste;
 
   const Tag = tag as any;
 
-  const x = editor?.x ?? 0;
-  const y = editor?.y ?? 0;
-  // fontSize is a real px value (> 4) or undefined (use Tailwind/CSS)
   const fsPx = (editor?.fontSize != null && editor.fontSize > 4) ? editor.fontSize : null;
   const widthPx = editor?.width;
-  const hasOverrides = !!(editor && (editor.x || editor.y || fsPx != null || editor.width != null));
+  const x = editor?.x ?? 0;
+  const y = editor?.y ?? 0;
 
-  // ── Drag handler (move the entire field via transform) ────────────────────
-  function startDrag(e: ReactPointerEvent<HTMLElement>) {
-    if (!isEditable) return;
-    e.preventDefault();
-    e.stopPropagation();
-    onSelect(sectionId, field);
+  // Paste handler: strip rich-text formatting so pastes from Google Search,
+  // docs, etc. inherit the site's typography instead of dragging in a foreign
+  // font/color/size. Image pastes are routed to the upload pipeline.
+  function handlePaste(e: React.ClipboardEvent<HTMLElement>) {
+    if (!isEditable || !onTextChange) return;
+    const cb = e.clipboardData;
+    if (!cb) return;
 
-    const startClientX = e.clientX;
-    const startClientY = e.clientY;
-    const startX = x;
-    const startY = y;
+    // Image paste — pull the first image item and forward it.
+    if (onImagePaste) {
+      for (let i = 0; i < cb.items.length; i++) {
+        const item = cb.items[i];
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            onImagePaste(sectionId, field, file);
+            return;
+          }
+        }
+      }
+    }
 
-    const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - startClientX;
-      const dy = ev.clientY - startClientY;
-      onUpdateEditor(sectionId, field, { x: startX + dx, y: startY + dy });
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-  }
-
-  // ── Resize handlers ───────────────────────────────────────────────────────
-  function startResize(corner: "se" | "e" | "s") {
-    return (e: ReactPointerEvent<HTMLElement>) => {
-      if (!isEditable) return;
+    // Text paste — force plain text so the global font/colour win.
+    const text = cb.getData("text/plain");
+    if (text) {
       e.preventDefault();
-      e.stopPropagation();
-      onSelect(sectionId, field);
-
-      const rect = innerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const startClientX = e.clientX;
-      const startClientY = e.clientY;
-      const startW = widthPx ?? rect.width;
-
-      // Capture the actual rendered font size in px as the drag baseline
-      const computedFs = innerRef.current
-        ? parseFloat(getComputedStyle(innerRef.current as HTMLElement).fontSize)
-        : 16;
-      const startFsPx = fsPx ?? computedFs;
-
-      const onMove = (ev: PointerEvent) => {
-        const dx = ev.clientX - startClientX;
-        const dy = ev.clientY - startClientY;
-        const updates: EditorFieldState = {};
-        if (corner === "se" || corner === "e") {
-          updates.width = Math.max(60, Math.round(startW + dx));
-        }
-        if (corner === "se" || corner === "s") {
-          // 100px of drag = +/- 50% of current font size
-          const scale = 1 + dy / 200;
-          const next = Math.max(8, Math.min(120, Math.round(startFsPx * scale)));
-          updates.fontSize = next;
-        }
-        onUpdateEditor(sectionId, field, updates);
-      };
-      const onUp = () => {
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-      window.addEventListener("pointercancel", onUp);
-    };
+      document.execCommand("insertText", false, text);
+    }
   }
 
-  // ── Inline edit props (for the inner element) ─────────────────────────────
   const editableProps = isEditable && onTextChange ? {
     contentEditable: true as const,
     suppressContentEditableWarning: true,
@@ -149,10 +112,12 @@ export default function EditableField({
         });
       }
     },
+    onPaste: handlePaste,
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
   } : {};
 
-  // ── Render: non-editor mode is a plain element ─────────────────────────────
+  // Non-editor mode: plain element. Keep any saved px overrides applied
+  // so previously edited sites still render the way the user left them.
   if (!isEditable) {
     const finalStyle: CSSProperties = { ...style };
     if (fsPx != null) finalStyle.fontSize = `${fsPx}px`;
@@ -161,101 +126,28 @@ export default function EditableField({
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
   }
 
-  // ── Render: editor mode wraps inner element with selection UI ─────────────
-  const wrapperStyle: CSSProperties = {
-    position: "relative",
-    display: "inline-block",
-    transform: x || y ? `translate(${x}px, ${y}px)` : undefined,
-    maxWidth: widthPx ? `${widthPx}px` : undefined,
-    width: widthPx ? `${widthPx}px` : "auto",
-    transition: selected ? "none" : "outline-color 0.12s ease",
-    outline: selected ? "2px solid #1877F2" : "2px solid transparent",
-    outlineOffset: "2px",
-    borderRadius: "4px",
-  };
-
+  // Editor mode: inline-edit + selection outline. No drag / resize handles —
+  // only sections are adjustable now.
   const innerStyle: CSSProperties = {
     ...style,
     fontSize: fsPx != null ? `${fsPx}px` : style?.fontSize,
+    maxWidth: widthPx ? `${widthPx}px` : style?.maxWidth,
+    transform: x || y ? `translate(${x}px, ${y}px)` : undefined,
     cursor: "text",
-    outline: "none",
+    outline: selected ? "2px solid #1877F2" : "2px solid transparent",
+    outlineOffset: "2px",
+    borderRadius: "4px",
+    transition: "outline-color 0.12s ease",
   };
 
   return (
-    <div
-      ref={wrapperRef}
-      style={wrapperStyle}
-      onClick={(e) => {
-        if (isEditable) {
-          e.stopPropagation();
-          onSelect(sectionId, field);
-        }
-      }}
+    <Tag
+      ref={innerRef as any}
+      className={className}
+      style={innerStyle}
+      {...editableProps}
     >
-      <Tag
-        ref={innerRef as any}
-        className={className}
-        style={innerStyle}
-        {...editableProps}
-      >
-        {children}
-      </Tag>
-
-      {/* Selection chrome (only when selected) */}
-      {selected && (
-        <>
-          {/* Drag handle — top-left, drags the whole element */}
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onPointerDown={startDrag}
-            title="Drag to move"
-            className="absolute -top-3 -left-3 z-50 flex items-center justify-center w-6 h-6 rounded-full bg-[#1877F2] text-white shadow-md"
-            style={{ cursor: "move", touchAction: "none" }}
-          >
-            <GripVertical size={11} />
-          </button>
-
-          {/* Reset button — top-right */}
-          {hasOverrides && (
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => { e.stopPropagation(); onResetEditor(sectionId, field); }}
-              title="Reset position & size"
-              className="absolute -top-3 -right-3 z-50 flex items-center justify-center w-6 h-6 rounded-full bg-white text-gray-600 shadow-md border border-gray-200 hover:bg-gray-50"
-            >
-              <RotateCcw size={10} />
-            </button>
-          )}
-
-          {/* Resize handles */}
-          {/* Right edge — width only */}
-          <div
-            onMouseDown={(e) => e.preventDefault()}
-            onPointerDown={startResize("e")}
-            title="Drag to resize width"
-            className="absolute top-1/2 -right-1.5 z-50 w-3 h-8 -translate-y-1/2 rounded-sm bg-white border-2 border-[#1877F2]"
-            style={{ cursor: "ew-resize", touchAction: "none" }}
-          />
-          {/* Bottom edge — font-size only */}
-          <div
-            onMouseDown={(e) => e.preventDefault()}
-            onPointerDown={startResize("s")}
-            title="Drag to resize text size"
-            className="absolute -bottom-1.5 left-1/2 z-50 w-8 h-3 -translate-x-1/2 rounded-sm bg-white border-2 border-[#1877F2]"
-            style={{ cursor: "ns-resize", touchAction: "none" }}
-          />
-          {/* Bottom-right corner — both */}
-          <div
-            onMouseDown={(e) => e.preventDefault()}
-            onPointerDown={startResize("se")}
-            title="Drag to resize text size and width"
-            className="absolute -bottom-1.5 -right-1.5 z-50 w-3.5 h-3.5 rounded-sm bg-[#1877F2] border-2 border-white"
-            style={{ cursor: "nwse-resize", touchAction: "none" }}
-          />
-        </>
-      )}
-    </div>
+      {children}
+    </Tag>
   );
 }

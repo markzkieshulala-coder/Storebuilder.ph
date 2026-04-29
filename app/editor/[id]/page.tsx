@@ -344,6 +344,56 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     pushHistory({ ...website, sections: newSections });
   }
 
+  function reorderSections(fromIndex: number, toIndex: number) {
+    if (!website) return;
+    if (fromIndex === toIndex) return;
+    const next = [...website.sections];
+    if (fromIndex < 0 || fromIndex >= next.length) return;
+    if (toIndex < 0 || toIndex >= next.length) return;
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    pushHistory({ ...website, sections: next });
+  }
+
+  function resizeSection(sectionId: string, minHeight: number) {
+    if (!website) return;
+    const px = `${Math.max(120, Math.round(minHeight))}px`;
+    pushHistory({
+      ...website,
+      sections: website.sections.map((s) =>
+        s.id === sectionId
+          ? { ...s, styles: { ...(s.styles || {}), minHeight: px } }
+          : s
+      ),
+    });
+  }
+
+  async function uploadPastedImage(sectionId: string, field: string, file: File) {
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      toast.loading("Uploading pasted image...", { id: "img-paste" });
+      const res = await fetch("/api/media/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success("Image inserted!", { id: "img-paste" });
+      const section = website?.sections.find((s) => s.id === sectionId);
+      if (!section) return;
+      const newData = { ...(section.data as any) };
+      const parts = field.split(".");
+      if (parts.length === 1) {
+        newData[parts[0]] = data.url;
+      } else if (parts.length === 3 && !isNaN(Number(parts[1]))) {
+        const arr = [...(newData[parts[0]] || [])];
+        arr[Number(parts[1])] = { ...arr[Number(parts[1])], [parts[2]]: data.url };
+        newData[parts[0]] = arr;
+      }
+      updateSection(sectionId, { data: newData });
+    } catch (err: any) {
+      toast.error(err.message || "Paste upload failed", { id: "img-paste" });
+    }
+  }
+
   function deleteSection(sectionId: string) {
     if (!website) return;
     pushHistory({ ...website, sections: website.sections.filter((s) => s.id !== sectionId) });
@@ -436,6 +486,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     onTextChange: handleTextChange,
     onNestedTextChange: handleNestedTextChange,
     onImageUpload: handleImageUpload,
+    onImagePaste: uploadPastedImage,
     onSectionClick: () => {},
     onShowToolbar: (target) => {
       // Enrich the target with the section's persisted alignment + scale
@@ -453,6 +504,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     onUpdateEditor: updateFieldEditor,
     onResetEditor: resetFieldEditor,
     getEditorState: getFieldEditor,
+    onResizeSection: resizeSection,
+    onReorderSections: reorderSections,
   };
 
   return (
