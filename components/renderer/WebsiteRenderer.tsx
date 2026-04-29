@@ -260,42 +260,46 @@ function SectionShell({
 
       {isEditable && (
         <>
-          {/* Drag-to-reorder handle (left side, vertically centred) */}
+          {/* Drag-to-reorder handle (left side, vertically centred) — always visible while editing */}
           <button
             type="button"
             onPointerDown={startReorder}
             onMouseDown={(e) => e.preventDefault()}
             title="Drag to reorder section"
-            className="absolute z-40 flex items-center justify-center w-6 h-12 rounded-r-lg bg-[#1877F2] text-white shadow-md transition-opacity"
+            className="absolute z-40 flex items-center justify-center w-7 h-14 rounded-r-lg bg-[#1877F2] text-white shadow-lg"
             style={{
               top: "50%",
               left: 0,
               transform: "translateY(-50%)",
-              opacity: hover || dragging ? 1 : 0,
+              opacity: hover || dragging ? 1 : 0.55,
               cursor: "grab",
               touchAction: "none",
+              transition: "opacity 0.15s ease",
             }}
           >
-            <GripVertical size={14} />
+            <GripVertical size={16} />
           </button>
 
-          {/* Bottom-edge height resizer */}
+          {/* Bottom-edge height resizer — always visible while editing */}
           <div
             onPointerDown={startResize}
             onMouseDown={(e) => e.preventDefault()}
             title="Drag to resize section height"
-            className="absolute z-40 left-0 right-0 h-2 flex items-center justify-center group"
+            className="absolute z-40 left-0 right-0 h-3 flex items-center justify-center group"
             style={{
-              bottom: -4,
+              bottom: -6,
               cursor: "ns-resize",
               touchAction: "none",
             }}
           >
             <span
-              className="flex items-center justify-center px-2 py-0.5 rounded-full bg-[#1877F2] text-white shadow-md transition-opacity"
-              style={{ opacity: hover ? 1 : 0 }}
+              className="flex items-center justify-center px-2.5 py-1 rounded-full bg-[#1877F2] text-white shadow-md"
+              style={{
+                opacity: hover ? 1 : 0.55,
+                transition: "opacity 0.15s ease",
+              }}
             >
-              <MoveVertical size={11} />
+              <MoveVertical size={12} />
             </span>
           </div>
         </>

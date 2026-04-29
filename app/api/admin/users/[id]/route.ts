@@ -48,6 +48,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureInfluencerColumn();
     const body = await req.json();
     const data: Record<string, unknown> = {};
 
@@ -90,14 +91,29 @@ export async function PATCH(
       data.location = body.location ? String(body.location).trim() : null;
     }
 
-    if (Object.keys(data).length === 0)
+    // isInfluencer handled separately via raw SQL because the column isn't
+    // part of the Prisma schema yet
+    const isInfluencerUpdate = typeof body.isInfluencer === "boolean" ? body.isInfluencer : null;
+
+    if (Object.keys(data).length === 0 && isInfluencerUpdate === null)
       return NextResponse.json({ error: "No changes" }, { status: 400 });
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: { id: true, email: true, plan: true, role: true, planExpiresAt: true },
-    });
+    let user = null;
+    if (Object.keys(data).length > 0) {
+      user = await prisma.user.update({
+        where: { id: params.id },
+        data,
+        select: { id: true, email: true, plan: true, role: true, planExpiresAt: true },
+      });
+    }
+
+    if (isInfluencerUpdate !== null) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "User" SET "isInfluencer" = $1 WHERE id = $2`,
+        isInfluencerUpdate,
+        params.id
+      );
+    }
 
     return NextResponse.json({ success: true, user });
   } catch (e: any) {

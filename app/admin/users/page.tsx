@@ -67,6 +67,27 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function toggleInfluencer(userId: string, current: boolean) {
+    setLoadingId(userId + "-inf");
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isInfluencer: !current }),
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, isInfluencer: !current } : u))
+        );
+        toast.success(!current ? "Marked as Influencer" : "Removed Influencer status");
+      } else {
+        toast.error("Failed to update influencer status");
+      }
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
   async function deleteUser(userId: string, email: string | null) {
     if (
       !confirm(
@@ -241,6 +262,25 @@ export default function AdminUsersPage() {
                           <option value="PRO">Pro</option>
                           <option value="ENTERPRISE">Enterprise</option>
                         </select>
+                        <button
+                          onClick={() => toggleInfluencer(user.id, user.isInfluencer)}
+                          disabled={loadingId === user.id + "-inf"}
+                          title={user.isInfluencer ? "Remove Influencer status" : "Mark as Influencer"}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
+                            user.isInfluencer
+                              ? "text-purple-700 bg-purple-100 hover:bg-purple-200"
+                              : "text-gray-500 bg-gray-100 hover:bg-gray-200"
+                          }`}
+                        >
+                          {loadingId === user.id + "-inf" ? (
+                            "..."
+                          ) : (
+                            <>
+                              <Star size={11} />
+                              {user.isInfluencer ? "Influencer" : "Mark Influencer"}
+                            </>
+                          )}
+                        </button>
                         {user.role !== "ADMIN" && (
                           <button
                             onClick={() => deleteUser(user.id, user.email)}
