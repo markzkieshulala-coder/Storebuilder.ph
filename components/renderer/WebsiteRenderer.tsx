@@ -101,16 +101,6 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
         .website-render input, .website-render textarea, .website-render label {
           font-family: var(--body-font);
         }
-        /* When a section wrapper has a minHeight set (from resize), make the
-           inner <section> / <div> inherit it so the section's own background
-           actually grows — otherwise the wrapper just gets empty page-bg space. */
-        .website-render [data-sb-section-index] > section,
-        .website-render [data-sb-section-index] > div,
-        .website-render [data-sb-section-index] > header,
-        .website-render [data-sb-section-index] > footer,
-        .website-render [data-sb-section-index] > nav {
-          min-height: inherit;
-        }
       `}</style>
       <div
         className="website-render"
@@ -192,6 +182,9 @@ function SectionShell({
   // Always-current index ref so pointer-move closures don't go stale after reorder
   const indexRef = useRef(index);
   indexRef.current = index;
+
+  // liveHeight takes priority during active drag; fall back to saved minHeight
+  const displayHeight = liveHeight ?? minHeight;
 
   // ── Bottom-edge resize: adjust section minHeight ─────────────────────────
   // Uses pointer capture on the handle itself so drags stay locked even when
@@ -289,12 +282,17 @@ function SectionShell({
         position: "relative",
         scrollMarginTop: "80px",
         textAlign: sectionAlign || undefined,
-        minHeight: minHeight ? `${minHeight}px` : undefined,
         outline: (dragging || resizing) ? "2px dashed #1877F2" : undefined,
         outlineOffset: (dragging || resizing) ? "-2px" : undefined,
         transition: (dragging || resizing) ? "none" : "outline-color 0.12s ease",
       }}
     >
+      {/* Inject a targeted min-height on the section's OWN root element so its
+          background fills the resized area. Using a direct px value (not inherit)
+          means it never cascades to nested elements. */}
+      {displayHeight && (
+        <style>{`[data-sb-section-index="${index}"] > * { min-height: ${displayHeight}px; }`}</style>
+      )}
       <SectionComponent section={section} website={website} />
 
       {isEditable && (
