@@ -177,6 +177,10 @@ function SectionShell({
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [section.styles?.minHeight]);
 
+  // Always-current index ref so pointer-move closures don't go stale after reorder
+  const indexRef = useRef(index);
+  indexRef.current = index;
+
   // ── Bottom-edge resize: adjust section minHeight ─────────────────────────
   function startResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!isEditable || !onResizeSection) return;
@@ -209,10 +213,9 @@ function SectionShell({
     setDragging(true);
 
     const onMove = (ev: PointerEvent) => {
-      // Hit-test sibling sections by their bounding rects to find the
-      // closest target; swap when we cross its mid-point.
+      const currIdx = indexRef.current;
       const all = Array.from(document.querySelectorAll<HTMLElement>("[data-sb-section-index]"));
-      let targetIdx = index;
+      let targetIdx = currIdx;
       for (const el of all) {
         const idx = Number(el.getAttribute("data-sb-section-index"));
         const r = el.getBoundingClientRect();
@@ -221,8 +224,8 @@ function SectionShell({
           break;
         }
       }
-      if (targetIdx !== index && targetIdx >= 0 && targetIdx < totalSections) {
-        onReorderSections(index, targetIdx);
+      if (targetIdx !== currIdx && targetIdx >= 0 && targetIdx < totalSections) {
+        onReorderSections(currIdx, targetIdx);
       }
     };
     const onUp = () => {
@@ -241,8 +244,8 @@ function SectionShell({
       ref={wrapperRef}
       data-sb-section-index={index}
       id={anchorId}
-      onMouseEnter={() => isEditable && setHover(true)}
-      onMouseLeave={() => isEditable && setHover(false)}
+      onPointerEnter={() => isEditable && setHover(true)}
+      onPointerLeave={() => isEditable && setHover(false)}
       style={{
         position: "relative",
         scrollMarginTop: "80px",

@@ -627,22 +627,23 @@ export default function HomePage() {
 
       {/* Pricing */}
       <section id="pricing" className="py-16 px-4" style={{ background: "#F7FAFF" }}>
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-4xl font-bold mb-2 text-gray-900">Simple, transparent pricing</h2>
-            <p className="text-gray-500">Start free. Upgrade when you are ready.</p>
+            <p className="text-gray-500">Start free. Upgrade when you&apos;re ready.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Free */}
-            <div className="p-7 rounded-xl border border-gray-200 bg-white">
+            <div className="p-7 rounded-xl border border-gray-200 bg-white flex flex-col">
               <h3 className="text-lg font-bold mb-1 text-gray-900">Free</h3>
+              <p className="text-xs text-gray-500 mb-4">Best for landing pages &amp; personal portfolios</p>
               <div className="text-4xl font-bold text-gray-900 mb-1">₱0 <span className="text-base font-normal text-gray-400">/ forever</span></div>
               <p className="text-xs text-gray-400 mb-5">No credit card required</p>
-              <ul className="space-y-2.5 mb-7">
+              <ul className="space-y-2.5 mb-7 flex-1">
                 {[
-                  "Unlimited editing (Drag and drop)",
-                  "Free subdomain (yourname.storebuilder.ph)",
+                  "Up to 5 websites per month",
                   "All editor features",
+                  "Free subdomain (yourname.storebuilder.ph)",
                   "No payment required",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
@@ -650,8 +651,8 @@ export default function HomePage() {
                     {item}
                   </li>
                 ))}
-                {["Custom domain", "Remove branding"].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-400">
+                {["Payment links integration", "Custom domain", "Remove branding"].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-300 line-through">
                     <X size={15} className="mt-0.5 shrink-0" />
                     {item}
                   </li>
@@ -663,7 +664,7 @@ export default function HomePage() {
             </div>
 
             {/* Pro */}
-            <div className="p-7 rounded-xl border-2 bg-white relative overflow-hidden" style={{ borderColor: BLUE }}>
+            <div className="p-7 rounded-xl border-2 bg-white relative overflow-hidden flex flex-col" style={{ borderColor: BLUE }}>
               <div
                 className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
                 style={{ background: BLUE }}
@@ -671,29 +672,23 @@ export default function HomePage() {
                 POPULAR
               </div>
               <h3 className="text-lg font-bold mb-1 text-gray-900">Pro</h3>
-              <div className="text-4xl font-bold text-gray-900 mb-1">₱499 <span className="text-base font-normal text-gray-400">/ month</span></div>
-              <p className="text-xs text-gray-400 mb-5">or ₱4,299/year (save 25%)</p>
-              <ul className="space-y-2.5 mb-7">
+              <p className="text-xs text-gray-500 mb-4">Best for online sellers &amp; freelancers</p>
+              <div className="text-4xl font-bold text-gray-900 mb-1">₱699 <span className="text-base font-normal text-gray-400">/ month</span></div>
+              <p className="text-xs text-gray-400 mb-5">or ₱5,999/year (save 28%)</p>
+              <ul className="space-y-2.5 mb-7 flex-1">
                 {[
-                  "Unlimited editing",
-                  "Built-in CRM system for each generated website",
-                  "Add own payment method (any type of payment links)",
+                  "Up to 10 websites per month",
+                  "All editor features",
+                  "Add Hitpay & Paymongo payment links",
+                  "Template link sharing for generated websites",
                   "Custom domain connection",
                   "Remove Storebuilder.ph branding",
-                  "Priority support",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
                     <Check size={15} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
                     {item}
                   </li>
                 ))}
-                <li className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <Check size={15} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
-                  <span>
-                    Downloadable source code for generated websites &amp; CRM{" "}
-                    <span className="text-gray-400 font-normal">(+₱299 additional fee)</span>
-                  </span>
-                </li>
               </ul>
               <Link
                 href="/upgrade"
@@ -701,6 +696,38 @@ export default function HomePage() {
                 style={{ background: BLUE }}
               >
                 Start Pro
+              </Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="p-7 rounded-xl border border-gray-200 bg-white flex flex-col">
+              <h3 className="text-lg font-bold mb-1 text-gray-900">Enterprise</h3>
+              <p className="text-xs text-gray-500 mb-4">For business owners needing advanced systems</p>
+              <div className="text-4xl font-bold text-gray-900 mb-1">₱999 <span className="text-base font-normal text-gray-400">/ month</span></div>
+              <p className="text-xs text-gray-400 mb-5">or ₱8,999/year (save 25%)</p>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Up to 20 websites per month",
+                  "All editor features",
+                  "Add Hitpay & Paymongo payment links",
+                  "System / CRM generation for each website",
+                  "Template link sharing",
+                  "Custom domain connection",
+                  "Remove Storebuilder.ph branding",
+                  "Priority generation queue",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
+                    <Check size={15} className="mt-0.5 shrink-0" style={{ color: BLUE }} />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/upgrade"
+                className="block text-center py-2.5 px-5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ background: "#1C1E21" }}
+              >
+                Start Enterprise
               </Link>
             </div>
           </div>

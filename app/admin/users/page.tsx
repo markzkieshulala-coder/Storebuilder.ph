@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Crown, Trash2, Search, Shield, ChevronDown } from "lucide-react";
+import { Crown, Trash2, Search, Shield, Star } from "lucide-react";
 import toast from "react-hot-toast";
 
 const BLUE = "#1877F2";
@@ -10,8 +10,9 @@ type UserRow = {
   id: string;
   name: string | null;
   email: string | null;
-  plan: "FREE" | "PRO";
+  plan: "FREE" | "PRO" | "ENTERPRISE";
   role: "USER" | "ADMIN";
+  isInfluencer: boolean;
   createdAt: string;
   planExpiresAt: string | null;
   _count: { websites: number; subscriptions: number };
@@ -44,7 +45,7 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  async function updatePlan(userId: string, plan: "FREE" | "PRO") {
+  async function updatePlan(userId: string, plan: "FREE" | "PRO" | "ENTERPRISE") {
     setLoadingId(userId + "-plan");
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -56,9 +57,8 @@ export default function AdminUsersPage() {
         setUsers((prev) =>
           prev.map((u) => (u.id === userId ? { ...u, plan } : u))
         );
-        toast.success(
-          plan === "PRO" ? "Upgraded to Pro" : "Downgraded to Free"
-        );
+        const labels: Record<string, string> = { PRO: "Pro", ENTERPRISE: "Enterprise", FREE: "Free" };
+        toast.success(`Plan set to ${labels[plan] ?? plan}`);
       } else {
         toast.error("Failed to update plan");
       }
@@ -195,7 +195,15 @@ export default function AdminUsersPage() {
 
                     {/* Plan */}
                     <td className="py-3.5 px-4">
-                      {user.plan === "PRO" ? (
+                      {user.isInfluencer ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-purple-700 bg-purple-100">
+                          <Star size={10} /> Influencer
+                        </span>
+                      ) : user.plan === "ENTERPRISE" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-gray-700 bg-gray-200">
+                          <Crown size={10} /> Enterprise
+                        </span>
+                      ) : user.plan === "PRO" ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-amber-700 bg-amber-100">
                           <Crown size={10} /> Pro
                         </span>
@@ -223,27 +231,16 @@ export default function AdminUsersPage() {
                     {/* Actions */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center justify-end gap-2">
-                        {user.plan === "PRO" ? (
-                          <button
-                            onClick={() => updatePlan(user.id, "FREE")}
-                            disabled={loadingId === user.id + "-plan"}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                          >
-                            {loadingId === user.id + "-plan"
-                              ? "..."
-                              : "Downgrade"}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => updatePlan(user.id, "PRO")}
-                            disabled={loadingId === user.id + "-plan"}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 transition-colors disabled:opacity-50"
-                          >
-                            {loadingId === user.id + "-plan"
-                              ? "..."
-                              : "Upgrade to Pro"}
-                          </button>
-                        )}
+                        <select
+                          value={user.plan}
+                          disabled={loadingId === user.id + "-plan"}
+                          onChange={(e) => updatePlan(user.id, e.target.value as "FREE" | "PRO" | "ENTERPRISE")}
+                          className="text-xs rounded-lg border border-gray-200 px-2 py-1.5 bg-white text-gray-700 disabled:opacity-50 cursor-pointer"
+                        >
+                          <option value="FREE">Free</option>
+                          <option value="PRO">Pro</option>
+                          <option value="ENTERPRISE">Enterprise</option>
+                        </select>
                         {user.role !== "ADMIN" && (
                           <button
                             onClick={() => deleteUser(user.id, user.email)}

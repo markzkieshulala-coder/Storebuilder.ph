@@ -42,8 +42,6 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
   const [selectedField, setSelectedField] = useState<SelectedField>(null);
-  const [iframeKey, setIframeKey] = useState(0);
-  const [iframeSaving, setIframeSaving] = useState(false);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [sharingTemplate, setSharingTemplate] = useState(false);
@@ -315,20 +313,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     });
   }
 
-  async function switchViewMode(mode: ViewMode) {
-    if (mode !== "desktop" && viewMode === "desktop" && website) {
-      setIframeSaving(true);
-      try {
-        await fetch(`/api/websites/${params.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonContent: website }),
-        });
-        setIframeKey((k) => k + 1);
-      } finally {
-        setIframeSaving(false);
-      }
-    }
+  function switchViewMode(mode: ViewMode) {
     setViewMode(mode);
     setToolbarTarget(null);
   }
@@ -711,41 +696,39 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 pb-8">
-              {/* Device frame */}
+              {/* Device frame — live editable */}
               <div
-                className="relative overflow-hidden shadow-2xl shrink-0"
+                className="relative shadow-2xl shrink-0 bg-white"
                 style={{
                   width: VIEW_WIDTHS[viewMode],
                   height: viewMode === "mobile" ? "812px" : "1024px",
                   borderRadius: viewMode === "mobile" ? "44px" : "24px",
                   border: `${viewMode === "mobile" ? "10px" : "8px"} solid #1c1c2e`,
                   boxShadow: "0 30px 80px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.06)",
+                  overflow: "hidden",
                 }}
               >
-                {/* Notch for mobile */}
+                {/* Mobile notch */}
                 {viewMode === "mobile" && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-28 h-7 bg-[#1c1c2e] rounded-b-2xl" />
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-28 h-7 bg-[#1c1c2e] rounded-b-2xl pointer-events-none" />
                 )}
-                {iframeSaving ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                      <p className="text-gray-400 text-xs">Saving...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <iframe
-                    key={iframeKey}
-                    src={`/editor/${params.id}/preview?raw=1`}
-                    className="w-full h-full border-0"
-                    title={`${viewMode} preview`}
-                  />
-                )}
+                {/* Scrollable live canvas */}
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    paddingTop: viewMode === "mobile" ? "28px" : 0,
+                  }}
+                >
+                  <WebsiteRenderer website={website} editorContext={editorCtx} />
+                </div>
               </div>
               {/* Hint */}
               <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
                 <Info size={11} />
-                <span>Showing saved version — switch to Desktop to edit</span>
+                <span>Live editing — tap any text or image to change it</span>
               </div>
             </div>
           )}
