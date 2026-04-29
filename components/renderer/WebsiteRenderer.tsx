@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 import { EditorContext, EditorContextType } from "@/components/editor/EditorContext";
-import { GripVertical, MoveVertical } from "lucide-react";
+import { MoveVertical } from "lucide-react";
 import NavSection from "./sections/NavSection";
 import HeroSection from "./sections/HeroSection";
 import FeaturesSection from "./sections/FeaturesSection";
@@ -141,8 +141,6 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
               index={i}
               isEditable={isEditable}
               onResizeSection={ctx.onResizeSection}
-              onReorderSections={ctx.onReorderSections}
-              totalSections={website.sections.length}
             />
           );
         })}
@@ -151,11 +149,10 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
   );
 }
 
-// SectionShell wraps each section with the editor chrome (drag-to-reorder
-// handle on the left, height-resize handle on the bottom).
+// SectionShell wraps each section with a single bottom-edge resize handle.
 function SectionShell({
   section, website, SectionComponent, anchorId, index, isEditable,
-  onResizeSection, onReorderSections, totalSections,
+  onResizeSection,
 }: {
   section: Section;
   website: GeneratedWebsite;
@@ -164,12 +161,9 @@ function SectionShell({
   index: number;
   isEditable: boolean;
   onResizeSection?: (sectionId: string, minHeight: number) => void;
-  onReorderSections?: (fromIndex: number, toIndex: number) => void;
-  totalSections: number;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const [liveHeight, setLiveHeight] = useState<number | null>(null);
   const sectionAlign = section.styles?.textAlign as "left" | "center" | "right" | undefined;
@@ -179,17 +173,13 @@ function SectionShell({
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [section.styles?.minHeight]);
 
-  // Always-current index ref so pointer-move closures don't go stale after reorder
-  const indexRef = useRef(index);
-  indexRef.current = index;
-
   // liveHeight takes priority during active drag; fall back to saved minHeight
   const displayHeight = liveHeight ?? minHeight;
 
   // ── Bottom-edge resize: adjust section minHeight ─────────────────────────
   // Uses pointer capture on the handle itself so drags stay locked even when
-  // the cursor leaves the small handle area or strays into another iframe/element.
-  function startResize(e: React.PointerEvent<HTMLDivElement>) {
+  // the cursor leaves the small handle area.
+  function startResize(e: React.PointerEvent<HTMLButtonElement>) {
     if (!isEditable || !onResizeSection) return;
     e.preventDefault();
     e.stopPropagation();
@@ -227,50 +217,6 @@ function SectionShell({
     window.addEventListener("pointercancel", cleanup);
   }
 
-  // ── Left-edge handle: drag-to-reorder among siblings ─────────────────────
-  function startReorder(e: React.PointerEvent<HTMLButtonElement>) {
-    if (!isEditable || !onReorderSections) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget;
-    try { target.setPointerCapture(e.pointerId); } catch {}
-    setDragging(true);
-
-    const onMove = (ev: PointerEvent) => {
-      ev.preventDefault();
-      const currIdx = indexRef.current;
-      const all = Array.from(document.querySelectorAll<HTMLElement>("[data-sb-section-index]"));
-      let targetIdx = currIdx;
-      for (const el of all) {
-        const idx = Number(el.getAttribute("data-sb-section-index"));
-        const r = el.getBoundingClientRect();
-        if (ev.clientY >= r.top && ev.clientY <= r.bottom) {
-          targetIdx = idx;
-          break;
-        }
-      }
-      if (targetIdx !== currIdx && targetIdx >= 0 && targetIdx < totalSections) {
-        onReorderSections(currIdx, targetIdx);
-      }
-    };
-    const cleanup = () => {
-      setDragging(false);
-      try { target.releasePointerCapture(e.pointerId); } catch {}
-      target.removeEventListener("pointermove", onMove as EventListener);
-      target.removeEventListener("pointerup", cleanup);
-      target.removeEventListener("pointercancel", cleanup);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", cleanup);
-      window.removeEventListener("pointercancel", cleanup);
-    };
-    target.addEventListener("pointermove", onMove as EventListener);
-    target.addEventListener("pointerup", cleanup);
-    target.addEventListener("pointercancel", cleanup);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", cleanup);
-    window.addEventListener("pointercancel", cleanup);
-  }
-
   return (
     <div
       ref={wrapperRef}
@@ -282,67 +228,52 @@ function SectionShell({
         position: "relative",
         scrollMarginTop: "80px",
         textAlign: sectionAlign || undefined,
-        outline: (dragging || resizing) ? "2px dashed #1877F2" : undefined,
-        outlineOffset: (dragging || resizing) ? "-2px" : undefined,
-        transition: (dragging || resizing) ? "none" : "outline-color 0.12s ease",
+        minHeight: displayHeight ? `${displayHeight}px` : undefined,
+        outline: resizing ? "2px dashed #1877F2" : undefined,
+        outlineOffset: resizing ? "-2px" : undefined,
+        transition: resizing ? "none" : "outline-color 0.12s ease",
       }}
     >
-      {/* Inject a targeted min-height on the section's OWN root element so its
-          background fills the resized area. Using a direct px value (not inherit)
-          means it never cascades to nested elements. */}
+      {/* Force the section's own root element to grow to the resized height
+          (using !important to beat Tailwind's min-h-screen / h-screen utilities
+          some section components ship with). Direct px value, so it does NOT
+          cascade to nested layout elements like flex/grid containers. */}
       {displayHeight && (
-        <style>{`[data-sb-section-index="${index}"] > * { min-height: ${displayHeight}px; }`}</style>
+        <style>{`
+          [data-sb-section-index="${index}"] > *:not(style) {
+            min-height: ${displayHeight}px !important;
+            height: auto !important;
+          }
+        `}</style>
       )}
       <SectionComponent section={section} website={website} />
 
       {isEditable && (
-        <>
-          {/* Drag-to-reorder handle (left side, vertically centred) — always visible while editing */}
+        // Bottom-edge height resizer — sits BELOW the section (bottom: -10)
+        // so it never overlaps section content and never blocks text editing.
+        // Only the small centered pill is interactive.
+        <div
+          className="absolute z-40 left-0 right-0 flex items-center justify-center pointer-events-none"
+          style={{ bottom: -10, height: 20 }}
+        >
           <button
             type="button"
-            onPointerDown={startReorder}
-            onMouseDown={(e) => e.preventDefault()}
-            title="Drag to reorder section"
-            className="absolute z-40 flex items-center justify-center w-7 h-14 rounded-r-lg bg-[#1877F2] text-white shadow-lg"
-            style={{
-              top: "50%",
-              left: 0,
-              transform: "translateY(-50%)",
-              opacity: hover || dragging ? 1 : 0.55,
-              cursor: "grab",
-              touchAction: "none",
-              transition: "opacity 0.15s ease",
-            }}
-          >
-            <GripVertical size={16} />
-          </button>
-
-          {/* Bottom-edge height resizer — always visible while editing.
-              Larger hit area (h-6) so it's easy to grab on touch devices. */}
-          <div
             onPointerDown={startResize}
             onMouseDown={(e) => e.preventDefault()}
             title="Drag to resize section height"
-            className="absolute z-40 left-0 right-0 flex items-center justify-center"
+            className="pointer-events-auto flex items-center gap-1 px-3 py-1 rounded-full bg-[#1877F2] text-white shadow-md text-[11px] font-semibold"
             style={{
-              bottom: -12,
-              height: 24,
+              opacity: hover || resizing ? 1 : 0.55,
               cursor: "ns-resize",
               touchAction: "none",
+              transition: "opacity 0.15s ease",
+              border: "none",
             }}
           >
-            <span
-              className="flex items-center gap-1 px-3 py-1 rounded-full bg-[#1877F2] text-white shadow-md text-[11px] font-semibold pointer-events-none"
-              style={{
-                opacity: hover || resizing ? 1 : 0.65,
-                transition: "opacity 0.15s ease",
-              }}
-            >
-              <MoveVertical size={12} />
-              {resizing && liveHeight ? `${liveHeight}px` : "Resize"}
-            </span>
-          </div>
-        </>
+            <MoveVertical size={12} />
+            {resizing && liveHeight ? `${liveHeight}px` : "Resize"}
+          </button>
+        </div>
       )}
     </div>
   );
