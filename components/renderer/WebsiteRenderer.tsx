@@ -249,29 +249,34 @@ function SectionShell({
       <SectionComponent section={section} website={website} />
 
       {isEditable && (
-        // Bottom-edge height resizer — sits BELOW the section (bottom: -10)
-        // so it never overlaps section content and never blocks text editing.
-        // Only the small centered pill is interactive.
+        // Resize handle — sits just below the section boundary.
+        // The outer div is pointer-events:none so only the button itself is interactive.
+        // The button is wide enough to grab easily and sits at the bottom center.
         <div
-          className="absolute z-40 left-0 right-0 flex items-center justify-center pointer-events-none"
-          style={{ bottom: -10, height: 20 }}
+          className="absolute z-40 inset-x-0 flex items-center justify-center pointer-events-none"
+          style={{ bottom: -14, height: 28 }}
         >
           <button
             type="button"
             onPointerDown={startResize}
             onMouseDown={(e) => e.preventDefault()}
-            title="Drag to resize section height"
-            className="pointer-events-auto flex items-center gap-1 px-3 py-1 rounded-full bg-[#1877F2] text-white shadow-md text-[11px] font-semibold"
+            title="Drag down to make section taller, drag up to make it shorter"
+            className="pointer-events-auto flex items-center gap-2 bg-[#1877F2] text-white shadow-lg text-[11px] font-semibold select-none"
             style={{
-              opacity: hover || resizing ? 1 : 0.55,
+              opacity: hover || resizing ? 1 : 0.5,
               cursor: "ns-resize",
               touchAction: "none",
               transition: "opacity 0.15s ease",
               border: "none",
+              userSelect: "none",
+              padding: "5px 20px 4px",
+              borderRadius: "0 0 10px 10px",
+              minWidth: 140,
+              justifyContent: "center",
             }}
           >
-            <MoveVertical size={12} />
-            {resizing && liveHeight ? `${liveHeight}px` : "Resize"}
+            <MoveVertical size={13} />
+            {resizing && liveHeight ? `${liveHeight}px` : "Drag to resize"}
           </button>
         </div>
       )}

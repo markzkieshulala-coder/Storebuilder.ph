@@ -7,6 +7,23 @@ import { ExternalLink, X } from "lucide-react";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 
+// Accepts live website JSON from the parent editor frame via postMessage so
+// tablet/mobile iframe previews update in real-time when the user makes edits.
+function useLiveWebsite(isRaw: boolean): GeneratedWebsite | null {
+  const [live, setLive] = useState<GeneratedWebsite | null>(null);
+  useEffect(() => {
+    if (!isRaw) return;
+    function onMsg(e: MessageEvent) {
+      if (e.data?.type === "sb:update" && e.data?.website) {
+        setLive(e.data.website);
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [isRaw]);
+  return live;
+}
+
 export default function PreviewPage({ params }: { params: { id: string } }) {
   const { status } = useSession();
   const searchParams = useSearchParams();
@@ -15,6 +32,8 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
   const [subdomain, setSubdomain] = useState("");
   const [published, setPublished] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Live updates pushed from the parent editor iframe via postMessage
+  const liveWebsite = useLiveWebsite(isRaw);
 
   useEffect(() => {
     if (status === "unauthenticated") window.close();
@@ -44,9 +63,11 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  // Raw embed mode (used by editor iframe for tablet/mobile preview)
+  // Raw embed mode — rendered inside an iframe by the editor for tablet/mobile
+  // preview. Prefer the live website (pushed via postMessage) over the fetched one.
   if (isRaw) {
-    return website ? <WebsiteRenderer website={website} /> : null;
+    const display = liveWebsite ?? website;
+    return display ? <WebsiteRenderer website={display} /> : null;
   }
 
   return (

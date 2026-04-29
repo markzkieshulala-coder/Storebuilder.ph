@@ -2,12 +2,9 @@
 
 import { useRef, ReactNode, CSSProperties } from "react";
 import { useEditor } from "./EditorContext";
+import { GripHorizontal } from "lucide-react";
 
 export type EditorFieldState = {
-  // Kept on the type for backwards-compat with previously saved sites.
-  // The per-field move/resize handles have been removed — only sections
-  // are now adjustable. We still read these so old saved overrides
-  // continue to render at their stored size.
   x?: number;
   y?: number;
   fontSize?: number;
@@ -24,7 +21,6 @@ interface Props {
   onUpdateEditor: (sectionId: string, field: string, updates: EditorFieldState) => void;
   onResetEditor: (sectionId: string, field: string) => void;
 
-  // Inline editing forwarded to the inner element
   onTextChange?: (sectionId: string, field: string, value: string) => void;
   onImagePaste?: (sectionId: string, field: string, file: File) => void;
   onShowToolbar?: (info: {
@@ -38,7 +34,6 @@ interface Props {
   bgColor?: string;
   accentColor?: string;
 
-  // Visual config for the inner element
   tag?: keyof JSX.IntrinsicElements;
   className?: string;
   style?: CSSProperties;
@@ -48,14 +43,12 @@ interface Props {
 
 export default function EditableField({
   sectionId, field, editor, isEditable, selected,
-  onSelect,
+  onSelect, onUpdateEditor,
   onTextChange, onImagePaste: onImagePasteProp, onShowToolbar,
   textColor = "#fff", bgColor = "#0d0d1a", accentColor = "#c9a84c",
   tag = "div", className, style, children,
 }: Props) {
   const innerRef = useRef<HTMLElement>(null);
-  // Sections don't pass onImagePaste through fieldProps — pull it from
-  // context so paste-an-image works without touching every section.
   const ctx = useEditor();
   const onImagePaste = onImagePasteProp ?? ctx.onImagePaste;
 
@@ -66,15 +59,11 @@ export default function EditableField({
   const x = editor?.x ?? 0;
   const y = editor?.y ?? 0;
 
-  // Paste handler: strip rich-text formatting so pastes from Google Search,
-  // docs, etc. inherit the site's typography instead of dragging in a foreign
-  // font/color/size. Image pastes are routed to the upload pipeline.
   function handlePaste(e: React.ClipboardEvent<HTMLElement>) {
     if (!isEditable || !onTextChange) return;
     const cb = e.clipboardData;
     if (!cb) return;
 
-    // Image paste — pull the first image item and forward it.
     if (onImagePaste) {
       for (let i = 0; i < cb.items.length; i++) {
         const item = cb.items[i];
@@ -89,12 +78,46 @@ export default function EditableField({
       }
     }
 
-    // Text paste — force plain text so the global font/colour win.
     const text = cb.getData("text/plain");
     if (text) {
       e.preventDefault();
       document.execCommand("insertText", false, text);
     }
+  }
+
+  // Drag the text element to a new position within the section.
+  // Uses pointer capture on the handle so the drag stays locked.
+  function startDrag(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget;
+    try { target.setPointerCapture(e.pointerId); } catch {}
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startXOff = x;
+    const startYOff = y;
+
+    const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const nx = Math.round(startXOff + (ev.clientX - startX));
+      const ny = Math.round(startYOff + (ev.clientY - startY));
+      onUpdateEditor(sectionId, field, { ...(editor || {}), x: nx, y: ny });
+    };
+    const cleanup = () => {
+      try { target.releasePointerCapture(e.pointerId); } catch {}
+      target.removeEventListener("pointermove", onMove as EventListener);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+    };
+    target.addEventListener("pointermove", onMove as EventListener);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
   }
 
   const editableProps = isEditable && onTextChange ? {
@@ -116,8 +139,7 @@ export default function EditableField({
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
   } : {};
 
-  // Non-editor mode: plain element. Keep any saved px overrides applied
-  // so previously edited sites still render the way the user left them.
+  // Non-editor mode: plain element, apply any saved position/size overrides.
   if (!isEditable) {
     const finalStyle: CSSProperties = { ...style };
     if (fsPx != null) finalStyle.fontSize = `${fsPx}px`;
@@ -126,8 +148,6 @@ export default function EditableField({
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
   }
 
-  // Editor mode: inline-edit + selection outline. No drag / resize handles —
-  // only sections are adjustable now.
   const innerStyle: CSSProperties = {
     ...style,
     fontSize: fsPx != null ? `${fsPx}px` : style?.fontSize,
@@ -140,14 +160,47 @@ export default function EditableField({
     transition: "outline-color 0.12s ease",
   };
 
+  // In editor mode: wrap in a positioned div so the drag handle can sit
+  // above the element without affecting the element's own layout.
   return (
-    <Tag
-      ref={innerRef as any}
-      className={className}
-      style={innerStyle}
-      {...editableProps}
-    >
-      {children}
-    </Tag>
+    <div style={{ position: "relative", display: "block" }}>
+      {selected && (
+        <div
+          onPointerDown={startDrag}
+          onMouseDown={(e) => e.preventDefault()}
+          title="Drag to move this text block"
+          style={{
+            position: "absolute",
+            top: -22,
+            left: 0,
+            zIndex: 100,
+            background: "#1877F2",
+            color: "#fff",
+            borderRadius: "4px 4px 0 0",
+            padding: "3px 8px",
+            cursor: "move",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 10,
+            fontWeight: 600,
+            userSelect: "none",
+            touchAction: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <GripHorizontal size={10} />
+          Move
+        </div>
+      )}
+      <Tag
+        ref={innerRef as any}
+        className={className}
+        style={innerStyle}
+        {...editableProps}
+      >
+        {children}
+      </Tag>
+    </div>
   );
 }
