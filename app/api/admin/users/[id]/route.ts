@@ -92,8 +92,16 @@ export async function PATCH(
     }
 
     // isInfluencer handled separately via raw SQL because the column isn't
-    // part of the Prisma schema yet
+    // part of the Prisma schema yet. When flipping to true we also bump the
+    // plan to ENTERPRISE (and a 1-year expiry) so the user gets the benefits
+    // associated with that tier.
     const isInfluencerUpdate = typeof body.isInfluencer === "boolean" ? body.isInfluencer : null;
+    if (isInfluencerUpdate === true && body.plan === undefined) {
+      data.plan = "ENTERPRISE";
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      data.planExpiresAt = expiresAt;
+    }
 
     if (Object.keys(data).length === 0 && isInfluencerUpdate === null)
       return NextResponse.json({ error: "No changes" }, { status: 400 });
@@ -115,7 +123,7 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ success: true, user });
+    return NextResponse.json({ success: true, user, isInfluencer: isInfluencerUpdate });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
   }

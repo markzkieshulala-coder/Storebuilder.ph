@@ -76,10 +76,15 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ isInfluencer: !current }),
       });
       if (res.ok) {
+        // Marking as influencer auto-promotes to ENTERPRISE (server-side); reflect that locally
         setUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, isInfluencer: !current } : u))
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, isInfluencer: !current, plan: !current ? "ENTERPRISE" : u.plan }
+              : u
+          )
         );
-        toast.success(!current ? "Marked as Influencer" : "Removed Influencer status");
+        toast.success(!current ? "Marked as Influencer (Enterprise)" : "Removed Influencer status");
       } else {
         toast.error("Failed to update influencer status");
       }

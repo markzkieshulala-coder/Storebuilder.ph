@@ -101,6 +101,16 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
         .website-render input, .website-render textarea, .website-render label {
           font-family: var(--body-font);
         }
+        /* When a section wrapper has a minHeight set (from resize), make the
+           inner <section> / <div> inherit it so the section's own background
+           actually grows — otherwise the wrapper just gets empty page-bg space. */
+        .website-render [data-sb-section-index] > section,
+        .website-render [data-sb-section-index] > div,
+        .website-render [data-sb-section-index] > header,
+        .website-render [data-sb-section-index] > footer,
+        .website-render [data-sb-section-index] > nav {
+          min-height: inherit;
+        }
       `}</style>
       <div
         className="website-render"
@@ -170,6 +180,8 @@ function SectionShell({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [resizing, setResizing] = useState(false);
+  const [liveHeight, setLiveHeight] = useState<number | null>(null);
   const sectionAlign = section.styles?.textAlign as "left" | "center" | "right" | undefined;
   const minHeight = useMemo(() => {
     const raw = section.styles?.minHeight;
@@ -182,27 +194,44 @@ function SectionShell({
   indexRef.current = index;
 
   // ── Bottom-edge resize: adjust section minHeight ─────────────────────────
+  // Uses pointer capture on the handle itself so drags stay locked even when
+  // the cursor leaves the small handle area or strays into another iframe/element.
   function startResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!isEditable || !onResizeSection) return;
     e.preventDefault();
     e.stopPropagation();
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (!rect) return;
+    const target = e.currentTarget;
+    try { target.setPointerCapture(e.pointerId); } catch {}
     const startY = e.clientY;
     const startH = rect.height;
+    setResizing(true);
 
     const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
       const next = Math.max(120, Math.round(startH + (ev.clientY - startY)));
+      setLiveHeight(next);
       onResizeSection(section.id, next);
     };
-    const onUp = () => {
+    const cleanup = () => {
+      setResizing(false);
+      setLiveHeight(null);
+      try { target.releasePointerCapture(e.pointerId); } catch {}
+      target.removeEventListener("pointermove", onMove as EventListener);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
     };
+    target.addEventListener("pointermove", onMove as EventListener);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    // Also bind to window as a safety net in case pointer capture is dropped
     window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
   }
 
   // ── Left-edge handle: drag-to-reorder among siblings ─────────────────────
@@ -210,9 +239,12 @@ function SectionShell({
     if (!isEditable || !onReorderSections) return;
     e.preventDefault();
     e.stopPropagation();
+    const target = e.currentTarget;
+    try { target.setPointerCapture(e.pointerId); } catch {}
     setDragging(true);
 
     const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
       const currIdx = indexRef.current;
       const all = Array.from(document.querySelectorAll<HTMLElement>("[data-sb-section-index]"));
       let targetIdx = currIdx;
@@ -228,15 +260,22 @@ function SectionShell({
         onReorderSections(currIdx, targetIdx);
       }
     };
-    const onUp = () => {
+    const cleanup = () => {
       setDragging(false);
+      try { target.releasePointerCapture(e.pointerId); } catch {}
+      target.removeEventListener("pointermove", onMove as EventListener);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
     };
+    target.addEventListener("pointermove", onMove as EventListener);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
     window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
   }
 
   return (
@@ -251,9 +290,9 @@ function SectionShell({
         scrollMarginTop: "80px",
         textAlign: sectionAlign || undefined,
         minHeight: minHeight ? `${minHeight}px` : undefined,
-        outline: dragging ? "2px dashed #1877F2" : undefined,
-        outlineOffset: dragging ? "-2px" : undefined,
-        transition: dragging ? "none" : "outline-color 0.12s ease",
+        outline: (dragging || resizing) ? "2px dashed #1877F2" : undefined,
+        outlineOffset: (dragging || resizing) ? "-2px" : undefined,
+        transition: (dragging || resizing) ? "none" : "outline-color 0.12s ease",
       }}
     >
       <SectionComponent section={section} website={website} />
@@ -280,26 +319,29 @@ function SectionShell({
             <GripVertical size={16} />
           </button>
 
-          {/* Bottom-edge height resizer — always visible while editing */}
+          {/* Bottom-edge height resizer — always visible while editing.
+              Larger hit area (h-6) so it's easy to grab on touch devices. */}
           <div
             onPointerDown={startResize}
             onMouseDown={(e) => e.preventDefault()}
             title="Drag to resize section height"
-            className="absolute z-40 left-0 right-0 h-3 flex items-center justify-center group"
+            className="absolute z-40 left-0 right-0 flex items-center justify-center"
             style={{
-              bottom: -6,
+              bottom: -12,
+              height: 24,
               cursor: "ns-resize",
               touchAction: "none",
             }}
           >
             <span
-              className="flex items-center justify-center px-2.5 py-1 rounded-full bg-[#1877F2] text-white shadow-md"
+              className="flex items-center gap-1 px-3 py-1 rounded-full bg-[#1877F2] text-white shadow-md text-[11px] font-semibold pointer-events-none"
               style={{
-                opacity: hover ? 1 : 0.55,
+                opacity: hover || resizing ? 1 : 0.65,
                 transition: "opacity 0.15s ease",
               }}
             >
               <MoveVertical size={12} />
+              {resizing && liveHeight ? `${liveHeight}px` : "Resize"}
             </span>
           </div>
         </>

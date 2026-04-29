@@ -12,16 +12,24 @@ type User = { id: string; name: string | null; email: string | null; plan: strin
 
 const PLAN_BENEFITS: Record<string, { label: string; color: string; bg: string }[]> = {
   FREE: [
-    { label: "1 Website",       color: "#6B7280", bg: "#F3F4F6" },
-    { label: "Basic Templates", color: "#6B7280", bg: "#F3F4F6" },
-    { label: "Subdomain Only",  color: "#6B7280", bg: "#F3F4F6" },
+    { label: "5 Websites / month",  color: "#6B7280", bg: "#F3F4F6" },
+    { label: "All Editor Features", color: "#6B7280", bg: "#F3F4F6" },
+    { label: "Subdomain Only",      color: "#6B7280", bg: "#F3F4F6" },
   ],
   PRO: [
-    { label: "5 Websites",       color: BLUE,      bg: "#EBF3FF" },
-    { label: "All Templates",    color: BLUE,      bg: "#EBF3FF" },
-    { label: "Custom Domain",    color: "#059669", bg: "#ECFDF5" },
-    { label: "AI Builder",       color: "#7C3AED", bg: "#F5F3FF" },
-    { label: "Priority Support", color: "#B45309", bg: "#FEF3C7" },
+    { label: "10 Websites / month", color: BLUE,      bg: "#EBF3FF" },
+    { label: "Payment Links",       color: BLUE,      bg: "#EBF3FF" },
+    { label: "Template Sharing",    color: "#059669", bg: "#ECFDF5" },
+    { label: "Custom Domain",       color: "#059669", bg: "#ECFDF5" },
+    { label: "Remove Branding",     color: "#7C3AED", bg: "#F5F3FF" },
+  ],
+  ENTERPRISE: [
+    { label: "20 Websites / month", color: "#7C3AED", bg: "#F5F3FF" },
+    { label: "CRM Generation",      color: "#7C3AED", bg: "#F5F3FF" },
+    { label: "Payment Links",       color: BLUE,      bg: "#EBF3FF" },
+    { label: "Template Sharing",    color: "#059669", bg: "#ECFDF5" },
+    { label: "Custom Domain",       color: "#059669", bg: "#ECFDF5" },
+    { label: "Priority Queue",      color: "#B45309", bg: "#FEF3C7" },
   ],
 };
 
@@ -192,10 +200,22 @@ export default function AdminUserDetailPage() {
   const activeSub = user.subscriptions.find((s) => s.status === "ACTIVE");
   const hasPaidBefore = user.subscriptions.some((s) => s.status === "ACTIVE" || s.status === "CANCELLED");
   const isActive = !!activeSub;
-  const isPro = user.plan === "PRO" || isActive;
-  const memberStatus = user.isInfluencer ? "Enterprise" : isPro ? "Active" : hasPaidBefore ? "Former" : "Free Tier";
+  const isPaid = user.plan === "PRO" || user.plan === "ENTERPRISE" || isActive;
+  // Influencer accounts get Enterprise tier benefits, displayed as "Influencer"
+  const memberStatus = user.isInfluencer
+    ? "Influencer"
+    : isActive
+      ? "Active"
+      : isPaid
+        ? "Active"
+        : hasPaidBefore
+          ? "Former"
+          : "Free Tier";
   const currentPlan = user.plan;
-  const benefits = PLAN_BENEFITS[currentPlan] ?? PLAN_BENEFITS.FREE;
+  // Influencers always see Enterprise benefits regardless of stored plan value
+  const benefits = user.isInfluencer
+    ? PLAN_BENEFITS.ENTERPRISE
+    : PLAN_BENEFITS[currentPlan] ?? PLAN_BENEFITS.FREE;
   const initials = (user.name ?? user.email ?? "?").slice(0, 2).toUpperCase();
 
   // Billing info — N/A for free tier with no payment history
@@ -238,13 +258,13 @@ export default function AdminUserDetailPage() {
 
         {/* Profile header */}
         <div style={{ ...CARD, marginBottom: "20px", display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
-          <div style={{ width: "68px", height: "68px", borderRadius: "50%", background: isPro ? BLUE : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", fontWeight: 700, color: isPro ? "#fff" : "#6B7280", flexShrink: 0, overflow: "hidden" }}>
+          <div style={{ width: "68px", height: "68px", borderRadius: "50%", background: isPaid ? BLUE : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", fontWeight: 700, color: isPaid ? "#fff" : "#6B7280", flexShrink: 0, overflow: "hidden" }}>
             {user.image ? <img src={user.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
           </div>
           <div style={{ flex: 1, minWidth: "200px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "21px", fontWeight: 700, margin: 0, color: "#111827" }}>{user.name || "Unnamed User"}</h1>
-              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: user.isInfluencer ? "#F5F3FF" : isPro ? "#D1FAE5" : hasPaidBefore ? "#FEF3C7" : "#F3F4F6", color: user.isInfluencer ? "#7C3AED" : isPro ? "#065F46" : hasPaidBefore ? "#92400E" : "#6B7280" }}>{memberStatus.toUpperCase()}</span>
+              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: user.isInfluencer ? "#F5F3FF" : isPaid ? "#D1FAE5" : hasPaidBefore ? "#FEF3C7" : "#F3F4F6", color: user.isInfluencer ? "#7C3AED" : isPaid ? "#065F46" : hasPaidBefore ? "#92400E" : "#6B7280" }}>{memberStatus.toUpperCase()}</span>
               {user.role === "ADMIN" && <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#EDE9FE", color: "#5B21B6" }}>ADMIN</span>}
             </div>
             <div style={{ fontSize: "14px", color: "#6B7280", marginTop: "4px" }}>{user.email}</div>
@@ -282,8 +302,36 @@ export default function AdminUserDetailPage() {
               </span>
             </div>
             <EditableField label="Plan Type" value={currentPlan} type="select"
-              options={[{ value: "FREE", label: "FREE" }, { value: "PRO", label: "PRO" }]}
+              options={[
+                { value: "FREE", label: "FREE" },
+                { value: "PRO", label: "PRO" },
+                { value: "ENTERPRISE", label: "ENTERPRISE" },
+              ]}
               onSave={async (v) => patch({ plan: v })} />
+            <div style={ROW}>
+              <span style={KEY}>Influencer</span>
+              <button
+                onClick={async () => {
+                  const next = !user.isInfluencer;
+                  const err = await patch({ isInfluencer: next });
+                  if (!err) setUser((prev) => prev ? { ...prev, isInfluencer: next, plan: next ? "ENTERPRISE" : prev.plan } : null);
+                }}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: "20px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: FONT,
+                  background: user.isInfluencer ? "#F5F3FF" : "#F3F4F6",
+                  color: user.isInfluencer ? "#7C3AED" : "#6B7280",
+                }}
+                title={user.isInfluencer ? "Click to remove Influencer status" : "Click to mark as Influencer (sets plan to Enterprise)"}
+              >
+                {user.isInfluencer ? "★ INFLUENCER (ON)" : "MARK AS INFLUENCER"}
+              </button>
+            </div>
             <div style={{ ...ROW, borderBottom: "none", flexDirection: "column", alignItems: "flex-start", gap: "8px", paddingTop: "10px" }}>
               <span style={KEY}>Plan Benefits</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
