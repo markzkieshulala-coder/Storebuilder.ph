@@ -88,7 +88,18 @@ export default function ProductsSection({ section, website }: { section: Section
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           {filtered.map((product: any, i: number) => (
-            <div key={product.id || i} className="group rounded-2xl overflow-hidden border transition-all hover:-translate-y-1" style={{ background: `${accent}06`, borderColor: `${accent}15` }}>
+            <div
+              key={product.id || i}
+              className="group rounded-2xl overflow-hidden border transition-all hover:-translate-y-1"
+              style={{ background: `${accent}06`, borderColor: `${accent}15`, cursor: isEditable ? undefined : "pointer" }}
+              onClick={() => {
+                if (isEditable) return;
+                if (website.subdomain) {
+                  const pid = product.id || String(i);
+                  window.location.href = `/sites/${website.subdomain}/checkout/${pid}`;
+                }
+              }}
+            >
               <div className="relative aspect-square overflow-hidden bg-black/20">
                 {product.image
                   ? <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -149,9 +160,19 @@ export default function ProductsSection({ section, website }: { section: Section
                       <span className="hidden sm:inline ml-2 text-xs sm:text-sm line-through opacity-40" style={{ color: textColor }}>₱{product.originalPrice?.toLocaleString()}</span>
                     )}
                   </div>
-                  <button className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-opacity hover:opacity-80 shrink-0 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
-                    <ShoppingCart size={15} className="sm:w-[17px] sm:h-[17px]" />
-                  </button>
+                  {!isEditable && website.subdomain && (
+                    <button
+                      className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-opacity hover:opacity-80 shrink-0 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center"
+                      style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const pid = product.id || String(i);
+                        window.location.href = `/sites/${website.subdomain}/checkout/${pid}`;
+                      }}
+                    >
+                      <ShoppingCart size={15} className="sm:w-[17px] sm:h-[17px]" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

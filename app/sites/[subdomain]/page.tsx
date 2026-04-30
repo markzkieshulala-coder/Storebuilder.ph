@@ -35,7 +35,11 @@ export default async function SubdomainPage({ params }: Props) {
 
   if (!website) notFound();
 
-  const content = website.jsonContent as GeneratedWebsite;
+  // Inject subdomain so ProductsSection can build checkout URLs
+  const content: GeneratedWebsite = {
+    ...(website.jsonContent as GeneratedWebsite),
+    subdomain: website.subdomain,
+  };
 
   return (
     <>

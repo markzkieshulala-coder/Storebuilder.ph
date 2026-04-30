@@ -33,6 +33,8 @@ export default function SignInPage() {
         setLoading(false);
         return;
       }
+      // Fire sign-in notification email in the background (don't await)
+      fetch("/api/auth/signin-notify", { method: "POST" }).catch(() => {});
       // Hard navigation so the new session cookie is read on the next page
       // load and useSession() doesn't see stale state.
       window.location.href = callbackUrl;
@@ -99,7 +101,12 @@ export default function SignInPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-gray-600">Password</label>
+                <Link href="/auth/forgot-password" className="text-xs font-medium hover:underline" style={{ color: BLUE }}>
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input

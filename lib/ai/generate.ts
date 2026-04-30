@@ -30,6 +30,8 @@ export type GeneratedWebsite = {
     };
     contact?: { phone?: string; email?: string; address?: string };
   };
+  // Injected at runtime for published sites — not stored in JSON
+  subdomain?: string;
 };
 
 export type Section = {
