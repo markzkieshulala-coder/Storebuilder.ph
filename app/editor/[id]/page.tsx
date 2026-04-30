@@ -682,6 +682,32 @@ export default function EditorPage({ params }: { params: { id: string } }) {
           />
         )}
 
+        {/* CSS overrides that simulate responsive breakpoints inside device frames.
+            Tailwind uses viewport-width media queries; these selectors undo the
+            higher-breakpoint classes so layouts look correct at the frame width. */}
+        {viewMode !== "desktop" && (
+          <style>{`
+            [data-preview="mobile"] .sm\\:grid-cols-2,
+            [data-preview="mobile"] .sm\\:grid-cols-3,
+            [data-preview="mobile"] .md\\:grid-cols-2,
+            [data-preview="mobile"] .md\\:grid-cols-4,
+            [data-preview="mobile"] .lg\\:grid-cols-2,
+            [data-preview="mobile"] .lg\\:grid-cols-3,
+            [data-preview="mobile"] .lg\\:grid-cols-4 {
+              grid-template-columns: repeat(1,minmax(0,1fr)) !important;
+            }
+            [data-preview="mobile"] .sm\\:flex-row { flex-direction: column !important; }
+            [data-preview="mobile"] .md\\:hidden  { display: block !important; }
+            [data-preview="mobile"] .hidden.md\\:flex,
+            [data-preview="mobile"] .hidden.lg\\:flex { display: none !important; }
+
+            [data-preview="tablet"] .lg\\:grid-cols-3,
+            [data-preview="tablet"] .lg\\:grid-cols-4 {
+              grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+            }
+          `}</style>
+        )}
+
         {/* Canvas */}
         <main
           className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-2 sm:p-4 lg:p-8 min-w-0"
@@ -714,6 +740,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
                 )}
                 {/* Scrollable live canvas — full editing enabled */}
                 <div
+                  data-preview={viewMode}
                   style={{
                     width: "100%",
                     height: "100%",

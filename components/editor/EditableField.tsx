@@ -2,7 +2,6 @@
 
 import { useRef, ReactNode, CSSProperties } from "react";
 import { useEditor } from "./EditorContext";
-import { GripHorizontal } from "lucide-react";
 
 export type EditorFieldState = {
   x?: number;
@@ -85,41 +84,6 @@ export default function EditableField({
     }
   }
 
-  // Drag the text element to a new position within the section.
-  // Uses pointer capture on the handle so the drag stays locked.
-  function startDrag(e: React.PointerEvent<HTMLDivElement>) {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget;
-    try { target.setPointerCapture(e.pointerId); } catch {}
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startXOff = x;
-    const startYOff = y;
-
-    const onMove = (ev: PointerEvent) => {
-      ev.preventDefault();
-      const nx = Math.round(startXOff + (ev.clientX - startX));
-      const ny = Math.round(startYOff + (ev.clientY - startY));
-      onUpdateEditor(sectionId, field, { ...(editor || {}), x: nx, y: ny });
-    };
-    const cleanup = () => {
-      try { target.releasePointerCapture(e.pointerId); } catch {}
-      target.removeEventListener("pointermove", onMove as EventListener);
-      target.removeEventListener("pointerup", cleanup);
-      target.removeEventListener("pointercancel", cleanup);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", cleanup);
-      window.removeEventListener("pointercancel", cleanup);
-    };
-    target.addEventListener("pointermove", onMove as EventListener);
-    target.addEventListener("pointerup", cleanup);
-    target.addEventListener("pointercancel", cleanup);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", cleanup);
-    window.addEventListener("pointercancel", cleanup);
-  }
-
   const editableProps = isEditable && onTextChange ? {
     contentEditable: true as const,
     suppressContentEditableWarning: true,
@@ -168,35 +132,6 @@ export default function EditableField({
       style={innerStyle}
       {...editableProps}
     >
-      {selected && (
-        <span
-          contentEditable={false}
-          onPointerDown={startDrag}
-          onMouseDown={(e) => e.preventDefault()}
-          title="Drag to move this text block"
-          style={{
-            position: "absolute",
-            top: -22,
-            left: 0,
-            zIndex: 100,
-            background: "#1877F2",
-            color: "#fff",
-            borderRadius: "4px 4px 0 0",
-            padding: "3px 8px",
-            cursor: "move",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 10,
-            fontWeight: 600,
-            userSelect: "none",
-            touchAction: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <GripHorizontal size={10} />
-        </span>
-      )}
       {children}
     </Tag>
   );

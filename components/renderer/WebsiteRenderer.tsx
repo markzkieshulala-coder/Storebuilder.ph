@@ -218,6 +218,9 @@ function SectionShell({
   }
 
   return (
+    // Outer wrapper: position:relative provides coordinate context for the
+    // absolute resize handle. No overflow constraint here so the handle is
+    // never clipped.
     <div
       ref={wrapperRef}
       data-sb-section-index={index}
@@ -228,40 +231,55 @@ function SectionShell({
         position: "relative",
         scrollMarginTop: "80px",
         textAlign: sectionAlign || undefined,
-        minHeight: displayHeight ? `${displayHeight}px` : undefined,
         outline: resizing ? "2px dashed #1877F2" : undefined,
         outlineOffset: resizing ? "-2px" : undefined,
         transition: resizing ? "none" : "outline-color 0.12s ease",
       }}
     >
-      {/* Force the section's own root element to grow to the resized height
-          (using !important to beat Tailwind's min-h-screen / h-screen utilities
-          some section components ship with). Direct px value, so it does NOT
-          cascade to nested layout elements like flex/grid containers. */}
-      {displayHeight && (
-        <style>{`
-          [data-sb-section-index="${index}"] > *:not(style):not([data-sb-resize]) {
-            min-height: ${displayHeight}px !important;
-            height: auto !important;
-          }
-        `}</style>
-      )}
-      <SectionComponent section={section} website={website} />
+      {/* Inner clip wrapper — when a height has been set, fixes the height and
+          clips overflow so images are cropped at the boundary (Canva-style)
+          while text stays at its native font size. No CSS injection needed. */}
+      <div
+        style={displayHeight ? {
+          height: `${displayHeight}px`,
+          overflow: "hidden",
+          position: "relative",
+        } : { position: "relative" }}
+      >
+        <SectionComponent section={section} website={website} />
+      </div>
 
+      {/* Resize handle — sibling of the clip div, positioned at the bottom of
+          the outer wrapper so overflow:hidden never hides it. */}
       {isEditable && (
         <div
-          data-sb-resize=""
-          className="absolute inset-x-0 bottom-0 z-50 flex items-end justify-center pointer-events-none"
-          style={{ height: 32 }}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 36,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 50,
+          }}
         >
           <button
             type="button"
             onPointerDown={startResize}
             onMouseDown={(e) => e.preventDefault()}
             title="Drag up/down to resize this section"
-            className="pointer-events-auto flex items-center gap-2 text-white shadow-lg text-[11px] font-semibold select-none"
             style={{
+              pointerEvents: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
               background: "#1877F2",
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 600,
               opacity: hover || resizing ? 1 : 0.65,
               cursor: "ns-resize",
               touchAction: "none",
@@ -271,6 +289,7 @@ function SectionShell({
               padding: "5px 20px 6px",
               borderRadius: "12px 12px 0 0",
               minWidth: 140,
+              boxShadow: "0 -2px 8px rgba(24,119,242,0.25)",
             }}
           >
             <MoveVertical size={13} />
