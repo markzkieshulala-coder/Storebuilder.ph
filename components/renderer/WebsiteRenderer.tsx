@@ -240,7 +240,7 @@ function SectionShell({
           cascade to nested layout elements like flex/grid containers. */}
       {displayHeight && (
         <style>{`
-          [data-sb-section-index="${index}"] > *:not(style) {
+          [data-sb-section-index="${index}"] > *:not(style):not([data-sb-resize]) {
             min-height: ${displayHeight}px !important;
             height: auto !important;
           }
@@ -249,13 +249,10 @@ function SectionShell({
       <SectionComponent section={section} website={website} />
 
       {isEditable && (
-        // Sticky resize handle — stays visible at the bottom of the viewport
-        // while the user scrolls through a tall section (e.g. full-screen hero).
-        // marginTop: -32 keeps it from adding height when it settles at the
-        // section's natural bottom edge.
         <div
-          className="sticky z-50 inset-x-0 flex items-end justify-center pointer-events-none"
-          style={{ bottom: 8, height: 32, marginTop: -32 }}
+          data-sb-resize=""
+          className="absolute inset-x-0 bottom-0 z-50 flex items-end justify-center pointer-events-none"
+          style={{ height: 32 }}
         >
           <button
             type="button"

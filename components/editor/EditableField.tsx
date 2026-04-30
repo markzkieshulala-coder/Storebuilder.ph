@@ -150,9 +150,10 @@ export default function EditableField({
 
   const innerStyle: CSSProperties = {
     ...style,
+    position: "relative",
     fontSize: fsPx != null ? `${fsPx}px` : style?.fontSize,
     maxWidth: widthPx ? `${widthPx}px` : style?.maxWidth,
-    // No transform here — it lives on the wrapper so the move button moves with it
+    transform: (x || y) ? `translate(${x}px, ${y}px)` : style?.transform,
     cursor: "text",
     outline: selected ? "2px solid #1877F2" : "2px solid transparent",
     outlineOffset: "2px",
@@ -160,16 +161,16 @@ export default function EditableField({
     transition: "outline-color 0.12s ease",
   };
 
-  // Wrapper carries the x/y transform so the "Move" handle (absolutely
-  // positioned inside) travels with the element when it is dragged.
   return (
-    <div style={{
-      position: "relative",
-      display: "block",
-      transform: (x || y) ? `translate(${x}px, ${y}px)` : undefined,
-    }}>
+    <Tag
+      ref={innerRef as any}
+      className={className}
+      style={innerStyle}
+      {...editableProps}
+    >
       {selected && (
-        <div
+        <span
+          contentEditable={false}
           onPointerDown={startDrag}
           onMouseDown={(e) => e.preventDefault()}
           title="Drag to move this text block"
@@ -183,7 +184,7 @@ export default function EditableField({
             borderRadius: "4px 4px 0 0",
             padding: "3px 8px",
             cursor: "move",
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
             gap: 4,
             fontSize: 10,
@@ -194,17 +195,9 @@ export default function EditableField({
           }}
         >
           <GripHorizontal size={10} />
-          Move
-        </div>
+        </span>
       )}
-      <Tag
-        ref={innerRef as any}
-        className={className}
-        style={innerStyle}
-        {...editableProps}
-      >
-        {children}
-      </Tag>
-    </div>
+      {children}
+    </Tag>
   );
 }
