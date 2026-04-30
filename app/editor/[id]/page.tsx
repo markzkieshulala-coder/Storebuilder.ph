@@ -49,7 +49,6 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [shareModalUrl, setShareModalUrl] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingImageUpload = useRef<{ sectionId: string; field: string } | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/signin");
@@ -70,13 +69,6 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     const t = setInterval(() => autoSave(), 30000);
     return () => clearInterval(t);
   }, [website]);
-
-  // Keep the tablet/mobile preview iframe in sync with the current editor state.
-  // postMessage is used so the iframe (same origin) renders the latest unsaved data.
-  useEffect(() => {
-    if (viewMode === "desktop" || !website) return;
-    iframeRef.current?.contentWindow?.postMessage({ type: "sb:update", website }, "*");
-  }, [website, viewMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -704,7 +696,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 pb-8">
-              {/* Device frame — iframe for correct responsive breakpoints */}
+              {/* Device frame — live editable */}
               <div
                 className="relative shadow-2xl shrink-0 bg-white"
                 style={{
@@ -720,32 +712,23 @@ export default function EditorPage({ params }: { params: { id: string } }) {
                 {viewMode === "mobile" && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-28 h-7 bg-[#1c1c2e] rounded-b-2xl pointer-events-none" />
                 )}
-                {/* Iframe — its own viewport is 768px/390px wide, so Tailwind
-                    responsive classes fire correctly (sm/md/lg breakpoints match
-                    the frame size, not the outer browser window). */}
-                <iframe
-                  key={viewMode}
-                  ref={iframeRef}
-                  src={`/editor/${params.id}/preview?raw=1`}
+                {/* Scrollable live canvas — full editing enabled */}
+                <div
                   style={{
                     width: "100%",
                     height: "100%",
-                    border: "none",
-                    display: "block",
+                    overflowY: "auto",
+                    overflowX: "hidden",
                     paddingTop: viewMode === "mobile" ? "28px" : 0,
-                    boxSizing: "border-box",
                   }}
-                  onLoad={() => {
-                    if (website) {
-                      iframeRef.current?.contentWindow?.postMessage({ type: "sb:update", website }, "*");
-                    }
-                  }}
-                />
+                >
+                  <WebsiteRenderer website={website} editorContext={editorCtx} />
+                </div>
               </div>
               {/* Hint */}
               <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
                 <Info size={11} />
-                <span>Responsive preview — edit in desktop mode and switch to preview</span>
+                <span>Live editing — tap any text, image or resize handle to edit</span>
               </div>
             </div>
           )}

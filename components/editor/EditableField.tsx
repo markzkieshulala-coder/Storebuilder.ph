@@ -152,7 +152,7 @@ export default function EditableField({
     ...style,
     fontSize: fsPx != null ? `${fsPx}px` : style?.fontSize,
     maxWidth: widthPx ? `${widthPx}px` : style?.maxWidth,
-    transform: x || y ? `translate(${x}px, ${y}px)` : undefined,
+    // No transform here — it lives on the wrapper so the move button moves with it
     cursor: "text",
     outline: selected ? "2px solid #1877F2" : "2px solid transparent",
     outlineOffset: "2px",
@@ -160,10 +160,14 @@ export default function EditableField({
     transition: "outline-color 0.12s ease",
   };
 
-  // In editor mode: wrap in a positioned div so the drag handle can sit
-  // above the element without affecting the element's own layout.
+  // Wrapper carries the x/y transform so the "Move" handle (absolutely
+  // positioned inside) travels with the element when it is dragged.
   return (
-    <div style={{ position: "relative", display: "block" }}>
+    <div style={{
+      position: "relative",
+      display: "block",
+      transform: (x || y) ? `translate(${x}px, ${y}px)` : undefined,
+    }}>
       {selected && (
         <div
           onPointerDown={startDrag}
