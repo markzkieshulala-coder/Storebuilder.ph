@@ -683,10 +683,15 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         )}
 
         {/* CSS overrides that simulate responsive breakpoints inside device frames.
-            Tailwind uses viewport-width media queries; these selectors undo the
-            higher-breakpoint classes so layouts look correct at the frame width. */}
+            Tailwind's responsive classes fire on viewport width (not container
+            width), so on a 1440px desktop viewport ALL sm/md/lg classes apply
+            even inside a 390px device frame. These overrides cancel the classes
+            that shouldn't fire at that frame width. */}
         {viewMode !== "desktop" && (
           <style>{`
+            /* ── MOBILE (390px frame) ── reset sm:, md:, lg: overrides ───────── */
+
+            /* grid columns → single column */
             [data-preview="mobile"] .sm\\:grid-cols-2,
             [data-preview="mobile"] .sm\\:grid-cols-3,
             [data-preview="mobile"] .md\\:grid-cols-2,
@@ -696,15 +701,82 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             [data-preview="mobile"] .lg\\:grid-cols-4 {
               grid-template-columns: repeat(1,minmax(0,1fr)) !important;
             }
-            [data-preview="mobile"] .sm\\:flex-row { flex-direction: column !important; }
-            [data-preview="mobile"] .md\\:hidden  { display: block !important; }
-            [data-preview="mobile"] .hidden.md\\:flex,
-            [data-preview="mobile"] .hidden.lg\\:flex { display: none !important; }
 
+            /* flex direction */
+            [data-preview="mobile"] .sm\\:flex-row { flex-direction: column !important; }
+
+            /* width */
+            [data-preview="mobile"] .sm\\:w-auto { width: 100% !important; }
+
+            /* navigation: hide desktop links, show hamburger */
+            [data-preview="mobile"] .md\\:flex   { display: none !important; }
+            [data-preview="mobile"] .md\\:inline-flex { display: none !important; }
+            [data-preview="mobile"] .hidden.sm\\:inline { display: none !important; }
+            [data-preview="mobile"] .md\\:hidden { display: block !important; }
+
+            /* text sizes: sm: overrides → mobile equivalent */
+            [data-preview="mobile"] .sm\\:text-sm   { font-size: 0.75rem  !important; line-height: 1rem      !important; }
+            [data-preview="mobile"] .sm\\:text-base { font-size: 0.875rem !important; line-height: 1.25rem   !important; }
+            [data-preview="mobile"] .sm\\:text-lg   { font-size: 1rem     !important; line-height: 1.5rem    !important; }
+            [data-preview="mobile"] .sm\\:text-xl   { font-size: 1rem     !important; line-height: 1.5rem    !important; }
+            [data-preview="mobile"] .sm\\:text-2xl  { font-size: 1.25rem  !important; line-height: 1.75rem   !important; }
+            [data-preview="mobile"] .sm\\:text-3xl  { font-size: 1.5rem   !important; line-height: 2rem      !important; }
+            [data-preview="mobile"] .sm\\:text-4xl  { font-size: 1.875rem !important; line-height: 2.25rem   !important; }
+            [data-preview="mobile"] .sm\\:text-5xl  { font-size: 1.875rem !important; line-height: 2.25rem   !important; }
+
+            /* text sizes: md: overrides → mobile equivalent */
+            [data-preview="mobile"] .md\\:text-lg   { font-size: 1rem     !important; line-height: 1.5rem    !important; }
+            [data-preview="mobile"] .md\\:text-xl   { font-size: 1rem     !important; line-height: 1.5rem    !important; }
+            [data-preview="mobile"] .md\\:text-2xl  { font-size: 1rem     !important; line-height: 1.5rem    !important; }
+            [data-preview="mobile"] .md\\:text-4xl  { font-size: 1.5rem   !important; line-height: 2rem      !important; }
+            [data-preview="mobile"] .md\\:text-6xl  { font-size: 1.875rem !important; line-height: 2.25rem   !important; }
+
+            /* text sizes: lg: overrides → mobile equivalent */
+            [data-preview="mobile"] .lg\\:text-lg   { font-size: 1rem     !important; line-height: 1.5rem    !important; }
+            [data-preview="mobile"] .lg\\:text-3xl  { font-size: 1.5rem   !important; line-height: 2rem      !important; }
+            [data-preview="mobile"] .lg\\:text-5xl  { font-size: 1.5rem   !important; line-height: 2rem      !important; }
+            [data-preview="mobile"] .lg\\:text-7xl  { font-size: 1.875rem !important; line-height: 2.25rem   !important; }
+
+            /* padding → smaller values matching mobile base classes */
+            [data-preview="mobile"] .sm\\:px-6,
+            [data-preview="mobile"] .sm\\:px-8   { padding-left: 1rem !important; padding-right: 1rem !important; }
+            [data-preview="mobile"] .sm\\:py-20,
+            [data-preview="mobile"] .sm\\:py-24,
+            [data-preview="mobile"] .lg\\:py-24  { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+            [data-preview="mobile"] .lg\\:py-32  { padding-top: 4rem !important; padding-bottom: 4rem !important; }
+            [data-preview="mobile"] .sm\\:py-4   { padding-top: 0.875rem !important; padding-bottom: 0.875rem !important; }
+
+            /* gap & margin */
+            [data-preview="mobile"] .sm\\:gap-4,
+            [data-preview="mobile"] .sm\\:gap-6,
+            [data-preview="mobile"] .lg\\:gap-6 { gap: 1rem !important; }
+            [data-preview="mobile"] .sm\\:mb-4   { margin-bottom: 0.75rem  !important; }
+            [data-preview="mobile"] .sm\\:mb-6   { margin-bottom: 1rem     !important; }
+            [data-preview="mobile"] .sm\\:mb-8   { margin-bottom: 1.5rem   !important; }
+            [data-preview="mobile"] .sm\\:mb-12  { margin-bottom: 2rem     !important; }
+            [data-preview="mobile"] .sm\\:mb-14  { margin-bottom: 2.5rem   !important; }
+            [data-preview="mobile"] .lg\\:mb-16  { margin-bottom: 2.5rem   !important; }
+
+            /* ── TABLET (768px frame) ── only reset lg: overrides ────────────── */
+
+            /* grid columns */
+            [data-preview="tablet"] .lg\\:grid-cols-2,
             [data-preview="tablet"] .lg\\:grid-cols-3,
             [data-preview="tablet"] .lg\\:grid-cols-4 {
               grid-template-columns: repeat(2,minmax(0,1fr)) !important;
             }
+
+            /* text sizes: only lg: (sm: and md: correctly apply at 768px) */
+            [data-preview="tablet"] .lg\\:text-5xl { font-size: 2.25rem  !important; line-height: 2.5rem !important; }
+            [data-preview="tablet"] .lg\\:text-7xl { font-size: 3rem     !important; line-height: 1      !important; }
+            [data-preview="tablet"] .lg\\:text-3xl { font-size: 1.875rem !important; line-height: 2.25rem !important; }
+            [data-preview="tablet"] .lg\\:text-lg  { font-size: 1.125rem !important; line-height: 1.75rem !important; }
+
+            /* gap & padding */
+            [data-preview="tablet"] .lg\\:gap-6  { gap: 1.5rem !important; }
+            [data-preview="tablet"] .lg\\:py-24  { padding-top: 5rem !important; padding-bottom: 5rem !important; }
+            [data-preview="tablet"] .lg\\:py-32  { padding-top: 5rem !important; padding-bottom: 5rem !important; }
+            [data-preview="tablet"] .lg\\:mb-16  { margin-bottom: 3.5rem !important; }
           `}</style>
         )}
 

@@ -59,11 +59,8 @@ export default function EditableField({
   const x = editor?.x ?? 0;
   const y = editor?.y ?? 0;
 
-  // Exit text editing when deselected from outside
   useEffect(() => {
-    if (!selected && isTextEditing) {
-      setIsTextEditing(false);
-    }
+    if (!selected && isTextEditing) setIsTextEditing(false);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePaste(e: React.ClipboardEvent<HTMLElement>) {
@@ -92,7 +89,7 @@ export default function EditableField({
     }
   }
 
-  // Single click/pointer down: select + start drag (5px threshold before drag kicks in)
+  // Single click: select + start drag (5px threshold before drag activates)
   function handlePointerDown(e: React.PointerEvent<HTMLElement>) {
     if (!isEditable || isTextEditing) return;
     e.stopPropagation();
@@ -121,9 +118,7 @@ export default function EditableField({
       if (!dragging && Math.hypot(dx, dy) < 5) return;
       dragging = true;
       ev.preventDefault();
-      const nx = Math.round(startXOff + dx);
-      const ny = Math.round(startYOff + dy);
-      onUpdateEditor(sectionId, field, { ...(editor || {}), x: nx, y: ny });
+      onUpdateEditor(sectionId, field, { ...(editor || {}), x: Math.round(startXOff + dx), y: Math.round(startYOff + dy) });
     };
 
     const cleanup = () => {
@@ -144,7 +139,7 @@ export default function EditableField({
     window.addEventListener("pointercancel", cleanup);
   }
 
-  // Double click: enter text editing mode (like Canva)
+  // Double-click: enter text editing mode (Canva behaviour)
   function handleDoubleClick(e: React.MouseEvent) {
     if (!isEditable || !onTextChange) return;
     e.stopPropagation();
@@ -162,6 +157,43 @@ export default function EditableField({
     }, 0);
   }
 
+  // Corner handle: drag up/down to resize font size
+  function handleResizeStart(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = innerRef.current;
+    const computedFs = el ? parseFloat(window.getComputedStyle(el).fontSize) : 16;
+    const startFs = fsPx ?? computedFs;
+    const startY = e.clientY;
+    const target = e.currentTarget;
+
+    try { target.setPointerCapture(e.pointerId); } catch {}
+
+    const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const delta = startY - ev.clientY; // drag up → larger
+      const next = Math.max(8, Math.min(200, Math.round(startFs + delta * 0.4)));
+      onUpdateEditor(sectionId, field, { ...(editor || {}), fontSize: next });
+    };
+
+    const cleanup = () => {
+      try { target.releasePointerCapture(e.pointerId); } catch {}
+      target.removeEventListener("pointermove", onMove as EventListener);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+    };
+
+    target.addEventListener("pointermove", onMove as EventListener);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
+  }
+
   // Non-editor mode: plain element with any saved position/size overrides
   if (!isEditable) {
     const finalStyle: CSSProperties = { ...style };
@@ -171,7 +203,6 @@ export default function EditableField({
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
   }
 
-  // Editor mode: position:relative on Tag so flex/grid is not disrupted.
   const innerStyle: CSSProperties = {
     ...style,
     position: "relative",
@@ -208,6 +239,54 @@ export default function EditableField({
       {...editingProps}
     >
       {children}
+
+      {/* Font-size resize handle — bottom-right corner dot, drag up/down */}
+      {selected && !isTextEditing && (
+        <div
+          contentEditable={false}
+          onPointerDown={handleResizeStart}
+          onMouseDown={(e) => e.preventDefault()}
+          title="Drag up to increase font size, down to decrease"
+          style={{
+            position: "absolute",
+            bottom: -5,
+            right: -5,
+            width: 10,
+            height: 10,
+            background: "#1877F2",
+            border: "2px solid #fff",
+            borderRadius: 2,
+            cursor: "s-resize",
+            zIndex: 102,
+            touchAction: "none",
+            userSelect: "none",
+          }}
+        />
+      )}
+
+      {/* Live font-size label shown while resizing */}
+      {selected && !isTextEditing && fsPx != null && (
+        <div
+          contentEditable={false}
+          style={{
+            position: "absolute",
+            bottom: -24,
+            right: 0,
+            background: "#1877F2",
+            color: "#fff",
+            fontSize: 10,
+            fontWeight: 600,
+            padding: "2px 6px",
+            borderRadius: 4,
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            lineHeight: 1.4,
+            zIndex: 102,
+          }}
+        >
+          {fsPx}px
+        </div>
+      )}
     </Tag>
   );
 }

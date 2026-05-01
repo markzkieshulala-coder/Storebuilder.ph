@@ -162,6 +162,7 @@ function SectionShell({
   onResizeSection?: (sectionId: string, minHeight: number) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const dragHeightRef = useRef<number | null>(null);
   const [hover, setHover] = useState(false);
   const [resizing, setResizing] = useState(false);
   const [liveHeight, setLiveHeight] = useState<number | null>(null);
@@ -175,9 +176,9 @@ function SectionShell({
   // liveHeight takes priority during active drag; fall back to saved minHeight
   const displayHeight = liveHeight ?? minHeight;
 
-  // ── Bottom-edge resize: adjust section minHeight ─────────────────────────
-  // Uses pointer capture on the handle itself so drags stay locked even when
-  // the cursor leaves the small handle area.
+  // Bottom-edge resize: adjust section minHeight.
+  // liveHeight drives the visual clip during drag; onResizeSection is only
+  // called once on pointerup so we don't spam pushHistory on every frame.
   function startResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!isEditable || !onResizeSection) return;
     e.preventDefault();
@@ -188,17 +189,22 @@ function SectionShell({
     try { target.setPointerCapture(e.pointerId); } catch {}
     const startY = e.clientY;
     const startH = rect.height;
+    dragHeightRef.current = null;
     setResizing(true);
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
       const next = Math.max(120, Math.round(startH + (ev.clientY - startY)));
+      dragHeightRef.current = next;
       setLiveHeight(next);
-      onResizeSection(section.id, next);
     };
     const cleanup = () => {
       setResizing(false);
       setLiveHeight(null);
+      if (dragHeightRef.current != null) {
+        onResizeSection(section.id, dragHeightRef.current);
+        dragHeightRef.current = null;
+      }
       try { target.releasePointerCapture(e.pointerId); } catch {}
       target.removeEventListener("pointermove", onMove as EventListener);
       target.removeEventListener("pointerup", cleanup);
@@ -210,7 +216,6 @@ function SectionShell({
     target.addEventListener("pointermove", onMove as EventListener);
     target.addEventListener("pointerup", cleanup);
     target.addEventListener("pointercancel", cleanup);
-    // Also bind to window as a safety net in case pointer capture is dropped
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", cleanup);
     window.addEventListener("pointercancel", cleanup);
