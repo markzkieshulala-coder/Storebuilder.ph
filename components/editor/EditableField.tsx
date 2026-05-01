@@ -2,6 +2,7 @@
 
 import { useRef, ReactNode, CSSProperties } from "react";
 import { useEditor } from "./EditorContext";
+import { GripHorizontal } from "lucide-react";
 
 export type EditorFieldState = {
   x?: number;
@@ -84,6 +85,41 @@ export default function EditableField({
     }
   }
 
+  // Drag the text element to a new position within the section.
+  // The handle is contentEditable={false} so it doesn't contaminate innerText.
+  function startDrag(e: React.PointerEvent<HTMLSpanElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget;
+    try { target.setPointerCapture(e.pointerId); } catch {}
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startXOff = x;
+    const startYOff = y;
+
+    const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const nx = Math.round(startXOff + (ev.clientX - startX));
+      const ny = Math.round(startYOff + (ev.clientY - startY));
+      onUpdateEditor(sectionId, field, { ...(editor || {}), x: nx, y: ny });
+    };
+    const cleanup = () => {
+      try { target.releasePointerCapture(e.pointerId); } catch {}
+      target.removeEventListener("pointermove", onMove as EventListener);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+    };
+    target.addEventListener("pointermove", onMove as EventListener);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
+  }
+
   const editableProps = isEditable && onTextChange ? {
     contentEditable: true as const,
     suppressContentEditableWarning: true,
@@ -112,6 +148,10 @@ export default function EditableField({
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
   }
 
+  // Editor mode: position:relative on the Tag itself (no wrapper div) so
+  // flex/grid layouts are not disrupted. The transform moves the element,
+  // and the drag handle sits inside as a contentEditable=false island so
+  // it travels with the element and doesn't leak into innerText.
   const innerStyle: CSSProperties = {
     ...style,
     position: "relative",
@@ -132,6 +172,37 @@ export default function EditableField({
       style={innerStyle}
       {...editableProps}
     >
+      {selected && (
+        <span
+          contentEditable={false}
+          onPointerDown={startDrag}
+          onMouseDown={(e) => e.preventDefault()}
+          title="Drag to reposition this text block"
+          style={{
+            position: "absolute",
+            top: -24,
+            left: 0,
+            zIndex: 100,
+            background: "#1877F2",
+            color: "#fff",
+            borderRadius: "4px 4px 0 0",
+            padding: "3px 8px 4px",
+            cursor: "move",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 10,
+            fontWeight: 600,
+            userSelect: "none",
+            touchAction: "none",
+            whiteSpace: "nowrap",
+            lineHeight: 1,
+          }}
+        >
+          <GripHorizontal size={10} />
+          Move
+        </span>
+      )}
       {children}
     </Tag>
   );

@@ -218,52 +218,43 @@ function SectionShell({
   }
 
   return (
-    // Outer wrapper: position:relative provides coordinate context for the
-    // absolute resize handle. No overflow constraint here so the handle is
-    // never clipped.
-    <div
-      ref={wrapperRef}
-      data-sb-section-index={index}
-      id={anchorId}
-      onPointerEnter={() => isEditable && setHover(true)}
-      onPointerLeave={() => isEditable && setHover(false)}
-      style={{
-        position: "relative",
-        scrollMarginTop: "80px",
-        textAlign: sectionAlign || undefined,
-        outline: resizing ? "2px dashed #1877F2" : undefined,
-        outlineOffset: resizing ? "-2px" : undefined,
-        transition: resizing ? "none" : "outline-color 0.12s ease",
-      }}
-    >
-      {/* Inner clip wrapper — when a height has been set, fixes the height and
-          clips overflow so images are cropped at the boundary (Canva-style)
-          while text stays at its native font size. No CSS injection needed. */}
+    // Fragment: the section wrapper and the resize handle are siblings.
+    // The handle sits in normal document flow with marginTop:-36 so it
+    // visually hugs the section's bottom edge without any absolute
+    // positioning — which means overflow:hidden on ancestors never hides it
+    // and the handle is always exactly at the bottom regardless of section height.
+    <>
       <div
-        style={displayHeight ? {
-          height: `${displayHeight}px`,
-          overflow: "hidden",
+        ref={wrapperRef}
+        data-sb-section-index={index}
+        id={anchorId}
+        onPointerEnter={() => isEditable && setHover(true)}
+        onPointerLeave={() => isEditable && setHover(false)}
+        style={{
           position: "relative",
-        } : { position: "relative" }}
+          scrollMarginTop: "80px",
+          textAlign: sectionAlign || undefined,
+          // When a height is saved: clip the section content (Canva-style).
+          // overflow:hidden on THIS element is safe because the handle is
+          // a sibling, not a child — it will never be clipped.
+          ...(displayHeight ? { height: `${displayHeight}px`, overflow: "hidden" } : {}),
+          outline: resizing ? "2px dashed #1877F2" : undefined,
+          outlineOffset: resizing ? "-2px" : undefined,
+          transition: resizing ? "none" : "outline-color 0.12s ease",
+        }}
       >
         <SectionComponent section={section} website={website} />
       </div>
 
-      {/* Resize handle — sibling of the clip div, positioned at the bottom of
-          the outer wrapper so overflow:hidden never hides it. */}
       {isEditable && (
         <div
           style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 36,
             display: "flex",
-            alignItems: "flex-end",
             justifyContent: "center",
-            pointerEvents: "none",
+            position: "relative",
             zIndex: 50,
+            pointerEvents: "none",
+            marginTop: -36,
           }}
         >
           <button
@@ -297,6 +288,6 @@ function SectionShell({
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
