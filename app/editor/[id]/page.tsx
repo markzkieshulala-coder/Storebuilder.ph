@@ -192,6 +192,21 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     } finally { setUnpublishing(false); }
   }
 
+  function getAnchorId(sectionId: string): string {
+    if (!website) return sectionId;
+    const idx = website.sections.findIndex((s) => s.id === sectionId);
+    if (idx < 0) return sectionId;
+    const section = website.sections[idx];
+    const isFirstOfType = website.sections.findIndex((s) => s.type === section.type) === idx;
+    return isFirstOfType ? section.type : section.id;
+  }
+
+  function scrollToSection(sectionId: string) {
+    const anchorId = getAnchorId(sectionId);
+    const el = document.getElementById(anchorId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function handlePreview() {
     window.open(`/editor/${params.id}/preview`, "_blank");
   }
@@ -670,6 +685,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               onMoveSection={moveSection}
               onDeleteSection={deleteSection}
               onDuplicateSection={duplicateSection}
+              onScrollToSection={scrollToSection}
             />
           </div>
         </aside>

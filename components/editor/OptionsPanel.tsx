@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon } from "lucide-react";
+import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, ExternalLink, ArrowRight } from "lucide-react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 
 const PAYMENT_METHODS = [
@@ -16,7 +16,7 @@ const SECTION_LABELS: Record<string, string> = {
   contact: "Contact", team: "Team", gallery: "Gallery", process: "Process",
 };
 
-type Tab = "site" | "payments" | "pages";
+type Tab = "pages" | "site" | "payments";
 
 interface Props {
   website: GeneratedWebsite;
@@ -24,10 +24,11 @@ interface Props {
   onMoveSection: (id: string, dir: "up" | "down") => void;
   onDeleteSection: (id: string) => void;
   onDuplicateSection: (id: string) => void;
+  onScrollToSection?: (sectionId: string) => void;
 }
 
-export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection }: Props) {
-  const [tab, setTab] = useState<Tab>("site");
+export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection, onScrollToSection }: Props) {
+  const [tab, setTab] = useState<Tab>("pages");
 
   const settings = (website as any).settings || {};
   const payments = settings.payments || {};
@@ -53,10 +54,21 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
   const lbl = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
 
   const tabs = [
-    { id: "site" as Tab, Icon: Store, label: "Site" },
     { id: "pages" as Tab, Icon: Layers, label: "Pages" },
+    { id: "site" as Tab, Icon: Store, label: "Site" },
     { id: "payments" as Tab, Icon: CreditCard, label: "Payments" },
   ];
+
+  // Get nav section links for "Website Pages" list
+  const navSection = website.sections.find((s) => s.type === "nav");
+  const navLinks: { label: string; href: string }[] = (navSection?.data as any)?.links || [];
+
+  // Find the section matching a nav href (e.g. "#about" → section.type === "about")
+  function findSectionForHref(href: string): Section | undefined {
+    const type = href.replace(/^#/, "");
+    // Try matching by type first, then by id
+    return website.sections.find((s) => s.type === type) || website.sections.find((s) => s.id === type);
+  }
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-white">
@@ -155,35 +167,71 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
 
         {/* PAGES */}
         {tab === "pages" && (
-          <div className="space-y-1">
-            <p className="text-xs text-gray-400 pb-1">Reorder or remove sections</p>
-            {website.sections.map((section, i) => (
-              <div
-                key={section.id}
-                className="group flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition-all"
-              >
-                <span className="w-5 h-5 rounded-md bg-white border border-gray-200 text-[10px] font-bold flex items-center justify-center text-gray-400 shrink-0">
-                  {i + 1}
-                </span>
-                <span className="flex-1 text-sm font-medium text-gray-700 truncate">
-                  {SECTION_LABELS[section.type] || section.type}
-                </span>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => onMoveSection(section.id, "up")} disabled={i === 0} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
-                    <ChevronUp size={11} />
-                  </button>
-                  <button onClick={() => onMoveSection(section.id, "down")} disabled={i === website.sections.length - 1} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
-                    <ChevronDown size={11} />
-                  </button>
-                  <button onClick={() => onDuplicateSection(section.id)} className="p-1 hover:bg-white rounded text-gray-400">
-                    <Copy size={11} />
-                  </button>
-                  <button onClick={() => onDeleteSection(section.id)} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400">
-                    <Trash2 size={11} />
-                  </button>
+          <div className="space-y-4">
+            {/* Website Pages from nav */}
+            {navLinks.length > 0 && (
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Website Pages</p>
+                <div className="space-y-1">
+                  {navLinks.map((link, i) => {
+                    const matched = findSectionForHref(link.href);
+                    return (
+                      <div
+                        key={i}
+                        className="group flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer"
+                        onClick={() => matched && onScrollToSection && onScrollToSection(matched.id)}
+                        title={matched ? `Scroll to ${link.label}` : link.label}
+                      >
+                        <ArrowRight size={12} className="text-gray-300 group-hover:text-blue-400 shrink-0 transition-colors" />
+                        <span className="flex-1 text-sm font-medium text-gray-700 group-hover:text-blue-700 truncate transition-colors">
+                          {link.label}
+                        </span>
+                        {link.href && (
+                          <span className="text-[10px] text-gray-300 group-hover:text-blue-300 shrink-0 transition-colors">
+                            {link.href}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* All Sections */}
+            <div>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">All Sections</p>
+              <div className="space-y-1">
+                {website.sections.map((section, i) => (
+                  <div
+                    key={section.id}
+                    className="group flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition-all cursor-pointer"
+                    onClick={() => onScrollToSection && onScrollToSection(section.id)}
+                  >
+                    <span className="w-5 h-5 rounded-md bg-white border border-gray-200 text-[10px] font-bold flex items-center justify-center text-gray-400 shrink-0">
+                      {i + 1}
+                    </span>
+                    <span className="flex-1 text-sm font-medium text-gray-700 truncate">
+                      {SECTION_LABELS[section.type] || section.type}
+                    </span>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); onMoveSection(section.id, "up"); }} disabled={i === 0} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
+                        <ChevronUp size={11} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); onMoveSection(section.id, "down"); }} disabled={i === website.sections.length - 1} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
+                        <ChevronDown size={11} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); onDuplicateSection(section.id); }} className="p-1 hover:bg-white rounded text-gray-400">
+                        <Copy size={11} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); onDeleteSection(section.id); }} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400">
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
