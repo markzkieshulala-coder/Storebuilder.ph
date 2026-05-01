@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, ReactNode, CSSProperties } from "react";
+import { useRef, useState, useEffect, ReactNode, CSSProperties } from "react";
 import { useEditor } from "./EditorContext";
-import { GripHorizontal } from "lucide-react";
 
 export type EditorFieldState = {
   x?: number;
@@ -51,6 +50,7 @@ export default function EditableField({
   const innerRef = useRef<HTMLElement>(null);
   const ctx = useEditor();
   const onImagePaste = onImagePasteProp ?? ctx.onImagePaste;
+  const [isTextEditing, setIsTextEditing] = useState(false);
 
   const Tag = tag as any;
 
@@ -59,8 +59,15 @@ export default function EditableField({
   const x = editor?.x ?? 0;
   const y = editor?.y ?? 0;
 
+  // Exit text editing when deselected from outside
+  useEffect(() => {
+    if (!selected && isTextEditing) {
+      setIsTextEditing(false);
+    }
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function handlePaste(e: React.ClipboardEvent<HTMLElement>) {
-    if (!isEditable || !onTextChange) return;
+    if (!onTextChange) return;
     const cb = e.clipboardData;
     if (!cb) return;
 
@@ -85,24 +92,40 @@ export default function EditableField({
     }
   }
 
-  // Drag the text element to a new position within the section.
-  // The handle is contentEditable={false} so it doesn't contaminate innerText.
-  function startDrag(e: React.PointerEvent<HTMLSpanElement>) {
-    e.preventDefault();
+  // Single click/pointer down: select + start drag (5px threshold before drag kicks in)
+  function handlePointerDown(e: React.PointerEvent<HTMLElement>) {
+    if (!isEditable || isTextEditing) return;
     e.stopPropagation();
-    const target = e.currentTarget;
-    try { target.setPointerCapture(e.pointerId); } catch {}
+    onSelect(sectionId, field);
+
+    if (onShowToolbar) {
+      const r = e.currentTarget.getBoundingClientRect();
+      onShowToolbar({
+        sectionId, textColor, bgColor, accentColor,
+        rect: { top: r.top, left: r.left, width: r.width, height: r.height },
+      });
+    }
+
     const startX = e.clientX;
     const startY = e.clientY;
     const startXOff = x;
     const startYOff = y;
+    let dragging = false;
+    const target = e.currentTarget;
+
+    try { target.setPointerCapture(e.pointerId); } catch {}
 
     const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!dragging && Math.hypot(dx, dy) < 5) return;
+      dragging = true;
       ev.preventDefault();
-      const nx = Math.round(startXOff + (ev.clientX - startX));
-      const ny = Math.round(startYOff + (ev.clientY - startY));
+      const nx = Math.round(startXOff + dx);
+      const ny = Math.round(startYOff + dy);
       onUpdateEditor(sectionId, field, { ...(editor || {}), x: nx, y: ny });
     };
+
     const cleanup = () => {
       try { target.releasePointerCapture(e.pointerId); } catch {}
       target.removeEventListener("pointermove", onMove as EventListener);
@@ -112,6 +135,7 @@ export default function EditableField({
       window.removeEventListener("pointerup", cleanup);
       window.removeEventListener("pointercancel", cleanup);
     };
+
     target.addEventListener("pointermove", onMove as EventListener);
     target.addEventListener("pointerup", cleanup);
     target.addEventListener("pointercancel", cleanup);
@@ -120,26 +144,25 @@ export default function EditableField({
     window.addEventListener("pointercancel", cleanup);
   }
 
-  const editableProps = isEditable && onTextChange ? {
-    contentEditable: true as const,
-    suppressContentEditableWarning: true,
-    onBlur: (e: React.FocusEvent<HTMLElement>) => onTextChange(sectionId, field, e.currentTarget.innerText),
-    onFocus: (e: React.FocusEvent<HTMLElement>) => {
-      onSelect(sectionId, field);
-      if (onShowToolbar) {
-        const r = e.currentTarget.getBoundingClientRect();
-        onShowToolbar({
-          sectionId,
-          textColor, bgColor, accentColor,
-          rect: { top: r.top, left: r.left, width: r.width, height: r.height },
-        });
-      }
-    },
-    onPaste: handlePaste,
-    onClick: (e: React.MouseEvent) => e.stopPropagation(),
-  } : {};
+  // Double click: enter text editing mode (like Canva)
+  function handleDoubleClick(e: React.MouseEvent) {
+    if (!isEditable || !onTextChange) return;
+    e.stopPropagation();
+    setIsTextEditing(true);
+    setTimeout(() => {
+      const el = innerRef.current;
+      if (!el) return;
+      el.focus();
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }, 0);
+  }
 
-  // Non-editor mode: plain element, apply any saved position/size overrides.
+  // Non-editor mode: plain element with any saved position/size overrides
   if (!isEditable) {
     const finalStyle: CSSProperties = { ...style };
     if (fsPx != null) finalStyle.fontSize = `${fsPx}px`;
@@ -148,61 +171,42 @@ export default function EditableField({
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
   }
 
-  // Editor mode: position:relative on the Tag itself (no wrapper div) so
-  // flex/grid layouts are not disrupted. The transform moves the element,
-  // and the drag handle sits inside as a contentEditable=false island so
-  // it travels with the element and doesn't leak into innerText.
+  // Editor mode: position:relative on Tag so flex/grid is not disrupted.
   const innerStyle: CSSProperties = {
     ...style,
     position: "relative",
     fontSize: fsPx != null ? `${fsPx}px` : style?.fontSize,
     maxWidth: widthPx ? `${widthPx}px` : style?.maxWidth,
     transform: (x || y) ? `translate(${x}px, ${y}px)` : style?.transform,
-    cursor: "text",
+    cursor: isTextEditing ? "text" : (selected ? "move" : "default"),
     outline: selected ? "2px solid #1877F2" : "2px solid transparent",
     outlineOffset: "2px",
     borderRadius: "4px",
     transition: "outline-color 0.12s ease",
+    userSelect: (selected && !isTextEditing) ? "none" : undefined,
   };
+
+  // Only become contentEditable after double-click (Canva behaviour)
+  const editingProps = isTextEditing && onTextChange ? {
+    contentEditable: true as const,
+    suppressContentEditableWarning: true,
+    onBlur: (e: React.FocusEvent<HTMLElement>) => {
+      onTextChange(sectionId, field, e.currentTarget.innerText);
+      setIsTextEditing(false);
+    },
+    onPaste: handlePaste,
+    onClick: (e: React.MouseEvent) => e.stopPropagation(),
+  } : {};
 
   return (
     <Tag
       ref={innerRef as any}
       className={className}
       style={innerStyle}
-      {...editableProps}
+      onPointerDown={handlePointerDown}
+      onDoubleClick={handleDoubleClick}
+      {...editingProps}
     >
-      {selected && (
-        <span
-          contentEditable={false}
-          onPointerDown={startDrag}
-          onMouseDown={(e) => e.preventDefault()}
-          title="Drag to reposition this text block"
-          style={{
-            position: "absolute",
-            top: -24,
-            left: 0,
-            zIndex: 100,
-            background: "#1877F2",
-            color: "#fff",
-            borderRadius: "4px 4px 0 0",
-            padding: "3px 8px 4px",
-            cursor: "move",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 10,
-            fontWeight: 600,
-            userSelect: "none",
-            touchAction: "none",
-            whiteSpace: "nowrap",
-            lineHeight: 1,
-          }}
-        >
-          <GripHorizontal size={10} />
-          Move
-        </span>
-      )}
       {children}
     </Tag>
   );

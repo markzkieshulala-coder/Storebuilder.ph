@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 import { EditorContext, EditorContextType } from "@/components/editor/EditorContext";
-import { MoveVertical } from "lucide-react";
 import NavSection from "./sections/NavSection";
 import HeroSection from "./sections/HeroSection";
 import FeaturesSection from "./sections/FeaturesSection";
@@ -179,7 +178,7 @@ function SectionShell({
   // ── Bottom-edge resize: adjust section minHeight ─────────────────────────
   // Uses pointer capture on the handle itself so drags stay locked even when
   // the cursor leaves the small handle area.
-  function startResize(e: React.PointerEvent<HTMLButtonElement>) {
+  function startResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!isEditable || !onResizeSection) return;
     e.preventDefault();
     e.stopPropagation();
@@ -218,25 +217,17 @@ function SectionShell({
   }
 
   return (
-    // Fragment: the section wrapper and the resize handle are siblings.
-    // The handle sits in normal document flow with marginTop:-36 so it
-    // visually hugs the section's bottom edge without any absolute
-    // positioning — which means overflow:hidden on ancestors never hides it
-    // and the handle is always exactly at the bottom regardless of section height.
+    // Fragment: section wrapper and the thin resize handle are siblings so
+    // overflow:hidden on the section never clips the handle.
     <>
       <div
         ref={wrapperRef}
         data-sb-section-index={index}
         id={anchorId}
-        onPointerEnter={() => isEditable && setHover(true)}
-        onPointerLeave={() => isEditable && setHover(false)}
         style={{
           position: "relative",
           scrollMarginTop: "80px",
           textAlign: sectionAlign || undefined,
-          // When a height is saved: clip the section content (Canva-style).
-          // overflow:hidden on THIS element is safe because the handle is
-          // a sibling, not a child — it will never be clipped.
           ...(displayHeight ? { height: `${displayHeight}px`, overflow: "hidden" } : {}),
           outline: resizing ? "2px dashed #1877F2" : undefined,
           outlineOffset: resizing ? "-2px" : undefined,
@@ -247,45 +238,62 @@ function SectionShell({
       </div>
 
       {isEditable && (
+        // Thin draggable strip — Canva style. marginTop overlaps section bottom
+        // by a few px so the pill sits right on the edge.
         <div
+          onPointerDown={startResize}
+          onMouseDown={(e) => e.preventDefault()}
+          onPointerEnter={() => setHover(true)}
+          onPointerLeave={() => !resizing && setHover(false)}
+          title="Drag to resize this section"
           style={{
             display: "flex",
             justifyContent: "center",
+            alignItems: "flex-start",
             position: "relative",
             zIndex: 50,
-            pointerEvents: "none",
-            marginTop: -36,
+            marginTop: -6,
+            height: 12,
+            cursor: "ns-resize",
+            touchAction: "none",
+            userSelect: "none",
           }}
         >
-          <button
-            type="button"
-            onPointerDown={startResize}
-            onMouseDown={(e) => e.preventDefault()}
-            title="Drag up/down to resize this section"
+          {/* pill indicator */}
+          <div
             style={{
-              pointerEvents: "auto",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "#1877F2",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 600,
-              opacity: hover || resizing ? 1 : 0.65,
-              cursor: "ns-resize",
-              touchAction: "none",
-              transition: "opacity 0.15s ease",
-              border: "none",
-              userSelect: "none",
-              padding: "5px 20px 6px",
-              borderRadius: "12px 12px 0 0",
-              minWidth: 140,
-              boxShadow: "0 -2px 8px rgba(24,119,242,0.25)",
+              width: 40,
+              height: 4,
+              borderRadius: 2,
+              marginTop: 4,
+              background: hover || resizing ? "#1877F2" : "rgba(0,0,0,0.18)",
+              transition: hover || resizing ? "none" : "background 0.2s ease",
+              position: "relative",
             }}
           >
-            <MoveVertical size={13} />
-            {resizing && liveHeight ? `${liveHeight}px` : "Drag to resize"}
-          </button>
+            {/* height tooltip — visible only while actively dragging */}
+            {resizing && liveHeight && (
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 6px)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "#1877F2",
+                  color: "#fff",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  whiteSpace: "nowrap",
+                  pointerEvents: "none",
+                  lineHeight: 1.4,
+                }}
+              >
+                {liveHeight}px
+              </span>
+            )}
+          </div>
         </div>
       )}
     </>
