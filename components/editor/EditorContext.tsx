@@ -14,8 +14,11 @@ export type FloatingToolbarTarget = {
 
 export type SelectedField = { sectionId: string; field: string } | null;
 
+export type ViewMode = "desktop" | "tablet" | "mobile";
+
 export type EditorContextType = {
   isEditable: boolean;
+  viewMode: ViewMode;
   onTextChange: (sectionId: string, field: string, value: string) => void;
   onNestedTextChange: (sectionId: string, arrayField: string, index: number, key: string, value: string) => void;
   onImageUpload: (sectionId: string, field: string) => void;
@@ -23,8 +26,8 @@ export type EditorContextType = {
   onSectionClick: (sectionId: string) => void;
   onShowToolbar: (target: FloatingToolbarTarget) => void;
 
-  // Drag-resize editor state (per-field, kept for backwards-compat with
-  // existing _editor data on saved sites — UI handles are now disabled).
+  // Drag-resize editor state — scoped per viewport so desktop/tablet/mobile
+  // edits are fully independent.
   selectedField: SelectedField;
   onSelectField: (sectionId: string, field: string) => void;
   onUpdateEditor: (sectionId: string, field: string, updates: EditorFieldState) => void;
@@ -38,6 +41,7 @@ export type EditorContextType = {
 
 const DEFAULT: EditorContextType = {
   isEditable: false,
+  viewMode: "desktop",
   onTextChange: () => {},
   onNestedTextChange: () => {},
   onImageUpload: () => {},

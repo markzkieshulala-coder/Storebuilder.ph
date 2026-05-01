@@ -13,12 +13,10 @@ import {
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
-import { EditorContextType, FloatingToolbarTarget, SelectedField } from "@/components/editor/EditorContext";
+import { EditorContextType, FloatingToolbarTarget, SelectedField, ViewMode } from "@/components/editor/EditorContext";
 import { EditorFieldState } from "@/components/editor/EditableField";
 import OptionsPanel from "@/components/editor/OptionsPanel";
 import FloatingToolbar from "@/components/editor/FloatingToolbar";
-
-type ViewMode = "desktop" | "tablet" | "mobile";
 
 const VIEW_WIDTHS: Record<ViewMode, string> = {
   desktop: "100%",
@@ -282,14 +280,19 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   }
 
   // ── Per-field editor state (drag/resize positioning) ─────────────────────
+  // Keys are scoped per viewport as "<viewMode>:<field>" so desktop edits
+  // never bleed into tablet/mobile views.
   function getFieldEditor(sectionId: string, field: string): EditorFieldState | undefined {
     const section = website?.sections.find((s) => s.id === sectionId);
     const editors = (section?.data as any)?._editor as Record<string, EditorFieldState> | undefined;
-    return editors?.[field];
+    const scopedKey = `${viewMode}:${field}`;
+    // Scoped key first; fall back to legacy unscoped key (treated as desktop)
+    return editors?.[scopedKey] ?? (viewMode === "desktop" ? editors?.[field] : undefined);
   }
 
   function updateFieldEditor(sectionId: string, field: string, updates: EditorFieldState) {
     if (!website) return;
+    const scopedKey = `${viewMode}:${field}`;
     pushHistory({
       ...website,
       sections: website.sections.map((s) => {
@@ -298,7 +301,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         const editors = (data._editor || {}) as Record<string, EditorFieldState>;
         const next: Record<string, EditorFieldState> = {
           ...editors,
-          [field]: { ...(editors[field] || {}), ...updates },
+          [scopedKey]: { ...(editors[scopedKey] || {}), ...updates },
         };
         return { ...s, data: { ...data, _editor: next } };
       }),
@@ -307,13 +310,14 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   function resetFieldEditor(sectionId: string, field: string) {
     if (!website) return;
+    const scopedKey = `${viewMode}:${field}`;
     pushHistory({
       ...website,
       sections: website.sections.map((s) => {
         if (s.id !== sectionId) return s;
         const data = (s.data || {}) as any;
         const editors = { ...((data._editor || {}) as Record<string, EditorFieldState>) };
-        delete editors[field];
+        delete editors[scopedKey];
         return { ...s, data: { ...data, _editor: editors } };
       }),
     });
@@ -322,6 +326,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   function switchViewMode(mode: ViewMode) {
     setViewMode(mode);
     setToolbarTarget(null);
+    setSelectedField(null);
   }
 
   function moveSection(sectionId: string, direction: "up" | "down") {
@@ -474,6 +479,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   const editorCtx: EditorContextType = {
     isEditable: true,
+    viewMode,
     onTextChange: handleTextChange,
     onNestedTextChange: handleNestedTextChange,
     onImageUpload: handleImageUpload,
