@@ -776,18 +776,18 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Canvas */}
         <main
-          className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center p-2 sm:p-4 lg:p-8 min-w-0"
+          className="flex-1 overflow-auto bg-[#f0f2f5] flex items-start justify-center px-2 pb-2 sm:px-4 sm:pb-4 lg:px-8 lg:pb-8 min-w-0"
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedField(null); }}
         >
           {viewMode === "desktop" ? (
             <div
               className="bg-white shadow-xl overflow-x-hidden w-full"
-              style={{ maxWidth: "100%", minHeight: "calc(100dvh - 48px)", borderRadius: "8px" }}
+              style={{ maxWidth: "100%", minHeight: "calc(100dvh - 48px)" }}
             >
               <WebsiteRenderer website={website} editorContext={editorCtx} />
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-3 pb-8">
+            <div className="flex flex-col items-center gap-3 pt-3 pb-8">
               {/* Device frame — live editable */}
               <div
                 className="relative shadow-2xl shrink-0 bg-white"
