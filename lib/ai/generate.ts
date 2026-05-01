@@ -42,7 +42,7 @@ export type Section = {
 };
 
 // ─── Approved professional palettes ──────────────────────────────────────────
-// Each palette: [background, surface, text, accent]
+// Expanded palette for variety across generations.
 const PROFESSIONAL_PALETTES = [
   { background: "#0F172A", primary: "#1E293B", text: "#F1F5F9", accent: "#3B82F6", secondary: "#c9a84c" },
   { background: "#1C1C1C", primary: "#2C2C2C", text: "#F5F0E8", accent: "#A87C2A", secondary: "#c9a84c" },
@@ -52,6 +52,40 @@ const PROFESSIONAL_PALETTES = [
   { background: "#0F1923", primary: "#162032", text: "#E2E8F0", accent: "#1E40AF", secondary: "#93C5FD" },
   { background: "#18181B", primary: "#27272A", text: "#FAFAFA", accent: "#166534", secondary: "#4ADE80" },
   { background: "#1A0F0F", primary: "#2D1515", text: "#FEF2F2", accent: "#7F1D1D", secondary: "#FCA5A5" },
+  // Additions for variety
+  { background: "#0A1929", primary: "#132F4C", text: "#E7EBF0", accent: "#0288D1", secondary: "#5EEAD4" },
+  { background: "#161616", primary: "#212121", text: "#EDEDED", accent: "#525252", secondary: "#A3A3A3" },
+  { background: "#1B1A2E", primary: "#26233A", text: "#EFEDE2", accent: "#9F86C0", secondary: "#BE95C4" },
+  { background: "#0C2818", primary: "#143C26", text: "#E8F5E9", accent: "#2E7D32", secondary: "#81C784" },
+  { background: "#1F1A17", primary: "#2B2522", text: "#FAF1E6", accent: "#B8860B", secondary: "#DAA520" },
+  { background: "#120E1F", primary: "#1E1832", text: "#E0DDF5", accent: "#5B21B6", secondary: "#A78BFA" },
+  { background: "#0E1A1F", primary: "#162932", text: "#E0F2F1", accent: "#00838F", secondary: "#80CBC4" },
+  { background: "#1A1014", primary: "#2A1820", text: "#FCE4EC", accent: "#AD1457", secondary: "#F48FB1" },
+];
+
+// Style direction hints — randomly injected to push the AI toward different
+// design decisions across generations of similar prompts.
+const STYLE_DIRECTIONS = [
+  "Editorial magazine layout — large serif-style type, generous whitespace, full-bleed hero photography.",
+  "Minimal swiss design — strong grid, restrained typography, lots of negative space, single accent color.",
+  "Bold corporate — confident headlines, asymmetric hero composition, two-tone alternating sections.",
+  "Boutique luxury — refined spacing, subtle gold/cream accents, oversized hero, intimate copy tone.",
+  "Modern tech — sharp geometric shapes, monochrome palette with single bright accent, terse confident copy.",
+  "Warm artisan — earthy tones, hand-crafted feel, story-driven about section, premium product close-ups.",
+  "Premium hospitality — atmospheric photography, evocative copy, strong CTA buttons, testimonial-led.",
+  "Quiet confidence — small type, lots of breathing room, monochrome photography, no exclamation marks.",
+  "Heritage brand — classical proportions, founding-story emphasis, vintage-inspired details.",
+  "Contemporary studio — bold portrait imagery, modular grid sections, expressive headline typography.",
+];
+
+// Section ordering variants — break up the predictable nav→hero→features→…→footer pattern.
+const SECTION_LAYOUT_VARIANTS = [
+  "nav → hero → about → features → testimonials → stats → cta → footer",
+  "nav → hero → features → about → process → testimonials → contact → footer",
+  "nav → hero → stats → features → gallery → testimonials → newsletter → footer",
+  "nav → hero → about → testimonials → features → faq → cta → footer",
+  "nav → hero → process → features → about → stats → contact → footer",
+  "nav → hero → features → testimonials → about → newsletter → cta → footer",
 ];
 
 // ─── Detect & replace non-professional colors ────────────────────────────────
@@ -257,13 +291,15 @@ OUTPUT
 • Return ONLY a single valid JSON object. No markdown. No backticks. No explanation. No comments.
 
 COLORS — THIS IS THE MOST IMPORTANT RULE
-• Pick ONE dark professional background from this list EXACTLY:
+• Pick ONE dark professional background from this expanded approved list (vary your pick each generation, do not always reuse the same one):
   #0F172A | #1C1C1C | #111827 | #0d0d1a | #1E1B18 | #18181B | #0F1923 | #1A0F0F
-• Use white (#FFFFFF) or warm off-white (#F5F0E8 / #FAFAF8) as the text color only — NEVER as a background.
-• Pick ONE muted accent from: #c9a84c | #A87C2A | #3B82F6 | #0D7377 | #166534 | #7F1D1D | #1E40AF
-• That is it. Three values total. No rainbow. No gradients with bright colors.
+  #0A1929 | #161616 | #1B1A2E | #0C2818 | #1F1A17 | #120E1F | #0E1A1F | #1A1014
+• Use white (#FFFFFF) or warm off-white (#F5F0E8 / #FAFAF8 / #E0DDF5 / #FCE4EC) as the text color only — NEVER as a background.
+• Pick ONE muted accent that complements the background, from: #c9a84c | #A87C2A | #3B82F6 | #0D7377 | #166534 | #7F1D1D | #1E40AF | #0288D1 | #525252 | #9F86C0 | #2E7D32 | #B8860B | #5B21B6 | #00838F | #AD1457
+• Three values total per site (background, primary surface, accent). No rainbow. No gradients with bright colors.
 • BANNED forever: white (#FFFFFF), near-white, light grey, any hex with lightness above 20% as a background or section background. Also banned: red (#FF0000), lime green, hot pink, electric blue, bright orange, cyan, magenta, any color with saturation > 55% and lightness between 35–80%.
 • Section backgrounds must alternate only between your two darkest hex values. EVERY section must have a dark background. Zero exceptions.
+• Across multiple generations of the same business type, you MUST pick a different background palette each time — do not default to the first one in the list.
 
 IMAGERY
 • ALL images MUST be real Unsplash photography URLs in this exact format:
@@ -363,24 +399,36 @@ function buildUserPrompt(userPrompt: string, plan: Plan): string {
       ? `PLAN: PRO — Generate a premium marketing/commerce site. You may include product grids, pricing tables, and Hitpay/Paymongo payment links. If the prompt asks for a system, CRM, admin panel, or internal tool, include CRM dashboard section types (dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder) in addition to the marketing sections.`
       : `PLAN: FREE — Generate a polished landing page or portfolio. Use only: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. Absolutely NO product grids (type "products"), NO pricing tables. Focus on showcase and lead generation.`;
 
-  return `Generate a complete, premium website for this business:
+  // Pick a fresh style direction + section layout for THIS generation so two
+  // similar prompts don't produce identical-looking sites.
+  const styleHint = STYLE_DIRECTIONS[Math.floor(Math.random() * STYLE_DIRECTIONS.length)];
+  const layoutHint = SECTION_LAYOUT_VARIANTS[Math.floor(Math.random() * SECTION_LAYOUT_VARIANTS.length)];
+  const variantSeed = Math.random().toString(36).slice(2, 8);
+
+  return `Generate a completely fresh, premium website for this business:
 "${userPrompt}"
 
 ${planBlock}
 
-REQUIRED in every generation:
-1. Colors: Choose ONE background from the approved dark list. One muted accent. White or warm-white TEXT only — NEVER as a background. ALL section style "background" values must be dark hex (#0F172A, #111827, etc). Any light color as a background is a critical error.
-2. Hero: Must have backgroundImage using a real Unsplash URL matching this business type (w=1400&h=800).
-3. About section: Include a real Unsplash image URL (w=1000&h=750).
-4. Products/team: Each item must have a real Unsplash image URL.
-5. Testimonials: 4 Filipino names, their Metro Manila/Cebu city/barangay, rating 5, realistic quote, Unsplash portrait URL.
-6. Pricing in ₱ with realistic Metro Manila market rates.
-7. Specific PH location in About/Contact (street, barangay, city). Real-sounding Filipino business address.
-8. Stats: credible numbers ("1,200+" customers, "Est. 2019", "4.9/5 rating") — no emojis.
-9. Zero emojis anywhere in the entire output.
-10. Section order: nav → hero → [middle sections] → footer.
+DESIGN DIRECTION (use this — do not default to your usual layout):
+• ${styleHint}
+• Section flow for this generation: ${layoutHint}
+• Variant seed: ${variantSeed} — every generation must feel distinct from previous ones (different headline phrasing, different stat numbers, different testimonial wording, different product names, different copy tone).
 
-Think like a ₱500,000 web design agency. Make every word, color, and image choice deliberate and premium.
+REQUIRED in every generation:
+1. Colors: Pick a DIFFERENT dark background each time — vary across the approved list. One muted accent. White or warm-white TEXT only — NEVER as a background. ALL section style "background" values must be dark hex. Light backgrounds are a critical error.
+2. Hero: Must have backgroundImage using a real Unsplash URL matching this business type (w=1400&h=800). Vary which photo you pick per generation.
+3. About section: Include a real Unsplash image URL (w=1000&h=750).
+4. Products/team: Each item must have a real Unsplash image URL. Use DIFFERENT photo IDs across items and across generations.
+5. Testimonials: 4 Filipino names (rotate names — do NOT reuse "Maria Santos" / "Juan dela Cruz" every time), Metro Manila/Cebu barangay, rating 5, realistic distinct quote, Unsplash portrait URL.
+6. Pricing in ₱ with realistic Metro Manila market rates — vary the price points.
+7. Specific PH location in About/Contact (street, barangay, city). Real-sounding Filipino business address — pick a DIFFERENT neighborhood each generation (BGC, Salcedo Village, Poblacion Makati, Ortigas, Kapitolyo, Tomas Morato, Lahug Cebu, IT Park Cebu, Iloilo Smallville, Davao Lanang, etc.).
+8. Stats: credible distinct numbers — vary digits, years, ratings across generations.
+9. Zero emojis anywhere in the entire output.
+10. Section order: must follow the section flow above, starting with nav and ending with footer.
+11. Headlines / copy: write FRESH lines for this specific business — never recycle generic phrases like "Crafted with passion", "Quality you can trust", "Where dreams begin". Be specific to the business and offer.
+
+Think like a ₱500,000 web design agency that has NEVER produced this exact layout before. Every word, color, and image choice must feel hand-tailored to THIS business — not a template.
 
 Output only the JSON object.`;
 }
@@ -409,6 +457,9 @@ export async function generateWebsite(
   const message = await client.messages.create({
     model,
     max_tokens: 8192,
+    // Higher temperature → more variety in copy/colors/layout across generations.
+    // The schema is enforced via post-processing so we can afford the looseness.
+    temperature: 1,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan) }],
   });

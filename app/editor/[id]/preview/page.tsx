@@ -44,9 +44,15 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
+  // Inject subdomain so ProductsSection can build checkout URLs that route
+  // to /sites/[subdomain]/checkout/[productId] on the published site.
+  const websiteWithSubdomain = website && subdomain
+    ? { ...website, subdomain }
+    : website;
+
   // Raw embed mode (used by the preview button for a clean full-page view)
   if (isRaw) {
-    return website ? <WebsiteRenderer website={website} /> : null;
+    return websiteWithSubdomain ? <WebsiteRenderer website={websiteWithSubdomain} /> : null;
   }
 
   return (
@@ -97,8 +103,8 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
 
       {/* Website content — offset by branded bar height */}
       <div className="pt-10 flex-1">
-        {website ? (
-          <WebsiteRenderer website={website} />
+        {websiteWithSubdomain ? (
+          <WebsiteRenderer website={websiteWithSubdomain} />
         ) : (
           <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
             Website not found

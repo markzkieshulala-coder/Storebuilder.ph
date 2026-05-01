@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
-  CheckCircle, Loader2, Eye, PanelLeft, EyeOff, ChevronDown, Info,
+  CheckCircle, Loader2, Eye, PanelLeft, EyeOff, Info,
   Share2, Plus, X, Copy,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -37,7 +37,6 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [publishing, setPublishing] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
   const [published, setPublished] = useState(false);
-  const [liveMenuOpen, setLiveMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
@@ -94,14 +93,6 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     document.addEventListener("mousedown", handleOutside, true);
     return () => document.removeEventListener("mousedown", handleOutside, true);
   }, [toolbarTarget]);
-
-  // Close live dropdown on outside click
-  useEffect(() => {
-    if (!liveMenuOpen) return;
-    function handleOutside() { setLiveMenuOpen(false); }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [liveMenuOpen]);
 
   async function fetchWebsite() {
     setLoading(true);
@@ -179,8 +170,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   }
 
   async function handleUnpublish() {
+    if (!confirm("Take this site offline? Visitors will no longer be able to access it. You can republish anytime.")) return;
     setUnpublishing(true);
-    setLiveMenuOpen(false);
     try {
       const res = await fetch(`/api/websites/${params.id}/publish`, { method: "DELETE" });
       if (res.ok) {
@@ -615,45 +606,26 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
           {/* Publish / Live + Unpublish */}
           {published ? (
-            <div className="relative flex items-center">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <a
                 href={`https://${rawWebsite?.subdomain}.storebuilder.ph`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-l-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs sm:text-sm font-medium transition-colors"
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-xs sm:text-sm font-medium transition-colors"
+                title="Open live site"
               >
                 <ExternalLink size={12} />
                 <span className="hidden sm:inline">Live</span>
               </a>
               <button
-                onClick={() => setLiveMenuOpen((o) => !o)}
-                className="flex items-center px-1 sm:px-1.5 py-1.5 sm:py-2 rounded-r-lg border border-l-0 border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                onClick={handleUnpublish}
+                disabled={unpublishing}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-red-200 text-red-600 bg-white hover:bg-red-50 hover:border-red-300 text-xs sm:text-sm font-medium transition-colors disabled:opacity-50"
+                title="Take site offline"
               >
-                <ChevronDown size={12} />
+                {unpublishing ? <Loader2 size={13} className="animate-spin" /> : <EyeOff size={13} />}
+                <span className="hidden sm:inline">Unpublish</span>
               </button>
-              {liveMenuOpen && (
-                <div className="absolute top-full right-0 mt-1 w-40 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
-                  <a
-                    href={`https://${rawWebsite?.subdomain}.storebuilder.ph`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setLiveMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <ExternalLink size={13} className="text-gray-400" />
-                    View live site
-                  </a>
-                  <div className="h-px bg-gray-100" />
-                  <button
-                    onClick={handleUnpublish}
-                    disabled={unpublishing}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    {unpublishing ? <Loader2 size={13} className="animate-spin" /> : <EyeOff size={13} />}
-                    Unpublish
-                  </button>
-                </div>
-              )}
             </div>
           ) : (
             <button onClick={handlePublish} disabled={publishing}
