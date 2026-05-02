@@ -44,9 +44,9 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  // Inject subdomain so ProductsSection can build checkout URLs that route
-  // to /sites/[subdomain]/checkout/[productId] on the published site.
-  const websiteWithSubdomain = website && subdomain
+  // Only inject subdomain for published sites — the checkout API requires
+  // published:true, so unpublished previews must not send visitors to a 404.
+  const websiteWithSubdomain = website && subdomain && published
     ? { ...website, subdomain }
     : website;
 

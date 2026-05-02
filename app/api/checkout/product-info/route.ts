@@ -44,6 +44,9 @@ export async function GET(req: NextRequest) {
       originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
       image: product.image || null,
       badge: product.badge || null,
+      sizes: Array.isArray(product.sizes) ? product.sizes : undefined,
+      colors: Array.isArray(product.colors) ? product.colors : undefined,
+      stock: product.stock != null ? Number(product.stock) : undefined,
     },
   });
 }

@@ -37,6 +37,9 @@ export type EditorContextType = {
   // Section-level adjustments (height + reorder)
   onResizeSection?: (sectionId: string, minHeight: number) => void;
   onReorderSections?: (fromIndex: number, toIndex: number) => void;
+
+  // Batch-update one item inside an array field (e.g. a single product)
+  onUpdateNestedItem?: (sectionId: string, arrayField: string, index: number, updates: Record<string, any>) => void;
 };
 
 const DEFAULT: EditorContextType = {

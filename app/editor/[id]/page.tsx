@@ -351,6 +351,21 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     pushHistory({ ...website, sections: next });
   }
 
+  function updateNestedItem(sectionId: string, arrayField: string, index: number, updates: Record<string, any>) {
+    if (!website) return;
+    const section = website.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const data = section.data as any;
+    const arr = [...(data[arrayField] || [])];
+    arr[index] = { ...arr[index], ...updates };
+    pushHistory({
+      ...website,
+      sections: website.sections.map((s) =>
+        s.id === sectionId ? { ...s, data: { ...data, [arrayField]: arr } } : s
+      ),
+    });
+  }
+
   function resizeSection(sectionId: string, minHeight: number) {
     if (!website) return;
     const px = `${Math.max(120, Math.round(minHeight))}px`;
@@ -503,6 +518,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     getEditorState: getFieldEditor,
     onResizeSection: resizeSection,
     onReorderSections: reorderSections,
+    onUpdateNestedItem: updateNestedItem,
   };
 
   return (

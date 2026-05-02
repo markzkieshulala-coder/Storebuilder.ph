@@ -13,6 +13,9 @@ interface Product {
   originalPrice?: number;
   image?: string;
   badge?: string;
+  sizes?: string[];
+  colors?: string[];
+  stock?: number;
 }
 
 interface StoreData {
@@ -31,6 +34,8 @@ export default function ProductCheckoutPage() {
   const [store, setStore] = useState<StoreData | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -189,6 +194,54 @@ export default function ProductCheckoutPage() {
                 <span className="text-sm text-gray-400">× ₱{product.price.toLocaleString()}</span>
               </div>
             </div>
+
+            {/* Size selector */}
+            {store.product.sizes && store.product.sizes.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">Size</label>
+                <div className="flex flex-wrap gap-2">
+                  {store.product.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setSelectedSize(size)}
+                      className="px-3 py-1.5 rounded-lg border text-sm font-medium transition-all"
+                      style={selectedSize === size
+                        ? { borderColor: accent, background: `${accent}15`, color: accent }
+                        : { borderColor: "#e5e7eb", color: "#374151" }}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Color selector */}
+            {store.product.colors && store.product.colors.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  Color {selectedColor && <span className="font-normal text-gray-400">— {selectedColor}</span>}
+                </label>
+                <div className="flex flex-wrap gap-2.5">
+                  {store.product.colors.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={color}
+                      onClick={() => setSelectedColor(color)}
+                      className="w-8 h-8 rounded-full transition-all"
+                      style={{
+                        background: color,
+                        outline: selectedColor === color ? `2px solid ${accent}` : "2px solid transparent",
+                        outlineOffset: "2px",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Customer Info */}
             <div>
