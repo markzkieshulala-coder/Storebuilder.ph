@@ -157,7 +157,7 @@ export default function EditableField({
     }, 0);
   }
 
-  // Corner handle: drag up/down to resize font size
+  // Corner handle: drag down to grow font, drag up to shrink
   function handleResizeStart(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
     e.stopPropagation();
@@ -171,9 +171,45 @@ export default function EditableField({
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
-      const delta = startY - ev.clientY; // drag up → larger
+      const delta = ev.clientY - startY; // drag down → larger (natural direction)
       const next = Math.max(8, Math.min(200, Math.round(startFs + delta * 0.4)));
       onUpdateEditor(sectionId, field, { ...(editor || {}), fontSize: next });
+    };
+
+    const cleanup = () => {
+      try { target.releasePointerCapture(e.pointerId); } catch {}
+      target.removeEventListener("pointermove", onMove as EventListener);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+    };
+
+    target.addEventListener("pointermove", onMove as EventListener);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
+  }
+
+  // Side handle: drag right to widen text block, drag left to narrow
+  function handleWidthResizeStart(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = innerRef.current;
+    const startW = widthPx ?? (el ? el.getBoundingClientRect().width : 200);
+    const startX = e.clientX;
+    const target = e.currentTarget;
+
+    try { target.setPointerCapture(e.pointerId); } catch {}
+
+    const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const delta = ev.clientX - startX; // drag right → wider
+      const next = Math.max(60, Math.round(startW + delta));
+      onUpdateEditor(sectionId, field, { ...(editor || {}), width: next });
     };
 
     const cleanup = () => {
@@ -240,13 +276,38 @@ export default function EditableField({
     >
       {children}
 
-      {/* Font-size resize handle — bottom-right corner dot, drag up/down */}
+      {/* Side handle — right edge pill, drag left/right to resize text width */}
+      {selected && !isTextEditing && (
+        <div
+          contentEditable={false}
+          onPointerDown={handleWidthResizeStart}
+          onMouseDown={(e) => e.preventDefault()}
+          title="Drag to resize text width"
+          style={{
+            position: "absolute",
+            right: -5,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 4,
+            height: 20,
+            background: "#1877F2",
+            border: "2px solid #fff",
+            borderRadius: 2,
+            cursor: "ew-resize",
+            zIndex: 102,
+            touchAction: "none",
+            userSelect: "none",
+          }}
+        />
+      )}
+
+      {/* Font-size resize handle — bottom-right corner dot, drag down/up */}
       {selected && !isTextEditing && (
         <div
           contentEditable={false}
           onPointerDown={handleResizeStart}
           onMouseDown={(e) => e.preventDefault()}
-          title="Drag up to increase font size, down to decrease"
+          title="Drag down to increase font size, up to decrease"
           style={{
             position: "absolute",
             bottom: -5,
@@ -264,27 +325,30 @@ export default function EditableField({
         />
       )}
 
-      {/* Live font-size label shown while resizing */}
-      {selected && !isTextEditing && fsPx != null && (
+      {/* Live dimension labels */}
+      {selected && !isTextEditing && (fsPx != null || widthPx != null) && (
         <div
           contentEditable={false}
           style={{
             position: "absolute",
             bottom: -24,
             right: 0,
-            background: "#1877F2",
-            color: "#fff",
-            fontSize: 10,
-            fontWeight: 600,
-            padding: "2px 6px",
-            borderRadius: 4,
+            display: "flex",
+            gap: 4,
             pointerEvents: "none",
-            whiteSpace: "nowrap",
-            lineHeight: 1.4,
             zIndex: 102,
           }}
         >
-          {fsPx}px
+          {widthPx != null && (
+            <span style={{ background: "#1877F2", color: "#fff", fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap", lineHeight: 1.4 }}>
+              {widthPx}w
+            </span>
+          )}
+          {fsPx != null && (
+            <span style={{ background: "#1877F2", color: "#fff", fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap", lineHeight: 1.4 }}>
+              {fsPx}px
+            </span>
+          )}
         </div>
       )}
     </Tag>
