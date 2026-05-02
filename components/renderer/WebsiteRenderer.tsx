@@ -36,6 +36,7 @@ const SECTION_MAP: Record<string, React.ComponentType<{ section: Section; websit
 
 const DEFAULT_CONTEXT: EditorContextType = {
   isEditable: false,
+  viewMode: "desktop",
   onTextChange: () => {},
   onNestedTextChange: () => {},
   onImageUpload: () => {},
@@ -88,19 +89,28 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
     if (link.href !== href) link.href = href;
   }, [headingFont, bodyFont]);
 
+  // Inject font-family rules into <head> so they don't create a render-blocking
+  // <style> element before the .website-render div (which would push content
+  // down and expose the white canvas wrapper at the top of the editor).
+  useEffect(() => {
+    const id = "sb-render-fonts";
+    let el = document.getElementById(id) as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement("style");
+      el.id = id;
+      document.head.appendChild(el);
+    }
+    el.textContent = `
+      .website-render h1,.website-render h2,.website-render h3,
+      .website-render h4,.website-render h5,.website-render h6{font-family:var(--heading-font)!important}
+      .website-render,.website-render p,.website-render span,
+      .website-render a,.website-render li,.website-render button,
+      .website-render input,.website-render textarea,.website-render label{font-family:var(--body-font)}
+    `;
+  }, []);
+
   return (
     <EditorContext.Provider value={ctx}>
-      <style>{`
-        .website-render h1, .website-render h2, .website-render h3,
-        .website-render h4, .website-render h5, .website-render h6 {
-          font-family: var(--heading-font) !important;
-        }
-        .website-render, .website-render p, .website-render span,
-        .website-render a, .website-render li, .website-render button,
-        .website-render input, .website-render textarea, .website-render label {
-          font-family: var(--body-font);
-        }
-      `}</style>
       <div
         className="website-render"
         style={{
