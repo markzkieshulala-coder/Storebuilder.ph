@@ -133,13 +133,10 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
           const SectionComponent = SECTION_MAP[section.type];
           const isFirstOfType = website.sections?.findIndex((s) => s.type === section.type) === i;
           const anchorId = isFirstOfType ? section.type : section.id;
-          if (!SectionComponent) {
-            return (
-              <div key={section.id} id={anchorId} className="py-12 px-6 text-center opacity-40">
-                <p className="text-sm">Section type &quot;{section.type}&quot; — coming soon</p>
-              </div>
-            );
-          }
+          // Unknown section types: skip entirely so they don't introduce
+          // visible whitespace between the sections we DO render. Users can
+          // still remove them from the sidebar.
+          if (!SectionComponent) return null;
           return (
             <SectionShell
               key={section.id}

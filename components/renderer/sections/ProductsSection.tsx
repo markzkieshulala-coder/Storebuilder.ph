@@ -431,18 +431,18 @@ function ProductEditDrawer({
 
         </div>
 
-        {/* Footer */}
-        <div className="shrink-0 border-t border-gray-100 px-5 py-4 flex gap-3 bg-white">
+        {/* Footer — always uses brand blue for the save button so it's
+            visible regardless of the website's accent colour */}
+        <div className="shrink-0 border-t border-gray-200 px-5 py-4 flex gap-3 bg-white">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex-1 py-3 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: accent || "#1877F2" }}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold text-white bg-[#1877F2] hover:bg-[#1565C0] transition-colors shadow-sm"
           >
             Save Changes
           </button>
