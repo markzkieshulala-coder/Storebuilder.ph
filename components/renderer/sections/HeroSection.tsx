@@ -20,7 +20,7 @@ export default function HeroSection({ section, website }: { section: Section; we
   return (
     <section
       className="relative flex items-center justify-center text-center overflow-hidden"
-      style={{ minHeight: "100svh", background: bg }}
+      style={{ minHeight: isEditable ? "auto" : "100svh", background: bg }}
       onClick={() => isEditable && onSectionClick(section.id)}
     >
       {d.backgroundImage && (

@@ -125,7 +125,7 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
           color: website.colors?.text || "#0F172A",
           backgroundColor: website.colors?.background || "#ffffff",
           minHeight: "100vh",
-          overflowX: "hidden",
+          overflowX: "clip",
           maxWidth: "100%",
         } as React.CSSProperties}
       >
