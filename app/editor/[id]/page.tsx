@@ -776,16 +776,15 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Canvas */}
         <main
-          className="flex-1 overflow-y-auto bg-[#f0f2f5] flex items-start justify-center px-2 pb-2 sm:px-4 sm:pb-4 lg:px-8 lg:pb-8 min-w-0"
+          className="flex-1 overflow-y-auto bg-[#f0f2f5] flex items-start justify-center p-0 min-w-0"
           style={{ overflowX: "clip" }}
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedField(null); }}
         >
           {viewMode === "desktop" ? (
             <div
-              className="shadow-xl w-full"
+              className="w-full self-stretch"
               style={{
                 maxWidth: "100%",
-                minHeight: "calc(100dvh - 48px)",
                 backgroundColor: website.colors?.background || "#0d0d1a",
               }}
             >
