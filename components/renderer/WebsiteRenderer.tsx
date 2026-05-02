@@ -119,11 +119,11 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
           "--color-primary": website.colors?.primary || "#0F172A",
           "--color-secondary": website.colors?.secondary || "#475569",
           "--color-accent": website.colors?.accent || "#1E40AF",
-          "--color-bg": website.colors?.background || "#ffffff",
+          "--color-bg": website.colors?.background || "#0d0d1a",
           "--color-text": website.colors?.text || "#0F172A",
           fontFamily: bodyStack,
           color: website.colors?.text || "#0F172A",
-          backgroundColor: website.colors?.background || "#ffffff",
+          backgroundColor: website.colors?.background || "#0d0d1a",
           minHeight: "100vh",
           overflowX: "clip",
           maxWidth: "100%",
@@ -253,8 +253,9 @@ function SectionShell({
       </div>
 
       {isEditable && (
-        // Thin draggable strip — Canva style. marginTop overlaps section bottom
-        // by a few px so the pill sits right on the edge.
+        // Thin draggable strip — fully overlaps the section bottom so sections
+        // stay flush (no visible gap between them). The pill is positioned so
+        // it sits centred on the section boundary.
         <div
           onPointerDown={startResize}
           onMouseDown={(e) => e.preventDefault()}
@@ -264,26 +265,26 @@ function SectionShell({
           style={{
             display: "flex",
             justifyContent: "center",
-            alignItems: "flex-start",
+            alignItems: "center",
             position: "relative",
             zIndex: 50,
-            marginTop: -6,
+            marginTop: -12,
             height: 12,
             cursor: "ns-resize",
             touchAction: "none",
             userSelect: "none",
           }}
         >
-          {/* pill indicator */}
+          {/* pill indicator — sits at section boundary */}
           <div
             style={{
               width: 40,
               height: 4,
               borderRadius: 2,
-              marginTop: 4,
-              background: hover || resizing ? "#1877F2" : "rgba(0,0,0,0.18)",
+              background: hover || resizing ? "#1877F2" : "rgba(255,255,255,0.35)",
               transition: hover || resizing ? "none" : "background 0.2s ease",
               position: "relative",
+              boxShadow: hover || resizing ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
             }}
           >
             {/* height tooltip — visible only while actively dragging */}
