@@ -76,6 +76,11 @@ const STYLE_DIRECTIONS = [
   "Quiet confidence — small type, lots of breathing room, monochrome photography, no exclamation marks.",
   "Heritage brand — classical proportions, founding-story emphasis, vintage-inspired details.",
   "Contemporary studio — bold portrait imagery, modular grid sections, expressive headline typography.",
+  "Brutalist editorial — raw asymmetric grid, strong horizontal rules, oversized typography blocks.",
+  "Soft neo-brand — soft glow gradients within dark, micro-interactions, friendly product copy.",
+  "Cinematic atmospheric — dim lighting hero, dramatic close-ups, story arcs across sections.",
+  "Documentary photo — black-and-white people imagery, real-life compositions, deeply human copy tone.",
+  "Architectural minimalism — long whitespace columns, geometric photo crops, minimalist gold lines.",
 ];
 
 // Section ordering variants — break up the predictable nav→hero→features→…→footer pattern.
@@ -86,6 +91,20 @@ const SECTION_LAYOUT_VARIANTS = [
   "nav → hero → about → testimonials → features → faq → cta → footer",
   "nav → hero → process → features → about → stats → contact → footer",
   "nav → hero → features → testimonials → about → newsletter → cta → footer",
+  "nav → hero → about → process → stats → testimonials → faq → cta → footer",
+  "nav → hero → gallery → about → features → stats → newsletter → footer",
+  "nav → hero → testimonials → features → about → process → cta → footer",
+  "nav → hero → stats → about → gallery → features → testimonials → cta → footer",
+];
+
+// Hero composition variants — push the AI to render hero differently each time.
+const HERO_COMPOSITIONS = [
+  "Full-bleed background photo with a single oversized headline anchored bottom-left and a small accent CTA.",
+  "Split layout — headline + 2 short paragraphs on the left, full-height product/lifestyle photo on the right.",
+  "Centered minimal — small kicker label, big headline, sub-paragraph, two CTAs side-by-side, photo below the fold.",
+  "Asymmetric overlap — headline behind the image, photo offset down-right, micro-stats beneath.",
+  "Image-first — large square image takes 60% of viewport, headline + short tagline tucked in the remaining 40%.",
+  "Gradient overlay full-bleed — atmospheric image with darkened gradient, kicker, headline, sub, single CTA.",
 ];
 
 // ─── Detect & replace non-professional colors ────────────────────────────────
@@ -123,10 +142,13 @@ function isTooLight(hex: string): boolean {
   return hsl.l > 0.20;
 }
 
-function pickPalette(seed: string): typeof PROFESSIONAL_PALETTES[0] {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-  return PROFESSIONAL_PALETTES[Math.abs(hash) % PROFESSIONAL_PALETTES.length];
+// Round-robin so each successive postProcess call picks a different palette,
+// even when the AI returns the same name twice in a row.
+let _paletteCursor = Math.floor(Math.random() * PROFESSIONAL_PALETTES.length);
+function pickPalette(_seed: string): typeof PROFESSIONAL_PALETTES[0] {
+  const p = PROFESSIONAL_PALETTES[_paletteCursor % PROFESSIONAL_PALETTES.length];
+  _paletteCursor = (_paletteCursor + 1 + Math.floor(Math.random() * 3)) % PROFESSIONAL_PALETTES.length;
+  return p;
 }
 
 function sanitizeColors(website: GeneratedWebsite): GeneratedWebsite {
@@ -190,15 +212,47 @@ function enforcePlanSections(website: GeneratedWebsite, plan: string): Generated
 
 // ─── Ensure all images are real Unsplash URLs ────────────────────────────────
 const UNSPLASH_BASE = "https://images.unsplash.com/photo-";
+
+// Larger curated pool — Fisher-Yates shuffled per generation so two consecutive
+// generations of the same business type rarely reuse the same fallback photos.
 const FALLBACK_PHOTOS = [
+  // generic editorial / product / interior
   "1497366216548-37526070297c", "1518770660439-4636190af475",
   "1504674900247-0877df9cc836", "1555396273-367ea4eb4db5",
   "1483985986-9e7dcf2e1a8e", "1529903672776-b51b5379fcf4",
   "1560066984-138dadb4c035", "1506905925346-21bda4d32df4",
+  "1414235077428-338989a2e8c0", "1476224203421-74177e9bcce6",
+  "1565299624946-b28f40a0ae38", "1490645935967-10de6ba17061",
+  "1482049016688-2d3e1b311543", "1539109136881-3be0616acf4b",
+  "1542291026-7eec264c27ff", "1516762689-1b8e44c75a0b",
+  "1445205170230-053b83016050", "1525966222134-fcfa99b8ae77",
+  "1543163521-1bf539c55dd2", "1487412947147-5cebf96ef2ff",
+  "1596462502278-27bfdc403348", "1515688594-0eebcca23e55",
+  "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
+  "1552664730-d307ca884978", "1519389950473-47ba0277781c",
+  "1461749280684-dccba630e2f6", "1504868584819-f8e8b4b6d7e3",
+  "1497366811353-6870744d04b2", "1524758631624-e2822e304c36",
+  "1600880292203-757bb62b4baf", "1557804506-669a67965ba0",
 ];
-let fallbackIdx = 0;
+
+function shuffledPhotos(): string[] {
+  const arr = [...FALLBACK_PHOTOS];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Per-generation rotating photo pool — set once at the start of postProcess
+// and consumed sequentially for every fallback so a single site never uses
+// the same photo twice for different roles.
+let _photoPool: string[] = [];
+let _photoIdx = 0;
+function resetPhotoPool() { _photoPool = shuffledPhotos(); _photoIdx = 0; }
 function fallbackPhoto(size = "800x600"): string {
-  const id = FALLBACK_PHOTOS[fallbackIdx++ % FALLBACK_PHOTOS.length];
+  if (_photoPool.length === 0) resetPhotoPool();
+  const id = _photoPool[_photoIdx++ % _photoPool.length];
   const [w, h] = size.split("x");
   return `${UNSPLASH_BASE}${id}?w=${w}&h=${h}&fit=crop&q=80`;
 }
@@ -269,6 +323,9 @@ function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
 
 // ─── Master post-processor ────────────────────────────────────────────────────
 function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite {
+  // Reset rotating photo pool for this generation so different runs don't
+  // collapse to the same fallback IDs.
+  resetPhotoPool();
   // Force Google Sans always
   website.fonts = { heading: "Google Sans", body: "Google Sans" };
   // Strip plan-disallowed section types
@@ -399,34 +456,57 @@ function buildUserPrompt(userPrompt: string, plan: Plan): string {
       ? `PLAN: PRO — Generate a premium marketing/commerce site. You may include product grids, pricing tables, and Hitpay/Paymongo payment links. If the prompt asks for a system, CRM, admin panel, or internal tool, include CRM dashboard section types (dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder) in addition to the marketing sections.`
       : `PLAN: FREE — Generate a polished landing page or portfolio. Use only: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. Absolutely NO product grids (type "products"), NO pricing tables. Focus on showcase and lead generation.`;
 
-  // Pick a fresh style direction + section layout for THIS generation so two
-  // similar prompts don't produce identical-looking sites.
+  // Pick a fresh style direction + section layout + hero composition for THIS
+  // generation so two similar prompts don't produce identical-looking sites.
   const styleHint = STYLE_DIRECTIONS[Math.floor(Math.random() * STYLE_DIRECTIONS.length)];
   const layoutHint = SECTION_LAYOUT_VARIANTS[Math.floor(Math.random() * SECTION_LAYOUT_VARIANTS.length)];
-  const variantSeed = Math.random().toString(36).slice(2, 8);
+  const heroHint = HERO_COMPOSITIONS[Math.floor(Math.random() * HERO_COMPOSITIONS.length)];
+  const variantSeed = Math.random().toString(36).slice(2, 10);
+  const timestamp = Date.now().toString(36);
+
+  // Suggest a starting palette so even when the AI ignores variety
+  // instructions, the post-processor diverges from previous generations.
+  const suggestedBg = PROFESSIONAL_PALETTES[Math.floor(Math.random() * PROFESSIONAL_PALETTES.length)].background;
+  const suggestedAccents = ["#c9a84c", "#A87C2A", "#3B82F6", "#0D7377", "#166534", "#7F1D1D", "#1E40AF", "#0288D1", "#9F86C0", "#2E7D32", "#B8860B", "#5B21B6", "#00838F", "#AD1457"];
+  const suggestedAccent = suggestedAccents[Math.floor(Math.random() * suggestedAccents.length)];
 
   return `Generate a completely fresh, premium website for this business:
 "${userPrompt}"
 
 ${planBlock}
 
-DESIGN DIRECTION (use this — do not default to your usual layout):
-• ${styleHint}
-• Section flow for this generation: ${layoutHint}
-• Variant seed: ${variantSeed} — every generation must feel distinct from previous ones (different headline phrasing, different stat numbers, different testimonial wording, different product names, different copy tone).
+GENERATION ID (proves this is a new generation, not a cached one):
+• Variant seed: ${variantSeed}
+• Timestamp: ${timestamp}
+• MUST treat this as a new design pass with different copy + imagery from any previous generation.
 
-REQUIRED in every generation:
-1. Colors: Pick a DIFFERENT dark background each time — vary across the approved list. One muted accent. White or warm-white TEXT only — NEVER as a background. ALL section style "background" values must be dark hex. Light backgrounds are a critical error.
-2. Hero: Must have backgroundImage using a real Unsplash URL matching this business type (w=1400&h=800). Vary which photo you pick per generation.
-3. About section: Include a real Unsplash image URL (w=1000&h=750).
-4. Products/team: Each item must have a real Unsplash image URL. Use DIFFERENT photo IDs across items and across generations.
-5. Testimonials: 4 Filipino names (rotate names — do NOT reuse "Maria Santos" / "Juan dela Cruz" every time), Metro Manila/Cebu barangay, rating 5, realistic distinct quote, Unsplash portrait URL.
-6. Pricing in ₱ with realistic Metro Manila market rates — vary the price points.
-7. Specific PH location in About/Contact (street, barangay, city). Real-sounding Filipino business address — pick a DIFFERENT neighborhood each generation (BGC, Salcedo Village, Poblacion Makati, Ortigas, Kapitolyo, Tomas Morato, Lahug Cebu, IT Park Cebu, Iloilo Smallville, Davao Lanang, etc.).
-8. Stats: credible distinct numbers — vary digits, years, ratings across generations.
-9. Zero emojis anywhere in the entire output.
-10. Section order: must follow the section flow above, starting with nav and ending with footer.
-11. Headlines / copy: write FRESH lines for this specific business — never recycle generic phrases like "Crafted with passion", "Quality you can trust", "Where dreams begin". Be specific to the business and offer.
+DESIGN DIRECTION FOR THIS GENERATION (mandatory — do NOT default to a familiar layout):
+• Visual style: ${styleHint}
+• Section flow: ${layoutHint}
+• Hero composition: ${heroHint}
+• Suggested starting palette: background ${suggestedBg}, accent ${suggestedAccent} (you may pick from the approved list, but DO NOT repeat the most common palette).
+
+IMAGE VARIETY (critical):
+• Hero, about, products, team, gallery — every image must be a DIFFERENT photo ID. Never reuse the same photo for two roles.
+• Pick photo IDs that genuinely match the BUSINESS TYPE in the prompt — coffee shop must use coffee/cafe imagery, not generic stock.
+• Across multiple generations of similar prompts, pick DIFFERENT photo IDs. Do not reuse the same hero image you used last time.
+
+COPY VARIETY (critical):
+• Business name: invent a fresh, plausible Filipino brand name — do NOT recycle names from previous generations. Avoid generic words like "Co.", "Studio", "House", "Hub" unless they fit the brand.
+• Headlines: write entirely fresh for this specific business. Banned generic phrases: "Crafted with passion", "Quality you can trust", "Where dreams begin", "Your journey starts here", "Experience the difference", "Made with love", "Excellence redefined".
+• Testimonial names: rotate broadly — banned overused names: "Maria Santos", "Juan dela Cruz", "Anna Reyes", "Jose Garcia". Use other authentic Filipino names instead.
+• Stats: pick distinct, plausible numbers each generation (e.g. years founded, customer count, locations, ratings).
+• Pricing in ₱ with realistic Metro Manila market rates — vary the price points across generations.
+
+REQUIRED IN EVERY GENERATION:
+1. Colors: Pick a dark background that is DIFFERENT from common defaults (avoid #0F172A and #0d0d1a unless they uniquely fit). All section "background" values must be dark hex.
+2. Hero: backgroundImage must be a real Unsplash URL matching the business type (w=1400&h=800).
+3. About section: real Unsplash image URL (w=1000&h=750) — DIFFERENT from hero.
+4. Products/team: every item gets a UNIQUE photo URL.
+5. Testimonials: 4 entries with rotated Filipino names + Metro Manila/Cebu barangay + rating 5 + distinct quote + Unsplash portrait URL.
+6. Specific PH location in About/Contact — pick a DIFFERENT neighborhood each generation (BGC, Salcedo Village, Poblacion Makati, Ortigas, Kapitolyo, Tomas Morato, Lahug Cebu, IT Park Cebu, Iloilo Smallville, Davao Lanang, etc.).
+7. Zero emojis anywhere.
+8. Section order: must follow the section flow above, starting with nav and ending with footer.
 
 Think like a ₱500,000 web design agency that has NEVER produced this exact layout before. Every word, color, and image choice must feel hand-tailored to THIS business — not a template.
 

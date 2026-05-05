@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -24,6 +25,11 @@ export async function POST(
     where: { id: params.id },
     data: { published: true },
   });
+
+  // Bust the ISR cache so editor changes appear immediately on the live URL.
+  // Without this, /sites/[subdomain] keeps serving the previously cached page
+  // for up to `revalidate` seconds after publish.
+  try { revalidatePath(`/sites/${updated.subdomain}`); } catch {}
 
   return NextResponse.json({
     success: true,
@@ -53,6 +59,8 @@ export async function DELETE(
     where: { id: params.id },
     data: { published: false },
   });
+
+  try { revalidatePath(`/sites/${website.subdomain}`); } catch {}
 
   return NextResponse.json({ success: true });
 }

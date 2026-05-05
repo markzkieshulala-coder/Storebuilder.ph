@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 
 const FROM = process.env.EMAIL_FROM || "Storebuilder.ph <noreply@storebuilder.ph>";
 
-async function sendMail(opts: { to: string; subject: string; html: string; text: string }) {
+async function sendMail(opts: { to: string; subject: string; html: string; text: string; replyTo?: string }) {
   return transporter.sendMail({ from: FROM, ...opts });
 }
 
@@ -43,6 +43,58 @@ export async function sendPasswordResetEmail(to: string, token: string) {
         </td></tr>
         <tr><td style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
           <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} Storebuilder.ph — All rights reserved</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
+export async function sendContactFormEmail(opts: {
+  to: string;
+  storeName: string;
+  fromName: string;
+  fromEmail: string;
+  message: string;
+  subdomain?: string;
+}) {
+  const safe = (s: string) => s.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string));
+  const replyContext = opts.subdomain ? `${opts.subdomain}.storebuilder.ph` : opts.storeName;
+  return sendMail({
+    to: opts.to,
+    replyTo: opts.fromEmail,
+    subject: `New contact form message — ${opts.storeName}`,
+    text: `New message from your ${opts.storeName} contact form:\n\nFrom: ${opts.fromName} <${opts.fromEmail}>\n\nMessage:\n${opts.message}\n\nReply directly to this email to respond.\n\n-- Sent via ${replyContext}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Google Sans',Roboto,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">
+        <tr><td style="background:#1877F2;padding:24px 28px">
+          <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase">${safe(opts.storeName)}</p>
+          <h1 style="margin:4px 0 0;color:#fff;font-size:18px;font-weight:700">New contact form message</h1>
+        </td></tr>
+        <tr><td style="padding:28px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px">
+            <tr>
+              <td style="color:#9ca3af;font-size:12px;width:70px;padding-bottom:6px">From</td>
+              <td style="color:#111827;font-size:14px;font-weight:600;padding-bottom:6px">${safe(opts.fromName)}</td>
+            </tr>
+            <tr>
+              <td style="color:#9ca3af;font-size:12px;padding-bottom:6px">Email</td>
+              <td style="color:#1877F2;font-size:14px;padding-bottom:6px"><a href="mailto:${safe(opts.fromEmail)}" style="color:#1877F2;text-decoration:none">${safe(opts.fromEmail)}</a></td>
+            </tr>
+          </table>
+          <div style="background:#f9fafb;border-left:3px solid #1877F2;padding:16px 18px;border-radius:6px;color:#374151;font-size:14px;line-height:1.6;white-space:pre-wrap">${safe(opts.message)}</div>
+          <p style="margin:18px 0 0;color:#9ca3af;font-size:12px">Reply directly to this email to respond to <strong>${safe(opts.fromName)}</strong>.</p>
+        </td></tr>
+        <tr><td style="padding:14px 28px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:11px">Sent via ${safe(replyContext)} · powered by Storebuilder.ph</p>
         </td></tr>
       </table>
     </td></tr>

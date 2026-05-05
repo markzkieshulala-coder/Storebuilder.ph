@@ -5,8 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Lock, AlertCircle, User, Eye } from "lucide-react";
+import { Sparkles, ArrowRight, Lock, AlertCircle, User } from "lucide-react";
 import toast from "react-hot-toast";
+import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
+import type { GeneratedWebsite } from "@/lib/ai/generate";
 
 const BLUE = "#1877F2";
 const FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";
@@ -19,6 +21,7 @@ type Template = {
   seoDesc: string | null;
   useCount: number;
   creator: string;
+  jsonContent: GeneratedWebsite | null;
 };
 
 export default function TemplatePage() {
@@ -43,6 +46,19 @@ export default function TemplatePage() {
       .catch(() => setError("Failed to load template"))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // Always show the shared link starting from the very top (nav + hero) so
+  // visitors don't land mid-page on a random section if their browser
+  // restored a previous scroll position.
+  useEffect(() => {
+    if (!loading && template) {
+      // Strip any incoming hash so anchored sections don't jump us mid-page.
+      if (typeof window !== "undefined" && window.location.hash) {
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [loading, template]);
 
   async function handleUseTemplate() {
     if (!session) {
@@ -119,101 +135,89 @@ export default function TemplatePage() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16">
-        <div className="grid lg:grid-cols-[1fr_320px] gap-6 lg:gap-10">
-
-          {/* Preview */}
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 relative">
-              {template.thumbnail ? (
-                <img src={template.thumbnail} alt={template.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <Eye size={36} className="mx-auto mb-2 text-gray-300" />
-                    <p className="text-xs text-gray-400">Preview not available</p>
-                  </div>
-                </div>
-              )}
+      {/* Template intro — small ribbon under the nav showing creator + CTA */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider mb-1" style={{ background: "#EBF3FF", color: BLUE }}>
+              <Sparkles size={10} />
+              Storebuilder Template
             </div>
-            <div className="p-5 sm:p-6">
-              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider mb-3" style={{ background: "#EBF3FF", color: BLUE }}>
-                <Sparkles size={10} />
-                Storebuilder Template
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{template.name}</h1>
-              {template.seoDesc && (
-                <p className="text-sm text-gray-600 leading-relaxed">{template.seoDesc}</p>
-              )}
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
-                <div className="flex items-center gap-1.5">
-                  <User size={12} />
-                  <span>by <strong className="text-gray-700">{template.creator}</strong></span>
-                </div>
-                <span>·</span>
-                <span>Used {template.useCount.toLocaleString()} time{template.useCount === 1 ? "" : "s"}</span>
-              </div>
+            <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">{template.name}</h1>
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+              <User size={11} />
+              <span>by <strong className="text-gray-700">{template.creator}</strong></span>
+              <span>·</span>
+              <span>Used {template.useCount.toLocaleString()} time{template.useCount === 1 ? "" : "s"}</span>
             </div>
           </div>
-
-          {/* CTA panel */}
-          <aside className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 lg:sticky lg:top-6 self-start">
-            <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-2">Use this template</h2>
-            <p className="text-xs sm:text-sm text-gray-500 leading-relaxed mb-5">
-              Get an editable copy in your own account. Your edits stay yours — the original is never affected.
-            </p>
-
-            <ul className="space-y-2.5 mb-6 text-xs sm:text-sm text-gray-700">
-              <li className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center mt-0.5 shrink-0" style={{ background: "#EBF3FF" }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: BLUE }} />
-                </span>
-                Independent copy — saved to your workspace
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center mt-0.5 shrink-0" style={{ background: "#EBF3FF" }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: BLUE }} />
-                </span>
-                Edit, publish, or rebrand freely
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center mt-0.5 shrink-0" style={{ background: "#EBF3FF" }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: BLUE }} />
-                </span>
-                Counts toward your monthly website limit
-              </li>
-            </ul>
-
-            <button
-              onClick={handleUseTemplate}
-              disabled={using || status === "loading"}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
-              style={{ background: BLUE }}
-            >
-              {using ? (
-                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : session ? (
-                <>
-                  Use this template
-                  <ArrowRight size={14} />
-                </>
-              ) : (
-                <>
-                  <Lock size={14} />
-                  Sign up to use template
-                </>
-              )}
-            </button>
-
-            {!session && (
-              <p className="text-[11px] text-gray-400 text-center mt-3">
-                Free account · no credit card
-              </p>
+          <button
+            onClick={handleUseTemplate}
+            disabled={using || status === "loading"}
+            className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white disabled:opacity-60 hover:opacity-90 transition-opacity shrink-0"
+            style={{ background: BLUE }}
+          >
+            {using ? (
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : session ? (
+              <>
+                Use this template
+                <ArrowRight size={14} />
+              </>
+            ) : (
+              <>
+                <Lock size={14} />
+                Sign up to use
+              </>
             )}
-          </aside>
-
+          </button>
         </div>
+      </div>
+
+      {/* Live website preview — renders the ACTUAL site starting from its
+          first section (nav + hero). Visitors land at the top of the page
+          so they always see the brand entrance, not a random anchor. */}
+      <main className="bg-white">
+        {template.jsonContent ? (
+          <WebsiteRenderer website={template.jsonContent} />
+        ) : (
+          <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+            <div className="text-center">
+              <AlertCircle size={36} className="mx-auto mb-2 text-gray-300" />
+              <p className="text-xs text-gray-400">Preview not available</p>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Floating sticky CTA so the "Use this template" button is always
+          accessible while visitors scroll the live preview. */}
+      <div
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-1.5 py-1.5 rounded-full shadow-2xl"
+        style={{ background: "rgba(17, 24, 39, 0.95)", backdropFilter: "blur(8px)" }}
+      >
+        <span className="text-[11px] sm:text-xs text-white/80 px-3 hidden sm:inline">{template.name}</span>
+        <button
+          onClick={handleUseTemplate}
+          disabled={using || status === "loading"}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs sm:text-sm text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
+          style={{ background: BLUE }}
+        >
+          {using ? (
+            <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          ) : session ? (
+            <>
+              Use this template
+              <ArrowRight size={13} />
+            </>
+          ) : (
+            <>
+              <Lock size={13} />
+              Sign up to use
+            </>
+          )}
+        </button>
+      </div>
 
       <footer className="border-t border-gray-200 py-6 px-4 text-center bg-white">
         <p className="text-xs text-gray-500">

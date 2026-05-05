@@ -7,8 +7,8 @@ import Link from "next/link";
 import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
-  CheckCircle, Loader2, Eye, PanelLeft, EyeOff, Info,
-  Share2, Plus, X, Copy,
+  CheckCircle, Loader2, Eye, PanelLeft, PanelRight, EyeOff, Info,
+  Share2, Plus, X, Copy, Settings,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
@@ -37,6 +37,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [published, setPublished] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("desktop");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<FloatingToolbarTarget | null>(null);
   const [selectedField, setSelectedField] = useState<SelectedField>(null);
   const [history, setHistory] = useState<GeneratedWebsite[]>([]);
@@ -53,7 +54,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   // Open sidebar by default only on desktop
   useEffect(() => {
-    setSidebarOpen(window.innerWidth >= 1024);
+    const isDesktop = window.innerWidth >= 1024;
+    setSidebarOpen(isDesktop);
+    setRightSidebarOpen(isDesktop);
   }, []);
 
   useEffect(() => {
@@ -366,14 +369,17 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     });
   }
 
-  function resizeSection(sectionId: string, minHeight: number) {
+  // Per-viewport resize: writes to `${viewMode}:minHeight` so desktop/tablet/
+  // mobile heights are stored independently and never affect each other.
+  function resizeSection(sectionId: string, minHeight: number, mode: ViewMode) {
     if (!website) return;
     const px = `${Math.max(120, Math.round(minHeight))}px`;
+    const scopedKey = `${mode}:minHeight`;
     pushHistory({
       ...website,
       sections: website.sections.map((s) =>
         s.id === sectionId
-          ? { ...s, styles: { ...(s.styles || {}), minHeight: px } }
+          ? { ...s, styles: { ...(s.styles || {}), [scopedKey]: px } }
           : s
       ),
     });
@@ -626,6 +632,17 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             <span className="hidden md:inline">Save</span>
           </button>
 
+          {/* Right panel toggle (Site + Payments settings) */}
+          <button
+            onClick={() => setRightSidebarOpen((v) => !v)}
+            className={`p-2 rounded-lg transition-colors ${
+              rightSidebarOpen ? "bg-gray-100 text-gray-900" : "hover:bg-gray-100 text-gray-500"
+            }`}
+            title="Site & payment settings"
+          >
+            <Settings size={15} />
+          </button>
+
           {/* Publish / Live + Unpublish */}
           {published ? (
             <div className="flex items-center gap-1 sm:gap-1.5">
@@ -662,7 +679,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden relative min-h-0">
 
-        {/* Options panel — overlay drawer on mobile/tablet, inline on lg+ */}
+        {/* LEFT panel — pages only (overlay on mobile, inline on lg+) */}
         <aside
           className={`
             bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0
@@ -680,11 +697,12 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               onDeleteSection={deleteSection}
               onDuplicateSection={duplicateSection}
               onScrollToSection={scrollToSection}
+              visibleTabs={["pages"]}
             />
           </div>
         </aside>
 
-        {/* Overlay for mobile/tablet sidebar */}
+        {/* Overlay for mobile/tablet LEFT sidebar */}
         {sidebarOpen && (
           <div
             className="absolute inset-0 bg-black/30 z-30 lg:hidden"
@@ -701,15 +719,21 @@ export default function EditorPage({ params }: { params: { id: string } }) {
           <style>{`
             /* ── MOBILE (390px frame) ── reset sm:, md:, lg: overrides ───────── */
 
-            /* grid columns → single column */
+            /* grid columns: stack content sections to 1col, but keep visual
+               product/team/gallery grids at 2col on mobile so cards don't
+               render one-by-one. The renderer's products/team/gallery use a
+               grid-cols-2 base + lg:grid-cols-3/4, so we collapse only the
+               lg breakpoint, not the base. */
             [data-preview="mobile"] .sm\\:grid-cols-2,
             [data-preview="mobile"] .sm\\:grid-cols-3,
             [data-preview="mobile"] .md\\:grid-cols-2,
+            [data-preview="mobile"] .lg\\:grid-cols-2 {
+              grid-template-columns: repeat(1,minmax(0,1fr)) !important;
+            }
             [data-preview="mobile"] .md\\:grid-cols-4,
-            [data-preview="mobile"] .lg\\:grid-cols-2,
             [data-preview="mobile"] .lg\\:grid-cols-3,
             [data-preview="mobile"] .lg\\:grid-cols-4 {
-              grid-template-columns: repeat(1,minmax(0,1fr)) !important;
+              grid-template-columns: repeat(2,minmax(0,1fr)) !important;
             }
 
             /* flex direction */
@@ -846,6 +870,37 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             </div>
           )}
         </main>
+
+        {/* RIGHT panel — site + payments settings (overlay on mobile, inline on lg+) */}
+        <aside
+          className={`
+            bg-white border-l border-gray-200 flex flex-col overflow-hidden shrink-0
+            transition-[width] duration-300 ease-in-out
+            absolute inset-y-0 right-0 z-40
+            lg:relative lg:z-auto
+            ${rightSidebarOpen ? "w-64 sm:w-72" : "w-0"}
+          `}
+        >
+          <div className="w-64 sm:w-72 h-full overflow-hidden">
+            <OptionsPanel
+              website={website}
+              onUpdateWebsite={(updates) => pushHistory({ ...website, ...updates } as GeneratedWebsite)}
+              onMoveSection={moveSection}
+              onDeleteSection={deleteSection}
+              onDuplicateSection={duplicateSection}
+              onScrollToSection={scrollToSection}
+              visibleTabs={["site", "payments"]}
+            />
+          </div>
+        </aside>
+
+        {/* Overlay for mobile/tablet RIGHT sidebar */}
+        {rightSidebarOpen && (
+          <div
+            className="absolute inset-0 bg-black/30 z-30 lg:hidden"
+            onClick={() => setRightSidebarOpen(false)}
+          />
+        )}
       </div>
 
       {/* Floating toolbar */}

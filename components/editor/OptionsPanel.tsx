@@ -25,10 +25,14 @@ interface Props {
   onDeleteSection: (id: string) => void;
   onDuplicateSection: (id: string) => void;
   onScrollToSection?: (sectionId: string) => void;
+  // Restrict which tabs are visible. Defaults to all three for back-compat.
+  // Pass ["pages"] for the left panel and ["site", "payments"] for the right.
+  visibleTabs?: Tab[];
 }
 
-export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection, onScrollToSection }: Props) {
-  const [tab, setTab] = useState<Tab>("pages");
+export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection, onScrollToSection, visibleTabs }: Props) {
+  const allowed: Tab[] = visibleTabs && visibleTabs.length > 0 ? visibleTabs : ["pages", "site", "payments"];
+  const [tab, setTab] = useState<Tab>(allowed[0]);
 
   const settings = (website as any).settings || {};
   const payments = settings.payments || {};
@@ -53,11 +57,12 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
   const inp = "w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:bg-white text-gray-800 transition-colors";
   const lbl = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
 
-  const tabs = [
+  const tabs = ([
     { id: "pages" as Tab, Icon: Layers, label: "Pages" },
     { id: "site" as Tab, Icon: Store, label: "Site" },
     { id: "payments" as Tab, Icon: CreditCard, label: "Payments" },
-  ];
+  ] as const).filter((t) => allowed.includes(t.id));
+  const showTabBar = tabs.length > 1;
 
   // Get nav section links for "Website Pages" list
   const navSection = website.sections.find((s) => s.type === "nav");
@@ -72,23 +77,36 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-white">
-      {/* Tab bar */}
-      <div className="flex border-b border-gray-100 shrink-0">
-        {tabs.map(({ id, Icon, label }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ${
-              tab === id
-                ? "text-blue-600 border-b-2 border-blue-600 -mb-px"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Icon size={14} strokeWidth={tab === id ? 2.5 : 2} />
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Tab bar — hidden when only one tab is allowed (e.g. left panel = pages-only) */}
+      {showTabBar && (
+        <div className="flex border-b border-gray-100 shrink-0">
+          {tabs.map(({ id, Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ${
+                tab === id
+                  ? "text-blue-600 border-b-2 border-blue-600 -mb-px"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              <Icon size={14} strokeWidth={tab === id ? 2.5 : 2} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {!showTabBar && tabs[0] && (() => {
+        const Icon = tabs[0].Icon;
+        return (
+          <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Icon size={14} className="text-gray-500" />
+              {tabs[0].label}
+            </h2>
+          </div>
+        );
+      })()}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
 

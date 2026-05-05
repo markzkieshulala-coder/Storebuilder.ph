@@ -34,8 +34,8 @@ export type EditorContextType = {
   onResetEditor: (sectionId: string, field: string) => void;
   getEditorState: (sectionId: string, field: string) => EditorFieldState | undefined;
 
-  // Section-level adjustments (height + reorder)
-  onResizeSection?: (sectionId: string, minHeight: number) => void;
+  // Section-level adjustments (height per-viewport + reorder)
+  onResizeSection?: (sectionId: string, minHeight: number, mode: ViewMode) => void;
   onReorderSections?: (fromIndex: number, toIndex: number) => void;
 
   // Batch-update one item inside an array field (e.g. a single product)

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
-import { EditorContext, EditorContextType } from "@/components/editor/EditorContext";
+import { EditorContext, EditorContextType, ViewMode } from "@/components/editor/EditorContext";
 import NavSection from "./sections/NavSection";
 import HeroSection from "./sections/HeroSection";
 import FeaturesSection from "./sections/FeaturesSection";
@@ -106,6 +106,10 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
       .website-render,.website-render p,.website-render span,
       .website-render a,.website-render li,.website-render button,
       .website-render input,.website-render textarea,.website-render label{font-family:var(--body-font)}
+      /* When the section wrapper has a min-height set (user resized it),
+         force the immediate child <section> to flex-grow so its background
+         and content fill the entire wrapper instead of leaving a gap. */
+      .website-render > [data-sb-section-index] > * { flex: 1 1 auto; min-height: 0; }
     `;
   }, []);
 
@@ -145,7 +149,9 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
               SectionComponent={SectionComponent}
               anchorId={anchorId}
               index={i}
+              total={website.sections?.length || 0}
               isEditable={isEditable}
+              viewMode={ctx.viewMode}
               onResizeSection={ctx.onResizeSection}
             />
           );
@@ -156,8 +162,10 @@ export default function WebsiteRenderer({ website, editorContext }: Props) {
 }
 
 // SectionShell wraps each section with a single bottom-edge resize handle.
+// minHeight is stored per-viewport — desktop/tablet/mobile each have their
+// own height, so resizing in one view never affects the others.
 function SectionShell({
-  section, website, SectionComponent, anchorId, index, isEditable,
+  section, website, SectionComponent, anchorId, index, total, isEditable, viewMode,
   onResizeSection,
 }: {
   section: Section;
@@ -165,8 +173,10 @@ function SectionShell({
   SectionComponent: React.ComponentType<{ section: Section; website: GeneratedWebsite }>;
   anchorId: string;
   index: number;
+  total: number;
   isEditable: boolean;
-  onResizeSection?: (sectionId: string, minHeight: number) => void;
+  viewMode: ViewMode;
+  onResizeSection?: (sectionId: string, minHeight: number, mode: ViewMode) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dragHeightRef = useRef<number | null>(null);
@@ -174,14 +184,32 @@ function SectionShell({
   const [resizing, setResizing] = useState(false);
   const [liveHeight, setLiveHeight] = useState<number | null>(null);
   const sectionAlign = section.styles?.textAlign as "left" | "center" | "right" | undefined;
+
+  // Per-viewport height: prefer scoped key (e.g. "mobile:minHeight"),
+  // fall back to the legacy unscoped "minHeight" only on desktop so older
+  // saves don't break.
   const minHeight = useMemo(() => {
-    const raw = section.styles?.minHeight;
+    const styles = section.styles || {};
+    const scoped = (styles as any)[`${viewMode}:minHeight`];
+    const raw = scoped ?? (viewMode === "desktop" ? styles.minHeight : undefined);
     const n = raw ? parseFloat(raw as unknown as string) : NaN;
     return Number.isFinite(n) && n > 0 ? n : null;
-  }, [section.styles?.minHeight]);
+  }, [section.styles, viewMode]);
 
   // liveHeight takes priority during active drag; fall back to saved minHeight
   const displayHeight = liveHeight ?? minHeight;
+
+  // Section types whose resize handle would be useless or visually confusing.
+  // Nav is sticky and fixed-height; footer is the very last section so its
+  // bottom handle has no real estate below it.
+  const hideHandle = section.type === "nav" || section.type === "footer";
+
+  // Read the section's own background so when min-height makes the wrapper
+  // taller than its inner content, the visible filler matches the section
+  // background (not the page bg). Without this, resizing some sections only
+  // appears to "grow the empty space" because the wrapper has no background.
+  const sectionBg = (section.styles?.background as string | undefined) ||
+    website.colors?.background || undefined;
 
   // Bottom-edge resize: adjust section minHeight.
   // liveHeight drives the visual clip during drag; onResizeSection is only
@@ -209,7 +237,7 @@ function SectionShell({
       setResizing(false);
       setLiveHeight(null);
       if (dragHeightRef.current != null) {
-        onResizeSection(section.id, dragHeightRef.current);
+        onResizeSection(section.id, dragHeightRef.current, viewMode);
         dragHeightRef.current = null;
       }
       try { target.releasePointerCapture(e.pointerId); } catch {}
@@ -240,7 +268,14 @@ function SectionShell({
           position: "relative",
           scrollMarginTop: "80px",
           textAlign: sectionAlign || undefined,
-          ...(displayHeight ? { height: `${displayHeight}px`, overflow: "hidden" } : {}),
+          // displayHeight applied as min-height so resizing a section taller
+          // than its natural content fills with the section's own background
+          // (no transparent gap revealing the page bg). Inner section is
+          // forced to fill the wrapper via the CSS rule injected below.
+          ...(displayHeight ? { minHeight: `${displayHeight}px` } : {}),
+          background: displayHeight ? sectionBg : undefined,
+          display: "flex",
+          flexDirection: "column",
           outline: resizing ? "2px dashed #1877F2" : undefined,
           outlineOffset: resizing ? "-2px" : undefined,
           transition: resizing ? "none" : "outline-color 0.12s ease",
@@ -249,7 +284,7 @@ function SectionShell({
         <SectionComponent section={section} website={website} />
       </div>
 
-      {isEditable && (
+      {isEditable && !hideHandle && index < total - 1 && (
         // Thin draggable strip — fully overlaps the section bottom so sections
         // stay flush (no visible gap between them). The pill is positioned so
         // it sits centred on the section boundary.

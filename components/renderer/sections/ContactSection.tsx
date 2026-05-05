@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
-import { Mail, Phone, MapPin, ImagePlus } from "lucide-react";
+import { Mail, Phone, MapPin, ImagePlus, Loader2 } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
 
@@ -9,6 +9,8 @@ export default function ContactSection({ section, website }: { section: Section;
   const d = section.data as any;
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = section.styles?.accentColor || website.colors?.secondary || "#c9a84c";
   const bg = section.styles?.background || website.colors?.primary || "#12122a";
@@ -98,12 +100,57 @@ export default function ContactSection({ section, website }: { section: Section;
             )}
           </div>
           {!sent ? (
-            <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="space-y-3 sm:space-y-4">
-              <input placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} style={inputStyle} />
-              <input type="email" placeholder="Email address" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} style={inputStyle} />
-              <textarea placeholder="Your message" rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors resize-none" style={inputStyle} />
-              <button type="submit" className="w-full py-3.5 rounded-xl font-semibold text-sm min-h-[48px]" style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
-                Send message
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (isEditable) return; // editor preview: no real submission
+                if (submitting) return;
+                setErrorMsg("");
+                if (!website.subdomain) {
+                  setErrorMsg("Publish this site to enable the contact form.");
+                  return;
+                }
+                setSubmitting(true);
+                try {
+                  const res = await fetch("/api/contact", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      subdomain: website.subdomain,
+                      name: form.name,
+                      email: form.email,
+                      message: form.message,
+                      // also pass the email shown in the contact section as a fallback
+                      sectionEmail: d.details?.email || undefined,
+                    }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    setErrorMsg(data.error || "Could not send message. Please try again.");
+                    return;
+                  }
+                  setSent(true);
+                } catch {
+                  setErrorMsg("Network error. Please try again.");
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              className="space-y-3 sm:space-y-4"
+            >
+              <input placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClass} style={inputStyle} />
+              <input type="email" placeholder="Email address" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className={inputClass} style={inputStyle} />
+              <textarea placeholder="Your message" rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors resize-none" style={inputStyle} />
+              {errorMsg && (
+                <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.12)", color: "#fca5a5" }}>{errorMsg}</p>
+              )}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl font-semibold text-sm min-h-[48px] flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
+              >
+                {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : "Send message"}
               </button>
             </form>
           ) : (

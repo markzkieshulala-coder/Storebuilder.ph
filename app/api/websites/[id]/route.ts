@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -79,7 +80,14 @@ export async function PATCH(
     const sql = `UPDATE "Website" SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`;
     const updatedRows = await prisma.$queryRawUnsafe<any[]>(sql, ...values);
 
-    return NextResponse.json({ website: updatedRows[0] });
+    // If we updated content for a published site, bust ISR so the live page
+    // reflects the edit on the next request instead of waiting up to 60s.
+    const updated = updatedRows[0];
+    if (updated?.published && (jsonContent !== undefined || name !== undefined)) {
+      try { revalidatePath(`/sites/${updated.subdomain}`); } catch {}
+    }
+
+    return NextResponse.json({ website: updated });
   } catch (err: any) {
     console.error("[PATCH /api/websites/[id]]", err);
     return NextResponse.json(

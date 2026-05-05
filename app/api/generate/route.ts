@@ -8,8 +8,11 @@ import { generateSubdomain } from "@/lib/utils";
 import { Plan } from "@prisma/client";
 import { z } from "zod";
 
+// Allow long, detailed prompts (≈ up to 1000 words) so users can describe
+// their business at length. The previous 500-char cap turned the input into
+// a one-liner; the AI now gets enough context to produce a tailored site.
 const generateSchema = z.object({
-  prompt: z.string().min(5, "Prompt too short").max(500, "Prompt too long"),
+  prompt: z.string().min(5, "Prompt too short").max(8000, "Prompt too long"),
 });
 
 export async function POST(req: NextRequest) {

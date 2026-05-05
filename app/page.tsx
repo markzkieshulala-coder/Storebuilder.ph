@@ -471,32 +471,43 @@ export default function HomePage() {
             Describe your business. Get a complete, beautiful, fully editable website instantly. Made for every Filipino entrepreneur.
           </p>
 
-          {/* Prompt input */}
+          {/* Prompt input — large square box that comfortably fits 500–1000 words */}
           <div className="max-w-2xl mx-auto">
-            <div className="prompt-glow rounded-xl bg-white border border-gray-200 p-2 flex gap-2 shadow-sm">
-              <input
-                type="text"
+            <div className="prompt-glow rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+              <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
+                }}
                 placeholder={isTyping ? displayedPrompt + "|" : displayedPrompt}
-                className="flex-1 bg-transparent px-4 py-3 text-gray-900 placeholder-gray-400 outline-none text-base"
+                rows={8}
+                maxLength={8000}
+                className="w-full bg-transparent px-5 py-4 text-gray-900 placeholder-gray-400 outline-none text-base resize-none min-h-[220px] leading-relaxed"
               />
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2 transition-opacity disabled:opacity-60 whitespace-nowrap"
-                style={{ backgroundColor: BLUE }}
-              >
-                {isGenerating ? (
-                  <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Sparkles size={16} />
-                    Generate
-                  </>
-                )}
-              </button>
+              <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-1 border-t border-gray-100">
+                <span className="text-xs text-gray-400 px-2">
+                  {prompt.trim() ? `${prompt.trim().split(/\s+/).filter(Boolean).length} words` : "Tip: 500–1000 words gives the richest result"}
+                </span>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="px-5 py-2.5 rounded-lg font-semibold text-white flex items-center gap-2 transition-opacity disabled:opacity-60 whitespace-nowrap"
+                  style={{ backgroundColor: BLUE }}
+                >
+                  {isGenerating ? (
+                    <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Generate
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2 mt-4 justify-center">

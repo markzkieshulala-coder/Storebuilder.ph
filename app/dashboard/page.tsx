@@ -17,10 +17,20 @@ import { timeUntilReset } from "@/lib/utils";
 const BLUE = "#1877F2";
 const FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";
 
+type WebsitePreview = {
+  image: string | null;
+  headline: string;
+  logo: string;
+  background: string;
+  text: string;
+  accent: string;
+};
+
 type Website = {
   id: string; name: string; type: string; subdomain: string | null;
   customDomain: string | null; published: boolean; thumbnail: string | null;
   seoTitle: string | null; createdAt: string; updatedAt: string;
+  preview?: WebsitePreview | null;
 };
 
 type Credits = {
@@ -302,26 +312,37 @@ function DashboardContent() {
                 <p className="text-xs text-[#8A8D91] mt-1">This takes about 10–20 seconds</p>
               </div>
             ) : (
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
+              <div className="bg-[#F0F2F5] border border-[#E4E6EB] rounded-2xl overflow-hidden focus-within:border-blue-400 focus-within:bg-white transition-all">
+                <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                  placeholder='e.g. "Barbershop called Kings Cut in Makati"'
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      handleGenerate();
+                    }
+                  }}
+                  placeholder='Describe your business in detail. Mention your industry, location, target customers, services or products, brand tone, colors you like, and anything else that makes the business unique. The more context you give (500–1000 words is ideal), the more tailored your website.'
                   disabled={!credits?.canGenerate && !isPro}
-                  className="flex-1 bg-[#F0F2F5] border border-[#E4E6EB] rounded-xl px-4 py-3 text-sm text-[#1C1E21] outline-none transition-all focus:border-blue-400 focus:bg-white disabled:opacity-50"
+                  rows={10}
+                  maxLength={8000}
+                  className="w-full bg-transparent px-4 py-3 text-sm text-[#1C1E21] outline-none transition-all disabled:opacity-50 resize-none min-h-[240px] leading-relaxed"
                   style={{ fontFamily: FONT }}
                 />
-                <button
-                  onClick={() => handleGenerate()}
-                  disabled={!credits?.canGenerate && !isPro}
-                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
-                  style={{ background: BLUE, fontFamily: FONT }}
-                >
-                  <Sparkles size={15} />
-                  Generate
-                </button>
+                <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-1 border-t border-[#E4E6EB]/60">
+                  <span className="text-xs text-[#8A8D91] px-2">
+                    {prompt.trim() ? `${prompt.trim().split(/\s+/).filter(Boolean).length} words` : "Tip: aim for 500–1000 words for the richest result"}
+                  </span>
+                  <button
+                    onClick={() => handleGenerate()}
+                    disabled={!credits?.canGenerate && !isPro}
+                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
+                    style={{ background: BLUE, fontFamily: FONT }}
+                  >
+                    <Sparkles size={15} />
+                    Generate
+                  </button>
+                </div>
               </div>
             )}
             {!isGenerating && credits && !isPro && credits.remaining === 0 && (
@@ -349,11 +370,50 @@ function DashboardContent() {
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-white border border-[#E4E6EB] rounded-2xl overflow-hidden"
                 >
-                  {/* Thumbnail */}
-                  <div className="h-32 sm:h-36 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative">
-                    <Globe size={28} className="text-blue-200" />
+                  {/* Thumbnail — mini render of the site's first/hero section.
+                      Falls back to a clean brand-colored card if we don't yet
+                      have any extracted preview. No more globe icon. */}
+                  <div
+                    className="h-32 sm:h-36 relative overflow-hidden"
+                    style={{ background: site.preview?.background || "#0d0d1a" }}
+                  >
+                    {site.preview?.image && (
+                      <img
+                        src={site.preview.image}
+                        alt={site.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    {/* Dark gradient over the image so the nav/headline read */}
+                    {site.preview?.image && (
+                      <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 35%, rgba(0,0,0,0.7) 100%)" }} />
+                    )}
+                    {/* Mini nav bar */}
+                    <div className="absolute top-0 left-0 right-0 px-3 py-2 flex items-center justify-between">
+                      <span
+                        className="text-[11px] font-bold tracking-wide truncate max-w-[60%]"
+                        style={{ color: site.preview?.accent || "#fff" }}
+                      >
+                        {site.preview?.logo || site.name}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full" style={{ background: site.preview?.text || "#fff", opacity: 0.5 }} />
+                        <span className="w-1 h-1 rounded-full" style={{ background: site.preview?.text || "#fff", opacity: 0.5 }} />
+                        <span className="w-1 h-1 rounded-full" style={{ background: site.preview?.text || "#fff", opacity: 0.5 }} />
+                      </div>
+                    </div>
+                    {/* Headline */}
+                    <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5">
+                      <p
+                        className="text-[11px] font-semibold leading-snug line-clamp-2"
+                        style={{ color: site.preview?.text || "#fff" }}
+                      >
+                        {site.preview?.headline || site.name}
+                      </p>
+                    </div>
                     {site.published && (
-                      <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+                      <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold shadow-sm">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Live
                       </div>
