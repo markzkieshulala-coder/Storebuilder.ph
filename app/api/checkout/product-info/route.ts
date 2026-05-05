@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   }
 
   const website = await prisma.website.findFirst({
-    where: { subdomain, published: true },
+    where: { subdomain },
   });
   if (!website) {
     return NextResponse.json({ error: "Store not found" }, { status: 404 });

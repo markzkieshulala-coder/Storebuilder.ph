@@ -156,6 +156,7 @@ export default function ProductsSection({ section, website }: { section: Section
 
                 <div className="p-3 sm:p-4 lg:p-5">
                   <h3
+                    key={`name-${product.id || ri}-${product.name}`}
                     className="font-bold text-sm sm:text-base lg:text-lg mb-1 line-clamp-2"
                     style={{ fontFamily: "var(--heading-font)", color: textColor, outline: "none" }}
                     contentEditable={isEditable}
@@ -168,6 +169,7 @@ export default function ProductsSection({ section, website }: { section: Section
                   </h3>
                   {(product.description || isEditable) && (
                     <p
+                      key={`desc-${product.id || ri}-${product.description || ""}`}
                       className="text-xs sm:text-sm opacity-60 mb-2 leading-relaxed line-clamp-2"
                       style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : undefined }}
                       contentEditable={isEditable}
@@ -207,6 +209,7 @@ export default function ProductsSection({ section, website }: { section: Section
                   <div className="flex items-center justify-between gap-2 mt-1.5 sm:mt-0">
                     <div className="min-w-0">
                       <span
+                        key={`price-${product.id || ri}-${product.price}`}
                         className="text-sm sm:text-lg lg:text-xl font-bold whitespace-nowrap"
                         style={{ color: accent, outline: "none" }}
                         contentEditable={isEditable}

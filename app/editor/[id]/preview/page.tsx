@@ -44,9 +44,9 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  // Only inject subdomain for published sites — the checkout API requires
-  // published:true, so unpublished previews must not send visitors to a 404.
-  const websiteWithSubdomain = website && subdomain && published
+  // Always inject subdomain so product links work in preview. For unpublished
+  // sites the payment API still blocks checkout, but the product info page loads.
+  const websiteWithSubdomain = website && subdomain
     ? { ...website, subdomain }
     : website;
 
