@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  ArrowLeft, User, Mail, Crown, CreditCard, AlertTriangle, Globe,
-  Shield, Menu, X, Settings as SettingsIcon,
+  ArrowLeft, User, Mail, Crown, CreditCard, AlertTriangle, AlertCircle, Globe,
+  Shield, Menu, X, Settings as SettingsIcon, LifeBuoy,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -186,6 +186,7 @@ function AccountTab({ session, update }: any) {
   const [email, setEmail] = useState(session?.user?.email || "");
   const [savingName, setSavingName] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user?.name) setName(session.user.name);
@@ -206,22 +207,29 @@ function AccountTab({ session, update }: any) {
     } finally { setSavingName(false); }
   }
 
-  async function saveEmail(e: React.FormEvent) {
+  // Email changes go through a verification flow — we send a confirmation
+  // link to the CURRENT email and only swap addresses after the user clicks
+  // it. The old PATCH /api/user/email endpoint is no longer used here.
+  async function requestEmailChange(e: React.FormEvent) {
     e.preventDefault();
     if (!email.includes("@")) { toast.error("Enter a valid email"); return; }
     setSavingEmail(true);
     try {
-      const res = await fetch("/api/user/email", {
-        method: "PATCH",
+      const res = await fetch("/api/user/email/request", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ newEmail: email }),
       });
       const data = await res.json();
-      if (res.ok) {
-        await update({ email: data.email });
-        toast.success("Email updated. Sign in again to refresh your session.");
-      } else toast.error(data.error || "Failed to update email");
-    } finally { setSavingEmail(false); }
+      if (!res.ok) {
+        toast.error(data.error || "Failed to request email change");
+        return;
+      }
+      setEmailNotice(data.message || `Verification link sent to ${session?.user?.email}.`);
+      toast.success("Verification email sent");
+    } finally {
+      setSavingEmail(false);
+    }
   }
 
   return (
@@ -239,15 +247,47 @@ function AccountTab({ session, update }: any) {
       </Card>
 
       <Card title="Email Address" desc="Used to sign in and receive notifications." icon={Mail}>
-        <form onSubmit={saveEmail} className="space-y-4">
+        {emailNotice && (
+          <div className="mb-4 rounded-lg border border-[#FBBF24]/40 bg-[#FFFBEB] p-3 text-xs text-[#92400E] flex items-start gap-2">
+            <AlertCircle size={13} className="mt-0.5 shrink-0" />
+            <span>{emailNotice}</span>
+          </div>
+        )}
+
+        <form onSubmit={requestEmailChange} className="space-y-4">
           <div>
             <label className={labelCls}>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="you@example.com" />
-            <p className="text-xs text-[#8A8D91] mt-1.5">Changing your email will require you to sign in again.</p>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputCls}
+              placeholder="you@example.com"
+            />
+            <div className="mt-2 rounded-lg border border-[#1877F2]/20 bg-[#EBF3FF] p-2.5 text-xs text-[#1C1E21] flex items-start gap-2">
+              <AlertCircle size={13} className="mt-0.5 shrink-0 text-[#1877F2]" />
+              <span>
+                For your security, we'll send a confirmation link to your <strong>current</strong> email
+                ({session?.user?.email}). The change only takes effect after you click that link.
+              </span>
+            </div>
           </div>
-          <button type="submit" disabled={savingEmail} className={btnPrimary}>
-            {savingEmail ? "Saving…" : "Update email"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={savingEmail || !email || email === session?.user?.email}
+              className={btnPrimary}
+            >
+              {savingEmail ? "Sending…" : "Send confirmation link"}
+            </button>
+            <a
+              href="mailto:support@storebuilder.ph?subject=Email%20change%20request"
+              className="inline-flex items-center gap-1.5 text-xs text-[#65676B] hover:text-[#1877F2] transition-colors"
+            >
+              <LifeBuoy size={12} />
+              Can't access your current email? Contact support
+            </a>
+          </div>
         </form>
       </Card>
 

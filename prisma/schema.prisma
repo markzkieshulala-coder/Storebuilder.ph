@@ -51,6 +51,18 @@ model User {
   location      String?
   isInfluencer  Boolean   @default(false)
   settings      Json?
+
+  // Deferred plan change — when set, user will downgrade/cancel at planExpiresAt
+  // pendingPlan is the plan they will become; null means no change pending.
+  pendingPlan   Plan?
+  pendingPlanAt DateTime?
+
+  // Email change verification — pendingEmail is the new email awaiting OTP
+  // confirmation from the CURRENT email; expires after 30 minutes.
+  pendingEmail        String?
+  pendingEmailToken   String?
+  pendingEmailExpires DateTime?
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -156,6 +168,12 @@ model Subscription {
   amount          Int      // in centavos
   currency        String   @default("PHP")
   paymentLinkUrl  String?
+
+  // Deferred cancel — when true, subscription will not auto-renew and the
+  // user keeps access until currentPeriodEnd. Set by /api/subscription/cancel.
+  cancelAtPeriodEnd  Boolean  @default(false)
+  currentPeriodEnd   DateTime?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

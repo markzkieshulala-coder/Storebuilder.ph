@@ -174,3 +174,44 @@ export async function sendSignInNotificationEmail(opts: {
 </html>`,
   });
 }
+
+export async function sendEmailChangeVerification(opts: {
+  currentEmail: string;
+  newEmail: string;
+  verifyUrl: string;
+  token: string;
+}) {
+  return sendMail({
+    to: opts.currentEmail,
+    subject: "Confirm your email change · Storebuilder.ph",
+    text: `We received a request to change your Storebuilder.ph email from ${opts.currentEmail} to ${opts.newEmail}. Confirm within 30 minutes by visiting: ${opts.verifyUrl}\n\nIf you didn't request this, ignore this email. Can't access your current email? Contact support@storebuilder.ph.`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Google Sans',Roboto,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">
+        <tr><td style="background:#1877F2;padding:28px 32px;text-align:center">
+          <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px">Storebuilder<span style="opacity:0.75">.ph</span></h1>
+        </td></tr>
+        <tr><td style="padding:36px 32px">
+          <h2 style="margin:0 0 8px;color:#111827;font-size:20px;font-weight:700">Confirm your email change</h2>
+          <p style="margin:0 0 16px;color:#6b7280;font-size:15px;line-height:1.6">We received a request to change the email on your account from <strong>${opts.currentEmail}</strong> to <strong>${opts.newEmail}</strong>.</p>
+          <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.6">Click the button below within <strong>30 minutes</strong> to confirm. If you didn't request this, ignore this email — your address will stay the same.</p>
+          <a href="${opts.verifyUrl}" style="display:inline-block;background:#1877F2;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 28px;border-radius:10px;margin-bottom:24px">Confirm email change</a>
+          <p style="margin:0 0 8px;color:#9ca3af;font-size:13px">Or copy this link into your browser:</p>
+          <p style="margin:0 0 24px;word-break:break-all;font-size:12px;color:#6b7280;background:#f9fafb;padding:10px 12px;border-radius:8px;border:1px solid #e5e7eb">${opts.verifyUrl}</p>
+          <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.5">Can't access your current email? Contact support at <a href="mailto:support@storebuilder.ph" style="color:#1877F2;text-decoration:none">support@storebuilder.ph</a>.</p>
+        </td></tr>
+        <tr><td style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} Storebuilder.ph — All rights reserved</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}

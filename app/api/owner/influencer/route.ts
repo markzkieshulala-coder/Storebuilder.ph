@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     const { email, plan } = await req.json();
     if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    if (!["FREE", "PRO"].includes(plan)) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    if (!["FREE", "PRO", "ENTERPRISE"].includes(plan)) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const found = await prisma.user.findUnique({
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
     const user = await prisma.user.update({
       where: { id: found.id },
-      data: { plan: plan as "FREE" | "PRO" },
+      data: { plan: plan as "FREE" | "PRO" | "ENTERPRISE" },
       select: { id: true, email: true, name: true, plan: true },
     });
 

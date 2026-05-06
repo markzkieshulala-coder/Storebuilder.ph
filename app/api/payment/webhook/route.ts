@@ -55,9 +55,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Update subscription status — also set currentPeriodEnd so the deferred
+    // cancellation flow knows when access actually lapses.
     await prisma.subscription.updateMany({
       where: { paymongoId: linkId },
-      data: { status: "ACTIVE" },
+      data: {
+        status: "ACTIVE",
+        currentPeriodEnd: expiresAt,
+        cancelAtPeriodEnd: false,
+      },
     });
 
     console.log(`User ${userId} upgraded to ${tier} via PayMongo link ${linkId}`);

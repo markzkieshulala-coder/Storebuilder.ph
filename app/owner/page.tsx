@@ -43,7 +43,7 @@ export default function OwnerPage() {
 
   // Influencer form state
   const [infEmail, setInfEmail]       = useState("");
-  const [infPlan, setInfPlan]         = useState<"FREE" | "PRO">("FREE");
+  const [infPlan, setInfPlan]         = useState<"FREE" | "PRO" | "ENTERPRISE">("FREE");
   const [infLoading, setInfLoading]   = useState(false);
   const [infMsg, setInfMsg]           = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -130,12 +130,26 @@ export default function OwnerPage() {
   const influencers = useMemo(() => users.filter((u) => u.isInfluencer), [users]);
 
   const userStatus = (u: UserRow): "Enterprise" | "Active" | "Former" | "Free" => {
-    if (u.isInfluencer) return "Enterprise";
+    if (u.plan === "ENTERPRISE") return "Enterprise";
     const latest = userSubMap.get(u.id);
     if (u.plan === "PRO" && latest?.status === "ACTIVE") return "Active";
     if (paidUserIds.has(u.id) && u.plan === "FREE") return "Former";
     return "Free";
   };
+
+  // Display label combining the actual plan with the Influencer flag — e.g.
+  // "Pro / Influencer" or "Enterprise / Influencer" so admins can see both
+  // at a glance in the user list.
+  const planLabel = (plan: string): string =>
+    plan === "ENTERPRISE" ? "Enterprise" : plan === "PRO" ? "Pro" : "Free";
+
+  const statusLabel = (u: UserRow): string =>
+    u.isInfluencer ? `${planLabel(u.plan)} / Influencer` : planLabel(u.plan);
+
+  const planTone = (plan: string) =>
+    plan === "ENTERPRISE" ? { bg: "#F5F3FF", color: "#7C3AED" }
+    : plan === "PRO"      ? { bg: "#EBF3FF", color: BLUE }
+    :                       { bg: "#F3F4F6", color: "#6B7280" };
 
   async function addInfluencer() {
     if (!infEmail.trim()) return;
@@ -148,7 +162,7 @@ export default function OwnerPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setInfMsg({ text: `${data.user.email} is now an Influencer (Enterprise · ${infPlan})`, ok: true });
+        setInfMsg({ text: `${data.user.email} is now an Influencer on the ${planLabel(infPlan)} plan`, ok: true });
         setInfEmail("");
         setUsers((prev) => prev.map((u) =>
           u.email?.toLowerCase() === infEmail.trim().toLowerCase()
@@ -393,6 +407,35 @@ export default function OwnerPage() {
             {/* ── TOTAL USERS ── */}
             {!loading && active === "Total Users" && (
               <>
+                {/* All Users blue banner */}
+                <div style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #0D5DBD 100%)`, borderRadius: "14px", padding: "22px 24px", color: "#fff", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", opacity: 0.8 }}>All Users</div>
+                    <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, margin: "10px 0 4px" }}>{users.length.toLocaleString()}</div>
+                    <div style={{ fontSize: "11px", opacity: 0.75 }}>registered accounts on Storebuilder.ph</div>
+                  </div>
+                </div>
+
+                {/* Plan breakdown — Free / Pro / Enterprise */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                  {([
+                    { label: "Free",       plan: "FREE",       count: users.filter(u => u.plan === "FREE").length,       tone: { bg: "#F3F4F6", color: "#6B7280" } },
+                    { label: "Pro",        plan: "PRO",        count: users.filter(u => u.plan === "PRO").length,        tone: { bg: "#EBF3FF", color: BLUE } },
+                    { label: "Enterprise", plan: "ENTERPRISE", count: users.filter(u => u.plan === "ENTERPRISE").length, tone: { bg: "#F5F3FF", color: "#7C3AED" } },
+                  ] as const).map((c) => (
+                    <div key={c.plan} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", padding: "16px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: c.tone.bg, color: c.tone.color }}>{c.label}</span>
+                        <span style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600 }}>
+                          {users.length > 0 ? ((c.count / users.length) * 100).toFixed(1) : "0.0"}%
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "22px", fontWeight: 700, color: "#111827" }}>{c.count.toLocaleString()}</div>
+                      <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>users on this plan</div>
+                    </div>
+                  ))}
+                </div>
+
                 <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
                   {([
                     { key: "all",        label: `All Users (${users.length})`,                                              ac: BLUE     },
@@ -427,7 +470,7 @@ export default function OwnerPage() {
                           const amount   = sub && sub.status === "ACTIVE" ? `\u20B1${(sub.amount / 100).toLocaleString()}${sub.billingCycle === "MONTHLY" ? "/mo" : "/yr"}` : na ? "N/A" : "\u2014";
                           const billing  = sub && sub.status === "ACTIVE" ? getNextBilling(sub) : na ? "N/A" : "\u2014";
                           const method   = sub && sub.status === "ACTIVE" ? (sub.paymongoId ? "PayMongo" : "Manual") : na ? "N/A" : "\u2014";
-                          const sc       = status === "Enterprise" ? { bg: "#F5F3FF", color: "#7C3AED" } : status === "Active" ? { bg: "#D1FAE5", color: "#065F46" } : status === "Former" ? { bg: "#FEE2E2", color: "#991B1B" } : { bg: "#F3F4F6", color: "#6B7280" };
+                          const planT    = planTone(u.plan);
                           return (
                             <tr key={u.id}>
                               <td style={TD}>
@@ -439,8 +482,12 @@ export default function OwnerPage() {
                                 </a>
                               </td>
                               <td style={TD}>{u.name || "\u2014"}</td>
-                              <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: sc.bg, color: sc.color }}>{status}</span></td>
-                              <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
+                              <td style={TD}>
+                                <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: planT.bg, color: planT.color }}>
+                                  {statusLabel(u)}
+                                </span>
+                              </td>
+                              <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: planT.bg, color: planT.color }}>{planLabel(u.plan)}</span></td>
                               <td style={{ ...TD, fontWeight: na ? 400 : 600, fontFamily: na ? FONT : "monospace", color: na ? "#9CA3AF" : "#111827" }}>{amount}</td>
                               <td style={{ ...TD, fontSize: "12px", color: na ? "#9CA3AF" : "#6B7280", whiteSpace: "nowrap" }}>{billing}</td>
                               <td style={TD}>{sub && sub.status === "ACTIVE" ? <span style={{ padding: "2px 8px", background: "#F0F9FF", color: "#0369A1", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>{method}</span> : <span style={{ fontSize: "13px", color: na ? "#9CA3AF" : "#D1D5DB" }}>{method}</span>}</td>
@@ -475,9 +522,10 @@ export default function OwnerPage() {
                     </div>
                     <div style={{ minWidth: "130px" }}>
                       <div style={{ fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "6px" }}>Assign Plan</div>
-                      <select value={infPlan} onChange={(e) => setInfPlan(e.target.value as "FREE" | "PRO")} style={SELECT}>
+                      <select value={infPlan} onChange={(e) => setInfPlan(e.target.value as "FREE" | "PRO" | "ENTERPRISE")} style={SELECT}>
                         <option value="FREE">Free</option>
                         <option value="PRO">Pro</option>
+                        <option value="ENTERPRISE">Enterprise</option>
                       </select>
                     </div>
                     <button onClick={addInfluencer} disabled={infLoading || !infEmail.trim()}
@@ -515,8 +563,16 @@ export default function OwnerPage() {
                               </a>
                             </td>
                             <td style={TD}>{u.name || "—"}</td>
-                            <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#F5F3FF", color: "#7C3AED" }}>Enterprise</span></td>
-                            <td style={TD}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: u.plan === "PRO" ? "#EBF3FF" : "#F3F4F6", color: u.plan === "PRO" ? BLUE : "#6B7280" }}>{u.plan}</span></td>
+                            <td style={TD}>
+                              {(() => { const t = planTone(u.plan); return (
+                                <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: t.bg, color: t.color }}>{statusLabel(u)}</span>
+                              ); })()}
+                            </td>
+                            <td style={TD}>
+                              {(() => { const t = planTone(u.plan); return (
+                                <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: t.bg, color: t.color }}>{planLabel(u.plan)}</span>
+                              ); })()}
+                            </td>
                             <td style={{ ...TD, fontSize: "12px", color: "#9CA3AF", whiteSpace: "nowrap" }}>{new Date(u.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
                             <td style={TD}>
                               <button onClick={() => removeInfluencer(u.id)}

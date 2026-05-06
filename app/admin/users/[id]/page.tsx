@@ -201,9 +201,14 @@ export default function AdminUserDetailPage() {
   const hasPaidBefore = user.subscriptions.some((s) => s.status === "ACTIVE" || s.status === "CANCELLED");
   const isActive = !!activeSub;
   const isPaid = user.plan === "PRO" || user.plan === "ENTERPRISE" || isActive;
-  // Influencer accounts get Enterprise tier benefits, displayed as "Influencer"
+  // Plan label combined with the Influencer flag — admins see both at a glance,
+  // e.g. "PRO / INFLUENCER" or "ENTERPRISE / INFLUENCER".
+  const planTitle =
+    user.plan === "ENTERPRISE" ? "Enterprise"
+    : user.plan === "PRO"      ? "Pro"
+    :                            "Free";
   const memberStatus = user.isInfluencer
-    ? "Influencer"
+    ? `${planTitle} / Influencer`
     : isActive
       ? "Active"
       : isPaid

@@ -189,16 +189,38 @@ export const authOptions: NextAuthOptions = {
       }
 
       // ALWAYS re-read plan + role from DB so upgrades take effect immediately
-      // without requiring the user to sign out and back in.
+      // without requiring the user to sign out and back in. Also lazily
+      // resolves any deferred downgrade whose pendingPlanAt has passed.
       if (token.id) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { role: true, plan: true, name: true, email: true, image: true },
+            select: {
+              role: true, plan: true, name: true, email: true, image: true,
+              pendingPlan: true, pendingPlanAt: true,
+            },
           });
           if (dbUser) {
+            let plan: string = dbUser.plan;
+            if (
+              dbUser.pendingPlan &&
+              dbUser.pendingPlanAt &&
+              dbUser.pendingPlanAt.getTime() <= Date.now()
+            ) {
+              await prisma.user.update({
+                where: { id: token.id as string },
+                data: {
+                  plan: dbUser.pendingPlan,
+                  pendingPlan: null,
+                  pendingPlanAt: null,
+                  ...(dbUser.pendingPlan === "FREE" ? { planExpiresAt: null } : {}),
+                },
+              });
+              plan = dbUser.pendingPlan;
+            }
             token.role = dbUser.role;
-            token.plan = dbUser.plan;
+            // @ts-ignore
+            token.plan = plan;
             token.name = dbUser.name ?? token.name;
             token.email = dbUser.email ?? token.email;
             token.picture = dbUser.image ?? token.picture;

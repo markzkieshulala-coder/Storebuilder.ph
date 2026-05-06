@@ -199,10 +199,10 @@ function SectionShell({
   // liveHeight takes priority during active drag; fall back to saved minHeight
   const displayHeight = liveHeight ?? minHeight;
 
-  // Section types whose resize handle would be useless or visually confusing.
-  // Nav is sticky and fixed-height; footer is the very last section so its
-  // bottom handle has no real estate below it.
-  const hideHandle = section.type === "nav" || section.type === "footer";
+  // Footer is the very last section so its bottom handle has no real estate
+  // below it. Nav (the first section) keeps its handle so users can still
+  // resize it from its bottom edge — that handle sits between nav and hero.
+  const hideHandle = section.type === "footer";
 
   // Read the section's own background so when min-height makes the wrapper
   // taller than its inner content, the visible filler matches the section
