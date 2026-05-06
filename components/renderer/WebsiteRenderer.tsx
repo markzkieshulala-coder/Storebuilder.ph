@@ -63,8 +63,13 @@ function buildFontsHref(names: string[]): string | null {
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }
 
-export default function WebsiteRenderer({ website, editorContext }: Props) {
-  const ctx = editorContext ?? DEFAULT_CONTEXT;
+export default function WebsiteRenderer({ website, isPreview, editorContext }: Props) {
+  // `isPreview` flag lives on EditorContext so server components can opt-in
+  // without having to construct a full callback-bearing context.
+  const baseCtx = editorContext ?? DEFAULT_CONTEXT;
+  const ctx: EditorContextType = isPreview && !baseCtx.isPreview
+    ? { ...baseCtx, isPreview: true }
+    : baseCtx;
   const isEditable = ctx.isEditable;
 
   const headingFont = website.fonts?.heading || "Google Sans";

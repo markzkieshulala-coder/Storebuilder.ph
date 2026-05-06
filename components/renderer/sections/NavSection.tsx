@@ -2,8 +2,16 @@
 import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
+
+// Treat hrefs starting with "/" (and not "//") as internal page routes that
+// should use Next.js <Link> for client-side navigation. Anchors ("#…"),
+// external "http(s)://…" URLs, and "mailto:" / "tel:" links keep using <a>.
+function isInternalRoute(href: unknown): boolean {
+  return typeof href === "string" && href.startsWith("/") && !href.startsWith("//");
+}
 
 export default function NavSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -12,9 +20,13 @@ export default function NavSection({ section, website }: { section: Section; web
   const textColor = section.styles?.textColor || website.colors?.text || "#fff";
   const accent = website.colors?.secondary || "#c9a84c";
   const {
-    isEditable, onTextChange, onNestedTextChange, onSectionClick, onShowToolbar,
+    isEditable, isPreview, onTextChange, onNestedTextChange, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
+  // In editor preview, internal page routes ("/about" etc) only exist on
+  // published subdomains — clicking them in preview would navigate away from
+  // storebuilder.ph itself. Disable internal-route routing in preview mode.
+  const useRouting = !isEditable && !isPreview;
 
   const isSelected = (field: string) =>
     !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
@@ -64,14 +76,29 @@ export default function NavSection({ section, website }: { section: Section; web
         </div>
 
         <div className="hidden md:flex items-center gap-6 lg:gap-8">
-          {(d.links || []).map((link: any, i: number) => (
-            <a key={i} href={isEditable ? undefined : link.href}
-              className="text-sm opacity-70 hover:opacity-100 transition-opacity whitespace-nowrap"
-              style={{ color: textColor }}
-              onClick={(e) => isEditable && e.preventDefault()}>
-              {editableLink(link.label, i, "")}
-            </a>
-          ))}
+          {(d.links || []).map((link: any, i: number) => {
+            const className = "text-sm opacity-70 hover:opacity-100 transition-opacity whitespace-nowrap";
+            const linkStyle = { color: textColor } as const;
+            const onClick = (e: React.MouseEvent) => { if (isEditable) e.preventDefault(); };
+            if (useRouting && isInternalRoute(link.href)) {
+              return (
+                <Link key={i} href={link.href} className={className} style={linkStyle}>
+                  {editableLink(link.label, i, "")}
+                </Link>
+              );
+            }
+            return (
+              <a
+                key={i}
+                href={isEditable ? undefined : link.href}
+                className={className}
+                style={linkStyle}
+                onClick={onClick}
+              >
+                {editableLink(link.label, i, "")}
+              </a>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -81,16 +108,24 @@ export default function NavSection({ section, website }: { section: Section; web
             </button>
           )}
           {d.ctaText && (
-            <a href={isEditable ? undefined : (d.ctaHref || "#")}
-              className="hidden md:inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity whitespace-nowrap"
-              style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}>
-              <EditableField
-                {...fieldProps("ctaText")}
-                tag="span"
-              >
-                {d.ctaText}
-              </EditableField>
-            </a>
+            (() => {
+              const ctaHref = d.ctaHref || "#";
+              const ctaClass = "hidden md:inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity whitespace-nowrap";
+              const ctaStyle = { background: accent, color: website.colors?.primary || "#1a1a2e" } as const;
+              const inner = (
+                <EditableField {...fieldProps("ctaText")} tag="span">
+                  {d.ctaText}
+                </EditableField>
+              );
+              if (useRouting && isInternalRoute(ctaHref)) {
+                return <Link href={ctaHref} className={ctaClass} style={ctaStyle}>{inner}</Link>;
+              }
+              return (
+                <a href={isEditable ? undefined : ctaHref} className={ctaClass} style={ctaStyle}>
+                  {inner}
+                </a>
+              );
+            })()
           )}
           <button
             className="md:hidden p-2 rounded-lg min-w-[40px] min-h-[40px] flex items-center justify-center"
@@ -106,21 +141,52 @@ export default function NavSection({ section, website }: { section: Section; web
       {menuOpen && (
         <div className="md:hidden border-t" style={{ background: website.colors?.primary || "#1a1a2e", borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="px-4 pb-4">
-            {(d.links || []).map((link: any, i: number) => (
-              <a key={i} href={link.href}
-                className="flex items-center min-h-[48px] text-sm opacity-70 hover:opacity-100 border-b transition-opacity"
-                style={{ color: textColor, borderColor: "rgba(255,255,255,0.06)" }}
-                onClick={(e) => { if (!isEditable) setMenuOpen(false); else e.preventDefault(); }}>
-                {editableLink(link.label, i, "")}
-              </a>
-            ))}
+            {(d.links || []).map((link: any, i: number) => {
+              const mobileClass = "flex items-center min-h-[48px] text-sm opacity-70 hover:opacity-100 border-b transition-opacity";
+              const mobileStyle = { color: textColor, borderColor: "rgba(255,255,255,0.06)" } as const;
+              if (useRouting && isInternalRoute(link.href)) {
+                return (
+                  <Link
+                    key={i}
+                    href={link.href}
+                    className={mobileClass}
+                    style={mobileStyle}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {editableLink(link.label, i, "")}
+                  </Link>
+                );
+              }
+              return (
+                <a
+                  key={i}
+                  href={link.href}
+                  className={mobileClass}
+                  style={mobileStyle}
+                  onClick={(e) => { if (!isEditable) setMenuOpen(false); else e.preventDefault(); }}
+                >
+                  {editableLink(link.label, i, "")}
+                </a>
+              );
+            })}
             {d.ctaText && (
-              <a href={d.ctaHref || "#"}
-                className="flex items-center justify-center mt-4 min-h-[48px] rounded-xl text-sm font-semibold"
-                style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
-                onClick={() => setMenuOpen(false)}>
-                {d.ctaText}
-              </a>
+              (() => {
+                const ctaHref = d.ctaHref || "#";
+                const cls = "flex items-center justify-center mt-4 min-h-[48px] rounded-xl text-sm font-semibold";
+                const sty = { background: accent, color: website.colors?.primary || "#1a1a2e" } as const;
+                if (useRouting && isInternalRoute(ctaHref)) {
+                  return (
+                    <Link href={ctaHref} className={cls} style={sty} onClick={() => setMenuOpen(false)}>
+                      {d.ctaText}
+                    </Link>
+                  );
+                }
+                return (
+                  <a href={ctaHref} className={cls} style={sty} onClick={() => setMenuOpen(false)}>
+                    {d.ctaText}
+                  </a>
+                );
+              })()
             )}
           </div>
         </div>

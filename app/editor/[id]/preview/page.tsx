@@ -6,6 +6,26 @@ import { useSearchParams } from "next/navigation";
 import { ExternalLink, X } from "lucide-react";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
+import { EditorContextType } from "@/components/editor/EditorContext";
+
+// Editor preview uses default editor context overrides except `isPreview` is
+// true so internal nav routes ("/about", "/contact") don't try to navigate
+// away from /editor/{id}/preview to non-existent paths on storebuilder.ph.
+const PREVIEW_CTX: EditorContextType = {
+  isEditable: false,
+  isPreview: true,
+  viewMode: "desktop",
+  onTextChange: () => {},
+  onNestedTextChange: () => {},
+  onImageUpload: () => {},
+  onSectionClick: () => {},
+  onShowToolbar: () => {},
+  selectedField: null,
+  onSelectField: () => {},
+  onUpdateEditor: () => {},
+  onResetEditor: () => {},
+  getEditorState: () => undefined,
+};
 
 export default function PreviewPage({ params }: { params: { id: string } }) {
   const { status } = useSession();
@@ -52,7 +72,7 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
 
   // Raw embed mode (used by the preview button for a clean full-page view)
   if (isRaw) {
-    return websiteWithSubdomain ? <WebsiteRenderer website={websiteWithSubdomain} /> : null;
+    return websiteWithSubdomain ? <WebsiteRenderer website={websiteWithSubdomain} editorContext={PREVIEW_CTX} /> : null;
   }
 
   return (
@@ -104,7 +124,7 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
       {/* Website content — offset by branded bar height */}
       <div className="pt-10 flex-1">
         {websiteWithSubdomain ? (
-          <WebsiteRenderer website={websiteWithSubdomain} />
+          <WebsiteRenderer website={websiteWithSubdomain} editorContext={PREVIEW_CTX} />
         ) : (
           <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
             Website not found

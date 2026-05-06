@@ -321,6 +321,96 @@ function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
   return website;
 }
 
+// ─── Normalize navigation hrefs to multi-page routes ─────────────────────────
+// Map common section names / anchor strings to canonical page routes so that
+// older generations (or AI slip-ups) using "#about" still produce a working
+// multi-page nav.
+const ANCHOR_ROUTE_MAP: Record<string, string> = {
+  home: "/",
+  hero: "/",
+  about: "/about",
+  story: "/about",
+  work: "/work",
+  portfolio: "/work",
+  gallery: "/gallery",
+  menu: "/menu",
+  shop: "/products",
+  store: "/products",
+  products: "/products",
+  product: "/products",
+  service: "/services",
+  services: "/services",
+  process: "/process",
+  pricing: "/pricing",
+  plans: "/pricing",
+  team: "/team",
+  faq: "/faq",
+  contact: "/contact",
+  reach: "/contact",
+  testimonials: "/testimonials",
+  reviews: "/testimonials",
+  blog: "/blog",
+};
+
+function normalizeHref(href: unknown): string | undefined {
+  if (typeof href !== "string") return undefined;
+  const trimmed = href.trim();
+  if (!trimmed) return undefined;
+  // Already a real path / external URL → keep as-is
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("/")) return trimmed;
+  // Strip leading "#" or "scroll-to-" / "scrollTo:" prefixes
+  const key = trimmed.replace(/^#+/, "").replace(/^scroll-?to[:-]?/i, "").trim().toLowerCase();
+  if (!key || key === "/") return "/";
+  if (ANCHOR_ROUTE_MAP[key]) return ANCHOR_ROUTE_MAP[key];
+  // Last resort — turn whatever they gave us into a route slug
+  const slug = key.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug ? `/${slug}` : "/";
+}
+
+function normalizeNavLinks(website: GeneratedWebsite): GeneratedWebsite {
+  website.sections = website.sections.map((s) => {
+    const d = (s.data || {}) as any;
+
+    // Nav: rewrite link hrefs and ctaHref
+    if (s.type === "nav") {
+      if (Array.isArray(d.links)) {
+        d.links = d.links.map((l: any) => ({
+          ...l,
+          href: normalizeHref(l?.href ?? l?.label) ?? "/",
+        }));
+      }
+      if (d.ctaHref !== undefined) d.ctaHref = normalizeHref(d.ctaHref) ?? "/contact";
+    }
+
+    // Footer columns can also carry link arrays
+    if (s.type === "footer" && Array.isArray(d.columns)) {
+      d.columns = d.columns.map((col: any) => ({
+        ...col,
+        links: Array.isArray(col?.links)
+          ? col.links.map((l: any) => ({ ...l, href: normalizeHref(l?.href ?? l?.label) ?? "/" }))
+          : col?.links,
+      }));
+    }
+
+    // Hero / CTA primary & secondary buttons
+    if ((s.type === "hero" || s.type === "cta") ) {
+      if (d.ctaPrimary && typeof d.ctaPrimary === "object" && d.ctaPrimary.href !== undefined) {
+        d.ctaPrimary.href = normalizeHref(d.ctaPrimary.href) ?? "/";
+      }
+      if (d.ctaSecondary && typeof d.ctaSecondary === "object" && d.ctaSecondary.href !== undefined) {
+        d.ctaSecondary.href = normalizeHref(d.ctaSecondary.href) ?? "/";
+      }
+      if (typeof d.ctaHref === "string") d.ctaHref = normalizeHref(d.ctaHref) ?? "/";
+    }
+
+    return { ...s, data: d };
+  });
+  return website;
+}
+
 // ─── Master post-processor ────────────────────────────────────────────────────
 function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite {
   // Reset rotating photo pool for this generation so different runs don't
@@ -334,6 +424,8 @@ function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite 
   website = sanitizeColors(website);
   // Ensure real Unsplash images
   website = sanitizeImages(website);
+  // Rewrite anchor links into multi-page routes
+  website = normalizeNavLinks(website);
   return website;
 }
 
@@ -375,6 +467,19 @@ TYPOGRAPHY & COPY
 SECTIONS
 • 7–9 sections minimum, ordered: nav first, footer last
 • nav, footer, hero, features, about, testimonials, stats, contact, cta, newsletter, faq, gallery, team, process, pricing, products
+
+NAVIGATION — MULTI-PAGE ARCHITECTURE (CRITICAL)
+• The nav MUST use page routes — NOT scroll-to-section anchors. Each nav link opens a separate page.
+• Nav links MUST use these EXACT page-route hrefs (no "#" anchors, no "scroll" hrefs):
+  - { "label": "Home",    "href": "/" }
+  - { "label": "About",   "href": "/about" }
+  - { "label": "Work",    "href": "/work" }       (or "Gallery" → "/gallery", "Menu" → "/menu", "Shop" → "/products")
+  - { "label": "Services","href": "/services" }   (or "Process" → "/process", "Pricing" → "/pricing")
+  - { "label": "Contact", "href": "/contact" }
+• Pick 4–5 nav items appropriate for the business type. NEVER produce hrefs like "#about", "#contact", "#hero" — these break the multi-page routing.
+• ctaHref on the nav must also be a real route (e.g. "/contact") or "#" if there is no destination.
+• HOMEPAGE = preview sections only. The homepage shows a hero + SHORT previews of about / featured work / services / a strong CTA, then footer. Each nav target is a separate full page on its own route.
+• When a homepage preview section corresponds to a nav target (e.g. an "about" preview points to /about), the section's CTA button href must point to that page route, not an anchor.
 
 ══════════════════════════════════════════
 CURATED UNSPLASH PHOTO IDs
@@ -507,6 +612,7 @@ REQUIRED IN EVERY GENERATION:
 6. Specific PH location in About/Contact — pick a DIFFERENT neighborhood each generation (BGC, Salcedo Village, Poblacion Makati, Ortigas, Kapitolyo, Tomas Morato, Lahug Cebu, IT Park Cebu, Iloilo Smallville, Davao Lanang, etc.).
 7. Zero emojis anywhere.
 8. Section order: must follow the section flow above, starting with nav and ending with footer.
+9. Navigation MUST use page-route hrefs only ("/", "/about", "/work", "/services", "/process", "/pricing", "/contact"). No "#" anchors anywhere in nav links or in hero/about/cta button hrefs. The homepage is just previews; full content lives at the corresponding /route.
 
 Think like a ₱500,000 web design agency that has NEVER produced this exact layout before. Every word, color, and image choice must feel hand-tailored to THIS business — not a template.
 

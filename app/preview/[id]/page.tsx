@@ -24,7 +24,7 @@ export default async function PreviewPage({ params }: { params: { id: string } }
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Serif+Display&family=Cormorant+Garamond:wght@300;400;600&family=Syne:wght@400;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap');
       `}</style>
-      <WebsiteRenderer website={content} />
+      <WebsiteRenderer website={content} isPreview />
     </>
   );
 }

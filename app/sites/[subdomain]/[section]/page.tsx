@@ -10,6 +10,30 @@ interface Props {
 // These sub-paths are handled by other routes — don't treat as sections
 const SKIP = new Set(["checkout"]);
 
+// Multi-page nav: each route slug maps to one or more candidate section types,
+// in order of preference. The first type that exists in the site's section
+// list is rendered as the page body. This lets nav like /work resolve to a
+// "gallery" section on a portfolio site or "products" on a store.
+const ROUTE_TO_TYPES: Record<string, string[]> = {
+  about: ["about"],
+  work: ["gallery", "products", "team"],
+  gallery: ["gallery"],
+  menu: ["products"],
+  shop: ["products"],
+  store: ["products"],
+  products: ["products"],
+  services: ["features", "process"],
+  features: ["features"],
+  process: ["process"],
+  pricing: ["pricing"],
+  team: ["team"],
+  faq: ["faq"],
+  contact: ["contact"],
+  testimonials: ["testimonials"],
+  reviews: ["testimonials"],
+  blog: [],
+};
+
 export default async function SectionPage({ params }: Props) {
   if (SKIP.has(params.section)) notFound();
 
@@ -21,18 +45,24 @@ export default async function SectionPage({ params }: Props) {
   const content = website.jsonContent as GeneratedWebsite;
   const all = content.sections;
 
-  // Find the target section by type
-  const target = all.find((s) => s.type === params.section);
-  if (!target) notFound();
+  // Resolve target sections via the route alias map; fall back to direct
+  // type match so older sites (or unmapped slugs) still work.
+  const candidateTypes = ROUTE_TO_TYPES[params.section] ?? [params.section];
+  const targets = candidateTypes
+    .map((t) => all.find((s) => s.type === t))
+    .filter((s): s is Section => Boolean(s));
 
-  // Build a minimal page: nav (if exists) + target section + footer (if exists, not same as target)
+  if (targets.length === 0) notFound();
+
+  // Build a minimal page: nav (if exists) + target section(s) + footer (if exists, not same as target)
   const nav = all.find((s) => s.type === "nav");
   const footer = all.find((s) => s.type === "footer");
+  const targetIds = new Set(targets.map((t) => t.id));
 
   const pageSections: Section[] = [
     ...(nav ? [nav] : []),
-    target,
-    ...(footer && footer.id !== target.id ? [footer] : []),
+    ...targets,
+    ...(footer && !targetIds.has(footer.id) ? [footer] : []),
   ];
 
   const pageContent: GeneratedWebsite = {

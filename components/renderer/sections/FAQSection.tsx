@@ -4,6 +4,7 @@ import { Section, GeneratedWebsite } from "@/lib/ai/generate";
 import { ChevronDown, ImagePlus } from "lucide-react";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
+import { useImageDropZone } from "@/components/editor/useImageDropZone";
 
 export default function FAQSection({ section, website }: { section: Section; website: GeneratedWebsite }) {
   const d = section.data as any;
@@ -15,6 +16,7 @@ export default function FAQSection({ section, website }: { section: Section; web
     isEditable, onTextChange, onNestedTextChange, onImageUpload, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
   } = useEditor();
+  const bgDrop = useImageDropZone(section.id, "backgroundImage");
 
   const isSelected = (field: string) =>
     !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
@@ -34,12 +36,27 @@ export default function FAQSection({ section, website }: { section: Section; web
   const answerKey = items[0]?.answer !== undefined ? "answer" : "a";
 
   return (
-    <section className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden" style={{ background: bg }} onClick={() => isEditable && onSectionClick(section.id)}>
+    <section
+      className="relative py-14 px-4 sm:py-20 sm:px-6 lg:py-24 overflow-hidden"
+      style={{ background: bg }}
+      onClick={() => isEditable && onSectionClick(section.id)}
+      {...(isEditable ? bgDrop.handlers : {})}
+    >
       {d.backgroundImage && (
         <>
           <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${d.backgroundImage})` }} />
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
         </>
+      )}
+      {isEditable && bgDrop.active && (
+        <div
+          className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
+          style={{ background: "rgba(24,119,242,0.18)", border: "3px dashed #1877F2" }}
+        >
+          <div className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold flex items-center gap-2">
+            <ImagePlus size={15} /> Drop image to set as background
+          </div>
+        </div>
       )}
       {isEditable && (
         <button
@@ -47,7 +64,7 @@ export default function FAQSection({ section, website }: { section: Section; web
           className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
           style={{ background: "rgba(24,119,242,0.9)", color: "#fff", cursor: "pointer" }}
         >
-          <ImagePlus size={13} /> Change background
+          <ImagePlus size={13} /> Change background <span className="opacity-70 ml-1">or drop</span>
         </button>
       )}
       <div className="max-w-2xl mx-auto relative z-10">

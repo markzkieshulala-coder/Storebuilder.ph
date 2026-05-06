@@ -18,6 +18,10 @@ export type ViewMode = "desktop" | "tablet" | "mobile";
 
 export type EditorContextType = {
   isEditable: boolean;
+  // Preview mode: not editable, but also not a real published site, so internal
+  // page-route hrefs like "/about" should not actually navigate (those pages
+  // only exist under a published subdomain). Set true on the editor preview.
+  isPreview?: boolean;
   viewMode: ViewMode;
   onTextChange: (sectionId: string, field: string, value: string) => void;
   onNestedTextChange: (sectionId: string, arrayField: string, index: number, key: string, value: string) => void;
@@ -44,6 +48,7 @@ export type EditorContextType = {
 
 const DEFAULT: EditorContextType = {
   isEditable: false,
+  isPreview: false,
   viewMode: "desktop",
   onTextChange: () => {},
   onNestedTextChange: () => {},

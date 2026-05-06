@@ -179,7 +179,7 @@ export default function TemplatePage() {
           so they always see the brand entrance, not a random anchor. */}
       <main className="bg-white">
         {template.jsonContent ? (
-          <WebsiteRenderer website={template.jsonContent} />
+          <WebsiteRenderer website={template.jsonContent} isPreview />
         ) : (
           <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
             <div className="text-center">
