@@ -407,48 +407,42 @@ export default function OwnerPage() {
             {/* ── TOTAL USERS ── */}
             {!loading && active === "Total Users" && (
               <>
-                {/* All Users blue banner */}
-                <div style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #0D5DBD 100%)`, borderRadius: "14px", padding: "22px 24px", color: "#fff", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+                {/* All Users blue banner — click to reset filter */}
+                <div onClick={() => setUserView("all")}
+                  style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #0D5DBD 100%)`, borderRadius: "14px", padding: "22px 24px", color: "#fff", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", cursor: "pointer", outline: userView === "all" ? "3px solid #fff" : "none", outlineOffset: "2px", boxShadow: userView === "all" ? "0 0 0 5px rgba(24,119,242,0.35)" : "none", transition: "box-shadow 0.15s" }}>
                   <div>
                     <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", opacity: 0.8 }}>All Users</div>
                     <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, margin: "10px 0 4px" }}>{users.length.toLocaleString()}</div>
                     <div style={{ fontSize: "11px", opacity: 0.75 }}>registered accounts on Storebuilder.ph</div>
                   </div>
+                  {userView === "all" && (
+                    <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.25)", color: "#fff" }}>Selected</span>
+                  )}
                 </div>
 
-                {/* Plan breakdown — Free / Pro / Enterprise */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                {/* Plan breakdown — Free / Pro / Enterprise / Influencer (clickable filter cards) */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                   {([
-                    { label: "Free",       plan: "FREE",       count: users.filter(u => u.plan === "FREE").length,       tone: { bg: "#F3F4F6", color: "#6B7280" } },
-                    { label: "Pro",        plan: "PRO",        count: users.filter(u => u.plan === "PRO").length,        tone: { bg: "#EBF3FF", color: BLUE } },
-                    { label: "Enterprise", plan: "ENTERPRISE", count: users.filter(u => u.plan === "ENTERPRISE").length, tone: { bg: "#F5F3FF", color: "#7C3AED" } },
-                  ] as const).map((c) => (
-                    <div key={c.plan} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", padding: "16px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                        <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: c.tone.bg, color: c.tone.color }}>{c.label}</span>
-                        <span style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600 }}>
-                          {users.length > 0 ? ((c.count / users.length) * 100).toFixed(1) : "0.0"}%
-                        </span>
+                    { label: "Free",        key: "free"       as const, count: users.filter(u => u.plan === "FREE").length,       tone: { bg: "#F3F4F6", color: "#6B7280" },  accent: "#6B7280"  },
+                    { label: "Pro",         key: "pro"        as const, count: users.filter(u => u.plan === "PRO").length,        tone: { bg: "#EBF3FF", color: BLUE },        accent: BLUE       },
+                    { label: "Enterprise",  key: "enterprise" as const, count: users.filter(u => u.plan === "ENTERPRISE").length, tone: { bg: "#F5F3FF", color: "#7C3AED" },  accent: "#7C3AED"  },
+                    { label: "Influencer",  key: "influencer" as const, count: influencers.length,                                tone: { bg: "#FFF7ED", color: "#C2410C" },  accent: "#C2410C"  },
+                  ]).map((c) => {
+                    const isActive = userView === c.key;
+                    return (
+                      <div key={c.key} onClick={() => setUserView(c.key)}
+                        style={{ background: "#fff", borderRadius: "12px", border: isActive ? `2px solid ${c.accent}` : "1px solid #E5E7EB", padding: isActive ? "15px 19px" : "16px 20px", cursor: "pointer", boxShadow: isActive ? `0 0 0 3px ${c.accent}22` : "none", transition: "box-shadow 0.15s, border-color 0.15s" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: c.tone.bg, color: c.tone.color }}>{c.label}</span>
+                          <span style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 600 }}>
+                            {users.length > 0 ? ((c.count / users.length) * 100).toFixed(1) : "0.0"}%
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "22px", fontWeight: 700, color: isActive ? c.accent : "#111827" }}>{c.count.toLocaleString()}</div>
+                        <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>{c.key === "influencer" ? "influencer accounts" : "users on this plan"}</div>
                       </div>
-                      <div style={{ fontSize: "22px", fontWeight: 700, color: "#111827" }}>{c.count.toLocaleString()}</div>
-                      <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>users on this plan</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
-                  {([
-                    { key: "all",        label: `All Users (${users.length})`,                                              ac: BLUE     },
-                    { key: "free",       label: `Free (${users.filter(u => u.plan === "FREE").length})`,                    ac: BLUE     },
-                    { key: "pro",        label: `Pro (${users.filter(u => u.plan === "PRO").length})`,                      ac: BLUE     },
-                    { key: "enterprise", label: `Enterprise (${users.filter(u => u.plan === "ENTERPRISE").length})`,        ac: "#7C3AED" },
-                    { key: "influencer", label: `Influencers (${influencers.length})`,                                      ac: "#7C3AED" },
-                  ] as const).map((v) => (
-                    <button key={v.key} onClick={() => setUserView(v.key)}
-                      style={{ padding: "7px 18px", borderRadius: "8px", border: `1px solid ${userView === v.key ? v.ac : "#D1D5DB"}`, fontSize: "13px", fontWeight: 600, cursor: "pointer", background: userView === v.key ? v.ac : "#fff", color: userView === v.key ? "#fff" : "#6B7280", fontFamily: FONT }}>
-                      {v.label}
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #E5E7EB", overflow: "hidden" }}>
