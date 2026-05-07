@@ -132,6 +132,7 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refunding, setRefunding] = useState(false);
+  const [canceling, setCanceling] = useState<"deferred" | "immediate" | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -156,6 +157,30 @@ export default function AdminUserDetailPage() {
     } catch (e: any) {
       return e.message || "Network error";
     }
+  }
+
+  async function handleCancel(immediate: boolean) {
+    const label = immediate ? "immediately downgrade to Free" : "schedule deferred downgrade at period end";
+    if (!confirm(`Are you sure you want to ${label} for this user?`)) return;
+    setCanceling(immediate ? "immediate" : "deferred");
+    try {
+      const res = await fetch(`/api/admin/users/${id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ immediate }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (immediate) {
+          alert("User downgraded to Free immediately.");
+          setUser((prev) => prev ? { ...prev, plan: "FREE", subscriptions: prev.subscriptions.map((s) => s.status === "ACTIVE" ? { ...s, status: "CANCELLED" } : s) } : null);
+        } else {
+          alert(`Deferred cancel scheduled. User keeps access until ${new Date(data.endsAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}.`);
+        }
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally { setCanceling(null); }
   }
 
   async function handleRefund() {
@@ -276,10 +301,30 @@ export default function AdminUserDetailPage() {
             <div style={{ fontSize: "14px", color: "#6B7280", marginTop: "4px" }}>{user.email}</div>
             {user.location && <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "3px" }}>{user.location}</div>}
           </div>
-          <button onClick={handleRefund} disabled={refunding || !activeSub}
-            style={{ padding: "10px 22px", background: activeSub ? "#DC2626" : "#F3F4F6", color: activeSub ? "#fff" : "#9CA3AF", border: "none", borderRadius: "8px", cursor: activeSub && !refunding ? "pointer" : "not-allowed", fontSize: "13px", fontWeight: 600, fontFamily: FONT }}>
-            {refunding ? "Processing…" : activeSub ? "Process Refund" : "No Active Sub"}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
+            <button onClick={handleRefund} disabled={refunding || !activeSub}
+              style={{ padding: "9px 18px", background: activeSub ? "#DC2626" : "#F3F4F6", color: activeSub ? "#fff" : "#9CA3AF", border: "none", borderRadius: "8px", cursor: activeSub && !refunding ? "pointer" : "not-allowed", fontSize: "12px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}>
+              {refunding ? "Processing…" : activeSub ? "Process Refund" : "No Active Sub"}
+            </button>
+            {isPaid && (
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  onClick={() => handleCancel(false)}
+                  disabled={!!canceling}
+                  style={{ padding: "7px 14px", background: canceling === "deferred" ? "#E5E7EB" : "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                >
+                  {canceling === "deferred" ? "Scheduling…" : "Deferred Cancel"}
+                </button>
+                <button
+                  onClick={() => handleCancel(true)}
+                  disabled={!!canceling}
+                  style={{ padding: "7px 14px", background: canceling === "immediate" ? "#E5E7EB" : "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                >
+                  {canceling === "immediate" ? "Downgrading…" : "Immediate Cancel"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 3 info cards */}
@@ -321,8 +366,10 @@ export default function AdminUserDetailPage() {
               <button
                 onClick={async () => {
                   const next = !user.isInfluencer;
-                  const err = await patch({ isInfluencer: next });
-                  if (!err) setUser((prev) => prev ? { ...prev, isInfluencer: next, plan: next ? "ENTERPRISE" : prev.plan } : null);
+                  const patchData: Record<string, unknown> = { isInfluencer: next };
+                  if (!next) patchData.plan = "FREE";
+                  const err = await patch(patchData);
+                  if (!err) setUser((prev) => prev ? { ...prev, isInfluencer: next, plan: next ? "ENTERPRISE" : "FREE" } : null);
                 }}
                 style={{
                   padding: "4px 12px",

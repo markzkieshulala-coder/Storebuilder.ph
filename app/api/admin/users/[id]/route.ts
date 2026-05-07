@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureInfluencerColumn } from "@/lib/influencer-column";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureSchemaMigrations();
     await ensureInfluencerColumn();
     const body = await req.json();
     const data: Record<string, unknown> = {};
@@ -101,6 +103,10 @@ export async function PATCH(
       const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
       data.planExpiresAt = expiresAt;
+    }
+    if (isInfluencerUpdate === false && body.plan === undefined) {
+      data.plan = "FREE";
+      data.planExpiresAt = null;
     }
 
     if (Object.keys(data).length === 0 && isInfluencerUpdate === null)

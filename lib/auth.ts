@@ -192,41 +192,50 @@ export const authOptions: NextAuthOptions = {
       // without requiring the user to sign out and back in. Also lazily
       // resolves any deferred downgrade whose pendingPlanAt has passed.
       if (token.id) {
+        // Main user fields — always safe (columns exist since v1)
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: {
-              role: true, plan: true, name: true, email: true, image: true,
-              pendingPlan: true, pendingPlanAt: true,
-            },
+            select: { role: true, plan: true, name: true, email: true, image: true },
           });
           if (dbUser) {
-            let plan: string = dbUser.plan;
-            if (
-              dbUser.pendingPlan &&
-              dbUser.pendingPlanAt &&
-              dbUser.pendingPlanAt.getTime() <= Date.now()
-            ) {
-              await prisma.user.update({
-                where: { id: token.id as string },
-                data: {
-                  plan: dbUser.pendingPlan,
-                  pendingPlan: null,
-                  pendingPlanAt: null,
-                  ...(dbUser.pendingPlan === "FREE" ? { planExpiresAt: null } : {}),
-                },
-              });
-              plan = dbUser.pendingPlan;
-            }
             token.role = dbUser.role;
             // @ts-ignore
-            token.plan = plan;
+            token.plan = dbUser.plan;
             token.name = dbUser.name ?? token.name;
             token.email = dbUser.email ?? token.email;
             token.picture = dbUser.image ?? token.picture;
           }
         } catch {
           // DB unavailable — keep existing token values
+        }
+
+        // Deferred-downgrade resolution — columns may be absent on legacy DBs;
+        // wrapped in a separate try/catch so a missing column never breaks auth.
+        try {
+          const pending = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { pendingPlan: true, pendingPlanAt: true },
+          });
+          if (
+            pending?.pendingPlan &&
+            pending?.pendingPlanAt &&
+            pending.pendingPlanAt.getTime() <= Date.now()
+          ) {
+            await prisma.user.update({
+              where: { id: token.id as string },
+              data: {
+                plan: pending.pendingPlan,
+                pendingPlan: null,
+                pendingPlanAt: null,
+                ...(pending.pendingPlan === "FREE" ? { planExpiresAt: null } : {}),
+              },
+            });
+            // @ts-ignore
+            token.plan = pending.pendingPlan;
+          }
+        } catch {
+          // pendingPlan columns not yet in DB — deferred downgrade unavailable
         }
       }
 

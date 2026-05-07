@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureInfluencerColumn } from "@/lib/influencer-column";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
     });
     if (!found) return NextResponse.json({ error: "No account found with that email address" }, { status: 404 });
 
+    await ensureSchemaMigrations();
     await ensureInfluencerColumn();
     await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = true WHERE "id" = ${found.id}`;
     const user = await prisma.user.update({
@@ -38,6 +40,11 @@ export async function DELETE(req: NextRequest) {
 
     await ensureInfluencerColumn();
     await prisma.$executeRaw`UPDATE "User" SET "isInfluencer" = false WHERE "id" = ${userId}`;
+    // Remove influencer also reverts plan to FREE (it was set to ENTERPRISE on grant)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { plan: "FREE", planExpiresAt: null },
+    });
 
     return NextResponse.json({ success: true });
   } catch (e: any) {

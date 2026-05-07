@@ -111,7 +111,7 @@ export default function NavSection({ section, website }: { section: Section; web
             if (useRouting && isInternalRoute(link.href)) {
               return (
                 <Link key={i} href={link.href} className={className} style={linkStyle}>
-                  {editableLink(link.label, i, "", link.href)}
+                  {link.label}
                 </Link>
               );
             }
@@ -175,7 +175,7 @@ export default function NavSection({ section, website }: { section: Section; web
                     style={mobileStyle}
                     onClick={() => setMenuOpen(false)}
                   >
-                    {editableLink(link.label, i, "", link.href)}
+                    {link.label}
                   </Link>
                 );
               }

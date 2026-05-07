@@ -17,7 +17,6 @@ import { EditorContextType, FloatingToolbarTarget, SelectedField, ViewMode } fro
 import { EditorFieldState } from "@/components/editor/EditableField";
 import OptionsPanel from "@/components/editor/OptionsPanel";
 import FloatingToolbar from "@/components/editor/FloatingToolbar";
-import ThemeMenu from "@/components/editor/ThemeMenu";
 import { selectHomepageSections, selectSubpageSections } from "@/lib/site/pageSections";
 
 const VIEW_WIDTHS: Record<ViewMode, string> = {
@@ -643,12 +642,6 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             {sharingTemplate ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />}
             <span className="hidden lg:inline">Share Template</span>
           </button>
-
-          {/* Theme — colors directly in the editor topbar */}
-          <ThemeMenu
-            website={website}
-            onUpdateWebsite={(updates) => pushHistory({ ...website, ...updates } as GeneratedWebsite)}
-          />
 
           {/* Preview */}
           <button

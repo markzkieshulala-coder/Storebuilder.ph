@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 
 // Cancellation is DEFERRED — we don't downgrade the user immediately. We mark
 // the active subscription cancelAtPeriodEnd and stamp pendingPlan=FREE on the
@@ -17,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 //   pending, so the UI never shows a confusing error on a double click.
 export async function POST() {
   try {
+    await ensureSchemaMigrations();
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -76,6 +78,7 @@ export async function POST() {
 // Undo a scheduled cancellation while still in the current billing period.
 export async function DELETE() {
   try {
+    await ensureSchemaMigrations();
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
