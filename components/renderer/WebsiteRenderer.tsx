@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 import { EditorContext, EditorContextType, ViewMode } from "@/components/editor/EditorContext";
+import SectionStyleChip from "@/components/editor/SectionStyleChip";
 import NavSection from "./sections/NavSection";
 import HeroSection from "./sections/HeroSection";
 import FeaturesSection from "./sections/FeaturesSection";
@@ -159,6 +160,7 @@ export default function WebsiteRenderer({ website, isPreview, editorContext }: P
               isEditable={isEditable}
               viewMode={ctx.viewMode}
               onResizeSection={ctx.onResizeSection}
+              onUpdateSectionStyle={ctx.onUpdateSectionStyle}
             />
           );
         })}
@@ -174,7 +176,7 @@ export default function WebsiteRenderer({ website, isPreview, editorContext }: P
 // bottom handle since it sits at the very end of the page.
 function SectionShell({
   section, website, SectionComponent, anchorId, index, total, isEditable, viewMode,
-  onResizeSection,
+  onResizeSection, onUpdateSectionStyle,
 }: {
   section: Section;
   website: GeneratedWebsite;
@@ -185,6 +187,7 @@ function SectionShell({
   isEditable: boolean;
   viewMode: ViewMode;
   onResizeSection?: (sectionId: string, minHeight: number, mode: ViewMode) => void;
+  onUpdateSectionStyle?: (sectionId: string, key: string, value: string) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dragHeightRef = useRef<number | null>(null);
@@ -271,6 +274,8 @@ function SectionShell({
       ref={wrapperRef}
       data-sb-section-index={index}
       id={anchorId}
+      onMouseEnter={() => isEditable && setHover(true)}
+      onMouseLeave={() => isEditable && !resizing && setHover(false)}
       style={{
         position: "relative",
         scrollMarginTop: "80px",
@@ -283,12 +288,24 @@ function SectionShell({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        outline: resizing ? "2px dashed #1877F2" : undefined,
-        outlineOffset: resizing ? "-2px" : undefined,
+        outline: resizing ? "2px dashed #1877F2" : (isEditable && hover ? "1px dashed rgba(24,119,242,0.4)" : undefined),
+        outlineOffset: resizing ? "-2px" : (isEditable && hover ? "-1px" : undefined),
         transition: resizing ? "none" : "outline-color 0.12s ease",
       }}
     >
       <SectionComponent section={section} website={website} />
+
+      {/* Section colour chip — visible on hover in editor mode. Lets users
+          change THIS section's background, text and accent colours directly,
+          without going through the topbar Theme menu. */}
+      {isEditable && onUpdateSectionStyle && (
+        <SectionStyleChip
+          section={section}
+          website={website}
+          onUpdate={onUpdateSectionStyle}
+          visible={hover || resizing}
+        />
+      )}
 
       {isEditable && !hideHandle && (
         // Bottom-only resize handle. Sits inside this section's wrapper at

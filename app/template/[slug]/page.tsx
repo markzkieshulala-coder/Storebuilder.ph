@@ -174,12 +174,22 @@ export default function TemplatePage() {
         </div>
       </div>
 
-      {/* Live website preview — renders the ACTUAL site starting from its
-          first section (nav + hero). Visitors land at the top of the page
-          so they always see the brand entrance, not a random anchor. */}
-      <main className="bg-white">
+      {/* Live website preview — locked to the FIRST visible section for
+          unauthenticated visitors. They see only nav + hero (the entrance
+          to the site) plus a sign-up wall covering the rest of the page so
+          they have to register / sign in to view the full template inside
+          the dashboard. Signed-in viewers see the full preview. */}
+      <main className="bg-white relative">
         {template.jsonContent ? (
-          <WebsiteRenderer website={template.jsonContent} isPreview />
+          session ? (
+            <WebsiteRenderer website={template.jsonContent} isPreview />
+          ) : (
+            <LockedPreview
+              jsonContent={template.jsonContent}
+              slug={slug || ""}
+              templateName={template.name}
+            />
+          )
         ) : (
           <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
             <div className="text-center">
@@ -224,6 +234,87 @@ export default function TemplatePage() {
           Powered by <Link href="/" className="font-semibold hover:underline" style={{ color: BLUE }}>Storebuilder.ph</Link>
         </p>
       </footer>
+    </div>
+  );
+}
+
+// Locked preview shown to non-signed-in visitors of a shared template link.
+// Shows only the FIRST visible section (typically nav + hero) and overlays a
+// frosted-glass sign-up gate so visitors must register or sign in to see the
+// full template inside their dashboard.
+function LockedPreview({
+  jsonContent,
+  slug,
+  templateName,
+}: {
+  jsonContent: GeneratedWebsite;
+  slug: string;
+  templateName: string;
+}) {
+  // First-section-only view: nav + the FIRST non-nav section (usually hero).
+  // Everything below is replaced by the sign-up gate.
+  const lockedContent: GeneratedWebsite = (() => {
+    const sections = jsonContent.sections || [];
+    const out: typeof sections = [];
+    const nav = sections.find((s) => s.type === "nav");
+    const firstContent = sections.find((s) => s.type !== "nav" && s.type !== "footer");
+    if (nav) out.push(nav);
+    if (firstContent) out.push(firstContent);
+    return { ...jsonContent, sections: out };
+  })();
+
+  return (
+    <div className="relative">
+      {/* Visible first section */}
+      <div className="relative">
+        <WebsiteRenderer website={lockedContent} isPreview />
+      </div>
+
+      {/* Frosted-glass sign-up gate filling the rest of the page */}
+      <div
+        className="relative"
+        style={{
+          minHeight: "60vh",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.96) 22%, #ffffff 100%)",
+          backdropFilter: "blur(2px)",
+        }}
+      >
+        <div className="max-w-md mx-auto px-6 py-16 sm:py-20 text-center">
+          <div
+            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5"
+            style={{ background: "#EBF3FF", color: BLUE }}
+          >
+            <Lock size={26} />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+            Sign up to view the full template
+          </h2>
+          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+            You're viewing a locked preview of <strong className="text-gray-700">{templateName}</strong>.
+            Create a free Storebuilder.ph account or sign in to unlock the full design and use it in your dashboard.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+            <Link
+              href={`/auth/register?callbackUrl=/template/${slug}&returnAction=use-template`}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+              style={{ background: BLUE }}
+            >
+              <Sparkles size={14} />
+              Sign up free
+              <ArrowRight size={14} />
+            </Link>
+            <Link
+              href={`/auth/signin?callbackUrl=/template/${slug}`}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-gray-700 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              I already have an account
+            </Link>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-6">
+            The full template will open inside your dashboard once you're signed in.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

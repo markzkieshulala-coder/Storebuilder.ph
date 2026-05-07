@@ -79,6 +79,7 @@ function firstOf(all: Section[], type: string, seenIds: Set<string>): Section | 
 // from dedicated sub-pages (pricing/faq/process/contact/team/gallery/products
 // stay on their own pages).
 export function selectHomepageSections(website: GeneratedWebsite): Section[] {
+  if (!website || !Array.isArray(website.sections)) return [];
   const normalized = normalizeNavLinks(website);
   const all = normalized.sections || [];
   const nav = all.find((s) => s.type === "nav");
@@ -110,6 +111,9 @@ export function selectSubpageSections(
   website: GeneratedWebsite,
   routeSlug: string
 ): Section[] {
+  if (!website || !Array.isArray(website.sections)) {
+    return [syntheticHero(routeSlug, website?.name || "")];
+  }
   const normalized = normalizeNavLinks(website);
   const all = normalized.sections || [];
   const nav = all.find((s) => s.type === "nav");

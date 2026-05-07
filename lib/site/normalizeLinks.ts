@@ -45,11 +45,14 @@ export function normalizeHref(href: unknown): string | undefined {
   return slug ? `/${slug}` : "/";
 }
 
-export function normalizeNavLinks<T extends { sections: Array<{ type: string; data: Record<string, unknown>; styles: Record<string, string> }> }>(website: T): T {
+export function normalizeNavLinks<T extends { sections?: Array<{ type: string; data: Record<string, unknown>; styles: Record<string, string> }> }>(website: T): T {
+  // Defensive: missing/null sections array → return website unchanged so this
+  // helper never crashes the server-rendered page.
+  if (!website || !Array.isArray(website.sections)) return website;
   return {
     ...website,
     sections: website.sections.map((s) => {
-      const d = { ...(s.data || {}) } as any;
+      const d = { ...((s && s.data) || {}) } as any;
 
       if (s.type === "nav") {
         if (Array.isArray(d.links)) {

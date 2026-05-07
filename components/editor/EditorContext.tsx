@@ -41,6 +41,9 @@ export type EditorContextType = {
   // Section-level adjustments (height per-viewport + reorder)
   onResizeSection?: (sectionId: string, minHeight: number, mode: ViewMode) => void;
   onReorderSections?: (fromIndex: number, toIndex: number) => void;
+  // Section-level style writes (background colour, text colour, accent etc.)
+  // — used by the section style chip rendered on each SectionShell.
+  onUpdateSectionStyle?: (sectionId: string, key: string, value: string) => void;
 
   // Batch-update one item inside an array field (e.g. a single product)
   onUpdateNestedItem?: (sectionId: string, arrayField: string, index: number, updates: Record<string, any>) => void;

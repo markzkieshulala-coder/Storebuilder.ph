@@ -544,6 +544,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     onResizeSection: resizeSection,
     onReorderSections: reorderSections,
     onUpdateNestedItem: updateNestedItem,
+    onUpdateSectionStyle: applySectionStyle,
   };
 
   return (

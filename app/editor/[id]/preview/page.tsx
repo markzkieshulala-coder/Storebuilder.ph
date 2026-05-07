@@ -1,31 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, X, Home } from "lucide-react";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { EditorContextType } from "@/components/editor/EditorContext";
+import { selectHomepageSections, selectSubpageSections } from "@/lib/site/pageSections";
 
 // Editor preview uses default editor context overrides except `isPreview` is
 // true so internal nav routes ("/about", "/contact") don't try to navigate
 // away from /editor/{id}/preview to non-existent paths on storebuilder.ph.
-const PREVIEW_CTX: EditorContextType = {
-  isEditable: false,
-  isPreview: true,
-  viewMode: "desktop",
-  onTextChange: () => {},
-  onNestedTextChange: () => {},
-  onImageUpload: () => {},
-  onSectionClick: () => {},
-  onShowToolbar: () => {},
-  selectedField: null,
-  onSelectField: () => {},
-  onUpdateEditor: () => {},
-  onResetEditor: () => {},
-  getEditorState: () => undefined,
-};
+//
+// Page switching: nav clicks update local state via onEditorPageChange and
+// the canvas re-renders the corresponding page sections. This mirrors the
+// published-site behaviour but stays inside this preview tab.
+function makeCtx(
+  currentPage: string,
+  setCurrentPage: (p: string) => void
+): EditorContextType {
+  return {
+    isEditable: false,
+    isPreview: true,
+    viewMode: "desktop",
+    currentEditorPage: currentPage,
+    onEditorPageChange: (p) => {
+      setCurrentPage(p);
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
+    },
+    onTextChange: () => {},
+    onNestedTextChange: () => {},
+    onImageUpload: () => {},
+    onSectionClick: () => {},
+    onShowToolbar: () => {},
+    selectedField: null,
+    onSelectField: () => {},
+    onUpdateEditor: () => {},
+    onResetEditor: () => {},
+    getEditorState: () => undefined,
+  };
+}
 
 export default function PreviewPage({ params }: { params: { id: string } }) {
   const { status } = useSession();
@@ -35,6 +50,7 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
   const [subdomain, setSubdomain] = useState("");
   const [published, setPublished] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState<string>("/");
 
   useEffect(() => {
     if (status === "unauthenticated") window.close();
@@ -53,6 +69,26 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
       .catch(() => setLoading(false));
   }, [status, params.id]);
 
+  // Always inject subdomain so product links work in preview. For unpublished
+  // sites the payment API still blocks checkout, but the product info page loads.
+  const websiteWithSubdomain = useMemo(
+    () => (website && subdomain ? { ...website, subdomain } : website),
+    [website, subdomain]
+  );
+
+  // Filter the sections for the currently-viewed page so nav clicks open
+  // dedicated pages just like the published site.
+  const visibleWebsite = useMemo(() => {
+    if (!websiteWithSubdomain) return null;
+    if (currentPage === "/") {
+      return { ...websiteWithSubdomain, sections: selectHomepageSections(websiteWithSubdomain) };
+    }
+    const slug = currentPage.replace(/^\//, "");
+    return { ...websiteWithSubdomain, sections: selectSubpageSections(websiteWithSubdomain, slug) };
+  }, [websiteWithSubdomain, currentPage]);
+
+  const ctx = useMemo(() => makeCtx(currentPage, setCurrentPage), [currentPage]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -64,15 +100,9 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  // Always inject subdomain so product links work in preview. For unpublished
-  // sites the payment API still blocks checkout, but the product info page loads.
-  const websiteWithSubdomain = website && subdomain
-    ? { ...website, subdomain }
-    : website;
-
   // Raw embed mode (used by the preview button for a clean full-page view)
   if (isRaw) {
-    return websiteWithSubdomain ? <WebsiteRenderer website={websiteWithSubdomain} editorContext={PREVIEW_CTX} /> : null;
+    return visibleWebsite ? <WebsiteRenderer website={visibleWebsite} editorContext={ctx} /> : null;
   }
 
   return (
@@ -96,13 +126,27 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
               <span className="text-white/70 text-xs truncate">{website.name}</span>
             </>
           )}
+          {currentPage !== "/" && (
+            <span className="text-white/90 text-xs font-mono bg-white/15 px-2 py-0.5 rounded shrink-0">
+              {currentPage}
+            </span>
+          )}
         </div>
 
         {/* Right: actions */}
         <div className="flex items-center gap-3 shrink-0">
+          {currentPage !== "/" && (
+            <button
+              onClick={() => { setCurrentPage("/"); window.scrollTo({ top: 0, behavior: "auto" }); }}
+              className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs font-medium transition-colors"
+            >
+              <Home size={11} />
+              Home
+            </button>
+          )}
           {published && subdomain && (
             <a
-              href={`https://${subdomain}.storebuilder.ph`}
+              href={`https://${subdomain}.storebuilder.ph${currentPage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs font-medium transition-colors"
@@ -123,8 +167,8 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
 
       {/* Website content — offset by branded bar height */}
       <div className="pt-10 flex-1">
-        {websiteWithSubdomain ? (
-          <WebsiteRenderer website={websiteWithSubdomain} editorContext={PREVIEW_CTX} />
+        {visibleWebsite ? (
+          <WebsiteRenderer website={visibleWebsite} editorContext={ctx} />
         ) : (
           <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
             Website not found
