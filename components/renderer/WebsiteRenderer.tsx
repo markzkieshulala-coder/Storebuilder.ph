@@ -161,6 +161,7 @@ export default function WebsiteRenderer({ website, isPreview, editorContext }: P
               viewMode={ctx.viewMode}
               onResizeSection={ctx.onResizeSection}
               onUpdateSectionStyle={ctx.onUpdateSectionStyle}
+              onDeleteSection={ctx.onDeleteSection}
             />
           );
         })}
@@ -176,7 +177,7 @@ export default function WebsiteRenderer({ website, isPreview, editorContext }: P
 // bottom handle since it sits at the very end of the page.
 function SectionShell({
   section, website, SectionComponent, anchorId, index, total, isEditable, viewMode,
-  onResizeSection, onUpdateSectionStyle,
+  onResizeSection, onUpdateSectionStyle, onDeleteSection,
 }: {
   section: Section;
   website: GeneratedWebsite;
@@ -188,6 +189,7 @@ function SectionShell({
   viewMode: ViewMode;
   onResizeSection?: (sectionId: string, minHeight: number, mode: ViewMode) => void;
   onUpdateSectionStyle?: (sectionId: string, key: string, value: string) => void;
+  onDeleteSection?: (sectionId: string) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dragHeightRef = useRef<number | null>(null);
@@ -305,6 +307,44 @@ function SectionShell({
           onUpdate={onUpdateSectionStyle}
           visible={hover || resizing}
         />
+      )}
+
+      {/* Section delete button — visible on hover in editor mode.
+          Single-click removes the entire section from the page. */}
+      {isEditable && onDeleteSection && (hover || resizing) && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Delete this ${section.type} section? This cannot be undone with Ctrl+Z after saving.`)) {
+              onDeleteSection(section.id);
+            }
+          }}
+          title="Delete this section"
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 110,
+            zIndex: 60,
+            background: "#ef4444",
+            color: "#fff",
+            border: "1px solid rgba(0,0,0,0.08)",
+            borderRadius: 999,
+            padding: "6px 10px",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            boxShadow: "0 4px 12px rgba(239,68,68,0.35)",
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+          </svg>
+          Delete
+        </button>
       )}
 
       {isEditable && !hideHandle && (

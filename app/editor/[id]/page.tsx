@@ -544,6 +544,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     onReorderSections: reorderSections,
     onUpdateNestedItem: updateNestedItem,
     onUpdateSectionStyle: applySectionStyle,
+    onDeleteSection: deleteSection,
   };
 
   return (

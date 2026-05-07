@@ -364,21 +364,37 @@ function BillingTab({ session, update, planTier }: any) {
       .finally(() => setLoadingSub(false));
   }, [isPaid]);
 
-  async function cancel() {
-    if (!confirm(`Cancel your ${planInfo.label}? You'll keep ${planInfo.label} access until the end of your current billing period, then automatically downgrade to Free.`)) return;
+  async function cancel(immediate = false) {
+    const msg = immediate
+      ? `Cancel ${planInfo.label} IMMEDIATELY? You'll lose access to all paid features right away.`
+      : `Cancel your ${planInfo.label}? You'll keep ${planInfo.label} access until the end of your current billing period, then automatically downgrade to Free.`;
+    if (!confirm(msg)) return;
     setCancelling(true);
     try {
-      const res = await fetch("/api/user/subscription/cancel", { method: "POST" });
+      const res = await fetch("/api/user/subscription/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ immediate }),
+      });
       const data = await res.json();
       if (res.ok) {
-        const ends = data.endsAt ? new Date(data.endsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "the end of your billing period";
-        toast.success(`Cancellation scheduled — you keep access until ${ends}.`);
-        setSub((s) => s ? { ...s, cancelAtPeriodEnd: true, currentPeriodEnd: data.endsAt ?? s.currentPeriodEnd } : s);
-        setPending((p) => ({
-          pendingPlan: "FREE",
-          pendingPlanAt: data.endsAt ?? p?.pendingPlanAt ?? null,
-          planExpiresAt: p?.planExpiresAt ?? null,
-        }));
+        if (immediate) {
+          toast.success("Subscription cancelled — you're now on the Free plan.");
+          // Force session refresh so feature gates update across the app
+          await update();
+          setSub(null);
+          setPending(null);
+          setTimeout(() => window.location.reload(), 600);
+        } else {
+          const ends = data.endsAt ? new Date(data.endsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "the end of your billing period";
+          toast.success(`Cancellation scheduled — you keep access until ${ends}.`);
+          setSub((s) => s ? { ...s, cancelAtPeriodEnd: true, currentPeriodEnd: data.endsAt ?? s.currentPeriodEnd } : s);
+          setPending((p) => ({
+            pendingPlan: "FREE",
+            pendingPlanAt: data.endsAt ?? p?.pendingPlanAt ?? null,
+            planExpiresAt: p?.planExpiresAt ?? null,
+          }));
+        }
       } else toast.error(data.error || "Failed to cancel");
     } catch (e: any) {
       toast.error(e?.message || "Network error");
@@ -495,13 +511,22 @@ function BillingTab({ session, update, planTier }: any) {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={cancel}
-                  disabled={cancelling}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-red-600 text-sm font-semibold border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
-                >
-                  {cancelling ? "Cancelling…" : "Cancel at period end"}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => cancel(false)}
+                    disabled={cancelling}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-amber-600 text-sm font-semibold border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-50 transition-colors"
+                  >
+                    {cancelling ? "Working…" : "Cancel at period end"}
+                  </button>
+                  <button
+                    onClick={() => cancel(true)}
+                    disabled={cancelling}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-red-600 text-sm font-semibold border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  >
+                    {cancelling ? "Working…" : "Cancel immediately"}
+                  </button>
+                </div>
               </>
             )}
           </Card>

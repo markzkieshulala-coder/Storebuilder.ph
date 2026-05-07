@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useEditor } from "@/components/editor/EditorContext";
 import EditableField from "@/components/editor/EditableField";
+import { normalizeHref } from "@/lib/site/normalizeLinks";
 
 // Treat hrefs starting with "/" (and not "//") as internal page routes that
 // should use Next.js <Link> for client-side navigation. Anchors ("#…"),
@@ -57,11 +58,14 @@ export default function NavSection({ section, website }: { section: Section; web
         contentEditable={false}
         suppressContentEditableWarning
         onClick={(e) => {
-          e.stopPropagation();
-          if (isEditable && href && onEditorPageChange) {
+          // Editor + Preview: switch the visible page in the canvas
+          if ((isEditable || isPreview) && href && onEditorPageChange) {
+            e.stopPropagation();
             onEditorPageChange(href);
             return;
           }
+          // Editor: prevent the section's onClick from also firing
+          if (isEditable) e.stopPropagation();
           onClickAfter?.();
         }}
         onDoubleClick={(e) => {
@@ -108,16 +112,19 @@ export default function NavSection({ section, website }: { section: Section; web
             const isActive = !isEditable && false; // nav active state handled per-page
             const className = "text-sm opacity-70 hover:opacity-100 transition-opacity whitespace-nowrap";
             const linkStyle = { color: textColor } as const;
-            if (useRouting && isInternalRoute(link.href)) {
+            // Defensive normalization: if upstream forgot to call normalizeNavLinks,
+            // turn "#about" / "about" into "/about" right here so routing works.
+            const safeHref = normalizeHref(link.href) ?? link.href;
+            if (useRouting && isInternalRoute(safeHref)) {
               return (
-                <Link key={i} href={link.href} className={className} style={linkStyle}>
+                <Link key={i} href={safeHref} className={className} style={linkStyle}>
                   {link.label}
                 </Link>
               );
             }
             return (
               <span key={i} className={className} style={linkStyle}>
-                {editableLink(link.label, i, "", link.href)}
+                {editableLink(link.label, i, "", safeHref)}
               </span>
             );
           })}
@@ -166,11 +173,12 @@ export default function NavSection({ section, website }: { section: Section; web
             {(d.links || []).map((link: any, i: number) => {
               const mobileClass = "flex items-center min-h-[48px] text-sm opacity-70 hover:opacity-100 border-b transition-opacity";
               const mobileStyle = { color: textColor, borderColor: "rgba(255,255,255,0.06)" } as const;
-              if (useRouting && isInternalRoute(link.href)) {
+              const safeHref = normalizeHref(link.href) ?? link.href;
+              if (useRouting && isInternalRoute(safeHref)) {
                 return (
                   <Link
                     key={i}
-                    href={link.href}
+                    href={safeHref}
                     className={mobileClass}
                     style={mobileStyle}
                     onClick={() => setMenuOpen(false)}
@@ -185,7 +193,7 @@ export default function NavSection({ section, website }: { section: Section; web
                   className={mobileClass}
                   style={mobileStyle}
                 >
-                  {editableLink(link.label, i, "", link.href, () => setMenuOpen(false))}
+                  {editableLink(link.label, i, "", safeHref, () => setMenuOpen(false))}
                 </span>
               );
             })}

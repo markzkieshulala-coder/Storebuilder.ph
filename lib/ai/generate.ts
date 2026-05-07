@@ -213,10 +213,12 @@ function enforcePlanSections(website: GeneratedWebsite, plan: string): Generated
 // ─── Ensure all images are real Unsplash URLs ────────────────────────────────
 const UNSPLASH_BASE = "https://images.unsplash.com/photo-";
 
-// Larger curated pool — Fisher-Yates shuffled per generation so two consecutive
-// generations of the same business type rarely reuse the same fallback photos.
+// Much larger curated pool spanning multiple visual styles — Fisher-Yates
+// shuffled per generation so two consecutive sites rarely reuse the same
+// fallback photos. ~100 IDs covers business, lifestyle, portfolio,
+// food/restaurant, fashion, tech, architecture, art, and abstract subjects.
 const FALLBACK_PHOTOS = [
-  // generic editorial / product / interior
+  // editorial / business / interior
   "1497366216548-37526070297c", "1518770660439-4636190af475",
   "1504674900247-0877df9cc836", "1555396273-367ea4eb4db5",
   "1483985986-9e7dcf2e1a8e", "1529903672776-b51b5379fcf4",
@@ -225,14 +227,61 @@ const FALLBACK_PHOTOS = [
   "1565299624946-b28f40a0ae38", "1490645935967-10de6ba17061",
   "1482049016688-2d3e1b311543", "1539109136881-3be0616acf4b",
   "1542291026-7eec264c27ff", "1516762689-1b8e44c75a0b",
-  "1445205170230-053b83016050", "1525966222134-fcfa99b8ae77",
-  "1543163521-1bf539c55dd2", "1487412947147-5cebf96ef2ff",
-  "1596462502278-27bfdc403348", "1515688594-0eebcca23e55",
-  "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
-  "1552664730-d307ca884978", "1519389950473-47ba0277781c",
-  "1461749280684-dccba630e2f6", "1504868584819-f8e8b4b6d7e3",
+  // portrait / people / team
+  "1494790108377-be9c29b29330", "1500648767791-00dcc994a43e",
+  "1438761681033-6461ffad8d80", "1472099645785-5658abf4ff4e",
+  "1573496359142-b8d87734a5a2", "1607746882042-944635dfe10e",
+  "1580489944761-15a19d654956", "1545996124-0501ebae84d0",
+  "1531123897727-8f129e1688ce", "1517841905240-472988babdf9",
+  // portfolio / creative / art
+  "1513475382585-d06e58bcb0e0", "1547891654-e66ed7ebb968",
+  "1561070791-2526d30994b8", "1502691876148-a84978e59af8",
+  "1516259762381-22954d7d3ad2", "1558618666-fcd25c85cd64",
+  "1554290712-e640351074bd", "1534447677768-be436bb09401",
+  "1499781350541-7783f6c6a0c8", "1551038247-3d9af20df552",
+  // food / restaurant / cafe
+  "1414235077428-338989a2e8c0", "1517248135467-4c7edcad34c4",
+  "1559925393-8be0ec4767c8", "1546069901-ba9599a7e63c",
+  "1565958011703-44f9829ba187", "1551024601-bec78aea704b",
+  "1498837167922-ddd27525d352", "1424847651672-bf20a4b0982b",
+  "1540189549336-e6e99c3679fe", "1485921325833-c519f76c4927",
+  // fashion / retail / product
+  "1542291026-7eec264c27ff", "1483985988355-763728e1935b",
+  "1551232864-3f0890e580d9", "1490481651871-ab68de25d43d",
+  "1567401893414-76b7b1e5a7a5", "1576566588028-4147f3842f27",
+  "1556905055-8f358a7a47b2", "1521334884684-d80222895322",
+  // tech / workspace / office
+  "1517048676732-d65bc937f952", "1573496359142-b8d87734a5a2",
+  "1593642632559-0c6d3fc62b89", "1587620962725-abab7fe55159",
+  "1531403009284-440f080d1e12", "1581291518857-4e27b48ff24e",
+  "1499951360447-b19be8fe80f5", "1486312338219-ce68d2c6f44d",
+  // architecture / interior / space
+  "1486325212027-8081e485255e", "1502602898657-3e91760cbb34",
+  "1507089947368-19c1da9775ae", "1486718448742-163732cd1544",
+  "1497366754035-f200968a6e72", "1555041469-a586c61ea9bc",
+  // landscape / nature / abstract
+  "1506905925346-21bda4d32df4", "1542401886-65d6c61db217",
+  "1519681393784-d120267933ba", "1500530855697-b586d89ba3ee",
+  "1448375240586-882707db888b", "1469474968028-56623f02e42e",
+  "1506905925346-21bda4d32df4", "1493246507139-91e8fad9978e",
+  // events / hospitality / wedding
+  "1519741497674-611481863552", "1464366400600-7168b8af9bc3",
+  "1465495976277-4387d4b0e4a6", "1530023367847-a683933f4172",
+  // travel / experience
+  "1469854523086-cc02fe5d8800", "1488646953014-85cb44e25828",
+  "1503220317375-aaad61436b1b", "1502635385003-ee1e6a1a742d",
+  // craft / handmade / studio
+  "1498081959737-f3ba1af08103", "1516733725897-1aa73b87c8e8",
+  "1452860606245-08befc0ff44b", "1517457373958-b7bdd4587205",
+  // additional editorial variety
+  "1525966222134-fcfa99b8ae77", "1543163521-1bf539c55dd2",
+  "1487412947147-5cebf96ef2ff", "1596462502278-27bfdc403348",
+  "1515688594-0eebcca23e55", "1571019613454-1cb2f99b2d8b",
+  "1544367567-0f2fcb009e0b", "1552664730-d307ca884978",
+  "1519389950473-47ba0277781c", "1461749280684-dccba630e2f6",
   "1497366811353-6870744d04b2", "1524758631624-e2822e304c36",
   "1600880292203-757bb62b4baf", "1557804506-669a67965ba0",
+  "1445205170230-053b83016050",
 ];
 
 function shuffledPhotos(): string[] {
@@ -434,6 +483,92 @@ function normalizeNavLinks(website: GeneratedWebsite): GeneratedWebsite {
   return website;
 }
 
+// Fill in defaults for visually-driven sections that the AI under-generated
+// (e.g., a gallery with zero images, a team with zero members). This prevents
+// "blank" sub-pages on portfolio sites where /work or /team would otherwise
+// render an empty card.
+function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
+  const brand = (website as any).name || "Studio";
+  website.sections = website.sections.map((s) => {
+    const d = { ...((s.data || {}) as any) };
+
+    if (s.type === "gallery") {
+      const arr = Array.isArray(d.images) ? d.images : [];
+      while (arr.length < 6) {
+        arr.push({ url: fallbackPhoto("800x800"), caption: "" });
+      }
+      d.images = arr;
+    }
+
+    if (s.type === "team") {
+      const members = Array.isArray(d.members) ? d.members : [];
+      const roles = ["Founder", "Creative Director", "Lead Designer", "Account Manager"];
+      const names = ["Maria Santos", "Ramon dela Cruz", "Angela Reyes", "James Villanueva"];
+      while (members.length < 3) {
+        const i = members.length;
+        members.push({
+          name: names[i] ?? `Team Member ${i + 1}`,
+          role: roles[i] ?? "Team Member",
+          image: fallbackPhoto("400x400"),
+          bio: "",
+        });
+      }
+      d.members = members;
+    }
+
+    if (s.type === "testimonials") {
+      const items = Array.isArray(d.testimonials) ? d.testimonials : [];
+      const defaults = [
+        { name: "Maria Santos",     role: "Client",       quote: `Working with ${brand} was a great experience — clear, on time, and professional.` },
+        { name: "Ramon dela Cruz",  role: "Customer",     quote: `${brand} delivered exactly what we asked for. We'll be back for the next project.` },
+        { name: "Angela Reyes",     role: "Repeat Buyer", quote: `Highly recommended. Quality and service that's hard to find in Metro Manila.` },
+      ];
+      while (items.length < 3) {
+        items.push({ ...defaults[items.length] ?? defaults[0], image: fallbackPhoto("100x100") });
+      }
+      d.testimonials = items;
+    }
+
+    if (s.type === "features") {
+      const items = Array.isArray(d.features) ? d.features : [];
+      while (items.length < 3) {
+        items.push({
+          title: ["Quality First", "Trusted Partner", "On-Time Delivery"][items.length] ?? "Feature",
+          description: "Built to last, designed with care, and shipped without compromise.",
+          icon: ["star", "shield-check", "clock"][items.length] ?? "check",
+        });
+      }
+      d.features = items;
+    }
+
+    if (s.type === "stats") {
+      const items = Array.isArray(d.stats) ? d.stats : [];
+      const defaults = [
+        { value: "120+", label: "Projects Delivered" },
+        { value: "8 yrs", label: "Industry Experience" },
+        { value: "98%",  label: "Client Satisfaction" },
+        { value: "24/7", label: "Support Coverage" },
+      ];
+      while (items.length < 3) items.push(defaults[items.length] ?? defaults[0]);
+      d.stats = items;
+    }
+
+    if (s.type === "faq") {
+      const items = Array.isArray(d.faqs) ? d.faqs : [];
+      const defaults = [
+        { question: "How long does a project take?",       answer: "Most engagements run 2–6 weeks depending on scope. We confirm a timeline at the start." },
+        { question: "Do you work with small businesses?",  answer: "Yes — most of our clients are independent Filipino brands and small teams." },
+        { question: "How do payments work?",                answer: "We invoice in two milestones. Online payment via PayMongo or bank transfer." },
+      ];
+      while (items.length < 3) items.push(defaults[items.length] ?? defaults[0]);
+      d.faqs = items;
+    }
+
+    return { ...s, data: d };
+  });
+  return website;
+}
+
 // ─── Master post-processor ────────────────────────────────────────────────────
 function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite {
   // Reset rotating photo pool for this generation so different runs don't
@@ -446,6 +581,13 @@ function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite 
   // Sanitize colors
   website = sanitizeColors(website);
   // Ensure real Unsplash images
+  website = sanitizeImages(website);
+  // Fill empty visual sections (gallery / team / testimonials / faq / stats)
+  website = ensureSectionContent(website);
+  // Re-run image sanitization in case ensureSectionContent injected fallbacks
+  // that collide with already-claimed photo IDs (extremely unlikely with the
+  // shuffled pool, but keeps the invariant: no two sections share the same
+  // Unsplash photo).
   website = sanitizeImages(website);
   // Rewrite anchor links into multi-page routes
   website = normalizeNavLinks(website);

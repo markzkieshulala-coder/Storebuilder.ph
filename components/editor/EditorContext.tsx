@@ -44,6 +44,8 @@ export type EditorContextType = {
   // Section-level style writes (background colour, text colour, accent etc.)
   // — used by the section style chip rendered on each SectionShell.
   onUpdateSectionStyle?: (sectionId: string, key: string, value: string) => void;
+  // Section delete — invoked by the canvas hover delete button
+  onDeleteSection?: (sectionId: string) => void;
 
   // Batch-update one item inside an array field (e.g. a single product)
   onUpdateNestedItem?: (sectionId: string, arrayField: string, index: number, updates: Record<string, any>) => void;

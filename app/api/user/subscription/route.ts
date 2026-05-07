@@ -24,24 +24,48 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
       });
     } catch {
-      subscription = null;
+      // Legacy DB — try the same query without the new columns
+      try {
+        subscription = await prisma.subscription.findFirst({
+          where: { userId: session.user.id, status: "ACTIVE" },
+          select: {
+            id: true, status: true, plan: true, billingCycle: true,
+            amount: true, currency: true, createdAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (subscription) {
+          subscription.currentPeriodEnd = null;
+          subscription.cancelAtPeriodEnd = false;
+        }
+      } catch { subscription = null; }
     }
 
-    // Always include user-level pending plan info so the UI can reflect a
-    // scheduled cancellation even when there's no Subscription row (e.g. for
-    // admin-granted plans without a real PayMongo record).
+    // Read user core fields — never includes pendingPlan in the select
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { plan: true, planExpiresAt: true, pendingPlan: true, pendingPlanAt: true },
+      select: { plan: true, planExpiresAt: true },
     });
+
+    // Read pendingPlan/pendingPlanAt via raw SQL so a missing column never 500s.
+    let pendingPlan: string | null = null;
+    let pendingPlanAt: Date | null = null;
+    try {
+      const rows = await prisma.$queryRawUnsafe<{ pendingPlan: string | null; pendingPlanAt: Date | null }[]>(
+        `SELECT "pendingPlan"::text AS "pendingPlan", "pendingPlanAt" FROM "User" WHERE id = $1 LIMIT 1`,
+        session.user.id
+      );
+      pendingPlan = rows[0]?.pendingPlan ?? null;
+      pendingPlanAt = rows[0]?.pendingPlanAt ?? null;
+    } catch { /* columns absent */ }
 
     return NextResponse.json({
       subscription,
       pending: user
         ? {
             plan: user.plan,
-            pendingPlan: user.pendingPlan,
-            pendingPlanAt: user.pendingPlanAt,
+            pendingPlan,
+            pendingPlanAt,
             planExpiresAt: user.planExpiresAt,
           }
         : null,
