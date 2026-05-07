@@ -1,4 +1,5 @@
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
+import { normalizeNavLinks } from "@/lib/site/normalizeLinks";
 
 // Multi-page nav: each route slug maps to one or more candidate section types,
 // in order of preference. Used by /sites/[subdomain]/[section] to render every
@@ -78,7 +79,8 @@ function firstOf(all: Section[], type: string, seenIds: Set<string>): Section | 
 // from dedicated sub-pages (pricing/faq/process/contact/team/gallery/products
 // stay on their own pages).
 export function selectHomepageSections(website: GeneratedWebsite): Section[] {
-  const all = website.sections || [];
+  const normalized = normalizeNavLinks(website);
+  const all = normalized.sections || [];
   const nav = all.find((s) => s.type === "nav");
   const footer = all.find((s) => s.type === "footer");
   const seen = new Set<string>();
@@ -108,7 +110,8 @@ export function selectSubpageSections(
   website: GeneratedWebsite,
   routeSlug: string
 ): Section[] {
-  const all = website.sections || [];
+  const normalized = normalizeNavLinks(website);
+  const all = normalized.sections || [];
   const nav = all.find((s) => s.type === "nav");
   const footer = all.find((s) => s.type === "footer");
 

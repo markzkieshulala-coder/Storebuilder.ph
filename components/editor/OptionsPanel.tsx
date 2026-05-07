@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, ExternalLink, ArrowRight, Palette } from "lucide-react";
+import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, Home, ChevronRight } from "lucide-react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 
 const PAYMENT_METHODS = [
@@ -25,12 +25,16 @@ interface Props {
   onDeleteSection: (id: string) => void;
   onDuplicateSection: (id: string) => void;
   onScrollToSection?: (sectionId: string) => void;
+  // Multi-page editor: current page slug ("/" or "/services" etc.) and a
+  // callback to switch which page the canvas is showing.
+  currentPage?: string;
+  onPageChange?: (page: string) => void;
   // Restrict which tabs are visible. Defaults to all three for back-compat.
   // Pass ["pages"] for the left panel and ["site", "payments"] for the right.
   visibleTabs?: Tab[];
 }
 
-export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection, onScrollToSection, visibleTabs }: Props) {
+export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection, onScrollToSection, currentPage, onPageChange, visibleTabs }: Props) {
   const allowed: Tab[] = visibleTabs && visibleTabs.length > 0 ? visibleTabs : ["pages", "site", "payments"];
   const [tab, setTab] = useState<Tab>(allowed[0]);
 
@@ -54,26 +58,7 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
     updateSettings("payments", { ...payments, [linkKey]: value });
   }
 
-  // Real-time global color updates: writes to website.colors so every section
-  // re-renders immediately. Users see the change as they move the picker.
-  function setGlobalColor(key: "background" | "text" | "primary" | "accent" | "secondary", value: string) {
-    onUpdateWebsite({
-      colors: { ...(website.colors || {} as any), [key]: value },
-    } as any);
-  }
-
-  // Navbar background lives on the nav section's styles, not on website.colors
-  // — apply it directly so the nav re-paints in real time.
-  function setNavBackground(value: string) {
-    const nav = website.sections.find((s) => s.type === "nav");
-    if (!nav) return;
-    const updated = website.sections.map((s) =>
-      s.id === nav.id ? { ...s, styles: { ...(s.styles || {}), background: value } } : s
-    );
-    onUpdateWebsite({ sections: updated } as any);
-  }
-  const navSectionForColor = website.sections.find((s) => s.type === "nav");
-  const navBgValue = (navSectionForColor?.styles?.background as string | undefined) || website.colors?.primary || "#1a1a2e";
+  // No colour functions needed here — colours live in the ThemeMenu topbar button.
 
   const inp = "w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:bg-white text-gray-800 transition-colors";
   const lbl = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
@@ -154,37 +139,6 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
               })()} />
             </div>
 
-            {/* Colors — real-time global styling */}
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Palette size={11} className="text-gray-400" />
-                Colors
-              </p>
-              <div className="space-y-2">
-                {[
-                  { key: "background", label: "Page background", value: website.colors?.background || "#0d0d1a", apply: (v: string) => setGlobalColor("background", v) },
-                  { key: "text", label: "Text", value: website.colors?.text || "#f5f0e8", apply: (v: string) => setGlobalColor("text", v) },
-                  { key: "navbar", label: "Navbar / Header", value: navBgValue, apply: (v: string) => setNavBackground(v) },
-                  { key: "accent", label: "Accent", value: website.colors?.accent || "#c9a84c", apply: (v: string) => setGlobalColor("accent", v) },
-                ].map((row) => (
-                  <div key={row.key} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-gray-50 border border-gray-100">
-                    <span className="text-xs text-gray-700 font-medium truncate">{row.label}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-gray-400 font-mono uppercase">{(row.value || "").slice(0, 7)}</span>
-                      <input
-                        type="color"
-                        value={(row.value || "").slice(0, 7)}
-                        onChange={(e) => row.apply(e.target.value)}
-                        className="w-7 h-7 rounded-md cursor-pointer border border-gray-200 bg-transparent"
-                        style={{ padding: "2px" }}
-                        title={row.label}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div>
               <label className={lbl}>Phone</label>
               <div className="relative">
@@ -254,39 +208,60 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
         {/* PAGES */}
         {tab === "pages" && (
           <div className="space-y-4">
-            {/* Website Pages from nav */}
-            {navLinks.length > 0 && (
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Website Pages</p>
-                <div className="space-y-1">
-                  {navLinks.map((link, i) => {
-                    const matched = findSectionForHref(link.href);
-                    return (
-                      <div
-                        key={i}
-                        className="group flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer"
-                        onClick={() => matched && onScrollToSection && onScrollToSection(matched.id)}
-                        title={matched ? `Scroll to ${link.label}` : link.label}
-                      >
-                        <ArrowRight size={12} className="text-gray-300 group-hover:text-blue-400 shrink-0 transition-colors" />
-                        <span className="flex-1 text-sm font-medium text-gray-700 group-hover:text-blue-700 truncate transition-colors">
-                          {link.label}
-                        </span>
-                        {link.href && (
-                          <span className="text-[10px] text-gray-300 group-hover:text-blue-300 shrink-0 transition-colors">
-                            {link.href}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
-            {/* All Sections */}
+            {/* ── Page switcher ── */}
             <div>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">All Sections</p>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Pages</p>
+              <div className="space-y-1">
+                {/* Home */}
+                {(() => {
+                  const isActive = !currentPage || currentPage === "/";
+                  return (
+                    <button
+                      key="home"
+                      className={`w-full flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all ${
+                        isActive
+                          ? "bg-blue-50 border-blue-300 text-blue-700"
+                          : "bg-gray-50 border-transparent hover:border-gray-200 hover:bg-gray-100 text-gray-700"
+                      }`}
+                      onClick={() => onPageChange?.("/")}
+                    >
+                      <Home size={13} className={isActive ? "text-blue-500" : "text-gray-400"} />
+                      <span className="flex-1 text-sm font-semibold truncate">Home</span>
+                      <span className="text-[10px] font-mono text-gray-400">/</span>
+                      {isActive && <ChevronRight size={11} className="text-blue-400 shrink-0" />}
+                    </button>
+                  );
+                })()}
+
+                {/* Nav-defined pages */}
+                {navLinks.map((link, i) => {
+                  const isActive = currentPage === link.href;
+                  return (
+                    <button
+                      key={i}
+                      className={`w-full flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all ${
+                        isActive
+                          ? "bg-blue-50 border-blue-300 text-blue-700"
+                          : "bg-gray-50 border-transparent hover:border-gray-200 hover:bg-gray-100 text-gray-700"
+                      }`}
+                      onClick={() => onPageChange?.(link.href)}
+                    >
+                      <span className={`w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center shrink-0 ${
+                        isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-500"
+                      }`}>{link.label.charAt(0).toUpperCase()}</span>
+                      <span className="flex-1 text-sm font-semibold truncate">{link.label}</span>
+                      <span className="text-[10px] font-mono text-gray-400 shrink-0">{link.href}</span>
+                      {isActive && <ChevronRight size={11} className="text-blue-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Sections on the current page ── */}
+            <div>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Sections on this page</p>
               <div className="space-y-1">
                 {website.sections.map((section, i) => (
                   <div
@@ -318,6 +293,7 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
                 ))}
               </div>
             </div>
+
           </div>
         )}
       </div>

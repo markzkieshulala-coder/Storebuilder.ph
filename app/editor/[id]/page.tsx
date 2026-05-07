@@ -18,6 +18,7 @@ import { EditorFieldState } from "@/components/editor/EditableField";
 import OptionsPanel from "@/components/editor/OptionsPanel";
 import FloatingToolbar from "@/components/editor/FloatingToolbar";
 import ThemeMenu from "@/components/editor/ThemeMenu";
+import { selectHomepageSections, selectSubpageSections } from "@/lib/site/pageSections";
 
 const VIEW_WIDTHS: Record<ViewMode, string> = {
   desktop: "100%",
@@ -46,6 +47,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [sharingTemplate, setSharingTemplate] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareModalUrl, setShareModalUrl] = useState("");
+  // Multi-page editor: "/" = homepage, "/services" etc = sub-page
+  const [currentEditorPage, setCurrentEditorPage] = useState<string>("/");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingImageUpload = useRef<{ sectionId: string; field: string } | null>(null);
 
@@ -501,9 +504,22 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   const hasProductsSection = website.sections?.some((s) => s.type === "products");
 
+  // The canvas shows only the sections for the current editor page so each
+  // page is independently browseable and editable. Edits still write back to
+  // the full website.sections array so switching pages doesn't lose data.
+  const visibleWebsite: GeneratedWebsite = (() => {
+    if (currentEditorPage === "/") {
+      return { ...website, sections: selectHomepageSections(website) };
+    }
+    const slug = currentEditorPage.replace(/^\//, "");
+    return { ...website, sections: selectSubpageSections(website, slug) };
+  })();
+
   const editorCtx: EditorContextType = {
     isEditable: true,
     viewMode,
+    currentEditorPage,
+    onEditorPageChange: (page: string) => setCurrentEditorPage(page),
     onTextChange: handleTextChange,
     onNestedTextChange: handleNestedTextChange,
     onImageUpload: handleImageUpload,
@@ -549,11 +565,20 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             <ArrowLeft size={16} />
           </Link>
           <div className="hidden sm:flex flex-col min-w-0 ml-0.5">
-            <p className="text-xs sm:text-sm font-semibold leading-none text-gray-900 truncate max-w-[120px] md:max-w-[200px]">{website.name}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-xs sm:text-sm font-semibold leading-none text-gray-900 truncate max-w-[100px] md:max-w-[160px]">{website.name}</p>
+              {currentEditorPage !== "/" && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 font-semibold rounded-md truncate max-w-[80px]">
+                  {currentEditorPage}
+                </span>
+              )}
+            </div>
             <p className="text-[10px] mt-0.5 hidden md:block">
               {saved
                 ? <span className="text-emerald-600 flex items-center gap-1"><CheckCircle size={9} /> Saved</span>
-                : <span className="text-gray-400">Tap text to edit</span>
+                : <span className="text-gray-400">
+                    {currentEditorPage === "/" ? "Editing Home" : `Editing ${currentEditorPage}`}
+                  </span>
               }
             </p>
           </div>
@@ -706,6 +731,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               onDeleteSection={deleteSection}
               onDuplicateSection={duplicateSection}
               onScrollToSection={scrollToSection}
+              currentPage={currentEditorPage}
+              onPageChange={(page) => setCurrentEditorPage(page)}
               visibleTabs={["pages"]}
             />
           </div>
@@ -834,10 +861,10 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               className="w-full self-stretch"
               style={{
                 maxWidth: "100%",
-                backgroundColor: website.colors?.background || "#0d0d1a",
+                backgroundColor: visibleWebsite.colors?.background || "#0d0d1a",
               }}
             >
-              <WebsiteRenderer website={website} editorContext={editorCtx} />
+              <WebsiteRenderer website={visibleWebsite} editorContext={editorCtx} />
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 pt-3 pb-8">
@@ -868,7 +895,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
                     paddingTop: viewMode === "mobile" ? "28px" : 0,
                   }}
                 >
-                  <WebsiteRenderer website={website} editorContext={editorCtx} />
+                  <WebsiteRenderer website={visibleWebsite} editorContext={editorCtx} />
                 </div>
               </div>
               {/* Hint */}
@@ -898,6 +925,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               onDeleteSection={deleteSection}
               onDuplicateSection={duplicateSection}
               onScrollToSection={scrollToSection}
+              currentPage={currentEditorPage}
+              onPageChange={(page) => setCurrentEditorPage(page)}
               visibleTabs={["site", "payments"]}
             />
           </div>

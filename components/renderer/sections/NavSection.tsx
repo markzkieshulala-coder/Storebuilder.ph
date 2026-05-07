@@ -22,6 +22,7 @@ export default function NavSection({ section, website }: { section: Section; web
   const {
     isEditable, isPreview, onTextChange, onNestedTextChange, onSectionClick, onShowToolbar,
     selectedField, onSelectField, onUpdateEditor, onResetEditor, getEditorState,
+    currentEditorPage, onEditorPageChange,
   } = useEditor();
   // In editor preview, internal page routes ("/about" etc) only exist on
   // published subdomains — clicking them in preview would navigate away from
@@ -40,21 +41,48 @@ export default function NavSection({ section, website }: { section: Section; web
     textColor, bgColor: bg === "transparent" ? "rgba(0,0,0,0.75)" : bg, accentColor: accent,
   });
 
-  const editableLink = (label: string, i: number, className: string, onClickAfter?: () => void) => (
-    <span
-      className={className}
-      style={{ color: textColor, outline: "none", cursor: isEditable ? "text" : "pointer" }}
-      contentEditable={isEditable}
-      suppressContentEditableWarning
-      onBlur={(e) => isEditable && onNestedTextChange(section.id, "links", i, "label", e.currentTarget.innerText)}
-      onClick={(e) => {
-        if (isEditable) { e.stopPropagation(); return; }
-        onClickAfter?.();
-      }}
-    >
-      {label}
-    </span>
-  );
+  // In editor mode: clicking a nav link switches the visible page in the canvas
+  // instead of navigating away. Text is still editable via contentEditable.
+  const editableLink = (label: string, i: number, className: string, href?: string, onClickAfter?: () => void) => {
+    const isCurrentPage = !!href && currentEditorPage === href;
+    return (
+      <span
+        className={className}
+        style={{
+          color: isEditable && isCurrentPage ? undefined : textColor,
+          outline: "none",
+          cursor: isEditable ? "pointer" : "pointer",
+          ...(isEditable && isCurrentPage ? { opacity: 1, fontWeight: 700 } : {}),
+        }}
+        contentEditable={false}
+        suppressContentEditableWarning
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isEditable && href && onEditorPageChange) {
+            onEditorPageChange(href);
+            return;
+          }
+          onClickAfter?.();
+        }}
+        onDoubleClick={(e) => {
+          if (isEditable) {
+            e.stopPropagation();
+            const span = e.currentTarget;
+            span.contentEditable = "true";
+            span.focus();
+          }
+        }}
+        onBlur={(e) => {
+          if (isEditable) {
+            e.currentTarget.contentEditable = "false";
+            onNestedTextChange(section.id, "links", i, "label", e.currentTarget.innerText);
+          }
+        }}
+      >
+        {label}
+      </span>
+    );
+  };
 
   return (
     <nav
@@ -77,26 +105,20 @@ export default function NavSection({ section, website }: { section: Section; web
 
         <div className="hidden md:flex items-center gap-6 lg:gap-8">
           {(d.links || []).map((link: any, i: number) => {
+            const isActive = !isEditable && false; // nav active state handled per-page
             const className = "text-sm opacity-70 hover:opacity-100 transition-opacity whitespace-nowrap";
             const linkStyle = { color: textColor } as const;
-            const onClick = (e: React.MouseEvent) => { if (isEditable) e.preventDefault(); };
             if (useRouting && isInternalRoute(link.href)) {
               return (
                 <Link key={i} href={link.href} className={className} style={linkStyle}>
-                  {editableLink(link.label, i, "")}
+                  {editableLink(link.label, i, "", link.href)}
                 </Link>
               );
             }
             return (
-              <a
-                key={i}
-                href={isEditable ? undefined : link.href}
-                className={className}
-                style={linkStyle}
-                onClick={onClick}
-              >
-                {editableLink(link.label, i, "")}
-              </a>
+              <span key={i} className={className} style={linkStyle}>
+                {editableLink(link.label, i, "", link.href)}
+              </span>
             );
           })}
         </div>
@@ -153,20 +175,18 @@ export default function NavSection({ section, website }: { section: Section; web
                     style={mobileStyle}
                     onClick={() => setMenuOpen(false)}
                   >
-                    {editableLink(link.label, i, "")}
+                    {editableLink(link.label, i, "", link.href)}
                   </Link>
                 );
               }
               return (
-                <a
+                <span
                   key={i}
-                  href={link.href}
                   className={mobileClass}
                   style={mobileStyle}
-                  onClick={(e) => { if (!isEditable) setMenuOpen(false); else e.preventDefault(); }}
                 >
-                  {editableLink(link.label, i, "")}
-                </a>
+                  {editableLink(link.label, i, "", link.href, () => setMenuOpen(false))}
+                </span>
               );
             })}
             {d.ctaText && (

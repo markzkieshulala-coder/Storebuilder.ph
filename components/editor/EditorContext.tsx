@@ -44,6 +44,10 @@ export type EditorContextType = {
 
   // Batch-update one item inside an array field (e.g. a single product)
   onUpdateNestedItem?: (sectionId: string, arrayField: string, index: number, updates: Record<string, any>) => void;
+
+  // Multi-page editor navigation — "/" = homepage, "/services" = services page
+  currentEditorPage?: string;
+  onEditorPageChange?: (page: string) => void;
 };
 
 const DEFAULT: EditorContextType = {
