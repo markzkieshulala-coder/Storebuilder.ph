@@ -11,19 +11,13 @@ export async function GET(
 ) {
   try {
     await ensureInfluencerColumn();
+
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       select: {
         id: true, name: true, email: true, plan: true, role: true,
         image: true, createdAt: true, planExpiresAt: true,
         _count: { select: { websites: true } },
-        subscriptions: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true, status: true, plan: true, billingCycle: true,
-            amount: true, currency: true, paymongoId: true, createdAt: true,
-          },
-        },
         websites: {
           orderBy: { createdAt: "desc" },
           select: {
@@ -36,9 +30,61 @@ export async function GET(
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const rows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
-    const isInfluencer = rows[0]?.isInfluencer ?? false;
-    return NextResponse.json({ user: { ...user, isInfluencer } });
+    // Fetch subscriptions — try with new columns first, fall back without them
+    let subscriptions: any[] = [];
+    try {
+      subscriptions = await prisma.subscription.findMany({
+        where: { userId: params.id },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true, status: true, plan: true, billingCycle: true,
+          amount: true, currency: true, paymongoId: true, createdAt: true,
+          cancelAtPeriodEnd: true, currentPeriodEnd: true,
+        },
+      });
+    } catch {
+      try {
+        subscriptions = await prisma.subscription.findMany({
+          where: { userId: params.id },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true, status: true, plan: true, billingCycle: true,
+            amount: true, currency: true, paymongoId: true, createdAt: true,
+          },
+        });
+        subscriptions = subscriptions.map((s) => ({ ...s, cancelAtPeriodEnd: false, currentPeriodEnd: null }));
+      } catch { subscriptions = []; }
+    }
+
+    // isInfluencer
+    const infRows = await prisma.$queryRaw<{ isInfluencer: boolean }[]>`SELECT "isInfluencer" FROM "User" WHERE "id" = ${params.id}`;
+    const isInfluencer = infRows[0]?.isInfluencer ?? false;
+
+    // Deferred-cancel state via raw SQL — graceful when columns absent
+    let pendingPlan: string | null = null;
+    let pendingPlanAt: Date | null = null;
+    try {
+      const pRows = await prisma.$queryRawUnsafe<{ pendingPlan: string | null; pendingPlanAt: Date | null }[]>(
+        `SELECT "pendingPlan"::text AS "pendingPlan", "pendingPlanAt" FROM "User" WHERE id = $1 LIMIT 1`,
+        params.id
+      );
+      pendingPlan = pRows[0]?.pendingPlan ?? null;
+      pendingPlanAt = pRows[0]?.pendingPlanAt ?? null;
+    } catch { /* columns absent */ }
+
+    // Location via raw SQL
+    let location: string | null = null;
+    try {
+      const locRows = await prisma.$queryRawUnsafe<{ location: string | null }[]>(
+        `SELECT "location" FROM "User" WHERE id = $1 LIMIT 1`,
+        params.id
+      );
+      location = locRows[0]?.location ?? null;
+    } catch { /* column absent */ }
+
+    return NextResponse.json({
+      user: { ...user, isInfluencer, location, subscriptions, pendingPlan, pendingPlanAt },
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
   }

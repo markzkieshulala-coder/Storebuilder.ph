@@ -339,17 +339,21 @@ const PLAN_INFO: Record<string, { label: string; tagline: string; features: stri
 
 function BillingTab({ session, update, planTier }: any) {
   const [sub, setSub] = useState<Sub | null>(null);
-  const [pending, setPending] = useState<{ pendingPlan: string | null; pendingPlanAt: string | null; planExpiresAt: string | null } | null>(null);
+  const [pending, setPending] = useState<{ pendingPlan: string | null; pendingPlanAt: string | null; planExpiresAt: string | null; isCancelScheduled?: boolean } | null>(null);
   const [loadingSub, setLoadingSub] = useState(true);
   const [cancelling, setCancelling] = useState(false);
 
   const isPaid = planTier === "PRO" || planTier === "ENTERPRISE";
   const planInfo = PLAN_INFO[planTier] || PLAN_INFO.FREE;
 
-  // A cancellation is scheduled if EITHER the subscription row says so OR the
-  // user-level pendingPlan stamp is set. The latter covers admin-granted plans
-  // that don't have an actual Subscription row.
-  const isCancelScheduled = !!(sub?.cancelAtPeriodEnd || pending?.pendingPlan === "FREE");
+  // A cancellation is scheduled — use the server-computed flag when available
+  // (covers pendingPlan=FREE, cancelAtPeriodEnd, and the planExpiresAt fallback
+  // path when the pendingPlan column write failed silently).
+  const isCancelScheduled = !!(
+    pending?.isCancelScheduled ||
+    sub?.cancelAtPeriodEnd ||
+    pending?.pendingPlan === "FREE"
+  );
   const cancelEndsAt = sub?.currentPeriodEnd ?? pending?.pendingPlanAt ?? pending?.planExpiresAt ?? null;
 
   useEffect(() => {

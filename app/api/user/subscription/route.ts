@@ -59,6 +59,17 @@ export async function GET() {
       pendingPlanAt = rows[0]?.pendingPlanAt ?? null;
     } catch { /* columns absent */ }
 
+    // Derived server-side flag so the UI doesn't need to re-implement the logic.
+    // Covers three paths:
+    //   1. Subscription-level deferred cancel (cancelAtPeriodEnd=true)
+    //   2. User-level deferred cancel (pendingPlan=FREE)
+    //   3. planExpiresAt fallback when pendingPlan column write failed
+    const isCancelScheduled = !!(
+      subscription?.cancelAtPeriodEnd ||
+      pendingPlan === "FREE" ||
+      (pendingPlan === null && user?.planExpiresAt && user.plan !== "FREE")
+    );
+
     return NextResponse.json({
       subscription,
       pending: user
@@ -67,6 +78,7 @@ export async function GET() {
             pendingPlan,
             pendingPlanAt,
             planExpiresAt: user.planExpiresAt,
+            isCancelScheduled,
           }
         : null,
     });

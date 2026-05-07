@@ -6,9 +6,9 @@ const BLUE = "#1877F2";
 const FONT = '"Google Sans", Roboto, Arial, system-ui, sans-serif';
 const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
 
-type Sub = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string };
+type Sub = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: string | null };
 type Site = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string };
-type User = { id: string; name: string | null; email: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
+type User = { id: string; name: string | null; email: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; pendingPlan: string | null; pendingPlanAt: string | null; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
 
 const PLAN_BENEFITS: Record<string, { label: string; color: string; bg: string }[]> = {
   FREE: [
@@ -173,14 +173,52 @@ export default function AdminUserDetailPage() {
       if (res.ok) {
         if (immediate) {
           alert("User downgraded to Free immediately.");
-          setUser((prev) => prev ? { ...prev, plan: "FREE", subscriptions: prev.subscriptions.map((s) => s.status === "ACTIVE" ? { ...s, status: "CANCELLED" } : s) } : null);
+          setUser((prev) => prev ? {
+            ...prev,
+            plan: "FREE",
+            pendingPlan: null,
+            pendingPlanAt: null,
+            subscriptions: prev.subscriptions.map((s) => s.status === "ACTIVE" ? { ...s, status: "CANCELLED" } : s),
+          } : null);
         } else {
           alert(`Deferred cancel scheduled. User keeps access until ${new Date(data.endsAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}.`);
+          setUser((prev) => prev ? {
+            ...prev,
+            pendingPlan: "FREE",
+            pendingPlanAt: data.endsAt,
+            subscriptions: prev.subscriptions.map((s) => s.status === "ACTIVE" ? { ...s, cancelAtPeriodEnd: true, currentPeriodEnd: data.endsAt } : s),
+          } : null);
         }
       } else {
         alert("Error: " + (data.error || "Unknown error"));
       }
     } finally { setCanceling(null); }
+  }
+
+  async function handleStopCancel() {
+    if (!confirm("Stop the scheduled cancellation? The user's subscription will continue normally.")) return;
+    setCanceling("deferred");
+    try {
+      const res = await fetch(`/api/admin/users/${id}/cancel`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Cancellation reversed. Subscription continues.");
+        setUser((prev) => prev ? {
+          ...prev,
+          pendingPlan: null,
+          pendingPlanAt: null,
+          subscriptions: prev.subscriptions.map((s) => ({ ...s, cancelAtPeriodEnd: false })),
+        } : null);
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally { setCanceling(null); }
+  }
+
+  async function handleRestoreActive() {
+    if (!confirm("Restore this user to an active paid subscription? This will set their plan back to PRO with a 30-day expiry.")) return;
+    const err = await patch({ plan: "PRO", billingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] });
+    if (!err) alert("User restored to PRO plan.");
   }
 
   async function handleRefund() {
@@ -226,6 +264,13 @@ export default function AdminUserDetailPage() {
   const hasPaidBefore = user.subscriptions.some((s) => s.status === "ACTIVE" || s.status === "CANCELLED");
   const isActive = !!activeSub;
   const isPaid = user.plan === "PRO" || user.plan === "ENTERPRISE" || isActive;
+
+  // Cancellation state — derived from pendingPlan/pendingPlanAt + subscription flag
+  const isCancelScheduled = !!(
+    user.pendingPlan === "FREE" ||
+    activeSub?.cancelAtPeriodEnd
+  );
+  const cancelEndsAt = activeSub?.currentPeriodEnd ?? user.pendingPlanAt ?? user.planExpiresAt ?? null;
   // Plan label combined with the Influencer flag — admins see both at a glance,
   // e.g. "PRO / INFLUENCER" or "ENTERPRISE / INFLUENCER".
   const planTitle =
@@ -307,22 +352,54 @@ export default function AdminUserDetailPage() {
               {refunding ? "Processing…" : activeSub ? "Process Refund" : "No Active Sub"}
             </button>
             {isPaid && (
-              <div style={{ display: "flex", gap: "6px" }}>
-                <button
-                  onClick={() => handleCancel(false)}
-                  disabled={!!canceling}
-                  style={{ padding: "7px 14px", background: canceling === "deferred" ? "#E5E7EB" : "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
-                >
-                  {canceling === "deferred" ? "Scheduling…" : "Deferred Cancel"}
-                </button>
-                <button
-                  onClick={() => handleCancel(true)}
-                  disabled={!!canceling}
-                  style={{ padding: "7px 14px", background: canceling === "immediate" ? "#E5E7EB" : "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
-                >
-                  {canceling === "immediate" ? "Downgrading…" : "Immediate Cancel"}
-                </button>
-              </div>
+              isCancelScheduled ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end" }}>
+                  <div style={{ padding: "5px 10px", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: "7px", fontSize: "11px", color: "#92400E", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}>
+                    ⏳ Cancel scheduled{cancelEndsAt ? ` — ends ${fmt(cancelEndsAt)}` : ""}
+                  </div>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      onClick={handleStopCancel}
+                      disabled={!!canceling}
+                      style={{ padding: "7px 14px", background: canceling ? "#E5E7EB" : "#EBF3FF", color: "#1877F2", border: "1px solid #93C5FD", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                    >
+                      {canceling ? "Working…" : "Stop Cancellation"}
+                    </button>
+                    <button
+                      onClick={() => handleCancel(true)}
+                      disabled={!!canceling}
+                      style={{ padding: "7px 14px", background: canceling === "immediate" ? "#E5E7EB" : "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                    >
+                      {canceling === "immediate" ? "Downgrading…" : "Downgrade Now"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    onClick={() => handleCancel(false)}
+                    disabled={!!canceling}
+                    style={{ padding: "7px 14px", background: canceling === "deferred" ? "#E5E7EB" : "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                  >
+                    {canceling === "deferred" ? "Scheduling…" : "Deferred Cancel"}
+                  </button>
+                  <button
+                    onClick={() => handleCancel(true)}
+                    disabled={!!canceling}
+                    style={{ padding: "7px 14px", background: canceling === "immediate" ? "#E5E7EB" : "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5", borderRadius: "7px", cursor: canceling ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                  >
+                    {canceling === "immediate" ? "Downgrading…" : "Immediate Cancel"}
+                  </button>
+                </div>
+              )
+            )}
+            {!isPaid && hasPaidBefore && (
+              <button
+                onClick={handleRestoreActive}
+                style={{ padding: "7px 14px", background: "#D1FAE5", color: "#065F46", border: "1px solid #6EE7B7", borderRadius: "7px", cursor: "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+              >
+                Restore PRO Access
+              </button>
             )}
           </div>
         </div>
@@ -354,6 +431,21 @@ export default function AdminUserDetailPage() {
                 {currentPlan === "ENTERPRISE" ? "ENTERPRISE" : currentPlan === "PRO" ? "PRO" : "FREE TIER"}
               </span>
             </div>
+            {isCancelScheduled && (
+              <div style={{ ...ROW }}>
+                <span style={KEY}>Cancellation</span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+                  <span style={{ padding: "2px 9px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#FEF3C7", color: "#92400E" }}>
+                    SCHEDULED
+                  </span>
+                  {cancelEndsAt && (
+                    <span style={{ fontSize: "11px", color: "#9CA3AF" }}>
+                      Access until {fmt(cancelEndsAt)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             <EditableField label="Plan Type" value={currentPlan} type="select"
               options={[
                 { value: "FREE", label: "FREE" },
@@ -428,7 +520,7 @@ export default function AdminUserDetailPage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#F9FAFB" }}>
-                  {["Plan", "Billing Cycle", "Amount", "Payment Method", "Status", "Next Renewal", "Start Date"].map((h) => (
+                  {["Plan", "Billing Cycle", "Amount", "Payment Method", "Status", "Cancel State", "Next Renewal", "Start Date"].map((h) => (
                     <th key={h} style={{ padding: "10px 18px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB" }}>{h}</th>
                   ))}
                 </tr>
@@ -443,6 +535,14 @@ export default function AdminUserDetailPage() {
                       <td style={{ padding: "12px 18px", fontSize: "13px", fontWeight: 600, fontFamily: "monospace", borderBottom: "1px solid #F3F4F6" }}>₱{(s.amount / 100).toLocaleString()}</td>
                       <td style={{ padding: "12px 18px", fontSize: "13px", borderBottom: "1px solid #F3F4F6" }}><span style={{ padding: "2px 8px", background: "#F0F9FF", color: "#0369A1", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>{s.paymongoId ? "PayMongo" : "Manual"}</span></td>
                       <td style={{ padding: "12px 18px", borderBottom: "1px solid #F3F4F6" }}><span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, background: ss.bg, color: ss.c }}>{s.status}</span></td>
+                      <td style={{ padding: "12px 18px", borderBottom: "1px solid #F3F4F6" }}>
+                        {s.cancelAtPeriodEnd
+                          ? <span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, background: "#FEF3C7", color: "#92400E" }}>
+                              Cancel at{s.currentPeriodEnd ? ` ${fmt(s.currentPeriodEnd)}` : " period end"}
+                            </span>
+                          : <span style={{ fontSize: "12px", color: "#9CA3AF" }}>—</span>
+                        }
+                      </td>
                       <td style={{ padding: "12px 18px", fontSize: "12px", color: "#6B7280", borderBottom: "1px solid #F3F4F6" }}>{getNextBilling(s)}</td>
                       <td style={{ padding: "12px 18px", fontSize: "12px", color: "#9CA3AF", borderBottom: "1px solid #F3F4F6" }}>{fmt(s.createdAt)}</td>
                     </tr>
