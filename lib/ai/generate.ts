@@ -258,29 +258,57 @@ function fallbackPhoto(size = "800x600"): string {
 }
 
 function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
+  // Track every image URL we keep for this site so two different roles
+  // never end up with the same Unsplash photo. When we detect a repeat we
+  // swap it for a fresh fallback so each section visually feels distinct.
+  const used = new Set<string>();
+  const photoIdOf = (url: string): string => {
+    const m = url.match(/photo-([a-zA-Z0-9-]+)/);
+    return m ? m[1] : url;
+  };
+  const claim = (url: string | undefined, size: string): string => {
+    if (!url || !url.startsWith("https://images.unsplash.com")) {
+      const next = fallbackPhoto(size);
+      used.add(photoIdOf(next));
+      return next;
+    }
+    const id = photoIdOf(url);
+    if (used.has(id)) {
+      // Generate a new, unseen fallback. Photo pool is already shuffled
+      // per-generation so a few attempts are enough to find a fresh ID.
+      for (let i = 0; i < 8; i++) {
+        const next = fallbackPhoto(size);
+        const nextId = photoIdOf(next);
+        if (!used.has(nextId)) {
+          used.add(nextId);
+          return next;
+        }
+      }
+      const next = fallbackPhoto(size);
+      used.add(photoIdOf(next));
+      return next;
+    }
+    used.add(id);
+    return url;
+  };
+
   website.sections = website.sections.map((s) => {
     const d = s.data as any;
 
     // Hero backgroundImage
     if (s.type === "hero" && d.backgroundImage !== undefined) {
-      if (!d.backgroundImage || !d.backgroundImage.startsWith("https://images.unsplash.com")) {
-        d.backgroundImage = fallbackPhoto("1400x800");
-      }
+      d.backgroundImage = claim(d.backgroundImage, "1400x800");
     }
 
     // About image
     if (s.type === "about" && d.image !== undefined) {
-      if (!d.image || !d.image.startsWith("https://images.unsplash.com")) {
-        d.image = fallbackPhoto("1000x750");
-      }
+      d.image = claim(d.image, "1000x750");
     }
 
     // Product images
     if (s.type === "products" && Array.isArray(d.products)) {
       d.products = d.products.map((p: any) => {
-        if (!p.image || !p.image.startsWith("https://images.unsplash.com")) {
-          p.image = fallbackPhoto("600x600");
-        }
+        p.image = claim(p.image, "600x600");
         return p;
       });
     }
@@ -288,9 +316,7 @@ function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
     // Team / gallery images
     if ((s.type === "team") && Array.isArray(d.members)) {
       d.members = d.members.map((m: any) => {
-        if (!m.image || !m.image.startsWith("https://images.unsplash.com")) {
-          m.image = fallbackPhoto("400x400");
-        }
+        m.image = claim(m.image, "400x400");
         return m;
       });
     }
@@ -298,19 +324,16 @@ function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
     if (s.type === "gallery" && Array.isArray(d.images)) {
       d.images = d.images.map((img: any) => {
         const url = typeof img === "string" ? img : img?.url;
-        if (!url || !url.startsWith("https://images.unsplash.com")) {
-          return fallbackPhoto("800x800");
-        }
-        return img;
+        const next = claim(url, "800x800");
+        if (typeof img === "string") return next;
+        return { ...(img || {}), url: next };
       });
     }
 
     // Testimonial avatars
     if (s.type === "testimonials" && Array.isArray(d.testimonials)) {
       d.testimonials = d.testimonials.map((t: any) => {
-        if (t.image && !t.image.startsWith("https://images.unsplash.com")) {
-          t.image = fallbackPhoto("100x100");
-        }
+        if (t.image !== undefined) t.image = claim(t.image, "100x100");
         return t;
       });
     }

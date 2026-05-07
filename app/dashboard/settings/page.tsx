@@ -19,6 +19,8 @@ type Sub = {
   billingCycle: string;
   amount: number;
   createdAt: string;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
 };
 
 type TabId =
@@ -353,16 +355,31 @@ function BillingTab({ session, update, planTier }: any) {
   }, [isPaid]);
 
   async function cancel() {
-    if (!confirm(`Cancel your ${planInfo.label}? You'll be downgraded to Free immediately.`)) return;
+    if (!confirm(`Cancel your ${planInfo.label}? You'll keep ${planInfo.label} access until the end of your current billing period, then automatically downgrade to Free.`)) return;
     setCancelling(true);
     try {
       const res = await fetch("/api/user/subscription/cancel", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Subscription cancelled.");
-        await update({ plan: "FREE" });
-        setSub(null);
+        const ends = data.endsAt ? new Date(data.endsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "the end of your billing period";
+        toast.success(`Cancellation scheduled — you keep access until ${ends}.`);
+        // Reflect the scheduled cancel locally without dropping the plan yet.
+        setSub((s) => s ? { ...s, cancelAtPeriodEnd: true, currentPeriodEnd: data.endsAt ?? s.currentPeriodEnd } : s);
       } else toast.error(data.error || "Failed to cancel");
+    } finally { setCancelling(false); }
+  }
+
+  async function undoCancel() {
+    setCancelling(true);
+    try {
+      const res = await fetch("/api/user/subscription/cancel", { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Cancellation reversed — your subscription continues.");
+        setSub((s) => s ? { ...s, cancelAtPeriodEnd: false } : s);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to undo");
+      }
     } finally { setCancelling(false); }
   }
 
@@ -421,22 +438,53 @@ function BillingTab({ session, update, planTier }: any) {
           </Card>
 
           <Card title="Cancel Subscription" icon={AlertTriangle}>
-            <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-600">This action cannot be undone</p>
-                <p className="text-xs text-[#65676B] mt-1">
-                  Cancelling will immediately downgrade you to the Free plan. Your published sites stay online but you'll lose paid features.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={cancel}
-              disabled={cancelling}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-red-600 text-sm font-semibold border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
-            >
-              {cancelling ? "Cancelling…" : "Cancel subscription"}
-            </button>
+            {sub?.cancelAtPeriodEnd ? (
+              <>
+                <div className="flex items-start gap-3 mb-4">
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-600">Cancellation scheduled</p>
+                    <p className="text-xs text-[#65676B] mt-1">
+                      You will keep {planInfo.label} access until{" "}
+                      {sub.currentPeriodEnd
+                        ? new Date(sub.currentPeriodEnd).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
+                        : "the end of your current billing period"}
+                      , then automatically switch to the Free plan. You can reverse this any time before that date.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={undoCancel}
+                  disabled={cancelling}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-[#1877F2] text-sm font-semibold border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors"
+                >
+                  {cancelling ? "Working…" : "Keep my subscription"}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3 mb-4">
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#1C1E21]">Cancellation takes effect at the end of your billing period</p>
+                    <p className="text-xs text-[#65676B] mt-1">
+                      You'll keep full {planInfo.label} access until the end of the current billing period
+                      {sub?.currentPeriodEnd
+                        ? ` (${new Date(sub.currentPeriodEnd).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })})`
+                        : ""}
+                      , and then automatically switch to the Free plan. Your published sites stay online — you'll just lose paid features. You can reverse the cancellation any time before then.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={cancel}
+                  disabled={cancelling}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-red-600 text-sm font-semibold border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  {cancelling ? "Cancelling…" : "Cancel at period end"}
+                </button>
+              </>
+            )}
           </Card>
         </>
       )}

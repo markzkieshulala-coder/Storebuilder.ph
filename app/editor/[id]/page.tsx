@@ -371,9 +371,11 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
   // Per-viewport resize: writes to `${viewMode}:minHeight` so desktop/tablet/
   // mobile heights are stored independently and never affect each other.
+  // The renderer applies this as a FIXED height with overflow:hidden, so the
+  // user can freely shrink a section below its natural content size.
   function resizeSection(sectionId: string, minHeight: number, mode: ViewMode) {
     if (!website) return;
-    const px = `${Math.max(120, Math.round(minHeight))}px`;
+    const px = `${Math.max(16, Math.round(minHeight))}px`;
     const scopedKey = `${mode}:minHeight`;
     pushHistory({
       ...website,

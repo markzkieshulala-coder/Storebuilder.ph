@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, ExternalLink, ArrowRight } from "lucide-react";
+import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, ExternalLink, ArrowRight, Palette } from "lucide-react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 
 const PAYMENT_METHODS = [
@@ -53,6 +53,27 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
   function setPaymentLink(linkKey: string, value: string) {
     updateSettings("payments", { ...payments, [linkKey]: value });
   }
+
+  // Real-time global color updates: writes to website.colors so every section
+  // re-renders immediately. Users see the change as they move the picker.
+  function setGlobalColor(key: "background" | "text" | "primary" | "accent" | "secondary", value: string) {
+    onUpdateWebsite({
+      colors: { ...(website.colors || {} as any), [key]: value },
+    } as any);
+  }
+
+  // Navbar background lives on the nav section's styles, not on website.colors
+  // — apply it directly so the nav re-paints in real time.
+  function setNavBackground(value: string) {
+    const nav = website.sections.find((s) => s.type === "nav");
+    if (!nav) return;
+    const updated = website.sections.map((s) =>
+      s.id === nav.id ? { ...s, styles: { ...(s.styles || {}), background: value } } : s
+    );
+    onUpdateWebsite({ sections: updated } as any);
+  }
+  const navSectionForColor = website.sections.find((s) => s.type === "nav");
+  const navBgValue = (navSectionForColor?.styles?.background as string | undefined) || website.colors?.primary || "#1a1a2e";
 
   const inp = "w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:bg-white text-gray-800 transition-colors";
   const lbl = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
@@ -117,6 +138,38 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
               <label className={lbl}>Store Name</label>
               <input value={website.name || ""} onChange={(e) => onUpdateWebsite({ name: e.target.value })} className={inp} placeholder="My Store" />
             </div>
+
+            {/* Colors — real-time global styling */}
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Palette size={11} className="text-gray-400" />
+                Colors
+              </p>
+              <div className="space-y-2">
+                {[
+                  { key: "background", label: "Page background", value: website.colors?.background || "#0d0d1a", apply: (v: string) => setGlobalColor("background", v) },
+                  { key: "text", label: "Text", value: website.colors?.text || "#f5f0e8", apply: (v: string) => setGlobalColor("text", v) },
+                  { key: "navbar", label: "Navbar / Header", value: navBgValue, apply: (v: string) => setNavBackground(v) },
+                  { key: "accent", label: "Accent", value: website.colors?.accent || "#c9a84c", apply: (v: string) => setGlobalColor("accent", v) },
+                ].map((row) => (
+                  <div key={row.key} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-gray-50 border border-gray-100">
+                    <span className="text-xs text-gray-700 font-medium truncate">{row.label}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-gray-400 font-mono uppercase">{(row.value || "").slice(0, 7)}</span>
+                      <input
+                        type="color"
+                        value={(row.value || "").slice(0, 7)}
+                        onChange={(e) => row.apply(e.target.value)}
+                        className="w-7 h-7 rounded-md cursor-pointer border border-gray-200 bg-transparent"
+                        style={{ padding: "2px" }}
+                        title={row.label}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className={lbl}>Phone</label>
               <div className="relative">

@@ -2,12 +2,14 @@
 
 import { useRef, useState, useEffect, ReactNode, CSSProperties } from "react";
 import { useEditor } from "./EditorContext";
+import { Trash2 } from "lucide-react";
 
 export type EditorFieldState = {
   x?: number;
   y?: number;
   fontSize?: number;
   width?: number;
+  hidden?: boolean;
 };
 
 interface Props {
@@ -58,10 +60,36 @@ export default function EditableField({
   const widthPx = editor?.width;
   const x = editor?.x ?? 0;
   const y = editor?.y ?? 0;
+  const hidden = editor?.hidden === true;
 
   useEffect(() => {
     if (!selected && isTextEditing) setIsTextEditing(false);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Delete element: clear text + flag as hidden so the renderer skips it.
+  function handleDelete() {
+    onUpdateEditor(sectionId, field, { ...(editor || {}), hidden: true });
+    if (onTextChange) onTextChange(sectionId, field, "");
+  }
+
+  // Keyboard delete while selected (and NOT actively editing text).
+  useEffect(() => {
+    if (!selected || isTextEditing || !isEditable) return;
+    function handleKey(e: KeyboardEvent) {
+      // Ignore when focus is in another contentEditable / input
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && ae !== innerRef.current) {
+        const tag = ae.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || ae.isContentEditable) return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        handleDelete();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selected, isTextEditing, isEditable]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePaste(e: React.ClipboardEvent<HTMLElement>) {
     if (!onTextChange) return;
@@ -230,14 +258,19 @@ export default function EditableField({
     window.addEventListener("pointercancel", cleanup);
   }
 
-  // Non-editor mode: plain element with any saved position/size overrides
+  // Non-editor mode: plain element with any saved position/size overrides.
+  // Hidden fields (deleted by the user) are skipped entirely on the live site.
   if (!isEditable) {
+    if (hidden) return null;
     const finalStyle: CSSProperties = { ...style };
     if (fsPx != null) finalStyle.fontSize = `${fsPx}px`;
     if (widthPx) finalStyle.maxWidth = widthPx;
     if (x || y) finalStyle.transform = `translate(${x}px, ${y}px)`;
     return <Tag className={className} style={finalStyle}>{children}</Tag>;
   }
+
+  // Editor mode but the user has marked this field hidden — don't render.
+  if (hidden) return null;
 
   const innerStyle: CSSProperties = {
     ...style,
@@ -323,6 +356,37 @@ export default function EditableField({
             userSelect: "none",
           }}
         />
+      )}
+
+      {/* Delete button — top-right when selected */}
+      {selected && !isTextEditing && (
+        <button
+          type="button"
+          contentEditable={false}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+          title="Delete element (or press Delete / Backspace)"
+          style={{
+            position: "absolute",
+            top: -10,
+            right: -10,
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            background: "#ef4444",
+            color: "#fff",
+            border: "2px solid #fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            zIndex: 103,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+            padding: 0,
+          }}
+        >
+          <Trash2 size={11} />
+        </button>
       )}
 
       {/* Live dimension labels */}

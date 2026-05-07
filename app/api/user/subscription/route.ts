@@ -15,6 +15,7 @@ export async function GET() {
       select: {
         id: true, status: true, plan: true, billingCycle: true,
         amount: true, currency: true, createdAt: true,
+        currentPeriodEnd: true, cancelAtPeriodEnd: true,
       },
       orderBy: { createdAt: "desc" },
     });

@@ -19,6 +19,15 @@ export default function HeroSection({ section, website }: { section: Section; we
   const isSelected = (field: string) =>
     !!selectedField && selectedField.sectionId === section.id && selectedField.field === field;
 
+  const fieldProps = (field: string) => ({
+    sectionId: section.id, field,
+    editor: getEditorState(section.id, field),
+    isEditable, selected: isSelected(field),
+    onSelect: onSelectField, onUpdateEditor, onResetEditor,
+    onTextChange, onShowToolbar,
+    textColor, bgColor: bg, accentColor: accent,
+  });
+
   return (
     <section
       className="relative flex items-center justify-center text-center overflow-hidden"
@@ -55,10 +64,15 @@ export default function HeroSection({ section, website }: { section: Section; we
       )}
 
       <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-8 py-16 sm:py-24 lg:py-32">
-        {d.badge && (
-          <div className="inline-block px-3 py-1.5 rounded-full text-xs font-semibold mb-5 border" style={{ borderColor: `${accent}40`, color: accent, background: `${accent}15` }}>
+        {d.badge !== undefined && d.badge !== "" && (
+          <EditableField
+            {...fieldProps("badge")}
+            tag="div"
+            className="inline-block px-3 py-1.5 rounded-full text-xs font-semibold mb-5 border"
+            style={{ borderColor: `${accent}40`, color: accent, background: `${accent}15` }}
+          >
             {d.badge}
-          </div>
+          </EditableField>
         )}
 
         <EditableField

@@ -111,9 +111,10 @@ export default function WebsiteRenderer({ website, isPreview, editorContext }: P
       .website-render,.website-render p,.website-render span,
       .website-render a,.website-render li,.website-render button,
       .website-render input,.website-render textarea,.website-render label{font-family:var(--body-font)}
-      /* When the section wrapper has a min-height set (user resized it),
-         force the immediate child <section> to flex-grow so its background
-         and content fill the entire wrapper instead of leaving a gap. */
+      /* The section wrapper hides any overflow so users can shrink a section
+         below its natural content height — content is clipped, height is
+         user-controlled. The inner <section> still flex-grows so the section
+         background fills the wrapper when grown larger than the content. */
       .website-render > [data-sb-section-index] > * { flex: 1 1 auto; min-height: 0; }
     `;
   }, []);
@@ -166,9 +167,11 @@ export default function WebsiteRenderer({ website, isPreview, editorContext }: P
   );
 }
 
-// SectionShell wraps each section with a single bottom-edge resize handle.
-// minHeight is stored per-viewport — desktop/tablet/mobile each have their
-// own height, so resizing in one view never affects the others.
+// SectionShell wraps each section with a bottom-only resize handle. The user
+// fully controls section height: dragging up shrinks the wrapper below the
+// natural content height (overflow:hidden clips the inside), dragging down
+// grows it. There is NO top handle. Footer is the only section without a
+// bottom handle since it sits at the very end of the page.
 function SectionShell({
   section, website, SectionComponent, anchorId, index, total, isEditable, viewMode,
   onResizeSection,
@@ -192,8 +195,10 @@ function SectionShell({
 
   // Per-viewport height: prefer scoped key (e.g. "mobile:minHeight"),
   // fall back to the legacy unscoped "minHeight" only on desktop so older
-  // saves don't break.
-  const minHeight = useMemo(() => {
+  // saves don't break. Stored as `${viewMode}:minHeight` for back-compat
+  // with existing data, but applied as a FIXED height (not min-height) so
+  // shrinking actually works.
+  const userHeight = useMemo(() => {
     const styles = section.styles || {};
     const scoped = (styles as any)[`${viewMode}:minHeight`];
     const raw = scoped ?? (viewMode === "desktop" ? styles.minHeight : undefined);
@@ -201,24 +206,22 @@ function SectionShell({
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [section.styles, viewMode]);
 
-  // liveHeight takes priority during active drag; fall back to saved minHeight
-  const displayHeight = liveHeight ?? minHeight;
+  // liveHeight takes priority during active drag; fall back to saved height
+  const displayHeight = liveHeight ?? userHeight;
 
   // Footer is the very last section so its bottom handle has no real estate
-  // below it. Nav (the first section) keeps its handle so users can still
-  // resize it from its bottom edge — that handle sits between nav and hero.
+  // below it. Every other section gets a bottom handle.
   const hideHandle = section.type === "footer";
 
-  // Read the section's own background so when min-height makes the wrapper
-  // taller than its inner content, the visible filler matches the section
-  // background (not the page bg). Without this, resizing some sections only
-  // appears to "grow the empty space" because the wrapper has no background.
+  // Read the section's own background so when the wrapper is taller than the
+  // inner content (user grew the section), the filler still uses the
+  // section's background — not the page bg.
   const sectionBg = (section.styles?.background as string | undefined) ||
     website.colors?.background || undefined;
 
-  // Bottom-edge resize: adjust section minHeight.
-  // liveHeight drives the visual clip during drag; onResizeSection is only
-  // called once on pointerup so we don't spam pushHistory on every frame.
+  // Bottom-edge resize: shrink OR grow the section freely. No min-height
+  // clamp — overflow:hidden on the wrapper clips content if user shrinks
+  // below the natural content height.
   function startResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!isEditable || !onResizeSection) return;
     e.preventDefault();
@@ -234,7 +237,9 @@ function SectionShell({
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
-      const next = Math.max(120, Math.round(startH + (ev.clientY - startY)));
+      // Allow shrinking down to a tiny strip (16px) so users can effectively
+      // "hide" a section. No upper bound either.
+      const next = Math.max(16, Math.round(startH + (ev.clientY - startY)));
       dragHeightRef.current = next;
       setLiveHeight(next);
     };
@@ -262,57 +267,54 @@ function SectionShell({
   }
 
   return (
-    // Fragment: section wrapper and the thin resize handle are siblings so
-    // overflow:hidden on the section never clips the handle.
-    <>
-      <div
-        ref={wrapperRef}
-        data-sb-section-index={index}
-        id={anchorId}
-        style={{
-          position: "relative",
-          scrollMarginTop: "80px",
-          textAlign: sectionAlign || undefined,
-          // displayHeight applied as min-height so resizing a section taller
-          // than its natural content fills with the section's own background
-          // (no transparent gap revealing the page bg). Inner section is
-          // forced to fill the wrapper via the CSS rule injected below.
-          ...(displayHeight ? { minHeight: `${displayHeight}px` } : {}),
-          background: displayHeight ? sectionBg : undefined,
-          display: "flex",
-          flexDirection: "column",
-          outline: resizing ? "2px dashed #1877F2" : undefined,
-          outlineOffset: resizing ? "-2px" : undefined,
-          transition: resizing ? "none" : "outline-color 0.12s ease",
-        }}
-      >
-        <SectionComponent section={section} website={website} />
-      </div>
+    <div
+      ref={wrapperRef}
+      data-sb-section-index={index}
+      id={anchorId}
+      style={{
+        position: "relative",
+        scrollMarginTop: "80px",
+        textAlign: sectionAlign || undefined,
+        // FIXED height when user has resized — not min-height — so the user
+        // can shrink the section below its natural content size. overflow
+        // hidden clips the inside.
+        ...(displayHeight ? { height: `${displayHeight}px` } : {}),
+        background: displayHeight ? sectionBg : undefined,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        outline: resizing ? "2px dashed #1877F2" : undefined,
+        outlineOffset: resizing ? "-2px" : undefined,
+        transition: resizing ? "none" : "outline-color 0.12s ease",
+      }}
+    >
+      <SectionComponent section={section} website={website} />
 
-      {isEditable && !hideHandle && index < total - 1 && (
-        // Thin draggable strip — fully overlaps the section bottom so sections
-        // stay flush (no visible gap between them). The pill is positioned so
-        // it sits centred on the section boundary.
+      {isEditable && !hideHandle && (
+        // Bottom-only resize handle. Sits inside this section's wrapper at
+        // the very bottom edge so it visually belongs to THIS section.
         <div
           onPointerDown={startResize}
           onMouseDown={(e) => e.preventDefault()}
           onPointerEnter={() => setHover(true)}
           onPointerLeave={() => !resizing && setHover(false)}
-          title="Drag to resize this section"
+          title="Drag to resize this section (up shrinks, down grows)"
           style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 12,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            position: "relative",
             zIndex: 50,
-            marginTop: -12,
-            height: 12,
             cursor: "ns-resize",
             touchAction: "none",
             userSelect: "none",
+            background: hover || resizing ? "rgba(24,119,242,0.10)" : "transparent",
           }}
         >
-          {/* pill indicator — sits at section boundary */}
           <div
             style={{
               width: 40,
@@ -324,7 +326,6 @@ function SectionShell({
               boxShadow: hover || resizing ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
             }}
           >
-            {/* height tooltip — visible only while actively dragging */}
             {resizing && liveHeight && (
               <span
                 style={{
@@ -349,6 +350,6 @@ function SectionShell({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

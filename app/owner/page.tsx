@@ -33,7 +33,7 @@ function fmtMonth(ym: string) {
 
 export default function OwnerPage() {
   const [active, setActive]           = useState<Tab>("Overview");
-  const [userView, setUserView]       = useState<"all" | "active" | "paid" | "former" | "influencer">("all");
+  const [userView, setUserView]       = useState<"all" | "free" | "pro" | "enterprise" | "influencer">("all");
   const [stats, setStats]             = useState<Stats | null>(null);
   const [users, setUsers]             = useState<UserRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubRow[]>([]);
@@ -199,9 +199,9 @@ export default function OwnerPage() {
   const totalUsersFiltered = users.filter((u) => {
     if (!match(u.name, u.email)) return false;
     if (userView === "all")        return true;
-    if (userView === "active")     return userStatus(u) === "Active";
-    if (userView === "paid")       return paidUserIds.has(u.id);
-    if (userView === "former")     return userStatus(u) === "Former";
+    if (userView === "free")       return u.plan === "FREE";
+    if (userView === "pro")        return u.plan === "PRO";
+    if (userView === "enterprise") return u.plan === "ENTERPRISE";
     if (userView === "influencer") return u.isInfluencer;
     return true;
   });
@@ -439,9 +439,9 @@ export default function OwnerPage() {
                 <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
                   {([
                     { key: "all",        label: `All Users (${users.length})`,                                              ac: BLUE     },
-                    { key: "active",     label: `Active (${users.filter(u => userStatus(u) === "Active").length})`,         ac: BLUE     },
-                    { key: "paid",       label: `Paid (${users.filter(u => paidUserIds.has(u.id)).length})`,                ac: BLUE     },
-                    { key: "former",     label: `Former (${users.filter(u => userStatus(u) === "Former").length})`,         ac: BLUE     },
+                    { key: "free",       label: `Free (${users.filter(u => u.plan === "FREE").length})`,                    ac: BLUE     },
+                    { key: "pro",        label: `Pro (${users.filter(u => u.plan === "PRO").length})`,                      ac: BLUE     },
+                    { key: "enterprise", label: `Enterprise (${users.filter(u => u.plan === "ENTERPRISE").length})`,        ac: "#7C3AED" },
                     { key: "influencer", label: `Influencers (${influencers.length})`,                                      ac: "#7C3AED" },
                   ] as const).map((v) => (
                     <button key={v.key} onClick={() => setUserView(v.key)}
