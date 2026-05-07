@@ -135,8 +135,23 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
         {tab === "site" && (
           <>
             <div>
-              <label className={lbl}>Store Name</label>
-              <input value={website.name || ""} onChange={(e) => onUpdateWebsite({ name: e.target.value })} className={inp} placeholder="My Store" />
+              <label className={lbl}>{(() => {
+                const t = (website.type || "").toUpperCase();
+                if (t === "PORTFOLIO") return "Portfolio Name";
+                if (t === "RESTAURANT") return "Restaurant Name";
+                if (t === "SALON") return "Salon Name";
+                if (t === "BUSINESS" || t === "LANDING") return "Site Name";
+                if (t === "STORE") return "Store Name";
+                return "Site Name";
+              })()}</label>
+              <input value={website.name || ""} onChange={(e) => onUpdateWebsite({ name: e.target.value })} className={inp} placeholder={(() => {
+                const t = (website.type || "").toUpperCase();
+                if (t === "PORTFOLIO") return "My Portfolio";
+                if (t === "RESTAURANT") return "My Restaurant";
+                if (t === "SALON") return "My Salon";
+                if (t === "STORE") return "My Store";
+                return "My Site";
+              })()} />
             </div>
 
             {/* Colors — real-time global styling */}

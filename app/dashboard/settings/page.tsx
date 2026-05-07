@@ -339,17 +339,27 @@ const PLAN_INFO: Record<string, { label: string; tagline: string; features: stri
 
 function BillingTab({ session, update, planTier }: any) {
   const [sub, setSub] = useState<Sub | null>(null);
+  const [pending, setPending] = useState<{ pendingPlan: string | null; pendingPlanAt: string | null; planExpiresAt: string | null } | null>(null);
   const [loadingSub, setLoadingSub] = useState(true);
   const [cancelling, setCancelling] = useState(false);
 
   const isPaid = planTier === "PRO" || planTier === "ENTERPRISE";
   const planInfo = PLAN_INFO[planTier] || PLAN_INFO.FREE;
 
+  // A cancellation is scheduled if EITHER the subscription row says so OR the
+  // user-level pendingPlan stamp is set. The latter covers admin-granted plans
+  // that don't have an actual Subscription row.
+  const isCancelScheduled = !!(sub?.cancelAtPeriodEnd || pending?.pendingPlan === "FREE");
+  const cancelEndsAt = sub?.currentPeriodEnd ?? pending?.pendingPlanAt ?? pending?.planExpiresAt ?? null;
+
   useEffect(() => {
     if (!isPaid) { setLoadingSub(false); return; }
     fetch("/api/user/subscription")
       .then((r) => r.json())
-      .then((s) => { if (s.subscription) setSub(s.subscription); })
+      .then((s) => {
+        if (s.subscription) setSub(s.subscription);
+        if (s.pending) setPending(s.pending);
+      })
       .catch(() => {})
       .finally(() => setLoadingSub(false));
   }, [isPaid]);
@@ -363,9 +373,15 @@ function BillingTab({ session, update, planTier }: any) {
       if (res.ok) {
         const ends = data.endsAt ? new Date(data.endsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "the end of your billing period";
         toast.success(`Cancellation scheduled — you keep access until ${ends}.`);
-        // Reflect the scheduled cancel locally without dropping the plan yet.
         setSub((s) => s ? { ...s, cancelAtPeriodEnd: true, currentPeriodEnd: data.endsAt ?? s.currentPeriodEnd } : s);
+        setPending((p) => ({
+          pendingPlan: "FREE",
+          pendingPlanAt: data.endsAt ?? p?.pendingPlanAt ?? null,
+          planExpiresAt: p?.planExpiresAt ?? null,
+        }));
       } else toast.error(data.error || "Failed to cancel");
+    } catch (e: any) {
+      toast.error(e?.message || "Network error");
     } finally { setCancelling(false); }
   }
 
@@ -376,10 +392,13 @@ function BillingTab({ session, update, planTier }: any) {
       if (res.ok) {
         toast.success("Cancellation reversed — your subscription continues.");
         setSub((s) => s ? { ...s, cancelAtPeriodEnd: false } : s);
+        setPending((p) => p ? { ...p, pendingPlan: null, pendingPlanAt: null } : p);
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to undo");
       }
+    } catch (e: any) {
+      toast.error(e?.message || "Network error");
     } finally { setCancelling(false); }
   }
 
@@ -438,7 +457,7 @@ function BillingTab({ session, update, planTier }: any) {
           </Card>
 
           <Card title="Cancel Subscription" icon={AlertTriangle}>
-            {sub?.cancelAtPeriodEnd ? (
+            {isCancelScheduled ? (
               <>
                 <div className="flex items-start gap-3 mb-4">
                   <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
@@ -446,8 +465,8 @@ function BillingTab({ session, update, planTier }: any) {
                     <p className="text-sm font-semibold text-amber-600">Cancellation scheduled</p>
                     <p className="text-xs text-[#65676B] mt-1">
                       You will keep {planInfo.label} access until{" "}
-                      {sub.currentPeriodEnd
-                        ? new Date(sub.currentPeriodEnd).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
+                      {cancelEndsAt
+                        ? new Date(cancelEndsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
                         : "the end of your current billing period"}
                       , then automatically switch to the Free plan. You can reverse this any time before that date.
                     </p>
@@ -469,8 +488,8 @@ function BillingTab({ session, update, planTier }: any) {
                     <p className="text-sm font-semibold text-[#1C1E21]">Cancellation takes effect at the end of your billing period</p>
                     <p className="text-xs text-[#65676B] mt-1">
                       You'll keep full {planInfo.label} access until the end of the current billing period
-                      {sub?.currentPeriodEnd
-                        ? ` (${new Date(sub.currentPeriodEnd).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })})`
+                      {cancelEndsAt
+                        ? ` (${new Date(cancelEndsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })})`
                         : ""}
                       , and then automatically switch to the Free plan. Your published sites stay online — you'll just lose paid features. You can reverse the cancellation any time before then.
                     </p>

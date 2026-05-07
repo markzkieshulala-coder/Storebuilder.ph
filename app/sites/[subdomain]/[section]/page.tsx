@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
-import { GeneratedWebsite, Section } from "@/lib/ai/generate";
+import { GeneratedWebsite } from "@/lib/ai/generate";
+import { selectSubpageSections, ROUTE_TITLES } from "@/lib/site/pageSections";
+import type { Metadata } from "next";
 
 interface Props {
   params: { subdomain: string; section: string };
@@ -10,67 +12,15 @@ interface Props {
 // These sub-paths are handled by other routes — don't treat as sections
 const SKIP = new Set(["checkout"]);
 
-// Multi-page nav: each route slug maps to one or more candidate section types,
-// in order of preference. We render EVERY matching candidate so a /work page
-// on a portfolio site shows gallery + team, while on a store it shows
-// products + features. This guarantees the page is never empty even if the
-// AI under-generated content for the route.
-const ROUTE_TO_TYPES: Record<string, string[]> = {
-  about: ["about", "stats", "team"],
-  work: ["gallery", "products", "team"],
-  gallery: ["gallery"],
-  menu: ["products"],
-  shop: ["products", "features"],
-  store: ["products", "features"],
-  products: ["products", "features"],
-  services: ["features", "process", "pricing"],
-  features: ["features", "process"],
-  process: ["process", "features"],
-  pricing: ["pricing"],
-  team: ["team"],
-  faq: ["faq"],
-  contact: ["contact", "newsletter"],
-  testimonials: ["testimonials"],
-  reviews: ["testimonials"],
-  blog: ["features"],
-};
-
-// Friendly title for the route — used by the synthesized hero when we have to
-// fall back to a placeholder page.
-const ROUTE_TITLES: Record<string, { title: string; description: string }> = {
-  about: { title: "About Us", description: "Learn more about who we are and what we do." },
-  work: { title: "Our Work", description: "A selection of recent projects and creative work." },
-  gallery: { title: "Gallery", description: "A visual look at the work we've shipped." },
-  menu: { title: "Our Menu", description: "Browse what's on offer." },
-  shop: { title: "Shop", description: "Featured products available right now." },
-  store: { title: "Store", description: "Featured products available right now." },
-  products: { title: "Products", description: "Featured products available right now." },
-  services: { title: "Our Services", description: "What we offer and how we can help." },
-  features: { title: "Features", description: "Everything that's included." },
-  process: { title: "Our Process", description: "How we work with you from start to finish." },
-  pricing: { title: "Pricing", description: "Simple, transparent pricing for every stage." },
-  team: { title: "Our Team", description: "The people behind the work." },
-  faq: { title: "Frequently Asked Questions", description: "Common questions, answered." },
-  contact: { title: "Contact Us", description: "Get in touch — we'd love to hear from you." },
-  testimonials: { title: "Testimonials", description: "What our customers have to say." },
-  reviews: { title: "Reviews", description: "What our customers have to say." },
-  blog: { title: "Blog", description: "Stories, ideas and updates." },
-};
-
-// Build a synthetic hero section for a route that the generated site is
-// missing, so the page still has presentable content (no 404, no blank page).
-function syntheticHero(routeSlug: string, brand: string): Section {
-  const meta = ROUTE_TITLES[routeSlug] ?? { title: brand, description: `${brand} — ${routeSlug}` };
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const website = await prisma.website.findUnique({
+    where: { subdomain: params.subdomain },
+  });
+  if (!website) return { title: "Not Found" };
+  const title = ROUTE_TITLES[params.section]?.title ?? params.section;
   return {
-    id: `synthetic-hero-${routeSlug}`,
-    type: "hero",
-    data: {
-      headline: meta.title,
-      subheadline: brand,
-      description: meta.description,
-      backgroundImage: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&h=800&fit=crop&q=80",
-    },
-    styles: {},
+    title: `${title} — ${website.seoTitle || website.name}`,
+    description: ROUTE_TITLES[params.section]?.description || website.seoDesc || undefined,
   };
 }
 
@@ -82,41 +32,11 @@ export default async function SectionPage({ params }: Props) {
   });
   if (!website) notFound();
 
-  const content = website.jsonContent as GeneratedWebsite;
-  const all = content.sections;
-
-  // Resolve target sections via the route alias map; fall back to direct
-  // type match so older sites (or unmapped slugs) still work. Take ALL
-  // matching candidates (not just the first) so route pages stay full.
-  const candidateTypes = ROUTE_TO_TYPES[params.section] ?? [params.section];
-  const seenIds = new Set<string>();
-  const targets: Section[] = [];
-  for (const t of candidateTypes) {
-    for (const s of all) {
-      if (s.type === t && !seenIds.has(s.id)) {
-        targets.push(s);
-        seenIds.add(s.id);
-      }
-    }
-  }
-
-  // Always include nav + footer; render a synthetic hero if no page content
-  // resolved so the route never appears blank.
-  const nav = all.find((s) => s.type === "nav");
-  const footer = all.find((s) => s.type === "footer");
-
-  const body: Section[] = targets.length > 0
-    ? targets
-    : [syntheticHero(params.section, content.name || params.subdomain)];
-
-  const pageSections: Section[] = [
-    ...(nav ? [nav] : []),
-    ...body,
-    ...(footer ? [footer] : []),
-  ];
+  const raw = website.jsonContent as GeneratedWebsite;
+  const pageSections = selectSubpageSections(raw, params.section);
 
   const pageContent: GeneratedWebsite = {
-    ...content,
+    ...raw,
     sections: pageSections,
     subdomain: website.subdomain,
   };

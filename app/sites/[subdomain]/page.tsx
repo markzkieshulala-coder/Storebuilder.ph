@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import { GeneratedWebsite } from "@/lib/ai/generate";
+import { selectHomepageSections } from "@/lib/site/pageSections";
 import type { Metadata } from "next";
 
 interface Props {
@@ -35,9 +36,15 @@ export default async function SubdomainPage({ params }: Props) {
 
   if (!website) notFound();
 
-  // Inject subdomain so ProductsSection can build checkout URLs
+  // Inject subdomain so ProductsSection can build checkout URLs.
+  // The homepage renders ONLY homepage-relevant sections (hero, about preview,
+  // features preview, testimonials, CTA) so it doesn't duplicate the content
+  // that lives on dedicated /services /pricing /faq /contact pages.
+  const raw = website.jsonContent as GeneratedWebsite;
+  const homepageSections = selectHomepageSections(raw);
   const content: GeneratedWebsite = {
-    ...(website.jsonContent as GeneratedWebsite),
+    ...raw,
+    sections: homepageSections,
     subdomain: website.subdomain,
   };
 

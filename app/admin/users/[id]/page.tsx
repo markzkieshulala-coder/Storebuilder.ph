@@ -207,15 +207,16 @@ export default function AdminUserDetailPage() {
     user.plan === "ENTERPRISE" ? "Enterprise"
     : user.plan === "PRO"      ? "Pro"
     :                            "Free";
+  // Membership status mirrors the actual plan — admins see status in sync
+  // with Plan Type at all times (PRO → "PRO", ENTERPRISE → "ENTERPRISE",
+  // FREE → "FREE TIER"). Influencer is appended when set.
+  const planStatus =
+    user.plan === "ENTERPRISE" ? "Enterprise"
+    : user.plan === "PRO"      ? "Pro"
+    :                            "Free Tier";
   const memberStatus = user.isInfluencer
-    ? `${planTitle} / Influencer`
-    : isActive
-      ? "Active"
-      : isPaid
-        ? "Active"
-        : hasPaidBefore
-          ? "Former"
-          : "Free Tier";
+    ? `${planStatus} / Influencer`
+    : planStatus;
   const currentPlan = user.plan;
   // Influencers always see Enterprise benefits regardless of stored plan value
   const benefits = user.isInfluencer
@@ -302,8 +303,10 @@ export default function AdminUserDetailPage() {
             <div style={LABEL}>Membership</div>
             <div style={ROW}>
               <span style={KEY}>Status</span>
-              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: isActive ? "#D1FAE5" : hasPaidBefore ? "#FEE2E2" : "#F3F4F6", color: isActive ? "#065F46" : hasPaidBefore ? "#991B1B" : "#6B7280" }}>
-                {isActive ? "ACTIVE" : hasPaidBefore ? "FORMER" : "FREE TIER"}
+              <span style={{ padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700,
+                background: currentPlan === "ENTERPRISE" ? "#F5F3FF" : currentPlan === "PRO" ? "#EBF3FF" : "#F3F4F6",
+                color:      currentPlan === "ENTERPRISE" ? "#7C3AED" : currentPlan === "PRO" ? BLUE      : "#6B7280" }}>
+                {currentPlan === "ENTERPRISE" ? "ENTERPRISE" : currentPlan === "PRO" ? "PRO" : "FREE TIER"}
               </span>
             </div>
             <EditableField label="Plan Type" value={currentPlan} type="select"
