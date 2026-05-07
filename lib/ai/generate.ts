@@ -64,23 +64,26 @@ const PROFESSIONAL_PALETTES = [
 ];
 
 // Style direction hints — randomly injected to push the AI toward different
-// design decisions across generations of similar prompts.
+// design decisions across generations of similar prompts. Every direction
+// here must read as PREMIUM / MINIMAL / EDITORIAL — never colorful, never
+// "AI-generated cartoon site." Each one suggests a distinct typographic and
+// compositional treatment so two consecutive generations don't feel alike.
 const STYLE_DIRECTIONS = [
-  "Editorial magazine layout — large serif-style type, generous whitespace, full-bleed hero photography.",
-  "Minimal swiss design — strong grid, restrained typography, lots of negative space, single accent color.",
-  "Bold corporate — confident headlines, asymmetric hero composition, two-tone alternating sections.",
-  "Boutique luxury — refined spacing, subtle gold/cream accents, oversized hero, intimate copy tone.",
-  "Modern tech — sharp geometric shapes, monochrome palette with single bright accent, terse confident copy.",
-  "Warm artisan — earthy tones, hand-crafted feel, story-driven about section, premium product close-ups.",
-  "Premium hospitality — atmospheric photography, evocative copy, strong CTA buttons, testimonial-led.",
-  "Quiet confidence — small type, lots of breathing room, monochrome photography, no exclamation marks.",
-  "Heritage brand — classical proportions, founding-story emphasis, vintage-inspired details.",
-  "Contemporary studio — bold portrait imagery, modular grid sections, expressive headline typography.",
-  "Brutalist editorial — raw asymmetric grid, strong horizontal rules, oversized typography blocks.",
-  "Soft neo-brand — soft glow gradients within dark, micro-interactions, friendly product copy.",
-  "Cinematic atmospheric — dim lighting hero, dramatic close-ups, story arcs across sections.",
-  "Documentary photo — black-and-white people imagery, real-life compositions, deeply human copy tone.",
-  "Architectural minimalism — long whitespace columns, geometric photo crops, minimalist gold lines.",
+  "Editorial magazine — oversized serif-style display type, deep negative space, single full-bleed hero photo, two-column body layout below.",
+  "Swiss minimal — strict 12-column grid, restrained type sizes, single muted accent, monochrome photo treatment, lots of breathing room.",
+  "Quiet luxury — tight letter-spacing, subdued cream/gold accent on charcoal, oversized hero portrait, intimate narrative copy.",
+  "Modern tech — geometric layout, monospace numerical labels, single saturated accent on near-black surfaces, dense product specs, terse confident copy.",
+  "Warm artisan — earthy charcoal-and-bronze palette, generous side margins, story-led about section, close-up macro product photography.",
+  "Premium hospitality — atmospheric darker photography, strong typographic hierarchy, testimonial-led, single warm gold accent.",
+  "Architectural minimalism — long single-column flow, geometric image crops with asymmetric margins, minimalist hairline rules instead of borders.",
+  "Documentary editorial — black-and-white portrait imagery, real-life candid compositions, human-first copy tone, large quote blocks.",
+  "Heritage corporate — classical proportions, founding-year date plates, restrained serif headers, monochrome photography with subtle grain.",
+  "Brutalist editorial — raw asymmetric grid, oversized condensed display type, hairline horizontal rules between sections, no decorative elements.",
+  "Cinematic atmospheric — dim full-bleed hero, dramatic vignette gradient, story arc across sections, narrative-driven copy.",
+  "Contemporary studio — bold portrait imagery, modular asymmetric grid, expressive but disciplined display typography, no decorative gradients.",
+  "Premium boutique — refined spacing, oversized hero, intimate letterspacing on display headers, single muted secondary color.",
+  "Editorial photo essay — full-bleed images alternating with deeply set text columns, image captions in mono, tight body copy.",
+  "Restrained corporate — Inter-style sans, sharp 8pt grid, single accent reserved for CTAs only, everything else neutral.",
 ];
 
 // Section ordering variants — break up the predictable nav→hero→features→…→footer pattern.
@@ -170,11 +173,14 @@ function sanitizeColors(website: GeneratedWebsite): GeneratedWebsite {
     text:       safeColor(website.colors?.text,       palette.text),
   };
 
-  // Enforce section-level styles
-  website.sections = website.sections.map((s) => {
+  // Enforce section-level styles. We collapse every section to use the SAME
+  // accent (the site-level accent) so a generation that used five different
+  // bright colors across sections becomes a unified premium look.
+  const siteAccent = website.colors.accent;
+  const siteText = website.colors.text;
+
+  website.sections = website.sections.map((s, idx) => {
     const bg  = s.styles?.background;
-    const tc  = s.styles?.textColor;
-    const acc = s.styles?.accentColor;
     const newStyles: Record<string, string> = { ...s.styles };
 
     // Background: reject vivid/neon colors AND light/white colors
@@ -185,8 +191,16 @@ function sanitizeColors(website: GeneratedWebsite): GeneratedWebsite {
       newStyles.background = `linear-gradient(135deg, ${palette.background} 0%, ${palette.primary} 100%)`;
     }
 
-    if (tc && isNeonOrBright(tc)) newStyles.textColor = palette.text;
-    if (acc && isNeonOrBright(acc)) newStyles.accentColor = palette.accent;
+    // If background is missing, alternate between the two darkest values for
+    // a disciplined editorial rhythm.
+    if (!newStyles.background) {
+      newStyles.background = idx % 2 === 0 ? palette.background : palette.primary;
+    }
+
+    // Force ALL sections to share the same accent + text — premium look means
+    // no rainbow per-section accent variation.
+    newStyles.accentColor = siteAccent;
+    newStyles.textColor = siteText;
 
     return { ...s, styles: newStyles };
   });
@@ -595,7 +609,17 @@ function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite 
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are the world's best web designer. Every website you produce must look like it cost ₱500,000 to build — clean, premium, corporate, and immediately credible. Filipino business owners will trust this website to represent them to their customers.
+const SYSTEM_PROMPT = `You are a senior art director at a top Manila design agency producing a premium custom website worth ₱500,000. The output must feel hand-crafted, minimal, and editorial — NEVER "AI-generated," NEVER colorful, NEVER template-y. Filipino business owners will trust this to represent their brand to real customers.
+
+══════════════════════════════════════════
+DESIGN PHILOSOPHY (READ FIRST)
+══════════════════════════════════════════
+• Premium > flashy. Restraint > decoration. Editorial > marketing.
+• ONE accent color used sparingly (CTAs only). The rest is neutral dark surfaces with light typography.
+• Generous whitespace, disciplined typographic hierarchy, asymmetric editorial layouts.
+• Photography does the work — no illustrations, no abstract gradients, no decorative shapes.
+• Copy is calm and confident. No exclamation marks. No buzzwords. No emojis. No "elevate your X."
+• If the result feels "AI-generated" or "colorful template," you have failed. It must feel hand-curated.
 
 ══════════════════════════════════════════
 ABSOLUTE NON-NEGOTIABLE RULES
@@ -611,6 +635,7 @@ COLORS — THIS IS THE MOST IMPORTANT RULE
 • Use white (#FFFFFF) or warm off-white (#F5F0E8 / #FAFAF8 / #E0DDF5 / #FCE4EC) as the text color only — NEVER as a background.
 • Pick ONE muted accent that complements the background, from: #c9a84c | #A87C2A | #3B82F6 | #0D7377 | #166534 | #7F1D1D | #1E40AF | #0288D1 | #525252 | #9F86C0 | #2E7D32 | #B8860B | #5B21B6 | #00838F | #AD1457
 • Three values total per site (background, primary surface, accent). No rainbow. No gradients with bright colors.
+• Use the accent ONLY on primary CTA buttons and a single hero number/highlight. Everything else stays in the dark+light pair. NEVER paint multiple sections in different accent colors.
 • BANNED forever: white (#FFFFFF), near-white, light grey, any hex with lightness above 20% as a background or section background. Also banned: red (#FF0000), lime green, hot pink, electric blue, bright orange, cyan, magenta, any color with saturation > 55% and lightness between 35–80%.
 • Section backgrounds must alternate only between your two darkest hex values. EVERY section must have a dark background. Zero exceptions.
 • Across multiple generations of the same business type, you MUST pick a different background palette each time — do not default to the first one in the list.
@@ -621,6 +646,9 @@ IMAGERY
   (hero: w=1400&h=800)
 • ZERO 3D renders. ZERO illustrations. ZERO cartoon art. ZERO placeholder text.
 • Every image field must have a real URL — never null, never empty string.
+• EVERY image must visually match the business type — coffee shop = coffee/cafe imagery, salon = beauty/wellness, dev studio = workspace/tech, fashion brand = apparel/editorial. Generic stock photos that don't match are a failure.
+• Within ONE site: every photo must be a unique ID — the hero photo, about photo, products photos, team photos, gallery photos, testimonial avatars MUST all be different IDs.
+• Across DIFFERENT generations: rotate completely. Do not reuse the same hero photo ID you might have used in a previous run for the same category.
 
 TYPOGRAPHY & COPY
 • Font: "Google Sans" — no exceptions

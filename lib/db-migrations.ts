@@ -50,5 +50,15 @@ export async function ensureSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isInfluencer" BOOLEAN NOT NULL DEFAULT false`);
   } catch (e) { console.error("[migrations] isInfluencer col:", e); }
 
+  // settings JSONB — persists payment method toggles, payment links, etc.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "settings" JSONB`);
+  } catch (e) { console.error("[migrations] settings col:", e); }
+
+  // password — used by credentials provider (legacy DBs may lack it)
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "password" TEXT`);
+  } catch (e) { console.error("[migrations] password col:", e); }
+
   ran = true;
 }

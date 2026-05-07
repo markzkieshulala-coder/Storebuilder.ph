@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSchemaMigrations();
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -25,10 +27,21 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(buffer).toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { image: dataUrl },
-    });
+    // Update via raw SQL so a missing column elsewhere doesn't trip Prisma's
+    // schema validation when it walks the full User model.
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "User" SET "image" = $1 WHERE id = $2`,
+        dataUrl,
+        session.user.id
+      );
+    } catch (e) {
+      console.error("[avatar upload] raw SQL failed, retrying via Prisma:", e);
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { image: dataUrl },
+      });
+    }
 
     return NextResponse.json({ success: true, image: dataUrl });
   } catch (e: any) {

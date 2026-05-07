@@ -3,12 +3,14 @@ import { getServerSession } from "next-auth";
 import crypto from "node:crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 import { sendEmailChangeVerification } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({ newEmail: z.string().email() });
 
 export async function POST(req: NextRequest) {
+  await ensureSchemaMigrations();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,14 +47,23 @@ export async function POST(req: NextRequest) {
   const token = crypto.randomBytes(24).toString("hex");
   const expires = new Date(Date.now() + 30 * 60 * 1000);
 
-  await prisma.user.update({
-    where: { id: me.id },
-    data: {
-      pendingEmail: newEmail,
-      pendingEmailToken: token,
-      pendingEmailExpires: expires,
-    },
-  });
+  // Write pending email fields via raw SQL so a missing column never crashes —
+  // ensureSchemaMigrations should have just added them but be defensive.
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE "User" SET "pendingEmail" = $1, "pendingEmailToken" = $2, "pendingEmailExpires" = $3 WHERE id = $4`,
+      newEmail,
+      token,
+      expires,
+      me.id
+    );
+  } catch (e) {
+    console.error("[email request] raw SQL failed:", e);
+    return NextResponse.json(
+      { error: "Email change is temporarily unavailable. Please try again in a moment." },
+      { status: 500 }
+    );
+  }
 
   const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const verifyUrl = `${base}/dashboard/settings/confirm-email?token=${token}`;
