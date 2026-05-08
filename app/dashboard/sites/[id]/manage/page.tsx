@@ -250,20 +250,37 @@ function UpgradeWall({ onBack }: { onBack: () => void }) {
 /* ─────────────────────────────────────────────────────────────────────────── */
 function OverviewTab({ data, onTabChange }: { data: ManageData; onTabChange: (t: Tab) => void }) {
   const o = data.overview;
+  const siteType = (data.website.type || "").toUpperCase();
+  const isStore = siteType === "STORE" || siteType === "RESTAURANT";
+  const isPortfolio = siteType === "PORTFOLIO" || siteType === "LANDING";
   const peakVisits = Math.max(1, ...o.dayBuckets.map((b) => b.visits));
 
-  const cards = [
+  const cards = isStore ? [
     { label: "Revenue (paid)", value: pesos(o.revenueCents), sub: `${o.paidOrderCount} paid`, color: "#10B981", tab: "orders" as Tab },
     { label: "Orders", value: o.orderCount, sub: `${o.pendingOrderCount} pending`, color: "#1877F2", tab: "orders" as Tab },
     { label: "Customers", value: o.customerCount, sub: "in CRM", color: "#8B5CF6", tab: "customers" as Tab },
     { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: "#F59E0B", tab: "marketing" as Tab },
     { label: "Visits (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: "#EC4899", tab: "analytics" as Tab },
     { label: "Messages", value: o.contactCount, sub: "contact form", color: "#06B6D4", tab: "marketing" as Tab },
+  ] : isPortfolio ? [
+    { label: "Visitors (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: "#1877F2", tab: "analytics" as Tab },
+    { label: "Inquiries", value: o.contactCount, sub: "contact form", color: "#8B5CF6", tab: "marketing" as Tab },
+    { label: "Clients", value: o.customerCount, sub: "in database", color: "#10B981", tab: "customers" as Tab },
+    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: "#F59E0B", tab: "marketing" as Tab },
+  ] : [
+    { label: "Visitors (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: "#1877F2", tab: "analytics" as Tab },
+    { label: "Leads", value: o.contactCount, sub: "inquiries received", color: "#8B5CF6", tab: "marketing" as Tab },
+    { label: "Customers", value: o.customerCount, sub: "in CRM", color: "#10B981", tab: "customers" as Tab },
+    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: "#F59E0B", tab: "marketing" as Tab },
   ];
+
+  const gridCols = cards.length === 6
+    ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+    : "grid-cols-2 sm:grid-cols-2 lg:grid-cols-4";
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className={`grid ${gridCols} gap-3`}>
         {cards.map((c) => (
           <button
             key={c.label}
@@ -282,13 +299,13 @@ function OverviewTab({ data, onTabChange }: { data: ManageData; onTabChange: (t:
         <div className="bg-white border border-[#E4E6EB] rounded-2xl p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-[#1C1E21]">Last 7 days</h2>
-            <span className="text-xs text-[#65676B]">visits & orders</span>
+            <span className="text-xs text-[#65676B]">{isStore ? "visits & orders" : "page views"}</span>
           </div>
           <div className="flex items-end gap-2 h-40">
             {o.dayBuckets.map((b) => (
               <div key={b.date} className="flex-1 flex flex-col items-center justify-end">
                 <div className="w-full flex flex-col items-center gap-0.5">
-                  {b.orders > 0 && (
+                  {isStore && b.orders > 0 && (
                     <div
                       className="w-full rounded-t-md"
                       style={{ background: "#1877F2", height: `${Math.max(4, (b.orders / Math.max(1, peakVisits)) * 140)}px` }}
@@ -866,18 +883,29 @@ function MarketingTab({ data, reload }: { data: ManageData; reload: () => void }
 /* ─────────────────────────────────────────────────────────────────────────── */
 function AnalyticsTab({ data }: { data: ManageData }) {
   const o = data.overview;
+  const siteType = (data.website.type || "").toUpperCase();
+  const isStore = siteType === "STORE" || siteType === "RESTAURANT";
   const peakVisits = Math.max(1, ...o.dayBuckets.map((b) => b.visits));
   const conversionRate = o.visits30d > 0 ? ((o.paidOrderCount / o.visits30d) * 100).toFixed(2) : "0.00";
+  const inquiryRate = o.visits30d > 0 ? ((o.contactCount / o.visits30d) * 100).toFixed(1) : "0.0";
+  const subRate = o.visits30d > 0 ? ((o.subscriberCount / o.visits30d) * 100).toFixed(1) : "0.0";
+
+  const statCards = isStore ? [
+    { label: "Visits (30d)", value: o.visits30d.toLocaleString("en-PH") },
+    { label: "Conversion rate", value: `${conversionRate}%` },
+    { label: "Avg order", value: o.paidOrderCount > 0 ? pesos(Math.round(o.revenueCents / o.paidOrderCount)) : pesos(0) },
+    { label: "Subscribers / 100 visits", value: subRate },
+  ] : [
+    { label: "Visits (30d)", value: o.visits30d.toLocaleString("en-PH") },
+    { label: "Inquiry rate", value: `${inquiryRate}%` },
+    { label: "Subscribers / 100 visits", value: subRate },
+    { label: "Total inquiries", value: o.contactCount.toLocaleString("en-PH") },
+  ];
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Visits (30d)", value: o.visits30d.toLocaleString("en-PH") },
-          { label: "Conversion rate", value: `${conversionRate}%` },
-          { label: "Avg order", value: o.paidOrderCount > 0 ? pesos(Math.round(o.revenueCents / o.paidOrderCount)) : pesos(0) },
-          { label: "Subscribers / 100 visits", value: o.visits30d > 0 ? ((o.subscriberCount / o.visits30d) * 100).toFixed(1) : "0.0" },
-        ].map((c) => (
+        {statCards.map((c) => (
           <div key={c.label} className="bg-white border border-[#E4E6EB] rounded-2xl p-4">
             <div className="text-xs font-medium text-[#65676B] mb-1">{c.label}</div>
             <div className="text-xl font-bold text-[#1C1E21]">{c.value}</div>
