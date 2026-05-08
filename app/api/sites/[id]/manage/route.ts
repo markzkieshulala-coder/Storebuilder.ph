@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const website = await prisma.website.findFirst({
     where: { id: params.id, userId: session.user.id },
-    select: { id: true, name: true, subdomain: true, published: true, userId: true },
+    select: { id: true, name: true, type: true, subdomain: true, published: true, userId: true },
   });
   if (!website) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

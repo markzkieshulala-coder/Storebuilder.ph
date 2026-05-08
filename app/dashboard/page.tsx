@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
   Crown, Clock, AlertCircle, Zap, Camera, CheckCircle2, Menu, X,
-  EyeOff, ChevronDown, Share2, Copy, Check,
+  EyeOff, ChevronDown, Share2, Copy, Check, MoreVertical, BarChart3, Briefcase,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -65,7 +65,9 @@ function DashboardContent() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openToolsId, setOpenToolsId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (status === "unauthenticated") router.push("/auth/signin"); }, [status, router]);
   useEffect(() => {
@@ -97,6 +99,15 @@ function DashboardContent() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openMenuId]);
+  // Close tools menu on outside click
+  useEffect(() => {
+    if (!openToolsId) return;
+    function handler(e: MouseEvent) {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(e.target as Node)) setOpenToolsId(null);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openToolsId]);
 
   async function fetchData() {
     setLoading(true);
@@ -204,6 +215,32 @@ function DashboardContent() {
   const isPro = credits?.plan === "PRO" || credits?.plan === "ENTERPRISE";
   const canShareTemplate = !!credits?.features?.canShareTemplates;
   const canManageStore = !!credits?.features?.canGenerateCRM;
+
+  // Per-site-type label & description for the "View Tools" menu item.
+  // Stores get sales-focused tools; portfolios get project/client tools;
+  // other business sites get CRM/leads tools.
+  function toolsForType(type: string): { label: string; sublabel: string; Icon: typeof BarChart3 } {
+    const t = (type || "").toUpperCase();
+    if (t === "PORTFOLIO") {
+      return {
+        label: "View Portfolio Tools",
+        sublabel: "Inquiries, gallery analytics, visitors",
+        Icon: Briefcase,
+      };
+    }
+    if (t === "STORE" || t === "RESTAURANT") {
+      return {
+        label: "View Business Tools",
+        sublabel: "Orders, customers, sales, marketing",
+        Icon: BarChart3,
+      };
+    }
+    return {
+      label: "View Business Tools",
+      sublabel: "CRM, leads, traffic, marketing",
+      Icon: BarChart3,
+    };
+  }
   const initials = (session?.user?.name || session?.user?.email || "?")[0].toUpperCase();
 
   return (
@@ -413,12 +450,72 @@ function DashboardContent() {
                         {site.preview?.headline || site.name}
                       </p>
                     </div>
-                    {site.published && (
-                      <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold shadow-sm">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Live
-                      </div>
-                    )}
+                    {/* Top-right overlay: Live badge + tools three-dot menu */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                      {site.published && (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold shadow-sm">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Live
+                        </div>
+                      )}
+                      {/* Three-dot menu — Enterprise only */}
+                      {canManageStore && (
+                        <div className="relative" ref={openToolsId === site.id ? toolsMenuRef : undefined}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenToolsId(openToolsId === site.id ? null : site.id);
+                              setOpenMenuId(null);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700 shadow-sm transition-colors"
+                            aria-label="More options"
+                            title="More options"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {openToolsId === site.id && (() => {
+                            const tools = toolsForType(site.type);
+                            const ToolsIcon = tools.Icon;
+                            return (
+                              <div className="absolute top-full right-0 mt-1.5 w-60 bg-white rounded-xl border border-[#E4E6EB] shadow-xl z-30 overflow-hidden">
+                                <Link
+                                  href={`/dashboard/sites/${site.id}/manage`}
+                                  className="flex items-start gap-2.5 px-3.5 py-3 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                  onClick={() => setOpenToolsId(null)}
+                                >
+                                  <ToolsIcon size={14} className="text-blue-600 mt-0.5 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold leading-tight">{tools.label}</div>
+                                    <div className="text-[10px] text-gray-500 mt-0.5 leading-snug">{tools.sublabel}</div>
+                                  </div>
+                                </Link>
+                                <div className="h-px bg-gray-100" />
+                                <Link
+                                  href={`/editor/${site.id}`}
+                                  className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                  onClick={() => setOpenToolsId(null)}
+                                >
+                                  <Edit3 size={13} className="text-gray-400" />
+                                  Open editor
+                                </Link>
+                                {site.published && site.subdomain && (
+                                  <a
+                                    href={`https://${site.subdomain}.storebuilder.ph`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                    onClick={() => setOpenToolsId(null)}
+                                  >
+                                    <ExternalLink size={13} className="text-gray-400" />
+                                    View live site
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="p-4">

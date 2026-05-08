@@ -14,7 +14,7 @@ const FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";
 const BLUE = "#1877F2";
 
 type ManageData = {
-  website: { id: string; name: string; subdomain: string | null; published: boolean };
+  website: { id: string; name: string; type?: string; subdomain: string | null; published: boolean };
   overview: {
     revenueCents: number;
     orderCount: number;
@@ -35,7 +35,7 @@ type ManageData = {
 
 type Tab = "overview" | "orders" | "customers" | "marketing" | "analytics" | "settings";
 
-const TABS: { key: Tab; label: string; icon: any }[] = [
+const ALL_TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "orders", label: "Orders", icon: ShoppingBag },
   { key: "customers", label: "Customers", icon: Users },
@@ -43,6 +43,32 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "settings", label: "Settings", icon: Settings },
 ];
+
+// Sites that don't sell products (portfolio, landing) hide the Orders tab and
+// rename Customers/Marketing to fit lead-tracking semantics.
+function tabsForType(type: string | undefined): { key: Tab; label: string; icon: any }[] {
+  const t = (type || "").toUpperCase();
+  if (t === "PORTFOLIO" || t === "LANDING") {
+    return [
+      { key: "overview", label: "Overview", icon: BarChart3 },
+      { key: "customers", label: "Clients", icon: Users },
+      { key: "marketing", label: "Inquiries", icon: Mail },
+      { key: "analytics", label: "Visitors", icon: BarChart3 },
+      { key: "settings", label: "Settings", icon: Settings },
+    ];
+  }
+  if (t === "STORE" || t === "RESTAURANT") {
+    return ALL_TABS;
+  }
+  // BUSINESS / SALON / fallback — keep CRM-style flow but allow orders if any
+  return [
+    { key: "overview", label: "Overview", icon: BarChart3 },
+    { key: "customers", label: "Customers", icon: Users },
+    { key: "marketing", label: "Inquiries", icon: Mail },
+    { key: "analytics", label: "Analytics", icon: BarChart3 },
+    { key: "settings", label: "Settings", icon: Settings },
+  ];
+}
 
 function pesos(cents: number) {
   return "₱" + (cents / 100).toLocaleString("en-PH", { maximumFractionDigits: 2 });
@@ -118,7 +144,15 @@ export default function ManageStorePage() {
                 <Crown size={9} /> Enterprise
               </span>
             </div>
-            <div className="text-xs text-[#8A8D91] truncate">Store management</div>
+            <div className="text-xs text-[#8A8D91] truncate">{(() => {
+              const t = (data.website.type || "").toUpperCase();
+              if (t === "PORTFOLIO") return "Portfolio management";
+              if (t === "RESTAURANT") return "Restaurant management";
+              if (t === "SALON") return "Salon management";
+              if (t === "STORE") return "Store management";
+              if (t === "LANDING") return "Landing page management";
+              return "Business management";
+            })()}</div>
           </div>
           {data.website.subdomain && data.website.published && (
             <a
@@ -135,7 +169,7 @@ export default function ManageStorePage() {
         {/* Tabs */}
         <div className="border-t border-[#E4E6EB] overflow-x-auto">
           <div className="max-w-7xl mx-auto px-2 sm:px-6 flex gap-1">
-            {TABS.map((t) => {
+            {tabsForType(data.website.type).map((t) => {
               const Icon = t.icon;
               const active = tab === t.key;
               return (
