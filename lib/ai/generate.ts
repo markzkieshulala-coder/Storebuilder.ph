@@ -394,7 +394,7 @@ function fallbackPhoto(size = "800x600"): string {
   return `${UNSPLASH_BASE}${id}?w=${w}&h=${h}&fit=crop&q=80`;
 }
 
-function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
+function sanitizeImages(website: GeneratedWebsite, approvedIds?: Set<string>): GeneratedWebsite {
   // Track every image URL we keep for this site so two different roles
   // never end up with the same Unsplash photo. When we detect a repeat we
   // swap it for a fresh fallback so each section visually feels distinct.
@@ -403,27 +403,32 @@ function sanitizeImages(website: GeneratedWebsite): GeneratedWebsite {
     const m = url.match(/photo-([a-zA-Z0-9-]+)/);
     return m ? m[1] : url;
   };
+  const nextUnused = (size: string): string => {
+    for (let i = 0; i < 12; i++) {
+      const next = fallbackPhoto(size);
+      const nextId = photoIdOf(next);
+      if (!used.has(nextId)) {
+        used.add(nextId);
+        return next;
+      }
+    }
+    const next = fallbackPhoto(size);
+    used.add(photoIdOf(next));
+    return next;
+  };
   const claim = (url: string | undefined, size: string): string => {
     if (!url || !url.startsWith("https://images.unsplash.com")) {
-      const next = fallbackPhoto(size);
-      used.add(photoIdOf(next));
-      return next;
+      return nextUnused(size);
     }
     const id = photoIdOf(url);
+    // If an approved set is provided, reject any photo not in it — this
+    // guarantees the AI only uses the rotating per-generation pool we injected
+    // into the prompt, preventing repetition across generations.
+    if (approvedIds && !approvedIds.has(id)) {
+      return nextUnused(size);
+    }
     if (used.has(id)) {
-      // Generate a new, unseen fallback. Photo pool is already shuffled
-      // per-generation so a few attempts are enough to find a fresh ID.
-      for (let i = 0; i < 8; i++) {
-        const next = fallbackPhoto(size);
-        const nextId = photoIdOf(next);
-        if (!used.has(nextId)) {
-          used.add(nextId);
-          return next;
-        }
-      }
-      const next = fallbackPhoto(size);
-      used.add(photoIdOf(next));
-      return next;
+      return nextUnused(size);
     }
     used.add(id);
     return url;
@@ -657,26 +662,137 @@ function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
   return website;
 }
 
+// ─── Enterprise: auto-inject business management sections ────────────────────
+// When plan=ENTERPRISE, the generated site automatically gains a "management
+// suite" presentation — two sections (stats + features) inserted before the
+// footer that describe and link to the /dashboard manage panel. Uses existing
+// renderer components so nothing new needs to be built.
+function injectEnterpriseSections(website: GeneratedWebsite): GeneratedWebsite {
+  if (!website.sections || website.sections.length === 0) return website;
+
+  const bg = website.colors?.background ?? "#111827";
+  const primary = website.colors?.primary ?? "#1F2937";
+  const text = website.colors?.text ?? "#F9FAFB";
+  const accent = website.colors?.accent ?? "#c9a84c";
+
+  const hasProducts = website.sections.some((s) => s.type === "products");
+  const footerIdx = website.sections.findIndex((s) => s.type === "footer");
+
+  // Choose insertion point: just before footer (or end of array)
+  const insertAt = footerIdx !== -1 ? footerIdx : website.sections.length;
+
+  // --- Business KPI stats ---
+  const statsSection: Section = {
+    id: "enterprise-kpi-stats",
+    type: "stats",
+    data: {
+      title: "Built-In Business Intelligence",
+      subtitle: "Your Enterprise plan comes with a full management suite — orders, customers, analytics, and marketing in one place.",
+      stats: [
+        { value: "Orders", label: "Tracked automatically from checkout" },
+        { value: "CRM", label: "Customer profiles built from every sale" },
+        { value: "Analytics", label: "Live traffic & conversion data" },
+        { value: "Marketing", label: "Newsletter & contact management" },
+      ],
+    },
+    styles: { background: bg, textColor: text, accentColor: accent },
+  };
+
+  // --- Management features grid ---
+  const featuresSection: Section = {
+    id: "enterprise-management-features",
+    type: "features",
+    data: {
+      title: hasProducts
+        ? "Shopify-Level Store Management"
+        : "Enterprise Business Management",
+      subtitle: hasProducts
+        ? "Every order, customer, and peso tracked automatically. Access your dashboard from anywhere."
+        : "A complete business operations suite built into your website — no third-party tools required.",
+      features: [
+        {
+          title: "Order Management",
+          description: "Real-time order tracking from placement to fulfilment. Mark paid, cancelled, or refunded with one click. Export to CSV.",
+          icon: "shopping-bag",
+        },
+        {
+          title: "Customer CRM",
+          description: "Automatic customer profiles from orders, contact forms, and newsletter signups. Tags, notes, lifetime value tracking.",
+          icon: "users",
+        },
+        {
+          title: "Sales Analytics",
+          description: "7-day revenue trends, average order value, conversion rates, and top referral sources — updated in real time.",
+          icon: "bar-chart-2",
+        },
+        {
+          title: "Marketing Hub",
+          description: "View all contact enquiries, manage newsletter subscribers, and export leads to CSV for email campaigns.",
+          icon: "mail",
+        },
+        {
+          title: "Store Settings",
+          description: "Configure payment methods (GCash, Maya, COD, bank transfer), business contact info, and site branding.",
+          icon: "settings",
+        },
+        {
+          title: "Traffic Intelligence",
+          description: "Page visit tracking, referral source breakdown, and visitor geography — no third-party scripts or cookies.",
+          icon: "globe",
+        },
+      ],
+    },
+    styles: { background: primary, textColor: text, accentColor: accent },
+  };
+
+  website.sections = [
+    ...website.sections.slice(0, insertAt),
+    statsSection,
+    featuresSection,
+    ...website.sections.slice(insertAt),
+  ];
+
+  return website;
+}
+
 // ─── Master post-processor ────────────────────────────────────────────────────
-function postProcess(website: GeneratedWebsite, plan: string, category = "general"): GeneratedWebsite {
-  // Reset rotating photo pool for this generation, biased toward category photos
-  // so fallback replacements visually match the business niche.
-  resetPhotoPool(category);
+function postProcess(
+  website: GeneratedWebsite,
+  plan: string,
+  category = "general",
+  approvedPhotos?: string[]
+): GeneratedWebsite {
+  // Build the approved-ID set for this generation. When provided, sanitizeImages
+  // will REJECT any photo the AI returned that isn't in this set — guaranteeing
+  // that every image on the site comes from the rotating pool we injected into
+  // the prompt, not from the AI's training-data "known" Unsplash URLs.
+  let approvedIds: Set<string> | undefined;
+  if (approvedPhotos && approvedPhotos.length > 0) {
+    approvedIds = new Set(approvedPhotos);
+    // Point the fallback pool at exactly these approved photos (shuffled) so
+    // replacement images also come from the same curated set.
+    _photoPool = shuffle([...approvedPhotos]);
+    _photoIdx = 0;
+  } else {
+    resetPhotoPool(category);
+  }
+
   // Force Google Sans always
   website.fonts = { heading: "Google Sans", body: "Google Sans" };
   // Strip plan-disallowed section types
   website = enforcePlanSections(website, plan);
   // Sanitize colors
   website = sanitizeColors(website);
-  // Ensure real Unsplash images
-  website = sanitizeImages(website);
+  // Ensure real Unsplash images (enforce approved set)
+  website = sanitizeImages(website, approvedIds);
   // Fill empty visual sections (gallery / team / testimonials / faq / stats)
   website = ensureSectionContent(website);
-  // Re-run image sanitization in case ensureSectionContent injected fallbacks
-  // that collide with already-claimed photo IDs (extremely unlikely with the
-  // shuffled pool, but keeps the invariant: no two sections share the same
-  // Unsplash photo).
-  website = sanitizeImages(website);
+  // Re-run image sanitization after content fill
+  website = sanitizeImages(website, approvedIds);
+  // Enterprise auto-inject business management sections
+  if (plan === "ENTERPRISE") {
+    website = injectEnterpriseSections(website);
+  }
   // Rewrite anchor links into multi-page routes
   website = normalizeNavLinks(website);
   return website;
@@ -784,8 +900,8 @@ INTERIOR & LIFESTYLE:
 PLAN-BASED SECTION RULES
 ══════════════════════════════════════════
 FREE   → Landing pages & portfolios only. Sections: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. NO products. NO pricing. NO CRM.
-PRO    → Full marketing/commerce site. Add products, pricing, gallery, team, process sections. May include Hitpay & Paymongo payment links. ALSO eligible for CRM dashboard sections (dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder) — include these when the prompt asks for a system, admin panel, CRM, or internal tool.
-ENTERPRISE → All PRO sections PLUS dedicated CRM dashboard sections — include these when the prompt explicitly asks for a system, admin panel, CRM, or internal tool.
+PRO    → Full marketing/commerce site. Add products, pricing, gallery, team, process sections. May include Hitpay & Paymongo payment links.
+ENTERPRISE → All PRO sections. Generate a full premium marketing/commerce site as normal — the business management suite (CRM, orders, analytics) is auto-injected by the platform AFTER your JSON is returned, so you do NOT need to add dashboard or CRM sections yourself. Focus entirely on producing the best possible marketing/storefront content.
 
 ══════════════════════════════════════════
 JSON SCHEMA (strict)
@@ -818,14 +934,16 @@ JSON SCHEMA (strict)
 }`;
 
 // ─── Per-plan user prompt ─────────────────────────────────────────────────────
-function buildUserPrompt(userPrompt: string, plan: Plan, category = "general"): string {
+// categoryPhotos is pre-computed in generateWebsite() and passed in so that
+// the SAME rotating set is used in both the prompt AND the post-processor.
+function buildUserPrompt(userPrompt: string, plan: Plan, category = "general", categoryPhotos?: string[]): string {
   const tier = plan as string;
 
   const planBlock =
     tier === "ENTERPRISE"
-      ? `PLAN: ENTERPRISE — Full site + optional CRM. If the prompt asks for a system, CRM, admin panel, or internal tool, include those section types in addition to marketing sections. Otherwise generate a premium marketing site.`
+      ? `PLAN: ENTERPRISE — Generate a full premium marketing/commerce site. Include products, pricing, gallery, team, process sections as appropriate. The business management dashboard (CRM, orders, analytics) is automatically added by the platform — do NOT generate dashboard sections yourself.`
       : tier === "PRO"
-      ? `PLAN: PRO — Generate a premium marketing/commerce site. You may include product grids, pricing tables, and Hitpay/Paymongo payment links. If the prompt asks for a system, CRM, admin panel, or internal tool, include CRM dashboard section types (dashboard-stats, data-table, kanban, sidebar-nav, activity-feed, form-builder) in addition to the marketing sections.`
+      ? `PLAN: PRO — Generate a premium marketing/commerce site. Include product grids, pricing tables, and Hitpay/Paymongo payment links as appropriate.`
       : `PLAN: FREE — Generate a polished landing page or portfolio. Use only: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. Absolutely NO product grids (type "products"), NO pricing tables. Focus on showcase and lead generation.`;
 
   // Pick a fresh style direction + section layout + hero composition for THIS
@@ -842,11 +960,10 @@ function buildUserPrompt(userPrompt: string, plan: Plan, category = "general"): 
   const suggestedAccents = ["#c9a84c", "#A87C2A", "#3B82F6", "#0D7377", "#166534", "#7F1D1D", "#1E40AF", "#0288D1", "#9F86C0", "#2E7D32", "#B8860B", "#5B21B6", "#00838F", "#AD1457"];
   const suggestedAccent = suggestedAccents[Math.floor(Math.random() * suggestedAccents.length)];
 
-  // Inject a ROTATING subset of category-appropriate photo IDs. Different each
-  // call so two generations of "sneaker store" get different photo IDs even
-  // though they share the same niche category.
-  const categoryPhotos = getCategoryPhotos(category, 12);
-  const photoHint = categoryPhotos.map((id) => `• ${id}`).join("\n");
+  // Use the pre-computed photo set (24 IDs) so both the prompt and the
+  // post-processor enforce the exact same rotating pool this generation.
+  const photos = categoryPhotos ?? getCategoryPhotos(category, 24);
+  const photoHint = photos.map((id) => `• ${id}`).join("\n");
 
   // Niche-specific imaging directive based on inferred category
   const nicheImageDir: Record<string, string> = {
@@ -881,17 +998,17 @@ DESIGN DIRECTION — MANDATORY, DO NOT DEFAULT TO FAMILIAR TEMPLATES:
 NICHE-SPECIFIC IMAGERY (absolutely required):
 ${nicheDirective}
 
-APPROVED PHOTO IDs FOR THIS GENERATION (use THESE specific IDs, not ones you know from training):
+APPROVED PHOTO IDs FOR THIS GENERATION — YOU MUST USE ONLY THESE (24 IDs, all unique):
 ${photoHint}
 
 FORMAT: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
-Hero: w=1400&h=800. About: w=1000&h=750. Products/team: w=600&h=600.
+Hero: w=1400&h=800. About: w=1000&h=750. Products/team/gallery: w=600&h=600. Avatars: w=100&h=100.
 
-CRITICAL IMAGE RULES:
-• Use ONLY photo IDs from the approved list above for the HERO and ABOUT images.
-• For products/team/gallery, use ADDITIONAL IDs from the list (different from hero/about).
-• Every image field in the JSON must be a unique, different ID — never repeat.
-• NEVER use photo IDs you used in a previous generation for the same category.
+CRITICAL IMAGE ENFORCEMENT (the post-processor WILL reject any ID not in this list):
+• Use ONLY photo IDs from the approved list above. Do NOT use IDs from your training data.
+• Every image field must use a DIFFERENT ID from the list — never repeat within one site.
+• Hero: pick the FIRST ID from the list. About: pick the SECOND. Products: use IDs 3–10. Team/gallery: use IDs 11–20. Avatars: IDs 21–24.
+• Any ID not in the list above will be automatically replaced — stick strictly to the list.
 
 COPY VARIETY (no templates, no recycled phrases):
 • Business name: invent a fresh Filipino brand name that FEELS like this specific niche — leather shoes ≠ sneakers, Italian resto ≠ BBQ.
@@ -921,27 +1038,30 @@ export async function generateWebsite(
 }> {
   const category = inferPhotoCategory(userPrompt);
 
+  // Pre-compute the photo pool for this generation (24 IDs, rotating offset).
+  // The SAME list is injected into the prompt AND used by the post-processor to
+  // validate/replace images — guaranteeing every photo comes from the approved
+  // rotating set, not the AI's training-data "known" Unsplash URLs.
+  const thisGenerationPhotos = getCategoryPhotos(category, 24);
+
   if (process.env.MOCK_MODE === "true") {
     console.log("[MOCK MODE] Returning mock website data");
     await new Promise((r) => setTimeout(r, 2000));
     return {
-      website: postProcess(MOCK_WEBSITE_JSON as unknown as GeneratedWebsite, plan as string, category),
+      website: postProcess(MOCK_WEBSITE_JSON as unknown as GeneratedWebsite, plan as string, category, thisGenerationPhotos),
       usage: { inputTokens: 0, outputTokens: 0, model: "mock", costUsd: 0, costPhp: 0 },
     };
   }
 
   const tier = plan as string;
-  // All plans now use Sonnet for quality — Haiku cannot reliably follow design constraints
   const model = "claude-sonnet-4-6";
 
   const message = await client.messages.create({
     model,
     max_tokens: 8192,
-    // Higher temperature → more variety in copy/colors/layout across generations.
-    // The schema is enforced via post-processing so we can afford the looseness.
     temperature: 1,
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category) }],
+    messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category, thisGenerationPhotos) }],
   });
 
   const content = message.content[0];
@@ -960,8 +1080,9 @@ export async function generateWebsite(
     throw new Error("Claude returned invalid JSON. Please try again.");
   }
 
-  // Post-process: enforce colors, plan sections, real images, Google Sans
-  website = postProcess(website, tier, category);
+  // Post-process with the pre-computed photo list so the approved-ID enforcement
+  // in sanitizeImages() uses exactly the IDs we told the AI to use.
+  website = postProcess(website, tier, category, thisGenerationPhotos);
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
