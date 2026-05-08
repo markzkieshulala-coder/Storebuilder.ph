@@ -96,23 +96,42 @@ export default function NewsletterSection({ section, website }: { section: Secti
           </EditableField>
         )}
         {!submitted ? (
-          <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (isEditable) return;
+              if (!email || !website.subdomain) {
+                setSubmitted(true);
+                return;
+              }
+              try {
+                await fetch("/api/newsletter", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ subdomain: website.subdomain, email, source: "newsletter_section" }),
+                });
+              } catch {/* swallow — UX should still feel instant */}
+              setSubmitted(true);
+            }}
+            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+          >
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={d.placeholder || "Your email address"}
+              required
               className="flex-1 px-4 py-3 rounded-xl text-sm outline-none min-h-[48px]"
               style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: textColor }}
             />
             <button
-              onClick={() => setSubmitted(true)}
+              type="submit"
               className="px-6 py-3 rounded-xl font-semibold text-sm min-h-[48px] whitespace-nowrap"
               style={{ background: accent, color: website.colors?.primary || "#1a1a2e" }}
             >
               {d.ctaText || "Subscribe"}
             </button>
-          </div>
+          </form>
         ) : (
           <div className="p-4 rounded-xl text-sm" style={{ background: `${accent}15`, color: accent }}>
             You&apos;re subscribed! Check your inbox.

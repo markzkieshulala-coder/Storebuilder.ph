@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GeneratedWebsite } from "@/lib/ai/generate";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET_KEY!;
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSchemaMigrations();
     const { subdomain, productId, quantity, customerName, customerEmail, customerPhone } = await req.json();
 
     if (!subdomain || !productId) {
@@ -70,6 +72,57 @@ export async function POST(req: NextRequest) {
 
     const pmData = await pmRes.json();
     const checkoutUrl = pmData.data?.attributes?.checkout_url;
+    const paymongoLinkId = pmData.data?.id;
+
+    // Persist as a PENDING order. Webhook will mark it PAID later when we wire
+    // it; for now the dashboard surfaces all attempts so the merchant can see
+    // demand even before PayMongo confirms payment.
+    try {
+      await prisma.storeOrder.create({
+        data: {
+          websiteId: website.id,
+          productId: String(productId),
+          productName: product.name || "Product",
+          quantity: qty,
+          unitPriceCents: Math.round(unitPrice * 100),
+          totalCents: totalCentavos,
+          customerName: customerName || null,
+          customerEmail: customerEmail || null,
+          customerPhone: customerPhone || null,
+          status: "PENDING",
+          paymongoLinkId: paymongoLinkId || null,
+          paymongoCheckoutUrl: checkoutUrl || null,
+        },
+      });
+    } catch (e) {
+      console.error("[checkout/product] order persist failed:", e);
+    }
+
+    // Upsert customer record so the CRM sees this person even if payment fails
+    if (customerEmail) {
+      try {
+        const email = String(customerEmail).toLowerCase();
+        await prisma.storeCustomer.upsert({
+          where: { websiteId_email: { websiteId: website.id, email } },
+          create: {
+            websiteId: website.id,
+            email,
+            name: customerName || null,
+            phone: customerPhone || null,
+            orderCount: 1,
+            totalSpentCents: 0, // only count when PAID
+          },
+          update: {
+            name: customerName || undefined,
+            phone: customerPhone || undefined,
+            orderCount: { increment: 1 },
+            lastSeenAt: new Date(),
+          },
+        });
+      } catch (e) {
+        console.error("[checkout/product] customer upsert failed:", e);
+      }
+    }
 
     return NextResponse.json({ checkoutUrl });
   } catch (err) {

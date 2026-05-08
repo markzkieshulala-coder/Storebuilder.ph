@@ -203,6 +203,7 @@ function DashboardContent() {
 
   const isPro = credits?.plan === "PRO" || credits?.plan === "ENTERPRISE";
   const canShareTemplate = !!credits?.features?.canShareTemplates;
+  const canManageStore = !!credits?.features?.canGenerateCRM;
   const initials = (session?.user?.name || session?.user?.email || "?")[0].toUpperCase();
 
   return (
@@ -504,6 +505,19 @@ function DashboardContent() {
                                 <ExternalLink size={12} className="text-gray-400" />
                                 View live site
                               </a>
+                              {canManageStore && (
+                                <>
+                                  <div className="h-px bg-gray-100" />
+                                  <Link
+                                    href={`/dashboard/sites/${site.id}/manage`}
+                                    className="flex items-center gap-2 px-3 py-2.5 text-xs text-[#1C1E21] hover:bg-gray-50 transition-colors"
+                                    onClick={() => setOpenMenuId(null)}
+                                  >
+                                    <Settings size={12} className="text-gray-400" />
+                                    Manage store
+                                  </Link>
+                                </>
+                              )}
                               {canShareTemplate && (
                                 <>
                                   <div className="h-px bg-gray-100" />

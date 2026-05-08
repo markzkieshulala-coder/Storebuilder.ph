@@ -60,5 +60,108 @@ export async function ensureSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "password" TEXT`);
   } catch (e) { console.error("[migrations] password col:", e); }
 
+  // ─── ENTERPRISE business-management tables ─────────────────────────────────
+  // OrderStatus enum
+  try {
+    await prisma.$executeRawUnsafe(`DO $$ BEGIN
+      CREATE TYPE "OrderStatus" AS ENUM ('PENDING','PAID','CANCELLED','REFUNDED');
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $$;`);
+  } catch (e) { console.error("[migrations] OrderStatus enum:", e); }
+
+  // StoreOrder
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreOrder" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "productId" TEXT,
+      "productName" TEXT NOT NULL,
+      "quantity" INTEGER NOT NULL DEFAULT 1,
+      "unitPriceCents" INTEGER NOT NULL,
+      "totalCents" INTEGER NOT NULL,
+      "currency" TEXT NOT NULL DEFAULT 'PHP',
+      "customerName" TEXT,
+      "customerEmail" TEXT,
+      "customerPhone" TEXT,
+      "notes" TEXT,
+      "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+      "paymongoLinkId" TEXT,
+      "paymongoCheckoutUrl" TEXT,
+      "paidAt" TIMESTAMPTZ,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreOrder_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreOrder_websiteId_idx" ON "StoreOrder"("websiteId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreOrder_customerEmail_idx" ON "StoreOrder"("customerEmail")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreOrder_status_idx" ON "StoreOrder"("status")`);
+  } catch (e) { console.error("[migrations] StoreOrder:", e); }
+
+  // StoreCustomer
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreCustomer" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "email" TEXT NOT NULL,
+      "name" TEXT,
+      "phone" TEXT,
+      "totalSpentCents" INTEGER NOT NULL DEFAULT 0,
+      "orderCount" INTEGER NOT NULL DEFAULT 0,
+      "firstSeenAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "lastSeenAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "tags" TEXT,
+      "notes" TEXT,
+      CONSTRAINT "StoreCustomer_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE,
+      CONSTRAINT "StoreCustomer_websiteId_email_key" UNIQUE ("websiteId","email")
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreCustomer_websiteId_idx" ON "StoreCustomer"("websiteId")`);
+  } catch (e) { console.error("[migrations] StoreCustomer:", e); }
+
+  // StoreContactSubmission
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreContactSubmission" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "name" TEXT NOT NULL,
+      "email" TEXT NOT NULL,
+      "message" TEXT NOT NULL,
+      "read" BOOLEAN NOT NULL DEFAULT false,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreContactSubmission_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreContactSubmission_websiteId_idx" ON "StoreContactSubmission"("websiteId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreContactSubmission_createdAt_idx" ON "StoreContactSubmission"("createdAt")`);
+  } catch (e) { console.error("[migrations] StoreContactSubmission:", e); }
+
+  // StoreNewsletterSubscriber
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreNewsletterSubscriber" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "email" TEXT NOT NULL,
+      "name" TEXT,
+      "source" TEXT,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreNewsletterSubscriber_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE,
+      CONSTRAINT "StoreNewsletterSubscriber_websiteId_email_key" UNIQUE ("websiteId","email")
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreNewsletterSubscriber_websiteId_idx" ON "StoreNewsletterSubscriber"("websiteId")`);
+  } catch (e) { console.error("[migrations] StoreNewsletterSubscriber:", e); }
+
+  // StoreVisit
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreVisit" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "path" TEXT NOT NULL,
+      "referrer" TEXT,
+      "userAgent" TEXT,
+      "country" TEXT,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreVisit_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreVisit_websiteId_createdAt_idx" ON "StoreVisit"("websiteId","createdAt")`);
+  } catch (e) { console.error("[migrations] StoreVisit:", e); }
+
   ran = true;
 }

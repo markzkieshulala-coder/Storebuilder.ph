@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
+import VisitTracker from "@/components/VisitTracker";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { selectHomepageSections } from "@/lib/site/pageSections";
 import type { Metadata } from "next";
@@ -53,6 +54,7 @@ export default async function SubdomainPage({ params }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=DM+Serif+Display:ital@0;1&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Syne:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,200;12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap');
       `}</style>
+      <VisitTracker subdomain={website.subdomain!} path="/" />
       <WebsiteRenderer website={content} />
     </>
   );

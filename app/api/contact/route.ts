@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { sendContactFormEmail } from "@/lib/email";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
 
 // Public endpoint — submitted from the contact section of any published site.
 // Routes the message to whatever email is configured in the site's contact
@@ -9,6 +10,7 @@ import { sendContactFormEmail } from "@/lib/email";
 // typed inline into the contact section).
 export async function POST(req: NextRequest) {
   try {
+    await ensureSchemaMigrations();
     const { subdomain, name, email, message, sectionEmail } = await req.json();
 
     if (!subdomain || !name || !email || !message) {
@@ -60,6 +62,35 @@ export async function POST(req: NextRequest) {
       message: String(message),
       subdomain: website.subdomain,
     });
+
+    // Persist the submission so the merchant's dashboard CRM can show it
+    try {
+      await prisma.storeContactSubmission.create({
+        data: {
+          websiteId: website.id,
+          name: String(name).slice(0, 200),
+          email: String(email).toLowerCase(),
+          message: String(message),
+        },
+      });
+      // Also seed/update the customer record so contact-only leads appear in CRM
+      const lcEmail = String(email).toLowerCase();
+      await prisma.storeCustomer.upsert({
+        where: { websiteId_email: { websiteId: website.id, email: lcEmail } },
+        create: {
+          websiteId: website.id,
+          email: lcEmail,
+          name: String(name).slice(0, 200),
+          tags: "lead",
+        },
+        update: {
+          name: String(name).slice(0, 200),
+          lastSeenAt: new Date(),
+        },
+      });
+    } catch (e) {
+      console.error("[contact] persist failed:", e);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

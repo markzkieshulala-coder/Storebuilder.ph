@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
+import VisitTracker from "@/components/VisitTracker";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { selectSubpageSections, ROUTE_TITLES } from "@/lib/site/pageSections";
 import type { Metadata } from "next";
@@ -46,6 +47,7 @@ export default async function SectionPage({ params }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700&family=DM+Serif+Display:ital@0;1&family=Cormorant+Garamond:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap');
       `}</style>
+      <VisitTracker subdomain={website.subdomain!} path={`/${params.section}`} />
       <WebsiteRenderer website={pageContent} />
     </>
   );
