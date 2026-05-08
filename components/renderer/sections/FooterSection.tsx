@@ -62,8 +62,8 @@ export default function FooterSection({ section, website }: { section: Section; 
         </button>
       )}
       <div className="max-w-6xl mx-auto relative z-10">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10 sm:mb-12">
-          <div className="col-span-2 sm:col-span-2 md:col-span-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 sm:mb-12">
+          <div className="col-span-2 md:col-span-1">
             <EditableField
               {...fieldProps("logo")}
               tag="div"

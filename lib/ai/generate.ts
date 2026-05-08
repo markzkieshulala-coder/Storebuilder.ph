@@ -227,79 +227,131 @@ function enforcePlanSections(website: GeneratedWebsite, plan: string): Generated
 // ─── Ensure all images are real Unsplash URLs ────────────────────────────────
 const UNSPLASH_BASE = "https://images.unsplash.com/photo-";
 
-// Much larger curated pool spanning multiple visual styles — Fisher-Yates
-// shuffled per generation so two consecutive sites rarely reuse the same
-// fallback photos. ~100 IDs covers business, lifestyle, portfolio,
-// food/restaurant, fashion, tech, architecture, art, and abstract subjects.
-const FALLBACK_PHOTOS = [
-  // editorial / business / interior
-  "1497366216548-37526070297c", "1518770660439-4636190af475",
-  "1504674900247-0877df9cc836", "1555396273-367ea4eb4db5",
-  "1483985986-9e7dcf2e1a8e", "1529903672776-b51b5379fcf4",
-  "1560066984-138dadb4c035", "1506905925346-21bda4d32df4",
-  "1414235077428-338989a2e8c0", "1476224203421-74177e9bcce6",
-  "1565299624946-b28f40a0ae38", "1490645935967-10de6ba17061",
-  "1482049016688-2d3e1b311543", "1539109136881-3be0616acf4b",
-  "1542291026-7eec264c27ff", "1516762689-1b8e44c75a0b",
-  // portrait / people / team
-  "1494790108377-be9c29b29330", "1500648767791-00dcc994a43e",
-  "1438761681033-6461ffad8d80", "1472099645785-5658abf4ff4e",
-  "1573496359142-b8d87734a5a2", "1607746882042-944635dfe10e",
-  "1580489944761-15a19d654956", "1545996124-0501ebae84d0",
-  "1531123897727-8f129e1688ce", "1517841905240-472988babdf9",
-  // portfolio / creative / art
-  "1513475382585-d06e58bcb0e0", "1547891654-e66ed7ebb968",
-  "1561070791-2526d30994b8", "1502691876148-a84978e59af8",
-  "1516259762381-22954d7d3ad2", "1558618666-fcd25c85cd64",
-  "1554290712-e640351074bd", "1534447677768-be436bb09401",
-  "1499781350541-7783f6c6a0c8", "1551038247-3d9af20df552",
-  // food / restaurant / cafe
-  "1414235077428-338989a2e8c0", "1517248135467-4c7edcad34c4",
-  "1559925393-8be0ec4767c8", "1546069901-ba9599a7e63c",
-  "1565958011703-44f9829ba187", "1551024601-bec78aea704b",
-  "1498837167922-ddd27525d352", "1424847651672-bf20a4b0982b",
-  "1540189549336-e6e99c3679fe", "1485921325833-c519f76c4927",
-  // fashion / retail / product
-  "1542291026-7eec264c27ff", "1483985988355-763728e1935b",
-  "1551232864-3f0890e580d9", "1490481651871-ab68de25d43d",
-  "1567401893414-76b7b1e5a7a5", "1576566588028-4147f3842f27",
-  "1556905055-8f358a7a47b2", "1521334884684-d80222895322",
-  // tech / workspace / office
-  "1517048676732-d65bc937f952", "1573496359142-b8d87734a5a2",
-  "1593642632559-0c6d3fc62b89", "1587620962725-abab7fe55159",
-  "1531403009284-440f080d1e12", "1581291518857-4e27b48ff24e",
-  "1499951360447-b19be8fe80f5", "1486312338219-ce68d2c6f44d",
-  // architecture / interior / space
-  "1486325212027-8081e485255e", "1502602898657-3e91760cbb34",
-  "1507089947368-19c1da9775ae", "1486718448742-163732cd1544",
-  "1497366754035-f200968a6e72", "1555041469-a586c61ea9bc",
-  // landscape / nature / abstract
-  "1506905925346-21bda4d32df4", "1542401886-65d6c61db217",
-  "1519681393784-d120267933ba", "1500530855697-b586d89ba3ee",
-  "1448375240586-882707db888b", "1469474968028-56623f02e42e",
-  "1506905925346-21bda4d32df4", "1493246507139-91e8fad9978e",
-  // events / hospitality / wedding
-  "1519741497674-611481863552", "1464366400600-7168b8af9bc3",
-  "1465495976277-4387d4b0e4a6", "1530023367847-a683933f4172",
-  // travel / experience
-  "1469854523086-cc02fe5d8800", "1488646953014-85cb44e25828",
-  "1503220317375-aaad61436b1b", "1502635385003-ee1e6a1a742d",
-  // craft / handmade / studio
-  "1498081959737-f3ba1af08103", "1516733725897-1aa73b87c8e8",
-  "1452860606245-08befc0ff44b", "1517457373958-b7bdd4587205",
-  // additional editorial variety
-  "1525966222134-fcfa99b8ae77", "1543163521-1bf539c55dd2",
-  "1487412947147-5cebf96ef2ff", "1596462502278-27bfdc403348",
-  "1515688594-0eebcca23e55", "1571019613454-1cb2f99b2d8b",
-  "1544367567-0f2fcb009e0b", "1552664730-d307ca884978",
-  "1519389950473-47ba0277781c", "1461749280684-dccba630e2f6",
-  "1497366811353-6870744d04b2", "1524758631624-e2822e304c36",
-  "1600880292203-757bb62b4baf", "1557804506-669a67965ba0",
-  "1445205170230-053b83016050",
-];
+// ── Per-category curated pools ────────────────────────────────────────────────
+// Each pool has ~25 IDs that clearly match the business niche. During prompt
+// building we inject a ROTATING SUBSET of 12 so two consecutive generations of
+// "sneaker store" get DIFFERENT photo IDs. The sanitizer also uses the same
+// pool as its fallback so off-category AI photos are replaced with ones that
+// actually match the brand.
+const CATEGORY_PHOTO_POOLS: Record<string, string[]> = {
+  footwear: [
+    "1542291026-7eec264c27ff", "1551232864-3f0890e580d9", "1490481651871-ab68de25d43d",
+    "1607082348824-0a96f2a4b9da", "1542291026-7eec264c27ff", "1603808033192-08f7a2a5f1a5",
+    "1584735175097-bcd5629a53e9", "1542291026-7eec264c27ff", "1539185100878-f28628d13e5d",
+    "1600269452121-4f2416e55c28", "1491553895911-0055eca6402d", "1539185100878-f28628d13e5d",
+    "1608231387042-66d1773d3028", "1519415943484-9fa1873496d4", "1606107557195-0e29a4b5b4aa",
+    "1542291026-7eec264c27ff", "1556905055-8f358a7a47b2", "1521334884684-d80222895322",
+    "1583759136431-a55e32e4a9c8", "1600185365926-3a2ce3cdb9eb", "1559582798-678dfc71ccd8",
+    "1543163521-1bf539c55dd2", "1525966222134-fcfa99b8ae77", "1483985988355-763728e1935b",
+    "1549298916-b41d501d3772",
+  ],
+  fashion: [
+    "1483985986-9e7dcf2e1a8e", "1529903672776-b51b5379fcf4", "1445205170230-053b83016050",
+    "1567401893414-76b7b1e5a7a5", "1576566588028-4147f3842f27", "1516762689-1b8e44c75a0b",
+    "1525507119428-b1f248080c57", "1558618666-fcd25c85cd64", "1554290712-e640351074bd",
+    "1487412947147-5cebf96ef2ff", "1596462502278-27bfdc403348", "1515688594-0eebcca23e55",
+    "1552664730-d307ca884978", "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
+    "1434389677669-e08b4cac3105", "1469334031218-e382a71b716b", "1509631179647-0177331693ae",
+    "1517428084727-ff65e139a29e", "1586297135537-9b5cfd5d0203", "1509631179647-0177331693ae",
+    "1496747488704-06a9c4f1add1", "1475180429745-5d1e68e31cd1", "1490481651871-ab68de25d43d",
+    "1539109136881-3be0616acf4b",
+  ],
+  food: [
+    "1414235077428-338989a2e8c0", "1476224203421-74177e9bcce6", "1504674900247-0877df9cc836",
+    "1555396273-367ea4eb4db5", "1565299624946-b28f40a0ae38", "1490645935967-10de6ba17061",
+    "1482049016688-2d3e1b311543", "1517248135467-4c7edcad34c4", "1559925393-8be0ec4767c8",
+    "1546069901-ba9599a7e63c", "1565958011703-44f9829ba187", "1551024601-bec78aea704b",
+    "1498837167922-ddd27525d352", "1424847651672-bf20a4b0982b", "1540189549336-e6e99c3679fe",
+    "1485921325833-c519f76c4927", "1473093226589-8e0c6927e2f0", "1512621776951-a57141f2eefd",
+    "1490818715327-e7843b5df685", "1504564266660-7f5f4a5fa7ff", "1534482421-64566f976cfa",
+    "1525351484163-7529414344d8", "1482049016688-2d3e1b311543", "1414235077428-338989a2e8c0",
+    "1550966871-3ed3cdb5ed0c",
+  ],
+  beauty: [
+    "1560066984-138dadb4c035", "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
+    "1487412947147-5cebf96ef2ff", "1596462502278-27bfdc403348", "1515688594-0eebcca23e55",
+    "1570172619644-dfd03ed5d881", "1522337360788-8b13dee7a37e", "1519415943484-9fa1873496d4",
+    "1516975080664-ed2fc6a32937", "1512290923902-8a9f81dc236c", "1522338242992-e1f1c1b65a39",
+    "1487412947147-5cebf96ef2ff", "1519824187-d30049d47b50", "1616394584738-fc6e612e71b9",
+    "1599566150163-29194dcaad36", "1526413232644-8a7f3d23a04b", "1607748851610-cef42b53c18e",
+    "1516975080664-ed2fc6a32937", "1518459439390-bd1e3c5cac2f", "1598300042247-d088f8ab3a91",
+    "1596462502278-27bfdc403348", "1588776814546-daab30f11f40", "1570172619644-dfd03ed5d881",
+    "1611073615830-b3a79be91b0d",
+  ],
+  tech: [
+    "1518770660439-4636190af475", "1497366216548-37526070297c", "1552664730-d307ca884978",
+    "1519389950473-47ba0277781c", "1461749280684-dccba630e2f6", "1581291518857-4e27b48ff24e",
+    "1593642632559-0c6d3fc62b89", "1587620962725-abab7fe55159", "1531403009284-440f080d1e12",
+    "1499951360447-b19be8fe80f5", "1486312338219-ce68d2c6f44d", "1517048676732-d65bc937f952",
+    "1504868584819-f8e8b4b6d7e3", "1516116216624-53ad0573a9c6", "1531297484001-80022131f5a1",
+    "1558494949-ef010cbdcc31", "1504384308090-c894fdcc538d", "1553877522-43269d4ea984",
+    "1498050108023-c5249f4df085", "1451187580459-43490279c0fa", "1550751827-4bd374c3f58b",
+    "1504384308090-c894fdcc538d", "1563770660941-10a27b6e73fd", "1517373116369-9bdb8cdc2f9a",
+    "1580894894513-541e088a3209",
+  ],
+  portfolio: [
+    "1513475382585-d06e58bcb0e0", "1547891654-e66ed7ebb968", "1561070791-2526d30994b8",
+    "1502691876148-a84978e59af8", "1516259762381-22954d7d3ad2", "1499781350541-7783f6c6a0c8",
+    "1551038247-3d9af20df552", "1534447677768-be436bb09401", "1524758631624-e2822e304c36",
+    "1600880292203-757bb62b4baf", "1557804506-669a67965ba0", "1497366811353-6870744d04b2",
+    "1558618666-fcd25c85cd64", "1554290712-e640351074bd", "1516259762381-22954d7d3ad2",
+    "1513519245088-8b16c46c7ab1", "1481627834876-b7833e8f5a27", "1460661419201-fd4cecdf8a8b",
+    "1456926631375-92c8ce872def", "1471897488348-1f7c9c7f1a63", "1507721999473-8ff76701704d",
+    "1517960813568-27820b2fa5cd", "1451187580459-43490279c0fa", "1520085601670-ee14aa5fa3e2",
+    "1543269865-cbf427effbad",
+  ],
+  interior: [
+    "1486325212027-8081e485255e", "1502602898657-3e91760cbb34", "1507089947368-19c1da9775ae",
+    "1486718448742-163732cd1544", "1497366754035-f200968a6e72", "1555041469-a586c61ea9bc",
+    "1524758631624-e2822e304c36", "1600880292203-757bb62b4baf", "1557804506-669a67965ba0",
+    "1558618666-fcd25c85cd64", "1560185127-6a5ac5f39d69", "1585128792020-2ea88b98f8bb",
+    "1493809842364-78817add7ffb", "1556020685-bfb6b8e2fb9e", "1616486448229-72a87b5d5041",
+    "1600210492493-0946911123ea", "1600596542815-0c35f65a7b0b", "1567038327802-9b1d1e28d8e7",
+    "1615874959474-d609969a20ed", "1584622650111-993a426fbf0a", "1596700348-30ce42a01ae5",
+    "1560448204-e02f11c3d0e2", "1556912167-f556b55b23d5", "1550226891-ef0b7a2d0d34",
+    "1534430480872-3498386ece01",
+  ],
+  health: [
+    "1524178232363-1fb2b075b655", "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
+    "1523050854058-8df90110c9f1", "1517836357463-d25dfeac3438", "1549737328-b0a28445d6a9",
+    "1507120878965-54b2d3939100", "1571019613914-f86c7f5f5e18", "1540339832862-474599807c3b",
+    "1544198365-f5d60b6d8190", "1571019614099-cf8c2c1cd40d", "1546483875-ad9f36d26a85",
+    "1571019613454-1cb2f99b2d8b", "1519311726-d61bde75f1c0", "1518310383802-640c2de311b2",
+    "1534438327015-2e4dee4ce60e", "1584464491033-f628beba22af", "1574680096145-d05b474e2155",
+    "1540497077302-073d6b8ee1e0", "1529516222807-2536f98c9b4e", "1572521165-1416b9869d02",
+    "1521791136064-7986c2920216", "1548534228-56f94a0aa55c", "1576678927484-cc907957088c",
+    "1506126279646-a697353d3166",
+  ],
+  // General fallback — editorial / business / varied
+  general: [
+    "1497366216548-37526070297c", "1506905925346-21bda4d32df4", "1524758631624-e2822e304c36",
+    "1600880292203-757bb62b4baf", "1557804506-669a67965ba0", "1497366811353-6870744d04b2",
+    "1494790108377-be9c29b29330", "1500648767791-00dcc994a43e", "1438761681033-6461ffad8d80",
+    "1472099645785-5658abf4ff4e", "1573496359142-b8d87734a5a2", "1607746882042-944635dfe10e",
+    "1513475382585-d06e58bcb0e0", "1547891654-e66ed7ebb968", "1516259762381-22954d7d3ad2",
+    "1502691876148-a84978e59af8", "1519741497674-611481863552", "1464366400600-7168b8af9bc3",
+    "1525966222134-fcfa99b8ae77", "1543163521-1bf539c55dd2", "1461749280684-dccba630e2f6",
+    "1519389950473-47ba0277781c", "1551038247-3d9af20df552", "1534447677768-be436bb09401",
+    "1600596542815-0c35f65a7b0b",
+  ],
+};
 
-function shuffledPhotos(): string[] {
-  const arr = [...FALLBACK_PHOTOS];
+// Infer which photo category best matches a generation prompt.
+function inferPhotoCategory(userPrompt: string): string {
+  const q = userPrompt.toLowerCase();
+  if (/shoe|sneaker|footwear|boot|sandal|heel|leather shoe|calzado|sapatos/.test(q)) return "footwear";
+  if (/fashion|clothing|apparel|boutique|wear|dress|shirt|terno|thus|blouse|skirt|pants|jeans|suit/.test(q)) return "fashion";
+  if (/food|restaurant|cafe|coffee|bakery|catering|dining|cuisine|bar|bistro|kain|lutuin|pagkain|resto/.test(q)) return "food";
+  if (/salon|spa|beauty|skincare|hair|nail|lash|brow|ganda|aesthetics|wellness clinic/.test(q)) return "beauty";
+  if (/tech|software|app|dev|digital|it services|web agency|startup|saas|platform|coding|programmer/.test(q)) return "tech";
+  if (/portfolio|photography|photographer|videographer|creative|artist|design studio|illustration/.test(q)) return "portfolio";
+  if (/interior|furniture|home decor|renovation|architecture|condo|real estate|property/.test(q)) return "interior";
+  if (/gym|fitness|workout|health|yoga|pilates|sports|training|coach|nutrition/.test(q)) return "health";
+  return "general";
+}
+
+// Shuffle an array in-place (Fisher-Yates).
+function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -307,12 +359,34 @@ function shuffledPhotos(): string[] {
   return arr;
 }
 
-// Per-generation rotating photo pool — set once at the start of postProcess
-// and consumed sequentially for every fallback so a single site never uses
-// the same photo twice for different roles.
+// Pick a rotating subset of photo IDs from a category pool so two consecutive
+// generations of the same niche always get different photos injected.
+let _categoryOffset: Record<string, number> = {};
+function getCategoryPhotos(category: string, count = 12): string[] {
+  const pool = CATEGORY_PHOTO_POOLS[category] || CATEGORY_PHOTO_POOLS.general;
+  const offset = (_categoryOffset[category] ?? 0) % pool.length;
+  _categoryOffset[category] = (offset + count) % pool.length;
+  // Rotate around the pool instead of always starting at 0
+  const rotated = [...pool.slice(offset), ...pool.slice(0, offset)];
+  return shuffle(rotated).slice(0, count);
+}
+
+// All categories merged — used as the shared fallback pool.
+const ALL_CATEGORY_IDS = Object.values(CATEGORY_PHOTO_POOLS).flat();
+// Deduplicate
+const FALLBACK_PHOTOS = Array.from(new Set(ALL_CATEGORY_IDS));
+
+function shuffledPhotos(category?: string): string[] {
+  // Prefer category-specific photos first in the pool, then general variety
+  const catPhotos = category ? (CATEGORY_PHOTO_POOLS[category] || []) : [];
+  const others = FALLBACK_PHOTOS.filter((id) => !catPhotos.includes(id));
+  return shuffle([...catPhotos, ...shuffle(others)]);
+}
+
+// Per-generation rotating photo pool — set once at the start of postProcess.
 let _photoPool: string[] = [];
 let _photoIdx = 0;
-function resetPhotoPool() { _photoPool = shuffledPhotos(); _photoIdx = 0; }
+function resetPhotoPool(category?: string) { _photoPool = shuffledPhotos(category); _photoIdx = 0; }
 function fallbackPhoto(size = "800x600"): string {
   if (_photoPool.length === 0) resetPhotoPool();
   const id = _photoPool[_photoIdx++ % _photoPool.length];
@@ -584,10 +658,10 @@ function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
 }
 
 // ─── Master post-processor ────────────────────────────────────────────────────
-function postProcess(website: GeneratedWebsite, plan: string): GeneratedWebsite {
-  // Reset rotating photo pool for this generation so different runs don't
-  // collapse to the same fallback IDs.
-  resetPhotoPool();
+function postProcess(website: GeneratedWebsite, plan: string, category = "general"): GeneratedWebsite {
+  // Reset rotating photo pool for this generation, biased toward category photos
+  // so fallback replacements visually match the business niche.
+  resetPhotoPool(category);
   // Force Google Sans always
   website.fonts = { heading: "Google Sans", body: "Google Sans" };
   // Strip plan-disallowed section types
@@ -744,7 +818,7 @@ JSON SCHEMA (strict)
 }`;
 
 // ─── Per-plan user prompt ─────────────────────────────────────────────────────
-function buildUserPrompt(userPrompt: string, plan: Plan): string {
+function buildUserPrompt(userPrompt: string, plan: Plan, category = "general"): string {
   const tier = plan as string;
 
   const planBlock =
@@ -768,48 +842,73 @@ function buildUserPrompt(userPrompt: string, plan: Plan): string {
   const suggestedAccents = ["#c9a84c", "#A87C2A", "#3B82F6", "#0D7377", "#166534", "#7F1D1D", "#1E40AF", "#0288D1", "#9F86C0", "#2E7D32", "#B8860B", "#5B21B6", "#00838F", "#AD1457"];
   const suggestedAccent = suggestedAccents[Math.floor(Math.random() * suggestedAccents.length)];
 
+  // Inject a ROTATING subset of category-appropriate photo IDs. Different each
+  // call so two generations of "sneaker store" get different photo IDs even
+  // though they share the same niche category.
+  const categoryPhotos = getCategoryPhotos(category, 12);
+  const photoHint = categoryPhotos.map((id) => `• ${id}`).join("\n");
+
+  // Niche-specific imaging directive based on inferred category
+  const nicheImageDir: Record<string, string> = {
+    footwear: "Footwear and shoe photography: product flat-lays, close-up stitching detail, lifestyle shots of shoes being worn, editorial styled on minimalist surfaces. NO food, nature, or portrait photos.",
+    fashion: "Fashion/apparel editorial photography: model lookbooks, styled flat-lays, studio lighting, fabric texture close-ups. NO unrelated business or tech photos.",
+    food: "Food and beverage photography: plated dishes, barista at work, cafe interiors, ingredient close-ups, kitchen scenes, restaurant ambiance shots. NO shoes or abstract photos.",
+    beauty: "Beauty and wellness photography: skincare products, salon interiors, treatment rooms, model close-ups, spa atmosphere, clean white-and-soft aesthetic. NO food or tech photos.",
+    tech: "Technology and professional services photography: workspace setups, laptops and dual-monitors, focused developers, office environments, meeting rooms. NO fashion or food.",
+    portfolio: "Creative portfolio photography: studio work setups, camera equipment, mood boards, creative in action, editorial production scenes. NO unrelated stock photos.",
+    interior: "Interior design and architecture photography: beautifully lit room scenes, furniture vignettes, architectural exteriors, lifestyle home photography. NO fashion or tech.",
+    health: "Health, fitness and wellness photography: gym equipment, active lifestyle shots, yoga sessions, athletic wear in motion, nutrition flat-lays. NO fashion retail or food restaurant.",
+    general: "Business lifestyle photography: professional environments, people in meeting or working, contemporary office spaces, confident portraits. Match the specific niche in the prompt.",
+  };
+  const nicheDirective = nicheImageDir[category] || nicheImageDir.general;
+
   return `Generate a completely fresh, premium website for this business:
 "${userPrompt}"
 
 ${planBlock}
 
-GENERATION ID (proves this is a new generation, not a cached one):
-• Variant seed: ${variantSeed}
-• Timestamp: ${timestamp}
-• MUST treat this as a new design pass with different copy + imagery from any previous generation.
+GENERATION ID (unique — forces a truly different design each run):
+• Variant seed: ${variantSeed} | Timestamp: ${timestamp}
+• This is generation N+1. You have NEVER made this exact site before. The layout, copy, colors, section order, and imagery MUST differ from any previous run.
 
-DESIGN DIRECTION FOR THIS GENERATION (mandatory — do NOT default to a familiar layout):
-• Visual style: ${styleHint}
-• Section flow: ${layoutHint}
+DESIGN DIRECTION — MANDATORY, DO NOT DEFAULT TO FAMILIAR TEMPLATES:
+• Visual style archetype: ${styleHint}
+• Section sequence for homepage: ${layoutHint}
 • Hero composition: ${heroHint}
-• Suggested starting palette: background ${suggestedBg}, accent ${suggestedAccent} (you may pick from the approved list, but DO NOT repeat the most common palette).
+• Starting palette suggestion: background ${suggestedBg}, accent ${suggestedAccent}
+  (choose from approved list, but NEVER use the same background you used last time for this niche)
 
-IMAGE VARIETY (critical):
-• Hero, about, products, team, gallery — every image must be a DIFFERENT photo ID. Never reuse the same photo for two roles.
-• Pick photo IDs that genuinely match the BUSINESS TYPE in the prompt — coffee shop must use coffee/cafe imagery, not generic stock.
-• Across multiple generations of similar prompts, pick DIFFERENT photo IDs. Do not reuse the same hero image you used last time.
+NICHE-SPECIFIC IMAGERY (absolutely required):
+${nicheDirective}
 
-COPY VARIETY (critical):
-• Business name: invent a fresh, plausible Filipino brand name — do NOT recycle names from previous generations. Avoid generic words like "Co.", "Studio", "House", "Hub" unless they fit the brand.
-• Headlines: write entirely fresh for this specific business. Banned generic phrases: "Crafted with passion", "Quality you can trust", "Where dreams begin", "Your journey starts here", "Experience the difference", "Made with love", "Excellence redefined".
-• Testimonial names: rotate broadly — banned overused names: "Maria Santos", "Juan dela Cruz", "Anna Reyes", "Jose Garcia". Use other authentic Filipino names instead.
-• Stats: pick distinct, plausible numbers each generation (e.g. years founded, customer count, locations, ratings).
-• Pricing in ₱ with realistic Metro Manila market rates — vary the price points across generations.
+APPROVED PHOTO IDs FOR THIS GENERATION (use THESE specific IDs, not ones you know from training):
+${photoHint}
+
+FORMAT: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
+Hero: w=1400&h=800. About: w=1000&h=750. Products/team: w=600&h=600.
+
+CRITICAL IMAGE RULES:
+• Use ONLY photo IDs from the approved list above for the HERO and ABOUT images.
+• For products/team/gallery, use ADDITIONAL IDs from the list (different from hero/about).
+• Every image field in the JSON must be a unique, different ID — never repeat.
+• NEVER use photo IDs you used in a previous generation for the same category.
+
+COPY VARIETY (no templates, no recycled phrases):
+• Business name: invent a fresh Filipino brand name that FEELS like this specific niche — leather shoes ≠ sneakers, Italian resto ≠ BBQ.
+• BANNED headline phrases: "Crafted with passion", "Quality you can trust", "Where dreams begin", "Experience the difference", "Made with love", "Excellence redefined", "Elevate your".
+• Testimonials: 4 different Filipino names — BANNED: "Maria Santos", "Juan dela Cruz". Use uncommon Filipino names.
+• Stats: real-feeling numbers specific to THIS business (not generic 1000+ customers).
+• Prices in ₱ realistic for Metro Manila market, varied per product.
+• Location: pick a specific PH neighborhood DIFFERENT each generation (BGC, Poblacion, Salcedo, Lahug, IT Park, Smallville, Lanang).
 
 REQUIRED IN EVERY GENERATION:
-1. Colors: Pick a dark background that is DIFFERENT from common defaults (avoid #0F172A and #0d0d1a unless they uniquely fit). All section "background" values must be dark hex.
-2. Hero: backgroundImage must be a real Unsplash URL matching the business type (w=1400&h=800).
-3. About section: real Unsplash image URL (w=1000&h=750) — DIFFERENT from hero.
-4. Products/team: every item gets a UNIQUE photo URL.
-5. Testimonials: 4 entries with rotated Filipino names + Metro Manila/Cebu barangay + rating 5 + distinct quote + Unsplash portrait URL.
-6. Specific PH location in About/Contact — pick a DIFFERENT neighborhood each generation (BGC, Salcedo Village, Poblacion Makati, Ortigas, Kapitolyo, Tomas Morato, Lahug Cebu, IT Park Cebu, Iloilo Smallville, Davao Lanang, etc.).
-7. Zero emojis anywhere.
-8. Section order: must follow the section flow above, starting with nav and ending with footer.
-9. Navigation MUST use page-route hrefs only ("/", "/about", "/work", "/services", "/process", "/pricing", "/contact"). No "#" anchors anywhere in nav links or in hero/about/cta button hrefs. The homepage is just previews; full content lives at the corresponding /route.
+1. Section order: follow "${layoutHint}" — starting nav, ending footer.
+2. Nav hrefs: only real page routes ("/", "/about", "/work", "/services", "/pricing", "/contact"). NO "#" anchors.
+3. Hero backgroundImage: from the approved IDs above (w=1400&h=800).
+4. About image: different approved ID (w=1000&h=750).
+5. Zero emojis. Professional tone throughout.
 
-Think like a ₱500,000 web design agency that has NEVER produced this exact layout before. Every word, color, and image choice must feel hand-tailored to THIS business — not a template.
-
-Output only the JSON object.`;
+Think like a ₱500,000 agency producing a fully bespoke site for THIS exact business — not a template. Output only the JSON object.`;
 }
 
 // ─── Main generation function ─────────────────────────────────────────────────
@@ -820,11 +919,13 @@ export async function generateWebsite(
   website: GeneratedWebsite;
   usage: { inputTokens: number; outputTokens: number; model: string; costUsd: number; costPhp: number };
 }> {
+  const category = inferPhotoCategory(userPrompt);
+
   if (process.env.MOCK_MODE === "true") {
     console.log("[MOCK MODE] Returning mock website data");
     await new Promise((r) => setTimeout(r, 2000));
     return {
-      website: postProcess(MOCK_WEBSITE_JSON as unknown as GeneratedWebsite, plan as string),
+      website: postProcess(MOCK_WEBSITE_JSON as unknown as GeneratedWebsite, plan as string, category),
       usage: { inputTokens: 0, outputTokens: 0, model: "mock", costUsd: 0, costPhp: 0 },
     };
   }
@@ -840,7 +941,7 @@ export async function generateWebsite(
     // The schema is enforced via post-processing so we can afford the looseness.
     temperature: 1,
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan) }],
+    messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category) }],
   });
 
   const content = message.content[0];
@@ -860,7 +961,7 @@ export async function generateWebsite(
   }
 
   // Post-process: enforce colors, plan sections, real images, Google Sans
-  website = postProcess(website, tier);
+  website = postProcess(website, tier, category);
 
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;

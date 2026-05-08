@@ -750,20 +750,37 @@ export default function EditorPage({ params }: { params: { id: string } }) {
           <style>{`
             /* ── MOBILE (390px frame) ── reset sm:, md:, lg: overrides ───────── */
 
-            /* grid columns: stack content sections to 1col, but keep visual
-               product/team/gallery grids at 2col on mobile so cards don't
-               render one-by-one. The renderer's products/team/gallery use a
-               grid-cols-2 base + lg:grid-cols-3/4, so we collapse only the
-               lg breakpoint, not the base. */
+            /* grid columns: stack 1-col-base sections to 1col, keep 2-col-base
+               sections (gallery, stats) at 2col on mobile.
+               Rule order matters: last !important wins. We put 1col rules AFTER
+               2col rules so sm:grid-cols-* always beats lg:grid-cols-3 for
+               sections that use grid-cols-1 as their mobile base. */
+            [data-preview="mobile"] .md\\:grid-cols-4,
+            [data-preview="mobile"] .lg\\:grid-cols-4 {
+              grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+            }
             [data-preview="mobile"] .sm\\:grid-cols-2,
             [data-preview="mobile"] .sm\\:grid-cols-3,
             [data-preview="mobile"] .md\\:grid-cols-2,
-            [data-preview="mobile"] .lg\\:grid-cols-2 {
+            [data-preview="mobile"] .md\\:grid-cols-3,
+            [data-preview="mobile"] .lg\\:grid-cols-2,
+            [data-preview="mobile"] .lg\\:grid-cols-3 {
               grid-template-columns: repeat(1,minmax(0,1fr)) !important;
             }
-            [data-preview="mobile"] .md\\:grid-cols-4,
-            [data-preview="mobile"] .lg\\:grid-cols-3,
-            [data-preview="mobile"] .lg\\:grid-cols-4 {
+
+            /* gallery: first tile row-span — on real mobile sm: doesn't fire,
+               but in editor preview it does; reset so the tile doesn't grow
+               taller than its siblings */
+            [data-preview="mobile"] .sm\\:row-span-2 { grid-row: span 1 / span 1 !important; }
+
+            /* footer logo: md:col-span-1 fires in the editor (viewport >768px)
+               but on real mobile the logo is always col-span-2 (full row) */
+            [data-preview="mobile"] .md\\:col-span-1 { grid-column: span 2 / span 2 !important; }
+
+            /* preserve sections whose BASE is grid-cols-2 (gallery, stats, footer)
+               — these should stay 2-col on mobile. Place AFTER the 1col group so
+               the base class wins over any sm:/md: overrides above. */
+            [data-preview="mobile"] .grid-cols-2 {
               grid-template-columns: repeat(2,minmax(0,1fr)) !important;
             }
 
@@ -813,6 +830,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
             /* gap & margin */
             [data-preview="mobile"] .sm\\:gap-4,
+            [data-preview="mobile"] .sm\\:gap-5,
             [data-preview="mobile"] .sm\\:gap-6,
             [data-preview="mobile"] .lg\\:gap-6 { gap: 1rem !important; }
             [data-preview="mobile"] .sm\\:mb-4   { margin-bottom: 0.75rem  !important; }

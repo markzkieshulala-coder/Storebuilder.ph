@@ -138,7 +138,7 @@ export default function ProductsSection({ section, website }: { section: Section
           )}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
           {filtered.map((product: any) => {
             const ri = realIdx(product);
             return (
@@ -166,7 +166,7 @@ export default function ProductsSection({ section, website }: { section: Section
                   </button>
                 )}
 
-                <div className="relative aspect-square overflow-hidden bg-black/20">
+                <div className="relative aspect-[4/3] sm:aspect-square overflow-hidden bg-black/20">
                   {product.image
                     ? <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                     : <div className="w-full h-full flex items-center justify-center opacity-20"><ShoppingCart size={40} /></div>
