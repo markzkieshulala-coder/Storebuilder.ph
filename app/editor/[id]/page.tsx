@@ -7,8 +7,8 @@ import Link from "next/link";
 import {
   ArrowLeft, Save, Globe, Smartphone, Monitor,
   Tablet, Undo2, Redo2, ExternalLink,
-  CheckCircle, Loader2, Eye, PanelLeft, PanelRight, EyeOff, Info,
-  Share2, Plus, X, Copy, Settings,
+  CheckCircle, Loader2, Eye, PanelLeft, EyeOff, Info,
+  Share2, Plus, X, Copy, Settings, Menu,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
@@ -555,12 +555,14 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Left: sidebar toggle + back + name */}
         <div className="flex items-center gap-1 min-w-0 shrink-0">
+          {/* Hamburger on xs, PanelLeft on sm+ */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-            title="Toggle panel"
+            title="Toggle pages panel"
           >
-            <PanelLeft size={16} />
+            <Menu size={18} className="sm:hidden" />
+            <PanelLeft size={16} className="hidden sm:block" />
           </button>
           <Link href="/dashboard" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors hidden sm:flex" title="Back to dashboard">
             <ArrowLeft size={16} />
@@ -865,7 +867,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
         {/* Canvas */}
         <main
-          className="flex-1 overflow-y-auto bg-[#f0f2f5] flex items-start justify-center p-0 min-w-0"
+          className="flex-1 overflow-y-auto bg-[#f0f2f5] flex items-start justify-center p-0 min-w-0 pb-14 sm:pb-0"
           style={{ overflowX: "clip" }}
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedField(null); }}
         >
@@ -972,6 +974,73 @@ export default function EditorPage({ params }: { params: { id: string } }) {
         className="hidden"
         onChange={handleFileSelected}
       />
+
+      {/* ── Mobile bottom navigation bar (xs phones only) ── */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.08)] flex items-stretch h-14">
+        {/* Dashboard */}
+        <Link
+          href="/dashboard"
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-500 hover:text-gray-800 active:bg-gray-50 transition-colors"
+          title="Back to dashboard"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-[9px] font-semibold">Home</span>
+        </Link>
+
+        {/* Pages panel toggle */}
+        <button
+          onClick={() => { setSidebarOpen((v) => !v); setRightSidebarOpen(false); }}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:bg-gray-50 ${sidebarOpen ? "text-blue-600" : "text-gray-500 hover:text-gray-800"}`}
+          title="Pages"
+        >
+          <Menu size={18} />
+          <span className="text-[9px] font-semibold">Pages</span>
+        </button>
+
+        {/* Viewport switcher — 3 compact icons */}
+        <div className="flex-[2] flex items-center justify-center gap-0.5 px-1">
+          {([
+            ["desktop", Monitor],
+            ["tablet", Tablet],
+            ["mobile", Smartphone],
+          ] as const).map(([mode, Icon]) => (
+            <button
+              key={mode}
+              onClick={() => switchViewMode(mode)}
+              title={mode}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg transition-all ${
+                viewMode === mode
+                  ? "text-blue-600 bg-blue-50"
+                  : "text-gray-400 hover:text-gray-600 active:bg-gray-50"
+              }`}
+            >
+              <Icon size={16} />
+              <span className="text-[8px] font-semibold capitalize">{mode.slice(0, 3)}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Site settings */}
+        <button
+          onClick={() => { setRightSidebarOpen((v) => !v); setSidebarOpen(false); }}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:bg-gray-50 ${rightSidebarOpen ? "text-blue-600" : "text-gray-500 hover:text-gray-800"}`}
+          title="Settings"
+        >
+          <Settings size={18} />
+          <span className="text-[9px] font-semibold">Settings</span>
+        </button>
+
+        {/* Save */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-500 hover:text-gray-800 active:bg-gray-50 disabled:opacity-40 transition-colors"
+          title="Save"
+        >
+          {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <span className="text-[9px] font-semibold">Save</span>
+        </button>
+      </nav>
 
       {/* Share Template modal */}
       {shareModalOpen && (

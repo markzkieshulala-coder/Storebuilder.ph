@@ -789,10 +789,6 @@ function postProcess(
   website = ensureSectionContent(website);
   // Re-run image sanitization after content fill
   website = sanitizeImages(website, approvedIds);
-  // Enterprise auto-inject business management sections
-  if (plan === "ENTERPRISE") {
-    website = injectEnterpriseSections(website);
-  }
   // Rewrite anchor links into multi-page routes
   website = normalizeNavLinks(website);
   return website;
