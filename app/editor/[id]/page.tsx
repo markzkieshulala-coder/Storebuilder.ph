@@ -98,6 +98,99 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     return () => document.removeEventListener("mousedown", handleOutside, true);
   }, [toolbarTarget]);
 
+  // Global clipboard paste — supports images (Ctrl+V) and image URLs (paste a
+  // URL). Routes the pasted image to the currently selected image field, or to
+  // the focused section's primary image field if no specific field is selected.
+  useEffect(() => {
+    function pickImageField(section: any): string | null {
+      const t = section?.type;
+      if (!t) return null;
+      if (t === "hero") return "backgroundImage";
+      if (t === "about") return "image";
+      if (t === "image") return "image";
+      return null;
+    }
+    async function urlToFile(url: string): Promise<File | null> {
+      try {
+        // Same-origin or proxy-friendly URLs work directly. For external URLs,
+        // we let the upload endpoint handle CORS by sending the URL as a string.
+        const res = await fetch(url, { mode: "cors" });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        if (!blob.type.startsWith("image/")) return null;
+        const ext = blob.type.split("/")[1] || "png";
+        return new File([blob], `pasted.${ext}`, { type: blob.type });
+      } catch {
+        return null;
+      }
+    }
+    async function handlePaste(e: ClipboardEvent) {
+      // Skip if the user is typing into a contentEditable / input / textarea
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditing = target?.isContentEditable || tag === "input" || tag === "textarea";
+      if (isEditing) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      // Resolve target section + field
+      const sf = selectedField as any;
+      let targetSectionId: string | null = sf?.sectionId ?? null;
+      let targetField: string | null = (sf?.field && /image|backgroundImage/i.test(sf.field)) ? sf.field : null;
+      if (!targetSectionId && website) {
+        // Fall back to first image-friendly section
+        const candidate = website.sections.find((s: any) => pickImageField(s));
+        if (candidate) {
+          targetSectionId = candidate.id;
+          targetField = pickImageField(candidate);
+        }
+      }
+      if (!targetField && targetSectionId && website) {
+        const sec = website.sections.find((s: any) => s.id === targetSectionId);
+        targetField = sec ? pickImageField(sec) : null;
+      }
+      if (!targetSectionId || !targetField) return;
+
+      // 1) Image data on clipboard
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.kind === "file" && it.type.startsWith("image/")) {
+          const file = it.getAsFile();
+          if (file) {
+            e.preventDefault();
+            uploadPastedImage(targetSectionId, targetField, file);
+            return;
+          }
+        }
+      }
+
+      // 2) URL on clipboard
+      const text = e.clipboardData?.getData("text/plain")?.trim();
+      if (text && /^https?:\/\//i.test(text)) {
+        const file = await urlToFile(text);
+        if (file) {
+          e.preventDefault();
+          uploadPastedImage(targetSectionId, targetField, file);
+          return;
+        }
+        // CORS-blocked or non-image URL: set the URL directly as the image src
+        if (/\.(png|jpe?g|webp|gif|avif|svg)(\?|$)/i.test(text)) {
+          e.preventDefault();
+          const section = website?.sections.find((s: any) => s.id === targetSectionId);
+          if (!section) return;
+          const newData: any = { ...(section.data as any) };
+          newData[targetField] = text;
+          updateSection(targetSectionId, { data: newData });
+          toast.success("Image inserted from URL");
+        }
+      }
+    }
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedField, website]);
+
   async function fetchWebsite() {
     setLoading(true);
     try {
@@ -432,6 +525,36 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     pushHistory({ ...website, sections: ns });
   }
 
+  function addSection(type: string, atIndex?: number) {
+    if (!website) return;
+    const id = `${type}-${Date.now()}`;
+    const blanks: Record<string, any> = {
+      "text-block": { heading: "New section", body: "Click to edit this text. Replace it with your own copy." },
+      image: { image: "", caption: "" },
+      hero: { headline: "Headline", subheadline: "A short supporting line.", ctaPrimary: { label: "Get in touch", href: "/contact" } },
+      features: { heading: "What we offer", subheading: "", features: [
+        { title: "Feature one", description: "Brief description of this feature.", icon: "star" },
+        { title: "Feature two", description: "Brief description of this feature.", icon: "check" },
+        { title: "Feature three", description: "Brief description of this feature.", icon: "shield-check" },
+      ] },
+      about: { heading: "About us", body: "Tell your story here. Keep it real, calm, and confident." },
+      gallery: { heading: "Gallery", images: [] },
+      testimonials: { heading: "What clients say", testimonials: [] },
+      cta: { heading: "Let's work together", subheading: "Tell us about your project.", ctaPrimary: { label: "Get in touch", href: "/contact" } },
+      contact: { heading: "Contact", subheading: "We reply within one business day." },
+      newsletter: { heading: "Stay in touch", subheading: "Occasional updates. No spam.", placeholder: "you@example.com", buttonLabel: "Subscribe" },
+    };
+    const data = blanks[type] ?? { heading: "New section", body: "" };
+    const newSection = { id, type, data, styles: {} } as any;
+    const ns = [...website.sections];
+    const insertAt = typeof atIndex === "number"
+      ? Math.max(0, Math.min(atIndex, ns.length))
+      : Math.max(0, ns.length - 1); // before footer if it exists
+    ns.splice(insertAt, 0, newSection);
+    pushHistory({ ...website, sections: ns });
+    toast.success(`${type.replace("-", " ")} added`);
+  }
+
   function handleTextChange(sectionId: string, field: string, value: string) {
     if (!website) return;
     const section = website.sections.find((s) => s.id === sectionId);
@@ -725,8 +848,10 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               website={website}
               onUpdateWebsite={(updates) => pushHistory({ ...website, ...updates } as GeneratedWebsite)}
               onMoveSection={moveSection}
+              onReorderSections={reorderSections}
               onDeleteSection={deleteSection}
               onDuplicateSection={duplicateSection}
+              onAddSection={addSection}
               onScrollToSection={scrollToSection}
               currentPage={currentEditorPage}
               onPageChange={(page) => setCurrentEditorPage(page)}
@@ -798,6 +923,26 @@ export default function EditorPage({ params }: { params: { id: string } }) {
             [data-preview="mobile"] .hidden.sm\\:inline { display: none !important; }
             [data-preview="mobile"] .md\\:hidden { display: block !important; }
 
+            /* lg: flex/items/gap utilities should not fire at 390px */
+            [data-preview="mobile"] .md\\:flex-row,
+            [data-preview="mobile"] .lg\\:flex-row { flex-direction: column !important; }
+            [data-preview="mobile"] .md\\:items-start,
+            [data-preview="mobile"] .lg\\:items-start { align-items: stretch !important; }
+            [data-preview="mobile"] .md\\:w-auto,
+            [data-preview="mobile"] .lg\\:w-auto { width: 100% !important; }
+
+            /* col-span overrides — no multi-col grids inside a phone */
+            [data-preview="mobile"] .md\\:col-span-2,
+            [data-preview="mobile"] .lg\\:col-span-2 { grid-column: span 1 / span 1 !important; }
+
+            /* max-width caps shouldn't constrain on mobile */
+            [data-preview="mobile"] .md\\:max-w-md,
+            [data-preview="mobile"] .lg\\:max-w-md,
+            [data-preview="mobile"] .md\\:max-w-lg,
+            [data-preview="mobile"] .lg\\:max-w-lg,
+            [data-preview="mobile"] .md\\:max-w-xl,
+            [data-preview="mobile"] .lg\\:max-w-xl { max-width: 100% !important; }
+
             /* text sizes: sm: overrides → mobile equivalent */
             [data-preview="mobile"] .sm\\:text-sm   { font-size: 0.75rem  !important; line-height: 1rem      !important; }
             [data-preview="mobile"] .sm\\:text-base { font-size: 0.875rem !important; line-height: 1.25rem   !important; }
@@ -823,12 +968,24 @@ export default function EditorPage({ params }: { params: { id: string } }) {
 
             /* padding → smaller values matching mobile base classes */
             [data-preview="mobile"] .sm\\:px-6,
-            [data-preview="mobile"] .sm\\:px-8   { padding-left: 1rem !important; padding-right: 1rem !important; }
+            [data-preview="mobile"] .sm\\:px-8,
+            [data-preview="mobile"] .md\\:px-8,
+            [data-preview="mobile"] .lg\\:px-8,
+            [data-preview="mobile"] .md\\:px-12,
+            [data-preview="mobile"] .lg\\:px-12,
+            [data-preview="mobile"] .lg\\:px-16   { padding-left: 1rem !important; padding-right: 1rem !important; }
             [data-preview="mobile"] .sm\\:py-20,
             [data-preview="mobile"] .sm\\:py-24,
+            [data-preview="mobile"] .md\\:py-20,
+            [data-preview="mobile"] .md\\:py-24,
             [data-preview="mobile"] .lg\\:py-24  { padding-top: 3rem !important; padding-bottom: 3rem !important; }
-            [data-preview="mobile"] .lg\\:py-32  { padding-top: 4rem !important; padding-bottom: 4rem !important; }
+            [data-preview="mobile"] .lg\\:py-32,
+            [data-preview="mobile"] .md\\:py-32  { padding-top: 4rem !important; padding-bottom: 4rem !important; }
             [data-preview="mobile"] .sm\\:py-4   { padding-top: 0.875rem !important; padding-bottom: 0.875rem !important; }
+            [data-preview="mobile"] .md\\:p-6,
+            [data-preview="mobile"] .md\\:p-8,
+            [data-preview="mobile"] .lg\\:p-8,
+            [data-preview="mobile"] .lg\\:p-10    { padding: 1rem !important; }
 
             /* gap & margin */
             [data-preview="mobile"] .sm\\:gap-4,

@@ -140,7 +140,7 @@ export default function ManageStorePage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-bold text-[#1C1E21] truncate">{data.website.name}</h1>
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: "#FEF3C7", color: "#B45309" }}>
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: "#0A0A0A", color: "#FFFFFF" }}>
                 <Crown size={9} /> Enterprise
               </span>
             </div>
@@ -255,23 +255,26 @@ function OverviewTab({ data, onTabChange }: { data: ManageData; onTabChange: (t:
   const isPortfolio = siteType === "PORTFOLIO" || siteType === "LANDING";
   const peakVisits = Math.max(1, ...o.dayBuckets.map((b) => b.visits));
 
+  // Neutral palette only — black numbers, no colorful accents.
+  const NEUTRAL = "#0A0A0A";
+
   const cards = isStore ? [
-    { label: "Revenue (paid)", value: pesos(o.revenueCents), sub: `${o.paidOrderCount} paid`, color: "#10B981", tab: "orders" as Tab },
-    { label: "Orders", value: o.orderCount, sub: `${o.pendingOrderCount} pending`, color: "#1877F2", tab: "orders" as Tab },
-    { label: "Customers", value: o.customerCount, sub: "in CRM", color: "#8B5CF6", tab: "customers" as Tab },
-    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: "#F59E0B", tab: "marketing" as Tab },
-    { label: "Visits (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: "#EC4899", tab: "analytics" as Tab },
-    { label: "Messages", value: o.contactCount, sub: "contact form", color: "#06B6D4", tab: "marketing" as Tab },
+    { label: "Revenue (paid)", value: pesos(o.revenueCents), sub: `${o.paidOrderCount} paid`, color: NEUTRAL, tab: "orders" as Tab },
+    { label: "Orders", value: o.orderCount, sub: `${o.pendingOrderCount} pending`, color: NEUTRAL, tab: "orders" as Tab },
+    { label: "Customers", value: o.customerCount, sub: "in CRM", color: NEUTRAL, tab: "customers" as Tab },
+    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: NEUTRAL, tab: "marketing" as Tab },
+    { label: "Visits (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: NEUTRAL, tab: "analytics" as Tab },
+    { label: "Messages", value: o.contactCount, sub: "contact form", color: NEUTRAL, tab: "marketing" as Tab },
   ] : isPortfolio ? [
-    { label: "Visitors (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: "#1877F2", tab: "analytics" as Tab },
-    { label: "Inquiries", value: o.contactCount, sub: "contact form", color: "#8B5CF6", tab: "marketing" as Tab },
-    { label: "Clients", value: o.customerCount, sub: "in database", color: "#10B981", tab: "customers" as Tab },
-    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: "#F59E0B", tab: "marketing" as Tab },
+    { label: "Visitors (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: NEUTRAL, tab: "analytics" as Tab },
+    { label: "Inquiries", value: o.contactCount, sub: "contact form", color: NEUTRAL, tab: "marketing" as Tab },
+    { label: "Clients", value: o.customerCount, sub: "in database", color: NEUTRAL, tab: "customers" as Tab },
+    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: NEUTRAL, tab: "marketing" as Tab },
   ] : [
-    { label: "Visitors (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: "#1877F2", tab: "analytics" as Tab },
-    { label: "Leads", value: o.contactCount, sub: "inquiries received", color: "#8B5CF6", tab: "marketing" as Tab },
-    { label: "Customers", value: o.customerCount, sub: "in CRM", color: "#10B981", tab: "customers" as Tab },
-    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: "#F59E0B", tab: "marketing" as Tab },
+    { label: "Visitors (30d)", value: o.visits30d.toLocaleString("en-PH"), sub: "page views", color: NEUTRAL, tab: "analytics" as Tab },
+    { label: "Leads", value: o.contactCount, sub: "inquiries received", color: NEUTRAL, tab: "marketing" as Tab },
+    { label: "Customers", value: o.customerCount, sub: "in CRM", color: NEUTRAL, tab: "customers" as Tab },
+    { label: "Subscribers", value: o.subscriberCount, sub: "newsletter", color: NEUTRAL, tab: "marketing" as Tab },
   ];
 
   const gridCols = cards.length === 6
@@ -308,13 +311,13 @@ function OverviewTab({ data, onTabChange }: { data: ManageData; onTabChange: (t:
                   {isStore && b.orders > 0 && (
                     <div
                       className="w-full rounded-t-md"
-                      style={{ background: "#1877F2", height: `${Math.max(4, (b.orders / Math.max(1, peakVisits)) * 140)}px` }}
+                      style={{ background: "#0A0A0A", height: `${Math.max(4, (b.orders / Math.max(1, peakVisits)) * 140)}px` }}
                       title={`${b.orders} orders`}
                     />
                   )}
                   <div
                     className="w-full rounded-t-md"
-                    style={{ background: "#1877F222", height: `${Math.max(2, (b.visits / peakVisits) * 140)}px` }}
+                    style={{ background: "#0A0A0A22", height: `${Math.max(2, (b.visits / peakVisits) * 140)}px` }}
                     title={`${b.visits} visits`}
                   />
                 </div>

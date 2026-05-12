@@ -42,25 +42,31 @@ export type Section = {
 };
 
 // ─── Approved professional palettes ──────────────────────────────────────────
-// Expanded palette for variety across generations.
+// Strictly minimal/luxury palettes — pure white, black, and warm neutrals.
+// No vivid color backgrounds. Accent colors are restrained and used sparingly
+// (CTA buttons only). Every palette feels like a real premium business website.
 const PROFESSIONAL_PALETTES = [
-  { background: "#0F172A", primary: "#1E293B", text: "#F1F5F9", accent: "#3B82F6", secondary: "#c9a84c" },
-  { background: "#1C1C1C", primary: "#2C2C2C", text: "#F5F0E8", accent: "#A87C2A", secondary: "#c9a84c" },
-  { background: "#0d0d1a", primary: "#12122a", text: "#f5f0e8", accent: "#c9a84c", secondary: "#e8d5b7" },
-  { background: "#111827", primary: "#1F2937", text: "#F9FAFB", accent: "#0D7377", secondary: "#6EE7B7" },
-  { background: "#1E1B18", primary: "#292521", text: "#FAFAF8", accent: "#78350F", secondary: "#D97706" },
-  { background: "#0F1923", primary: "#162032", text: "#E2E8F0", accent: "#1E40AF", secondary: "#93C5FD" },
-  { background: "#18181B", primary: "#27272A", text: "#FAFAFA", accent: "#166534", secondary: "#4ADE80" },
-  { background: "#1A0F0F", primary: "#2D1515", text: "#FEF2F2", accent: "#7F1D1D", secondary: "#FCA5A5" },
-  // Additions for variety
-  { background: "#0A1929", primary: "#132F4C", text: "#E7EBF0", accent: "#0288D1", secondary: "#5EEAD4" },
-  { background: "#161616", primary: "#212121", text: "#EDEDED", accent: "#525252", secondary: "#A3A3A3" },
-  { background: "#1B1A2E", primary: "#26233A", text: "#EFEDE2", accent: "#9F86C0", secondary: "#BE95C4" },
-  { background: "#0C2818", primary: "#143C26", text: "#E8F5E9", accent: "#2E7D32", secondary: "#81C784" },
-  { background: "#1F1A17", primary: "#2B2522", text: "#FAF1E6", accent: "#B8860B", secondary: "#DAA520" },
-  { background: "#120E1F", primary: "#1E1832", text: "#E0DDF5", accent: "#5B21B6", secondary: "#A78BFA" },
-  { background: "#0E1A1F", primary: "#162932", text: "#E0F2F1", accent: "#00838F", secondary: "#80CBC4" },
-  { background: "#1A1014", primary: "#2A1820", text: "#FCE4EC", accent: "#AD1457", secondary: "#F48FB1" },
+  // Light luxury (white/off-white backgrounds, black text)
+  { background: "#FFFFFF", primary: "#FAFAFA", text: "#0A0A0A", accent: "#0A0A0A", secondary: "#737373" },
+  { background: "#FAFAF7", primary: "#F5F2EC", text: "#1A1A1A", accent: "#1A1A1A", secondary: "#8B8378" },
+  { background: "#F8F8F8", primary: "#EEEEEE", text: "#111111", accent: "#111111", secondary: "#6B6B6B" },
+  { background: "#FFFFFF", primary: "#F4F4F4", text: "#171717", accent: "#262626", secondary: "#A3A3A3" },
+  { background: "#FBFAF6", primary: "#F0EDE5", text: "#1C1C1C", accent: "#1C1C1C", secondary: "#9C9384" },
+  { background: "#F7F5F1", primary: "#EAE5DD", text: "#171513", accent: "#3F3A33", secondary: "#9A9085" },
+  // Dark luxury (true black/charcoal, white text)
+  { background: "#000000", primary: "#0A0A0A", text: "#FFFFFF", accent: "#FFFFFF", secondary: "#A3A3A3" },
+  { background: "#0A0A0A", primary: "#171717", text: "#FAFAFA", accent: "#E5E5E5", secondary: "#737373" },
+  { background: "#111111", primary: "#1C1C1C", text: "#F5F5F5", accent: "#FFFFFF", secondary: "#8A8A8A" },
+  { background: "#0F0F0F", primary: "#1A1A1A", text: "#FAFAFA", accent: "#FAFAFA", secondary: "#A0A0A0" },
+  // Warm minimal (off-white with deep charcoal)
+  { background: "#FAF7F2", primary: "#F0EBE2", text: "#1A1714", accent: "#1A1714", secondary: "#8B8378" },
+  { background: "#F5F5F0", primary: "#E8E6DF", text: "#0F0F0F", accent: "#2B2A28", secondary: "#857F76" },
+  // Cool minimal (cool grays)
+  { background: "#FAFBFC", primary: "#F1F3F5", text: "#0B1015", accent: "#0B1015", secondary: "#6E7681" },
+  { background: "#F4F4F5", primary: "#E4E4E7", text: "#09090B", accent: "#18181B", secondary: "#71717A" },
+  // Restrained accent (used only on CTAs — body remains neutral)
+  { background: "#FFFFFF", primary: "#FAFAFA", text: "#0A0A0A", accent: "#1E40AF", secondary: "#737373" },
+  { background: "#FAFAFA", primary: "#F5F5F5", text: "#171717", accent: "#0F172A", secondary: "#737373" },
 ];
 
 // Style direction hints — randomly injected to push the AI toward different
@@ -133,16 +139,20 @@ function isNeonOrBright(hex: string): boolean {
   if (!hex || !hex.startsWith("#") || hex.length < 7) return false;
   const hsl = hexToHsl(hex);
   if (!hsl) return false;
-  // High saturation + medium lightness = vivid/neon — reject
-  return hsl.s > 0.55 && hsl.l > 0.35 && hsl.l < 0.80;
+  // Anything with meaningful saturation is rejected for backgrounds.
+  // Neutral palette only.
+  return hsl.s > 0.10;
 }
 
-// Backgrounds must be dark. Anything with L > 20% is too light for a bg.
-function isTooLight(hex: string): boolean {
+// Backgrounds must be neutral — either near-white (luxury light) or near-black
+// (luxury dark). The mid-grey range (15%–88% lightness) reads "AI template"
+// and is rejected.
+function isUnprofessionalBg(hex: string): boolean {
   if (!hex || !hex.startsWith("#") || hex.length < 7) return false;
   const hsl = hexToHsl(hex);
   if (!hsl) return false;
-  return hsl.l > 0.20;
+  if (hsl.s > 0.10) return true;
+  return hsl.l > 0.15 && hsl.l < 0.88;
 }
 
 // Round-robin so each successive postProcess call picks a different palette,
@@ -157,42 +167,41 @@ function pickPalette(_seed: string): typeof PROFESSIONAL_PALETTES[0] {
 function sanitizeColors(website: GeneratedWebsite): GeneratedWebsite {
   const palette = pickPalette(website.name || "default");
 
-  // Dark colors only: reject neon/bright AND anything too light for bg use
-  const safeDark = (val: string, fallback: string) =>
-    val && val.startsWith("#") && !isNeonOrBright(val) && !isTooLight(val) ? val : fallback;
+  // Backgrounds must be strictly neutral white/off-white or black/charcoal.
+  const safeNeutralBg = (val: string, fallback: string) =>
+    val && val.startsWith("#") && !isUnprofessionalBg(val) ? val : fallback;
 
-  // Accent/text are allowed to be light; only reject neon
+  // Accent/text/secondary: allow neutral OR a single muted CTA color. Reject
+  // anything saturated/vivid.
   const safeColor = (val: string, fallback: string) =>
     val && val.startsWith("#") && !isNeonOrBright(val) ? val : fallback;
 
   website.colors = {
-    background: safeDark(website.colors?.background, palette.background),
-    primary:    safeDark(website.colors?.primary,    palette.primary),
+    background: safeNeutralBg(website.colors?.background, palette.background),
+    primary:    safeNeutralBg(website.colors?.primary,    palette.primary),
     secondary:  safeColor(website.colors?.secondary,  palette.secondary),
     accent:     safeColor(website.colors?.accent,     palette.accent),
     text:       safeColor(website.colors?.text,       palette.text),
   };
 
-  // Enforce section-level styles. We collapse every section to use the SAME
-  // accent (the site-level accent) so a generation that used five different
-  // bright colors across sections becomes a unified premium look.
   const siteAccent = website.colors.accent;
   const siteText = website.colors.text;
+  // Reject ALL gradients — premium minimal sites don't use gradient backgrounds.
+  const gradientRe = /^\s*(linear|radial|conic)-gradient/i;
 
   website.sections = website.sections.map((s, idx) => {
     const bg  = s.styles?.background;
     const newStyles: Record<string, string> = { ...s.styles };
 
-    // Background: reject vivid/neon colors AND light/white colors
-    if (bg && bg.startsWith("#") && (isNeonOrBright(bg) || isTooLight(bg))) {
-      newStyles.background = palette.background;
-    }
-    if (bg && bg.startsWith("linear-gradient") && /(?:red|blue|green|yellow|purple|pink|orange|cyan|lime|white|#[fF][fF]|#[eE][eE])/i.test(bg)) {
-      newStyles.background = `linear-gradient(135deg, ${palette.background} 0%, ${palette.primary} 100%)`;
+    // Reject any gradient — replace with the alternating solid pair
+    if (bg && gradientRe.test(bg)) {
+      newStyles.background = idx % 2 === 0 ? palette.background : palette.primary;
+    } else if (bg && bg.startsWith("#") && isUnprofessionalBg(bg)) {
+      // Reject saturated or mid-grey backgrounds
+      newStyles.background = idx % 2 === 0 ? palette.background : palette.primary;
     }
 
-    // If background is missing, alternate between the two darkest values for
-    // a disciplined editorial rhythm.
+    // If background is missing, alternate between background and primary surface
     if (!newStyles.background) {
       newStyles.background = idx % 2 === 0 ? palette.background : palette.primary;
     }
@@ -582,10 +591,34 @@ function normalizeNavLinks(website: GeneratedWebsite): GeneratedWebsite {
 // render an empty card.
 function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
   const brand = (website as any).name || "Studio";
+  const fillStr = (val: any, fallback: string) =>
+    typeof val === "string" && val.trim().length > 0 ? val : fallback;
+
   website.sections = website.sections.map((s) => {
     const d = { ...((s.data || {}) as any) };
 
+    if (s.type === "hero") {
+      d.headline = fillStr(d.headline, `${brand}`);
+      d.subheadline = fillStr(d.subheadline ?? d.sub ?? d.subtitle, "Crafted with care for the Metro Manila market — premium quality, honest service.");
+      if (!d.ctaPrimary || typeof d.ctaPrimary !== "object") {
+        d.ctaPrimary = { label: "Get in touch", href: "/contact" };
+      } else {
+        d.ctaPrimary.label = fillStr(d.ctaPrimary.label, "Get in touch");
+        d.ctaPrimary.href = fillStr(d.ctaPrimary.href, "/contact");
+      }
+    }
+
+    if (s.type === "about") {
+      d.heading = fillStr(d.heading ?? d.title, "About us");
+      d.body = fillStr(d.body ?? d.description, `${brand} is an independent Metro Manila brand built around craft, care, and honest service. We work closely with our clients to deliver work that lasts and is genuinely useful — no shortcuts, no fluff.`);
+      if (!d.ctaPrimary || typeof d.ctaPrimary !== "object") {
+        d.ctaPrimary = { label: "Learn more", href: "/about" };
+      }
+    }
+
     if (s.type === "gallery") {
+      d.heading = fillStr(d.heading ?? d.title, "Selected work");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "A small selection of recent projects.");
       const arr = Array.isArray(d.images) ? d.images : [];
       while (arr.length < 6) {
         arr.push({ url: fallbackPhoto("800x800"), caption: "" });
@@ -594,22 +627,37 @@ function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
     }
 
     if (s.type === "team") {
+      d.heading = fillStr(d.heading ?? d.title, "The team");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "The people behind the work.");
       const members = Array.isArray(d.members) ? d.members : [];
       const roles = ["Founder", "Creative Director", "Lead Designer", "Account Manager"];
       const names = ["Maria Santos", "Ramon dela Cruz", "Angela Reyes", "James Villanueva"];
+      const bios = [
+        "Leads strategy and client direction across every engagement.",
+        "Heads the creative direction with a focus on minimal, lasting design.",
+        "Owns the day-to-day craft and detailing of every project.",
+        "Manages partnerships and keeps timelines honest.",
+      ];
       while (members.length < 3) {
         const i = members.length;
         members.push({
           name: names[i] ?? `Team Member ${i + 1}`,
           role: roles[i] ?? "Team Member",
           image: fallbackPhoto("400x400"),
-          bio: "",
+          bio: bios[i] ?? "",
         });
       }
-      d.members = members;
+      // Fill missing fields on existing members too
+      d.members = members.map((m: any, i: number) => ({
+        ...m,
+        name: fillStr(m?.name, names[i] ?? `Team Member ${i + 1}`),
+        role: fillStr(m?.role, roles[i] ?? "Team Member"),
+        bio: fillStr(m?.bio, bios[i] ?? ""),
+      }));
     }
 
     if (s.type === "testimonials") {
+      d.heading = fillStr(d.heading ?? d.title, "What clients say");
       const items = Array.isArray(d.testimonials) ? d.testimonials : [];
       const defaults = [
         { name: "Maria Santos",     role: "Client",       quote: `Working with ${brand} was a great experience — clear, on time, and professional.` },
@@ -617,24 +665,46 @@ function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
         { name: "Angela Reyes",     role: "Repeat Buyer", quote: `Highly recommended. Quality and service that's hard to find in Metro Manila.` },
       ];
       while (items.length < 3) {
-        items.push({ ...defaults[items.length] ?? defaults[0], image: fallbackPhoto("100x100") });
+        items.push({ ...(defaults[items.length] ?? defaults[0]), image: fallbackPhoto("100x100") });
       }
-      d.testimonials = items;
+      d.testimonials = items.map((t: any, i: number) => ({
+        ...t,
+        name: fillStr(t?.name, defaults[i % 3].name),
+        role: fillStr(t?.role, defaults[i % 3].role),
+        quote: fillStr(t?.quote, defaults[i % 3].quote),
+      }));
     }
 
     if (s.type === "features") {
+      d.heading = fillStr(d.heading ?? d.title, "What we offer");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "A focused set of services we deliver consistently well.");
       const items = Array.isArray(d.features) ? d.features : [];
+      const titles = ["Quality First", "Trusted Partner", "On-Time Delivery", "Clear Pricing", "Local Expertise", "Honest Service"];
+      const descs = [
+        "Built to last, designed with care, and shipped without compromise.",
+        "We work closely with you from brief to handover — no surprises.",
+        "Realistic timelines we actually meet, not aspirational ones.",
+        "Transparent rates with no hidden fees or upsells.",
+        "Built and run by Filipino craftspeople for the local market.",
+        "If something isn't right, we make it right — that's it.",
+      ];
       while (items.length < 3) {
+        const i = items.length;
         items.push({
-          title: ["Quality First", "Trusted Partner", "On-Time Delivery"][items.length] ?? "Feature",
-          description: "Built to last, designed with care, and shipped without compromise.",
-          icon: ["star", "shield-check", "clock"][items.length] ?? "check",
+          title: titles[i] ?? `Feature ${i + 1}`,
+          description: descs[i] ?? descs[0],
+          icon: ["star", "shield-check", "clock", "tag", "map-pin", "heart"][i] ?? "check",
         });
       }
-      d.features = items;
+      d.features = items.map((f: any, i: number) => ({
+        ...f,
+        title: fillStr(f?.title, titles[i] ?? `Feature ${i + 1}`),
+        description: fillStr(f?.description, descs[i] ?? descs[0]),
+      }));
     }
 
     if (s.type === "stats") {
+      d.heading = fillStr(d.heading ?? d.title, "By the numbers");
       const items = Array.isArray(d.stats) ? d.stats : [];
       const defaults = [
         { value: "120+", label: "Projects Delivered" },
@@ -643,18 +713,97 @@ function ensureSectionContent(website: GeneratedWebsite): GeneratedWebsite {
         { value: "24/7", label: "Support Coverage" },
       ];
       while (items.length < 3) items.push(defaults[items.length] ?? defaults[0]);
-      d.stats = items;
+      d.stats = items.map((st: any, i: number) => ({
+        value: fillStr(st?.value, defaults[i % 4].value),
+        label: fillStr(st?.label, defaults[i % 4].label),
+      }));
     }
 
     if (s.type === "faq") {
+      d.heading = fillStr(d.heading ?? d.title, "Questions");
       const items = Array.isArray(d.faqs) ? d.faqs : [];
       const defaults = [
         { question: "How long does a project take?",       answer: "Most engagements run 2–6 weeks depending on scope. We confirm a timeline at the start." },
         { question: "Do you work with small businesses?",  answer: "Yes — most of our clients are independent Filipino brands and small teams." },
         { question: "How do payments work?",                answer: "We invoice in two milestones. Online payment via PayMongo or bank transfer." },
+        { question: "Where are you based?",                  answer: "Metro Manila — we work with clients across the Philippines and remotely." },
       ];
-      while (items.length < 3) items.push(defaults[items.length] ?? defaults[0]);
-      d.faqs = items;
+      while (items.length < 4) items.push(defaults[items.length] ?? defaults[0]);
+      d.faqs = items.map((q: any, i: number) => ({
+        question: fillStr(q?.question, defaults[i % 4].question),
+        answer: fillStr(q?.answer, defaults[i % 4].answer),
+      }));
+    }
+
+    if (s.type === "cta") {
+      d.heading = fillStr(d.heading ?? d.title, "Let's work together");
+      d.subheading = fillStr(d.subheading ?? d.subtitle ?? d.body, "Tell us about your project — we'll reply within one business day.");
+      if (!d.ctaPrimary || typeof d.ctaPrimary !== "object") {
+        d.ctaPrimary = { label: "Get in touch", href: "/contact" };
+      } else {
+        d.ctaPrimary.label = fillStr(d.ctaPrimary.label, "Get in touch");
+        d.ctaPrimary.href = fillStr(d.ctaPrimary.href, "/contact");
+      }
+    }
+
+    if (s.type === "newsletter") {
+      d.heading = fillStr(d.heading ?? d.title, "Stay in touch");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "Occasional updates on new work and availability. No spam.");
+      d.placeholder = fillStr(d.placeholder, "you@example.com");
+      d.buttonLabel = fillStr(d.buttonLabel ?? d.cta, "Subscribe");
+    }
+
+    if (s.type === "contact") {
+      d.heading = fillStr(d.heading ?? d.title, "Contact");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "We reply within one business day.");
+    }
+
+    if (s.type === "process") {
+      d.heading = fillStr(d.heading ?? d.title, "How we work");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "A simple, transparent process from first call to delivery.");
+      const steps = Array.isArray(d.steps) ? d.steps : [];
+      const titles = ["Discovery", "Design", "Build", "Deliver"];
+      const descs = [
+        "We start with a call to understand your goals, audience, and constraints.",
+        "We propose a clear direction backed by references and a written brief.",
+        "We build the work with regular check-ins so nothing surprises you.",
+        "We hand off, train your team, and stay available for questions afterward.",
+      ];
+      while (steps.length < 3) {
+        const i = steps.length;
+        steps.push({ title: titles[i], description: descs[i] });
+      }
+      d.steps = steps.map((st: any, i: number) => ({
+        ...st,
+        title: fillStr(st?.title, titles[i] ?? `Step ${i + 1}`),
+        description: fillStr(st?.description, descs[i] ?? descs[0]),
+      }));
+    }
+
+    if (s.type === "pricing") {
+      d.heading = fillStr(d.heading ?? d.title, "Pricing");
+      d.subheading = fillStr(d.subheading ?? d.subtitle, "Transparent rates. No hidden fees.");
+      const plans = Array.isArray(d.plans) ? d.plans : [];
+      d.plans = plans.map((p: any) => ({
+        ...p,
+        name: fillStr(p?.name, "Plan"),
+        price: fillStr(p?.price, "₱0"),
+        description: fillStr(p?.description, "Includes everything you need to get started."),
+      }));
+    }
+
+    if (s.type === "products") {
+      d.heading = fillStr(d.heading ?? d.title, "Featured products");
+      const products = Array.isArray(d.products) ? d.products : [];
+      d.products = products.map((p: any) => ({
+        ...p,
+        name: fillStr(p?.name, "Product"),
+        description: fillStr(p?.description, "Crafted with care and built to last."),
+      }));
+    }
+
+    if (s.type === "footer") {
+      d.tagline = fillStr(d.tagline ?? d.description, `${brand} — built in Metro Manila.`);
     }
 
     return { ...s, data: d };
@@ -801,11 +950,12 @@ const SYSTEM_PROMPT = `You are a senior art director at a top Manila design agen
 DESIGN PHILOSOPHY (READ FIRST)
 ══════════════════════════════════════════
 • Premium > flashy. Restraint > decoration. Editorial > marketing.
-• ONE accent color used sparingly (CTAs only). The rest is neutral dark surfaces with light typography.
+• Pure white, black, and neutral palette only. NO colorful backgrounds, NO gradients, NO decorative shapes.
+• ONE accent color allowed, used ONLY on a primary CTA button. The rest is strictly neutral.
 • Generous whitespace, disciplined typographic hierarchy, asymmetric editorial layouts.
-• Photography does the work — no illustrations, no abstract gradients, no decorative shapes.
+• Photography does the work — real, raw, professional imagery. No illustrations. No 3D renders. No cartoons.
 • Copy is calm and confident. No exclamation marks. No buzzwords. No emojis. No "elevate your X."
-• If the result feels "AI-generated" or "colorful template," you have failed. It must feel hand-curated.
+• If the result feels "AI-generated," "colorful," or "template-y," you have failed. It must feel hand-curated like a real Apple, Aesop, or Hermes website.
 
 ══════════════════════════════════════════
 ABSOLUTE NON-NEGOTIABLE RULES
@@ -815,16 +965,17 @@ OUTPUT
 • Return ONLY a single valid JSON object. No markdown. No backticks. No explanation. No comments.
 
 COLORS — THIS IS THE MOST IMPORTANT RULE
-• Pick ONE dark professional background from this expanded approved list (vary your pick each generation, do not always reuse the same one):
-  #0F172A | #1C1C1C | #111827 | #0d0d1a | #1E1B18 | #18181B | #0F1923 | #1A0F0F
-  #0A1929 | #161616 | #1B1A2E | #0C2818 | #1F1A17 | #120E1F | #0E1A1F | #1A1014
-• Use white (#FFFFFF) or warm off-white (#F5F0E8 / #FAFAF8 / #E0DDF5 / #FCE4EC) as the text color only — NEVER as a background.
-• Pick ONE muted accent that complements the background, from: #c9a84c | #A87C2A | #3B82F6 | #0D7377 | #166534 | #7F1D1D | #1E40AF | #0288D1 | #525252 | #9F86C0 | #2E7D32 | #B8860B | #5B21B6 | #00838F | #AD1457
-• Three values total per site (background, primary surface, accent). No rainbow. No gradients with bright colors.
-• Use the accent ONLY on primary CTA buttons and a single hero number/highlight. Everything else stays in the dark+light pair. NEVER paint multiple sections in different accent colors.
-• BANNED forever: white (#FFFFFF), near-white, light grey, any hex with lightness above 20% as a background or section background. Also banned: red (#FF0000), lime green, hot pink, electric blue, bright orange, cyan, magenta, any color with saturation > 55% and lightness between 35–80%.
-• Section backgrounds must alternate only between your two darkest hex values. EVERY section must have a dark background. Zero exceptions.
-• Across multiple generations of the same business type, you MUST pick a different background palette each time — do not default to the first one in the list.
+• You MUST use one of these two palette modes — nothing else is allowed:
+   (A) LIGHT MINIMAL — pure white or off-white background with deep black/charcoal text
+   (B) DARK MINIMAL — pure black/charcoal background with white/off-white text
+• APPROVED light backgrounds: #FFFFFF | #FAFAFA | #FAFAF7 | #FBFAF6 | #F8F8F8 | #F7F5F1 | #F5F5F0 | #F4F4F5
+• APPROVED dark backgrounds: #000000 | #0A0A0A | #0F0F0F | #111111 | #171717 | #18181B
+• APPROVED text colors: #0A0A0A | #111111 | #171717 | #1A1A1A (on light bg) — #FFFFFF | #FAFAFA | #F5F5F5 (on dark bg)
+• APPROVED accents (use sparingly, CTAs ONLY): match the text color (pure black or pure white) for true minimal, OR a SINGLE muted hex from: #1E40AF (deep navy) | #0F172A (slate) | #1A1714 (espresso) | #2B2A28 (graphite). NEVER a vivid color.
+• BANNED forever: red, orange, yellow, pink, green, cyan, magenta, lime, violet, electric blue, gold, beige tints with hue. NO hex with HSL saturation above 10% as a background. NO mid-grey backgrounds (lightness 16–87%) — read as "AI template."
+• ZERO gradients. No linear-gradient, no radial-gradient, no diagonal color blends. EVER. Solid neutral fills only.
+• Section backgrounds alternate ONLY between your two chosen neutral values (background and primary surface). Do not paint different sections in different colors.
+• Across multiple generations of the same business type, vary between LIGHT MINIMAL and DARK MINIMAL — do not always default to the same mode.
 
 IMAGERY
 • ALL images MUST be real Unsplash photography URLs in this exact format:
@@ -846,6 +997,25 @@ TYPOGRAPHY & COPY
 SECTIONS
 • 7–9 sections minimum, ordered: nav first, footer last
 • nav, footer, hero, features, about, testimonials, stats, contact, cta, newsletter, faq, gallery, team, process, pricing, products
+
+CONTENT REQUIREMENTS — NEVER LEAVE A SECTION BLANK
+• EVERY section must have full real copy: a heading, a sub-heading or description, and a CTA where appropriate. Image-only sections are FORBIDDEN.
+• Hero MUST have: kicker (optional), headline (5–10 words), sub (1–2 sentences, 12–25 words), 1 primary CTA with label + href.
+• About MUST have: heading, 2–3 paragraphs of authentic founder/brand narrative (60–120 words total), CTA.
+• Features MUST have: heading, sub-headline, AND each feature must have a title (2–4 words) AND a description (10–20 words). Never empty descriptions.
+• Products/Pricing MUST have: every item populated with a name, price (in ₱), and a 1-sentence description.
+• Process MUST have: heading and 3–5 steps each with a title and a 10–20 word description.
+• Stats MUST have: heading, sub, AND each stat must have BOTH a value AND a meaningful label.
+• Testimonials MUST have: each entry has name, role, AND a real-sounding quote (15–35 words).
+• FAQ MUST have: at least 4 questions each with a 1–2 sentence answer.
+• CTA section MUST have: bold headline, sub-line, and a button with a label.
+• Footer MUST have: brand name, short tagline, contact line, and 2–3 link columns each with a heading + 3+ links.
+
+MOBILE & RESPONSIVE COPY
+• Headlines must read well on a 375px-wide phone screen — keep hero headlines to 5–10 words MAX so they don't overflow.
+• Body paragraphs: short sentences. Break long descriptions into 2–3 sentences.
+• Avoid horizontal multi-column data that wouldn't stack — instead use vertical lists for things like prices, FAQ, and testimonials.
+• Buttons should have CONCISE labels (1–3 words) so they fit on small screens: "Book Now", "Get Quote", "Shop", not "Click here to start your premium booking experience".
 
 NAVIGATION — MULTI-PAGE ARCHITECTURE (CRITICAL)
 • The nav MUST use page routes — NOT scroll-to-section anchors. Each nav link opens a separate page.

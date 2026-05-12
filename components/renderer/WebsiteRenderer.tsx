@@ -20,6 +20,8 @@ import CTASection from "./sections/CTASection";
 import TeamSection from "./sections/TeamSection";
 import GallerySection from "./sections/GallerySection";
 import ProcessSection from "./sections/ProcessSection";
+import TextBlockSection from "./sections/TextBlockSection";
+import ImageBlockSection from "./sections/ImageBlockSection";
 
 interface Props {
   website: GeneratedWebsite;
@@ -33,6 +35,7 @@ const SECTION_MAP: Record<string, React.ComponentType<{ section: Section; websit
   newsletter: NewsletterSection, pricing: PricingSection, faq: FAQSection,
   stats: StatsSection, contact: ContactSection, cta: CTASection,
   team: TeamSection, gallery: GallerySection, process: ProcessSection,
+  "text-block": TextBlockSection, image: ImageBlockSection,
 };
 
 const DEFAULT_CONTEXT: EditorContextType = {

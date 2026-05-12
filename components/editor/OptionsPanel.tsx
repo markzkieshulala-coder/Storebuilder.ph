@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, Home, ChevronRight } from "lucide-react";
+import { CreditCard, Store, Layers, ChevronUp, ChevronDown, Trash2, Copy, Phone, Mail, MapPin, Link as LinkIcon, Home, ChevronRight, GripVertical, Plus, Type, Image as ImageIcon } from "lucide-react";
 import { GeneratedWebsite, Section } from "@/lib/ai/generate";
 
 const PAYMENT_METHODS = [
@@ -22,8 +22,10 @@ interface Props {
   website: GeneratedWebsite;
   onUpdateWebsite: (updates: Partial<GeneratedWebsite>) => void;
   onMoveSection: (id: string, dir: "up" | "down") => void;
+  onReorderSections?: (fromIndex: number, toIndex: number) => void;
   onDeleteSection: (id: string) => void;
   onDuplicateSection: (id: string) => void;
+  onAddSection?: (type: string, atIndex?: number) => void;
   onScrollToSection?: (sectionId: string) => void;
   // Multi-page editor: current page slug ("/" or "/services" etc.) and a
   // callback to switch which page the canvas is showing.
@@ -34,7 +36,10 @@ interface Props {
   visibleTabs?: Tab[];
 }
 
-export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onDeleteSection, onDuplicateSection, onScrollToSection, currentPage, onPageChange, visibleTabs }: Props) {
+export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, onReorderSections, onDeleteSection, onDuplicateSection, onAddSection, onScrollToSection, currentPage, onPageChange, visibleTabs }: Props) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const allowed: Tab[] = visibleTabs && visibleTabs.length > 0 ? visibleTabs : ["pages", "site", "payments"];
   const [tab, setTab] = useState<Tab>(allowed[0]);
 
@@ -261,36 +266,108 @@ export default function OptionsPanel({ website, onUpdateWebsite, onMoveSection, 
 
             {/* ── Sections on the current page ── */}
             <div>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Sections on this page</p>
-              <div className="space-y-1">
-                {website.sections.map((section, i) => (
-                  <div
-                    key={section.id}
-                    className="group flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition-all cursor-pointer"
-                    onClick={() => onScrollToSection && onScrollToSection(section.id)}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Sections on this page</p>
+                {onAddSection && (
+                  <button
+                    onClick={() => setShowAddMenu((v) => !v)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-md hover:bg-blue-50"
                   >
-                    <span className="w-5 h-5 rounded-md bg-white border border-gray-200 text-[10px] font-bold flex items-center justify-center text-gray-400 shrink-0">
-                      {i + 1}
-                    </span>
-                    <span className="flex-1 text-sm font-medium text-gray-700 truncate">
-                      {SECTION_LABELS[section.type] || section.type}
-                    </span>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => { e.stopPropagation(); onMoveSection(section.id, "up"); }} disabled={i === 0} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
-                        <ChevronUp size={11} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); onMoveSection(section.id, "down"); }} disabled={i === website.sections.length - 1} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
-                        <ChevronDown size={11} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); onDuplicateSection(section.id); }} className="p-1 hover:bg-white rounded text-gray-400">
-                        <Copy size={11} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); onDeleteSection(section.id); }} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400">
-                        <Trash2 size={11} />
-                      </button>
+                    <Plus size={11} /> Add
+                  </button>
+                )}
+              </div>
+
+              {showAddMenu && onAddSection && (
+                <div className="mb-3 bg-white border border-gray-200 rounded-xl p-2 grid grid-cols-2 gap-1.5 shadow-sm">
+                  {[
+                    { type: "text-block", icon: Type, label: "Text Block" },
+                    { type: "image", icon: ImageIcon, label: "Image" },
+                    { type: "hero", icon: Layers, label: "Hero" },
+                    { type: "features", icon: Layers, label: "Features" },
+                    { type: "about", icon: Layers, label: "About" },
+                    { type: "gallery", icon: Layers, label: "Gallery" },
+                    { type: "testimonials", icon: Layers, label: "Testimonials" },
+                    { type: "cta", icon: Layers, label: "CTA" },
+                    { type: "contact", icon: Layers, label: "Contact" },
+                    { type: "newsletter", icon: Layers, label: "Newsletter" },
+                  ].map(({ type, icon: Icon, label }) => (
+                    <button
+                      key={type}
+                      onClick={() => { onAddSection(type); setShowAddMenu(false); }}
+                      className="flex items-center gap-1.5 px-2 py-2 rounded-lg text-[11px] font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 border border-transparent hover:border-blue-200"
+                    >
+                      <Icon size={11} /> {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                {website.sections.map((section, i) => {
+                  const isDragging = dragIndex === i;
+                  const isDropTarget = dropIndex === i && dragIndex !== null && dragIndex !== i;
+                  return (
+                    <div
+                      key={section.id}
+                      draggable={!!onReorderSections}
+                      onDragStart={(e) => {
+                        if (!onReorderSections) return;
+                        setDragIndex(i);
+                        e.dataTransfer.effectAllowed = "move";
+                        try { e.dataTransfer.setData("text/plain", section.id); } catch { /* Safari */ }
+                      }}
+                      onDragOver={(e) => {
+                        if (dragIndex === null) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dropIndex !== i) setDropIndex(i);
+                      }}
+                      onDragLeave={() => {
+                        if (dropIndex === i) setDropIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (onReorderSections && dragIndex !== null && dragIndex !== i) {
+                          onReorderSections(dragIndex, i);
+                        }
+                        setDragIndex(null);
+                        setDropIndex(null);
+                      }}
+                      onDragEnd={() => { setDragIndex(null); setDropIndex(null); }}
+                      onClick={() => onScrollToSection && onScrollToSection(section.id)}
+                      className={`group flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        isDragging
+                          ? "bg-blue-50 border-blue-300 opacity-50"
+                          : isDropTarget
+                          ? "bg-blue-50 border-blue-400 border-dashed"
+                          : "bg-gray-50 border-gray-100 hover:border-gray-200"
+                      }`}
+                    >
+                      <GripVertical size={12} className={`shrink-0 ${onReorderSections ? "text-gray-400 cursor-grab active:cursor-grabbing" : "text-gray-200"}`} />
+                      <span className="w-5 h-5 rounded-md bg-white border border-gray-200 text-[10px] font-bold flex items-center justify-center text-gray-400 shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="flex-1 text-sm font-medium text-gray-700 truncate">
+                        {SECTION_LABELS[section.type] || section.type}
+                      </span>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); onMoveSection(section.id, "up"); }} disabled={i === 0} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
+                          <ChevronUp size={11} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onMoveSection(section.id, "down"); }} disabled={i === website.sections.length - 1} className="p-1 hover:bg-white rounded text-gray-400 disabled:opacity-20">
+                          <ChevronDown size={11} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onDuplicateSection(section.id); }} className="p-1 hover:bg-white rounded text-gray-400">
+                          <Copy size={11} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onDeleteSection(section.id); }} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-gray-400">
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
