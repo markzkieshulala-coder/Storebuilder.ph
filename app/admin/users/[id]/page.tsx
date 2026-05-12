@@ -308,6 +308,23 @@ export default function AdminUserDetailPage() {
     ? fmt(user.planExpiresAt)
     : isActive ? getNextBilling(activeSub!) : naBilling ? "N/A" : "—";
 
+  // Billing cadence — Monthly vs Yearly. Prominently shown so admins can see
+  // at a glance how the user is being charged without scrolling the history.
+  const billingCycleLabel = isActive
+    ? (activeSub!.billingCycle === "MONTHLY" ? "Monthly" : "Yearly")
+    : naBilling ? "N/A" : "—";
+
+  // Cancellation request history — any subscription that has been cancelled
+  // OR is scheduled to be cancelled at the end of the current period. We
+  // surface these so admins have a clear audit trail of cancel requests.
+  const cancelHistory = user.subscriptions
+    .filter((s) => s.status === "CANCELLED" || s.cancelAtPeriodEnd)
+    .map((s) => ({
+      sub: s,
+      kind: (s.status === "CANCELLED" ? "Immediate" : "At period end") as "Immediate" | "At period end",
+      effectiveAt: s.status === "CANCELLED" ? null : (s.currentPeriodEnd ?? null),
+    }));
+
   return (
     <>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -491,7 +508,21 @@ export default function AdminUserDetailPage() {
           <div style={CARD}>
             <div style={LABEL}>Billing</div>
             <div style={ROW}>
-              <span style={KEY}>Monthly Payment</span>
+              <span style={KEY}>Billing Cycle</span>
+              {isActive ? (
+                <span style={{
+                  padding: "3px 11px", borderRadius: "20px", fontSize: "11px", fontWeight: 700,
+                  background: activeSub!.billingCycle === "YEARLY" ? "#EDE9FE" : "#EBF3FF",
+                  color: activeSub!.billingCycle === "YEARLY" ? "#5B21B6" : BLUE,
+                }}>
+                  {billingCycleLabel.toUpperCase()}
+                </span>
+              ) : (
+                <span style={{ ...VAL, color: naBilling ? "#9CA3AF" : "#6B7280" }}>{billingCycleLabel}</span>
+              )}
+            </div>
+            <div style={ROW}>
+              <span style={KEY}>Amount</span>
               <span style={{ ...VAL, fontFamily: naBilling ? FONT : "monospace", color: naBilling ? "#9CA3AF" : "#111827" }}>{monthlyAmount}</span>
             </div>
             <EditableField
@@ -509,6 +540,50 @@ export default function AdminUserDetailPage() {
           </div>
 
         </div>
+
+        {/* Cancellation request history */}
+        {cancelHistory.length > 0 && (
+          <div style={{ ...CARD, padding: 0, overflow: "hidden", marginBottom: "20px" }}>
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>Cancellation Request History</span>
+              <span style={{ fontSize: "12px", color: "#9CA3AF" }}>{cancelHistory.length} request{cancelHistory.length !== 1 ? "s" : ""}</span>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#F9FAFB" }}>
+                  {["Plan", "Cycle", "Type", "Requested", "Effective", "Status"].map((h) => (
+                    <th key={h} style={{ padding: "10px 18px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cancelHistory.map(({ sub, kind, effectiveAt }) => {
+                  const isCompleted = sub.status === "CANCELLED";
+                  const statusBg = isCompleted ? "#FEE2E2" : "#FEF3C7";
+                  const statusFg = isCompleted ? "#991B1B" : "#92400E";
+                  return (
+                    <tr key={sub.id}>
+                      <td style={{ padding: "12px 18px", borderBottom: "1px solid #F3F4F6" }}>
+                        <span style={{ padding: "2px 8px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: sub.plan === "PRO" ? "#EBF3FF" : sub.plan === "ENTERPRISE" ? "#EDE9FE" : "#F3F4F6", color: sub.plan === "PRO" ? BLUE : sub.plan === "ENTERPRISE" ? "#5B21B6" : "#6B7280" }}>{sub.plan}</span>
+                      </td>
+                      <td style={{ padding: "12px 18px", fontSize: "13px", color: "#374151", borderBottom: "1px solid #F3F4F6" }}>{sub.billingCycle === "MONTHLY" ? "Monthly" : "Yearly"}</td>
+                      <td style={{ padding: "12px 18px", fontSize: "13px", borderBottom: "1px solid #F3F4F6" }}>
+                        <span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, background: kind === "Immediate" ? "#FEE2E2" : "#FEF3C7", color: kind === "Immediate" ? "#991B1B" : "#92400E" }}>{kind}</span>
+                      </td>
+                      <td style={{ padding: "12px 18px", fontSize: "12px", color: "#6B7280", borderBottom: "1px solid #F3F4F6" }}>{fmt(sub.createdAt)}</td>
+                      <td style={{ padding: "12px 18px", fontSize: "12px", color: "#6B7280", borderBottom: "1px solid #F3F4F6" }}>{effectiveAt ? fmt(effectiveAt) : <span style={{ color: "#9CA3AF" }}>Immediate</span>}</td>
+                      <td style={{ padding: "12px 18px", borderBottom: "1px solid #F3F4F6" }}>
+                        <span style={{ padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: statusBg, color: statusFg }}>
+                          {isCompleted ? "CANCELLED" : "SCHEDULED"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Subscription history */}
         {user.subscriptions.length > 0 && (

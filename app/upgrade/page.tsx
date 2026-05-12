@@ -185,7 +185,6 @@ export default function UpgradePage() {
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="transition-colors" style={{ color: BLUE }}>Pricing</Link>
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
-            <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
           </div>
           <Link href="/dashboard" className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white whitespace-nowrap shrink-0" style={{ backgroundColor: BLUE }}>
             Dashboard
@@ -256,6 +255,7 @@ export default function UpgradePage() {
           <Link href="/upgrade" className="hover:text-white transition-colors">Pricing</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
         </div>
         <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines</p>
       </footer>

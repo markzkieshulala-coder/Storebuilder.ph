@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, MapPin, Send, CheckCircle } from "lucide-react";
+import { MapPin, Send, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 const BLUE = "#1877F2";
@@ -37,7 +37,6 @@ export default function ContactPage() {
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="hover:text-blue-600 transition-colors">Pricing</Link>
             <Link href="/contact" className="transition-colors" style={{ color: BLUE }}>Contact</Link>
-            <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
           </div>
           <Link href="/auth/register" className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white whitespace-nowrap shrink-0" style={{ backgroundColor: BLUE }}>
             <span className="sm:hidden">Sign up</span>
@@ -62,18 +61,6 @@ export default function ContactPage() {
             <div className="space-y-5">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#EBF3FF" }}>
-                  <Mail size={18} style={{ color: BLUE }} />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">Email</p>
-                  <a href="mailto:Storebuilderph@gmail.com" className="text-sm hover:underline" style={{ color: BLUE }}>
-                    Storebuilderph@gmail.com
-                  </a>
-                  <p className="text-xs text-gray-400 mt-0.5">We respond within 24 hours</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#EBF3FF" }}>
                   <MapPin size={18} style={{ color: BLUE }} />
                 </div>
                 <div>
@@ -87,12 +74,13 @@ export default function ContactPage() {
             <div className="mt-8 p-5 rounded-xl border border-gray-100" style={{ background: "#F7FAFF" }}>
               <p className="font-semibold text-gray-900 text-sm mb-2">Common questions</p>
               <ul className="space-y-1.5 text-sm text-gray-500">
-                <li>• How do I upgrade to Pro?</li>
+                <li>• How do I upgrade to Pro or Enterprise?</li>
                 <li>• How do I connect a custom domain?</li>
                 <li>• I have a problem with my account</li>
                 <li>• Requesting support</li>
                 <li>• Partnership or collaboration</li>
               </ul>
+              <p className="text-xs text-gray-400 mt-3">Send us a message and we&apos;ll respond within 24 hours.</p>
             </div>
           </div>
 
@@ -193,6 +181,7 @@ export default function ContactPage() {
           <Link href="/upgrade" className="hover:text-white transition-colors">Pricing</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
         </div>
         <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines</p>
       </footer>

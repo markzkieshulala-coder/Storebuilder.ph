@@ -34,7 +34,7 @@ export default function PaymentSuccessPage() {
           Welcome to Pro!
         </h1>
         <p className="text-white/50 mb-8">
-          Your account has been upgraded. You now have unlimited website generations powered by Claude Sonnet.
+          Your account has been upgraded. You now have unlimited website generations powered by our premium AI technology partner.
         </p>
 
         <div className="p-5 rounded-2xl bg-gradient-to-b from-violet-950/50 to-transparent border border-violet-500/20 mb-8 text-left">
@@ -45,7 +45,7 @@ export default function PaymentSuccessPage() {
           <ul className="space-y-2 text-sm text-white/60">
             {[
               "Unlimited AI website generations",
-              "Claude Sonnet — smarter, better quality output",
+              "Premium AI quality — smarter, more detailed output",
               "Custom domain connection",
               "Remove Storebuilder.ph branding",
               "Priority support",

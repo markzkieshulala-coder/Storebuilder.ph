@@ -30,7 +30,6 @@ export default function AboutPage() {
             <Link href="/about" className="transition-colors" style={{ color: BLUE }}>About Us</Link>
             <Link href="/upgrade" className="hover:text-blue-600 transition-colors">Pricing</Link>
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
-            <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
           </div>
           <Link href="/auth/register" className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white whitespace-nowrap shrink-0" style={{ backgroundColor: BLUE }}>
             <span className="sm:hidden">Sign up</span>
@@ -85,9 +84,9 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 text-center">
             {[
-              { value: "3", label: "Free generations per month" },
+              { value: "5", label: "Free websites per month" },
               { value: "16+", label: "Website section types" },
-              { value: "6", label: "Business categories" },
+              { value: "3", label: "Plans — Free, Pro, Enterprise" },
               { value: "100%", label: "Made for the Philippines" },
             ].map((stat) => (
               <div key={stat.label} className="bg-white rounded-xl p-4 sm:p-5 border border-gray-100 shadow-sm">
@@ -146,6 +145,7 @@ export default function AboutPage() {
           <Link href="/upgrade" className="hover:text-white transition-colors">Pricing</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
         </div>
         <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines by Mark Ocdenaria</p>
       </footer>

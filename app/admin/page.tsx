@@ -151,7 +151,7 @@ export default async function AdminPage() {
             <div className="mt-4 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 flex items-start gap-2">
               <AlertCircle size={14} className="text-amber-400 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-400/80">
-                Set spending limits in your Anthropic console to prevent unexpected charges. Free users use Claude Haiku (~₱0.95/gen). Pro users use Claude Sonnet (~₱2.86/gen).
+                Set spending limits in your AI provider console to prevent unexpected charges. Free users use the lightweight model (~₱0.95/gen). Pro/Enterprise users use the premium model (~₱2.86/gen).
               </p>
             </div>
           </div>

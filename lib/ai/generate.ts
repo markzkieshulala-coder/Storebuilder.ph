@@ -1231,7 +1231,7 @@ export async function generateWebsite(
   });
 
   const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type from Claude");
+  if (content.type !== "text") throw new Error("Unexpected response type from AI provider");
 
   // Strip any accidental markdown fences
   let jsonText = content.text.trim();
@@ -1243,7 +1243,7 @@ export async function generateWebsite(
   try {
     website = JSON.parse(jsonText);
   } catch {
-    throw new Error("Claude returned invalid JSON. Please try again.");
+    throw new Error("AI provider returned invalid JSON. Please try again.");
   }
 
   // Post-process with the pre-computed photo list so the approved-ID enforcement

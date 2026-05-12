@@ -262,6 +262,10 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
         // @ts-ignore
         session.user.plan = token.plan;
+        // Carry the avatar from the JWT (sourced from DB) into the session so
+        // a user-uploaded profile picture survives sign-out / sign-in.
+        if (token.picture) session.user.image = token.picture as string;
+        if (token.name) session.user.name = token.name as string;
       }
       return session;
     },

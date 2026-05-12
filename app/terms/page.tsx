@@ -46,13 +46,13 @@ export default function TermsPage() {
 
           {[
             {
-              title: "1. User Accounts",
+              title: "1. User Accounts and Age Requirement",
               content: [
-                "You must be at least 13 years old to create an account on Storebuilder.ph.",
+                "You must be at least 18 years old to create an account on Storebuilder.ph. By registering, you confirm that you are 18 years of age or older.",
                 "You are responsible for maintaining the confidentiality of your account credentials. Do not share your password with anyone.",
                 "You agree to provide accurate, current, and complete information when registering. Providing false information may result in account termination.",
                 "You are solely responsible for all activities that occur under your account.",
-                "You must notify us immediately at Storebuilderph@gmail.com if you suspect any unauthorized use of your account.",
+                "You must notify us immediately through our contact form (storebuilder.ph/contact) if you suspect any unauthorized use of your account.",
                 "We reserve the right to suspend or terminate accounts that violate these Terms.",
               ],
             },
@@ -69,21 +69,22 @@ export default function TermsPage() {
             {
               title: "3. AI-Generated Content",
               content: [
-                "Storebuilder.ph uses Claude AI (by Anthropic) to generate website content based on your prompts.",
+                "Storebuilder.ph uses a third-party AI provider (our AI technology partner) to generate website content based on your prompts.",
                 "While we strive for high-quality output, we do not guarantee the accuracy, completeness, or fitness for any particular purpose of AI-generated content.",
                 "You are responsible for reviewing and editing all AI-generated content before publishing your website.",
                 "You must not use our AI features to generate content that violates any laws or these Terms.",
-                "AI generation credits (Free: 3 per month, Pro: 30 per day) are non-transferable and cannot be carried over.",
+                "AI generation credits are non-transferable and cannot be carried over. Credit limits vary by plan: Free allows up to 5 websites per month, Pro up to 10 per month, and Enterprise up to 20 per month. Editing existing websites is unlimited on every plan.",
               ],
             },
             {
-              title: "4. Payments and Refund Policy",
+              title: "4. Subscriptions, Pricing, and Refund Policy",
               content: [
-                "Pro subscriptions are processed securely through PayMongo, a PCI-compliant Philippine payment gateway.",
-                "Accepted payment methods include GCash, Maya, GoTyme Bank, credit/debit cards (Visa, Mastercard), and BancNet.",
-                "Pro Monthly: ₱499 per month, billed monthly. Pro Yearly: ₱4,299 per year, billed annually.",
-                "Subscriptions auto-renew unless cancelled before the renewal date. You may cancel anytime from your dashboard.",
-                "ALL PAYMENTS ARE FINAL AND NON-REFUNDABLE. We do not offer refunds for any reason, including but not limited to unused AI credits, partial months, or change of mind.",
+                "Pro and Enterprise subscriptions are processed securely through PayMongo, a PCI-compliant Philippine payment gateway.",
+                "Accepted payment methods include GCash, Maya, GrabPay, credit/debit cards (Visa, Mastercard), and online banking.",
+                "Current pricing: Free — ₱0 forever. Pro — ₱699 per month or ₱5,999 per year (save ~28%). Enterprise — ₱999 per month or ₱8,999 per year (save ~25%). All amounts are in Philippine Peso.",
+                "You may choose Monthly or Yearly billing for any paid plan. Yearly plans are billed once at the start of the 12-month term.",
+                "Subscriptions auto-renew at the end of each billing period unless cancelled. You may cancel anytime from your dashboard — choose 'Cancel at period end' (keep access until the next renewal date) or 'Cancel immediately' (downgrade to Free now).",
+                "ALL PAYMENTS ARE FINAL AND NON-REFUNDABLE. We do not offer refunds for any reason, including unused AI credits, partial months, or change of mind.",
                 "AI generation credits are consumed immediately upon use and cannot be refunded under any circumstances.",
                 "By completing your purchase, you acknowledge and agree to this no-refund policy. Please review your selection carefully before purchasing.",
                 "We reserve the right to modify pricing with 30 days advance notice to existing subscribers.",
@@ -111,7 +112,7 @@ export default function TermsPage() {
             {
               title: "7. Privacy",
               content: [
-                "Our collection and use of personal information is governed by our Privacy Policy, which is incorporated into these Terms by reference.",
+                "Our collection and use of personal information is governed by our Privacy Policy at storebuilder.ph/privacy, which is incorporated into these Terms by reference.",
                 "By using Storebuilder.ph, you consent to the collection and processing of your personal data as described in our Privacy Policy.",
                 "We comply with the Philippines' Data Privacy Act of 2012 (Republic Act No. 10173).",
               ],
@@ -134,8 +135,8 @@ export default function TermsPage() {
             {
               title: "10. Contact Us",
               content: [
-                "If you have any questions about these Terms, please contact us:",
-                "Email: Storebuilderph@gmail.com",
+                "If you have any questions about these Terms, please contact us through our contact form:",
+                "Contact form: https://storebuilder.ph/contact",
                 "Location: Philippines",
                 "We will respond to your inquiry within 2 business days.",
               ],
@@ -165,6 +166,7 @@ export default function TermsPage() {
           <Link href="/upgrade" className="hover:text-white transition-colors">Pricing</Link>
           <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
         </div>
         <p className="text-gray-600 text-xs">© 2025 Storebuilder.ph · Built in the Philippines</p>
       </footer>

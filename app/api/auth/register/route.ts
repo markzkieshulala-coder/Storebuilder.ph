@@ -7,6 +7,9 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  ageConfirmed: z.literal(true, {
+    errorMap: () => ({ message: "You must confirm you are 18 years or older" }),
+  }),
 });
 
 export async function POST(req: NextRequest) {

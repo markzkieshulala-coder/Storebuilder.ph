@@ -16,11 +16,16 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!ageConfirmed) {
+      toast.error("Please confirm you are 18 years or older");
+      return;
+    }
     if (password.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
@@ -30,7 +35,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, ageConfirmed }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -52,6 +57,10 @@ export default function RegisterPage() {
   }
 
   async function handleGoogle() {
+    if (!ageConfirmed) {
+      toast.error("Please confirm you are 18 years or older first");
+      return;
+    }
     setGoogleLoading(true);
     await signIn("google", { callbackUrl: "/" });
   }
@@ -146,20 +155,32 @@ export default function RegisterPage() {
                 </button>
               </div>
             </div>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none pt-1">
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                required
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer shrink-0"
+                style={{ accentColor: BLUE }}
+              />
+              <span className="text-xs text-gray-600 leading-relaxed">
+                I confirm that I am <strong>18 years of age or older</strong> and I agree to the{" "}
+                <Link href="/terms" className="underline hover:text-gray-800" style={{ color: BLUE }}>Terms of Service</Link>
+                {" "}and{" "}
+                <Link href="/privacy" className="underline hover:text-gray-800" style={{ color: BLUE }}>Privacy Policy</Link>.
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
+              disabled={loading || !ageConfirmed}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: BLUE }}
             >
               {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : "Create free account"}
             </button>
           </form>
-
-          <p className="text-xs text-gray-400 mt-4 text-center">
-            By registering, you agree to our{" "}
-            <Link href="/terms" className="underline hover:text-gray-600">Terms of Service</Link>
-          </p>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">

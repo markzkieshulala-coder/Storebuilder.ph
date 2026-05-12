@@ -9,6 +9,7 @@ import {
   Sparkles, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
   Crown, Clock, AlertCircle, Zap, Camera, CheckCircle2, Menu, X,
   EyeOff, ChevronDown, Share2, Copy, Check, MoreVertical, BarChart3, Briefcase,
+  ArrowLeft,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -73,8 +74,32 @@ function DashboardContent() {
   useEffect(() => {
     if (status === "authenticated") {
       fetchData();
+      // Seed the avatar from the session immediately, then re-fetch the
+      // canonical value from the DB so user-uploaded avatars survive sign-out.
       if (session?.user?.image) setAvatarUrl(session.user.image);
+      fetch("/api/user/profile")
+        .then((r) => r.json())
+        .then((d) => { if (d?.image) setAvatarUrl(d.image); })
+        .catch(() => {});
     }
+  }, [status]);
+
+  // Refetch credits whenever the dashboard becomes visible again (user
+  // returns from /dashboard/settings after cancelling, for instance). This
+  // keeps the plan badge and "Upgrade" prompt in sync with the DB without
+  // requiring a hard reload.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    function onVisible() {
+      if (document.visibilityState === "visible") fetchData();
+    }
+    function onFocus() { fetchData(); }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [status]);
   useEffect(() => {
     const url = searchParams.get("generate");
@@ -247,7 +272,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-[#F0F2F5]" style={{ fontFamily: FONT }}>
 
       {/* ── Mobile top bar ── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-[#E4E6EB] flex items-center px-4 gap-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-[#E4E6EB] flex items-center px-4 gap-2">
         <button
           onClick={() => setSidebarOpen(true)}
           className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
@@ -255,6 +280,13 @@ function DashboardContent() {
         >
           <Menu size={20} />
         </button>
+        <Link
+          href="/"
+          aria-label="Back to homepage"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+        >
+          <ArrowLeft size={18} />
+        </Link>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: BLUE }}>
             <Sparkles size={13} color="#fff" />
@@ -262,6 +294,16 @@ function DashboardContent() {
           <span className="font-bold text-sm text-gray-900">Storebuilder.ph</span>
         </div>
       </div>
+
+      {/* ── Desktop back-to-home pill (top-left of main area) ── */}
+      <Link
+        href="/"
+        className="hidden lg:inline-flex fixed top-4 left-[260px] z-30 items-center gap-1.5 text-xs font-medium text-[#65676B] hover:text-[#1C1E21] bg-white border border-[#E4E6EB] rounded-full px-3 py-1.5 shadow-sm transition-colors"
+        aria-label="Back to homepage"
+      >
+        <ArrowLeft size={13} />
+        Back to homepage
+      </Link>
 
       {/* ── Sidebar overlay (mobile) ── */}
       <AnimatePresence>

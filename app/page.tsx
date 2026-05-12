@@ -321,7 +321,7 @@ const FEATURES = [
   {
     icon: Sparkles,
     title: "AI-designed, not templated",
-    description: "Every website is uniquely created by Claude AI. No cookie-cutter templates. Truly creative output.",
+    description: "Every website is uniquely created by our AI technology partner. No cookie-cutter templates. Truly creative output.",
   },
   {
     icon: Shield,
@@ -337,23 +337,35 @@ const FAQS = [
   },
   {
     q: "How many websites can I create?",
-    a: "Free users get 3 AI generations per month. Pro users get 30 AI generations per day.",
+    a: "Free: up to 5 websites per month. Pro: up to 10 per month. Enterprise: up to 20 per month. All plans include unlimited editing on the websites you've already generated.",
+  },
+  {
+    q: "What's the difference between Free, Pro, and Enterprise?",
+    a: "Free (₱0) gives you 5 sites/month on a storebuilder.ph subdomain. Pro (₱699/mo or ₱5,999/year) adds 10 sites, payment links (HitPay & PayMongo), template sharing, custom domains, and removes branding. Enterprise (₱999/mo or ₱8,999/year) adds 20 sites, built-in CRM/business tools per site, and priority generation.",
   },
   {
     q: "Can I use my own domain?",
-    a: "Yes! Pro users can connect a custom domain (e.g. yourbusiness.com). Free users get a free subdomain at storebuilder.ph.",
+    a: "Yes — Pro and Enterprise subscribers can connect a custom domain (e.g. yourbusiness.com). Free accounts get a free subdomain like yourname.storebuilder.ph.",
   },
   {
-    q: "What payment methods are supported?",
-    a: "GCash, Maya, GoTyme, credit/debit cards, and BancNet — all major Philippine payment methods.",
+    q: "What payment methods can I add to my Pro/Enterprise sites?",
+    a: "Pro and Enterprise sites support HitPay and PayMongo payment links, which cover GCash, Maya, GrabPay, credit/debit cards, and online banking.",
   },
   {
     q: "Are the websites mobile-friendly?",
-    a: "Yes! Every generated website is fully responsive and looks great on mobile, tablet, and desktop.",
+    a: "Yes — every generated website is fully responsive and looks great on mobile, tablet, and desktop.",
   },
   {
     q: "Can I edit my website after creating it?",
-    a: "Yes! Editing is completely free. Use the drag-and-drop editor to make any changes you want.",
+    a: "Yes. Editing is unlimited and free on every plan. Use the drag-and-drop editor to change text, images, colors, and sections anytime.",
+  },
+  {
+    q: "Can I cancel anytime? Will I get a refund?",
+    a: "You can cancel anytime from your dashboard — we offer both 'cancel at period end' (keep access until the date you've already paid for) and 'cancel immediately' (downgrade to Free now). Subscription payments are non-refundable per our Terms.",
+  },
+  {
+    q: "Can I switch between Monthly and Yearly billing?",
+    a: "Yes. Yearly plans save roughly 25–28% compared with paying month-to-month. You can switch when you upgrade or renew from the billing page.",
   },
 ];
 
@@ -415,7 +427,6 @@ export default function HomePage() {
             <Link href="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
             <Link href="/upgrade" className="hover:text-blue-600 transition-colors">Pricing</Link>
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Contact</Link>
-            <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
           </div>
 
           <div className="flex items-center gap-2">
@@ -844,7 +855,7 @@ export default function HomePage() {
             <div>
               <p className="text-sm font-semibold text-white mb-3">Contact</p>
               <ul className="space-y-2 text-sm">
-                <li><a href="mailto:Storebuilderph@gmail.com" className="hover:text-white transition-colors">Storebuilderph@gmail.com</a></li>
+                <li><Link href="/contact" className="hover:text-white transition-colors">Send us a message</Link></li>
                 <li><span>Philippines 🇵🇭</span></li>
               </ul>
             </div>

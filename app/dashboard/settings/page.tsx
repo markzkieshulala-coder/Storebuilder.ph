@@ -384,11 +384,16 @@ function BillingTab({ session, update, planTier }: any) {
       if (res.ok) {
         if (immediate) {
           toast.success("Subscription cancelled — you're now on the Free plan.");
+          // Clear the cached /api/credits + /api/user/subscription responses
+          // so any dashboard tab that polls them on focus picks up the new
+          // plan immediately (no stale "Pro" badge flashing on next visit).
+          try { await Promise.all([fetch("/api/credits"), fetch("/api/user/subscription")]); } catch {}
           // Force session refresh so feature gates update across the app
           await update();
           setSub(null);
           setPending(null);
-          setTimeout(() => window.location.reload(), 600);
+          // Reload immediately — the page now reflects the Free plan.
+          window.location.reload();
         } else {
           const ends = data.endsAt ? new Date(data.endsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "the end of your billing period";
           toast.success(`Cancellation scheduled — you keep access until ${ends}.`);
@@ -397,7 +402,11 @@ function BillingTab({ session, update, planTier }: any) {
             pendingPlan: "FREE",
             pendingPlanAt: data.endsAt ?? p?.pendingPlanAt ?? null,
             planExpiresAt: p?.planExpiresAt ?? null,
+            isCancelScheduled: true,
           }));
+          // Refresh the auth session so other tabs/components see the
+          // cancel-scheduled state on the next render.
+          try { await update(); } catch {}
         }
       } else toast.error(data.error || "Failed to cancel");
     } catch (e: any) {
