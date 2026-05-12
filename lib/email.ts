@@ -175,6 +175,193 @@ export async function sendSignInNotificationEmail(opts: {
   });
 }
 
+// Shared transactional email shell — every transactional email shares the
+// same outer wrapper (header, footer, padding). Keeps templates focused on
+// content while staying visually consistent.
+function shell(opts: { title: string; bodyHtml: string }): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Google Sans',Roboto,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">
+        <tr><td style="background:#1877F2;padding:28px 32px;text-align:center">
+          <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px">Storebuilder<span style="opacity:0.75">.ph</span></h1>
+        </td></tr>
+        <tr><td style="padding:36px 32px">
+          <h2 style="margin:0 0 12px;color:#111827;font-size:20px;font-weight:700">${opts.title}</h2>
+          ${opts.bodyHtml}
+        </td></tr>
+        <tr><td style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:12px">© ${new Date().getFullYear()} Storebuilder.ph — All rights reserved</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// Account verification — sent on signup or whenever the user (or an admin)
+// clicks "Send Verification Link". Contains a token URL that flips
+// `emailVerified` on the User row.
+export async function sendAccountVerificationEmail(opts: {
+  to: string;
+  name: string;
+  verifyUrl: string;
+}) {
+  return sendMail({
+    to: opts.to,
+    subject: "Verify your Storebuilder.ph account",
+    text: `Hi ${opts.name || "there"},\n\nTap this link to verify your account: ${opts.verifyUrl}\n\nThis link expires in 24 hours.\n\nIf you didn't request this email you can safely ignore it.`,
+    html: shell({
+      title: "Verify your account",
+      bodyHtml: `
+        <p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Hi <strong>${opts.name || "there"}</strong>, please confirm your email address by tapping the link below.</p>
+        <p style="margin:0 0 24px"><a href="${opts.verifyUrl}" style="display:inline-block;background:#1877F2;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 28px;border-radius:10px">Tap to verify your account</a></p>
+        <p style="margin:0 0 8px;color:#9ca3af;font-size:13px">Or copy this link into your browser:</p>
+        <p style="margin:0 0 24px;word-break:break-all;font-size:12px;color:#6b7280;background:#f9fafb;padding:10px 12px;border-radius:8px;border:1px solid #e5e7eb">${opts.verifyUrl}</p>
+        <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.5">This link expires in 24 hours. If you didn't sign up for Storebuilder.ph, you can safely ignore this email.</p>
+      `,
+    }),
+  });
+}
+
+// Sent when a user (or admin) cancels a subscription, whether immediate or
+// deferred. `endsAt` is omitted for immediate cancels.
+export async function sendSubscriptionCancelledEmail(opts: {
+  to: string;
+  name: string;
+  plan: string;
+  immediate: boolean;
+  endsAt?: Date | null;
+}) {
+  const endsAtFmt = opts.endsAt
+    ? new Date(opts.endsAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
+    : null;
+  const billingUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`;
+  return sendMail({
+    to: opts.to,
+    subject: opts.immediate
+      ? `Your ${opts.plan} subscription has been cancelled`
+      : `Your ${opts.plan} subscription is set to cancel`,
+    text: opts.immediate
+      ? `Hi ${opts.name || "there"},\n\nYour ${opts.plan} subscription has been cancelled and your account is now on the Free plan.\n\nIf this wasn't you or you'd like to resubscribe, visit ${billingUrl}.`
+      : `Hi ${opts.name || "there"},\n\nWe've scheduled your ${opts.plan} subscription to cancel${endsAtFmt ? ` on ${endsAtFmt}` : ""}. You'll keep all paid features until then, after which your account will switch to the Free plan.\n\nChange your mind? You can keep your subscription anytime before that date at ${billingUrl}.`,
+    html: shell({
+      title: opts.immediate ? "Subscription cancelled" : "Cancellation scheduled",
+      bodyHtml: `
+        <p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Hi <strong>${opts.name || "there"}</strong>,</p>
+        ${opts.immediate
+          ? `<p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Your <strong>${opts.plan}</strong> subscription has been cancelled. Your account is now on the <strong>Free</strong> plan.</p>`
+          : `<p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">We've scheduled your <strong>${opts.plan}</strong> subscription to cancel${endsAtFmt ? ` on <strong>${endsAtFmt}</strong>` : ""}. You'll keep all paid features until then, after which your account will switch to the Free plan.</p>`}
+        <p style="margin:0 0 24px;color:#6b7280;font-size:14px;line-height:1.6">${opts.immediate ? "Want to come back? You can resubscribe at any time from your dashboard." : "Change your mind? You can keep your subscription anytime before the cancel date."}</p>
+        <p style="margin:0 0 24px"><a href="${billingUrl}" style="display:inline-block;background:#1877F2;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:9px">Open billing settings</a></p>
+        <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.5">If you didn't request this, please contact support immediately.</p>
+      `,
+    }),
+  });
+}
+
+// Sent when a deferred cancellation is reversed — i.e. the user clicked
+// "Keep my subscription".
+export async function sendSubscriptionRestoredEmail(opts: {
+  to: string;
+  name: string;
+  plan: string;
+}) {
+  const billingUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`;
+  return sendMail({
+    to: opts.to,
+    subject: `Your ${opts.plan} subscription is back on`,
+    text: `Hi ${opts.name || "there"},\n\nGood news — your ${opts.plan} subscription will continue as normal. The scheduled cancellation has been reversed.\n\nManage your subscription anytime: ${billingUrl}`,
+    html: shell({
+      title: "Subscription restored",
+      bodyHtml: `
+        <p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Hi <strong>${opts.name || "there"}</strong>,</p>
+        <p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Good news — your <strong>${opts.plan}</strong> subscription will continue as normal. The scheduled cancellation has been reversed.</p>
+        <p style="margin:0 0 24px"><a href="${billingUrl}" style="display:inline-block;background:#1877F2;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:9px">Manage subscription</a></p>
+        <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.5">No further action is needed.</p>
+      `,
+    }),
+  });
+}
+
+// Sent when a paid subscription is first activated (Pro or Enterprise).
+export async function sendSubscriptionPurchasedEmail(opts: {
+  to: string;
+  name: string;
+  plan: string;
+  billingCycle: "MONTHLY" | "YEARLY";
+  amountCents: number;
+  nextRenewal?: Date | null;
+}) {
+  const amount = `₱${(opts.amountCents / 100).toLocaleString("en-PH")}`;
+  const cycle = opts.billingCycle === "MONTHLY" ? "month" : "year";
+  const renewalFmt = opts.nextRenewal
+    ? new Date(opts.nextRenewal).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
+    : null;
+  const billingUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`;
+  return sendMail({
+    to: opts.to,
+    subject: `Welcome to ${opts.plan} — your subscription is active`,
+    text: `Hi ${opts.name || "there"},\n\nThanks for upgrading to ${opts.plan}! Your subscription is now active.\n\nPlan: ${opts.plan}\nBilling: ${amount} / ${cycle}\n${renewalFmt ? `Next renewal: ${renewalFmt}\n` : ""}\nManage your subscription: ${billingUrl}`,
+    html: shell({
+      title: `Welcome to ${opts.plan}`,
+      bodyHtml: `
+        <p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Hi <strong>${opts.name || "there"}</strong>, thanks for upgrading! Your <strong>${opts.plan}</strong> subscription is now active.</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;margin-bottom:24px">
+          <tr><td style="padding:16px 18px">
+            <table width="100%" cellpadding="0" cellspacing="6">
+              <tr>
+                <td style="color:#9ca3af;font-size:13px;width:110px;padding-bottom:8px">Plan</td>
+                <td style="color:#111827;font-size:13px;font-weight:600;padding-bottom:8px">${opts.plan}</td>
+              </tr>
+              <tr>
+                <td style="color:#9ca3af;font-size:13px;padding-bottom:8px">Billing</td>
+                <td style="color:#111827;font-size:13px;font-weight:600;padding-bottom:8px">${amount} / ${cycle}</td>
+              </tr>
+              ${renewalFmt ? `<tr>
+                <td style="color:#9ca3af;font-size:13px">Next renewal</td>
+                <td style="color:#111827;font-size:13px;font-weight:600">${renewalFmt}</td>
+              </tr>` : ""}
+            </table>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 24px"><a href="${billingUrl}" style="display:inline-block;background:#1877F2;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:9px">Open billing</a></p>
+        <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.5">Payments are non-refundable. You can cancel anytime from your billing settings.</p>
+      `,
+    }),
+  });
+}
+
+// Sent when the user requests removal of their saved payment method.
+// Requires the user to click the link to actually remove the payment method.
+export async function sendPaymentRemovalConfirmation(opts: {
+  to: string;
+  name: string;
+  verifyUrl: string;
+}) {
+  return sendMail({
+    to: opts.to,
+    subject: "Confirm payment method removal",
+    text: `Hi ${opts.name || "there"},\n\nWe received a request to remove the saved payment method from your account. Tap the link below within 30 minutes to confirm: ${opts.verifyUrl}\n\nIf you didn't request this, ignore this email — no changes will be made.`,
+    html: shell({
+      title: "Confirm payment method removal",
+      bodyHtml: `
+        <p style="margin:0 0 18px;color:#6b7280;font-size:15px;line-height:1.6">Hi <strong>${opts.name || "there"}</strong>, we received a request to remove the saved payment method from your account.</p>
+        <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.6">Tap the button below within <strong>30 minutes</strong> to confirm. After confirmation, your saved payment method will be removed and any active subscription will be cancelled.</p>
+        <p style="margin:0 0 24px"><a href="${opts.verifyUrl}" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:9px">Confirm removal</a></p>
+        <p style="margin:0 0 8px;color:#9ca3af;font-size:13px">Or copy this link into your browser:</p>
+        <p style="margin:0 0 24px;word-break:break-all;font-size:12px;color:#6b7280;background:#f9fafb;padding:10px 12px;border-radius:8px;border:1px solid #e5e7eb">${opts.verifyUrl}</p>
+        <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.5">If you didn't request this, you can ignore this email — your payment method will stay on file.</p>
+      `,
+    }),
+  });
+}
+
 export async function sendEmailChangeVerification(opts: {
   currentEmail: string;
   newEmail: string;

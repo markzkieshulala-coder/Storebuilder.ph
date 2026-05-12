@@ -8,7 +8,8 @@ const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
 
 type Sub = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: string | null };
 type Site = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string };
-type User = { id: string; name: string | null; email: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; pendingPlan: string | null; pendingPlanAt: string | null; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
+type User = { id: string; name: string | null; email: string | null; emailVerified: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; pendingPlan: string | null; pendingPlanAt: string | null; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
+type LoginEvent = { id: string; ip: string | null; userAgent: string | null; browser: string | null; os: string | null; device: string | null; location: string | null; provider: string | null; createdAt: string };
 
 const PLAN_BENEFITS: Record<string, { label: string; color: string; bg: string }[]> = {
   FREE: [
@@ -133,6 +134,10 @@ export default function AdminUserDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [refunding, setRefunding] = useState(false);
   const [canceling, setCanceling] = useState<"deferred" | "immediate" | null>(null);
+  const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
+  const [sendingVerify, setSendingVerify] = useState(false);
+  const [removingPayment, setRemovingPayment] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -141,7 +146,79 @@ export default function AdminUserDetailPage() {
       .then((d) => { if (d.error) setError(d.error); else setUser(d.user); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+    // Load login history in parallel — admin-only, fails gracefully on
+    // legacy DBs.
+    fetch(`/api/admin/users/${id}/login-events`)
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.events)) setLoginEvents(d.events); })
+      .catch(() => {});
   }, [id]);
+
+  async function handleSendVerification() {
+    if (!user) return;
+    setSendingVerify(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/verify-email`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) alert(data.message || "Verification email sent.");
+      else alert("Error: " + (data.error || "Unknown error"));
+    } finally { setSendingVerify(false); }
+  }
+
+  async function handleRemovePayment() {
+    if (!user) return;
+    const confirm = window.prompt(
+      `This will remove the user's saved payment method and cancel any active subscription.\n\nTo confirm, type the user's Account ID exactly:\n\n${user.id}`,
+      ""
+    );
+    if (!confirm) return;
+    if (confirm !== user.id) {
+      alert("Account ID did not match — no changes made.");
+      return;
+    }
+    setRemovingPayment(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/payment-method`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: user.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Payment method removed. User downgraded to Free.");
+        setUser((prev) => prev ? {
+          ...prev, plan: "FREE",
+          subscriptions: prev.subscriptions.map((s) => s.status === "ACTIVE" ? { ...s, status: "CANCELLED", paymongoId: null } : s),
+        } : null);
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally { setRemovingPayment(false); }
+  }
+
+  async function handleDeleteUser() {
+    if (!user) return;
+    const confirm = window.prompt(
+      `⚠️ This will permanently delete this user account and ALL associated websites, orders, and subscriptions.\n\nThis CANNOT be undone.\n\nTo confirm, type the user's email exactly:\n\n${user.email || "(no email)"}`,
+      ""
+    );
+    if (!confirm) return;
+    if (confirm !== user.email) {
+      alert("Email did not match — no changes made.");
+      return;
+    }
+    setDeletingUser(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        alert("User account permanently deleted.");
+        window.location.href = "/admin/users";
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally { setDeletingUser(false); }
+  }
 
   async function patch(fields: Record<string, unknown>): Promise<string | null> {
     try {
@@ -418,6 +495,24 @@ export default function AdminUserDetailPage() {
                 Restore PRO Access
               </button>
             )}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button
+                onClick={handleRemovePayment}
+                disabled={removingPayment || !activeSub?.paymongoId}
+                style={{ padding: "7px 14px", background: removingPayment ? "#E5E7EB" : "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", borderRadius: "7px", cursor: removingPayment || !activeSub?.paymongoId ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap", opacity: !activeSub?.paymongoId ? 0.5 : 1 }}
+                title={activeSub?.paymongoId ? "Requires confirmation via Account ID" : "No saved payment method"}
+              >
+                {removingPayment ? "Removing…" : "Remove Payment Method"}
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={deletingUser}
+                style={{ padding: "7px 14px", background: deletingUser ? "#E5E7EB" : "#7F1D1D", color: "#fff", border: "1px solid #7F1D1D", borderRadius: "7px", cursor: deletingUser ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                title="Permanently delete this user account"
+              >
+                {deletingUser ? "Deleting…" : "Delete Account"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -430,11 +525,32 @@ export default function AdminUserDetailPage() {
             <EditableField label="Email Address" value={user.email ?? ""} type="text"
               onSave={async (v) => patch({ email: v })} />
             <div style={ROW}>
+              <span style={KEY}>Email Verified</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {user.emailVerified ? (
+                  <span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#D1FAE5", color: "#065F46" }}>VERIFIED</span>
+                ) : (
+                  <span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#FEF3C7", color: "#92400E" }}>UNVERIFIED</span>
+                )}
+                <button
+                  onClick={handleSendVerification}
+                  disabled={sendingVerify || !user.email}
+                  style={{ padding: "5px 12px", background: sendingVerify ? "#E5E7EB" : "#EBF3FF", color: BLUE, border: "1px solid #BFDBFE", borderRadius: "6px", cursor: sendingVerify || !user.email ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap", opacity: !user.email ? 0.5 : 1 }}
+                >
+                  {sendingVerify ? "Sending…" : "Send Verification Link"}
+                </button>
+              </div>
+            </div>
+            <div style={ROW}>
               <span style={KEY}>Joined Date</span>
               <span style={VAL}>{fmt(user.createdAt)}</span>
             </div>
             <EditableField label="Location" value={user.location ?? ""} type="text"
               onSave={async (v) => patch({ location: v })} />
+            <div style={ROW}>
+              <span style={KEY}>Account ID</span>
+              <span style={{ ...VAL, fontFamily: "monospace", fontSize: "11px" }}>{user.id}</span>
+            </div>
           </div>
 
           {/* Membership */}
@@ -584,6 +700,46 @@ export default function AdminUserDetailPage() {
             </table>
           </div>
         )}
+
+        {/* Login History */}
+        <div style={{ ...CARD, padding: 0, overflow: "hidden", marginBottom: "20px" }}>
+          <div style={{ padding: "16px 24px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>Login History</span>
+            <span style={{ fontSize: "12px", color: "#9CA3AF" }}>{loginEvents.length} recent sign-in{loginEvents.length !== 1 ? "s" : ""}</span>
+          </div>
+          {loginEvents.length > 0 ? (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#F9FAFB" }}>
+                  {["When", "Device", "Browser", "OS", "Location", "IP", "Method"].map((h) => (
+                    <th key={h} style={{ padding: "10px 18px", textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #E5E7EB" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loginEvents.map((ev) => (
+                  <tr key={ev.id}>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#374151", borderBottom: "1px solid #F3F4F6", whiteSpace: "nowrap" }}>
+                      {new Date(ev.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}
+                    </td>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#374151", borderBottom: "1px solid #F3F4F6" }}>{ev.device || "—"}</td>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#374151", borderBottom: "1px solid #F3F4F6" }}>{ev.browser || "—"}</td>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#374151", borderBottom: "1px solid #F3F4F6" }}>{ev.os || "—"}</td>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#374151", borderBottom: "1px solid #F3F4F6" }}>{ev.location || "—"}</td>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#6B7280", borderBottom: "1px solid #F3F4F6", fontFamily: "monospace" }}>{ev.ip || "—"}</td>
+                    <td style={{ padding: "10px 18px", fontSize: "12px", color: "#6B7280", borderBottom: "1px solid #F3F4F6" }}>
+                      <span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, background: "#F0F9FF", color: "#0369A1" }}>{ev.provider || "auth"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ padding: "24px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>
+              No sign-in events recorded yet. Events are captured on the user&apos;s next sign-in.
+            </div>
+          )}
+        </div>
 
         {/* Subscription history */}
         {user.subscriptions.length > 0 && (

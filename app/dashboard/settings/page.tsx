@@ -189,11 +189,47 @@ function AccountTab({ session, update }: any) {
   const [savingName, setSavingName] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
+  const [sendingVerify, setSendingVerify] = useState(false);
+  const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (session?.user?.name) setName(session.user.name);
     if (session?.user?.email) setEmail(session.user.email);
   }, [session]);
+
+  // Fetch the canonical verified status from the server on mount.
+  useEffect(() => {
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d?.emailVerified !== "undefined") {
+          setEmailVerified(!!d.emailVerified);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSendVerification() {
+    setSendingVerify(true);
+    setVerifyNotice(null);
+    try {
+      const res = await fetch("/api/user/verify-email", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.alreadyVerified) {
+          setEmailVerified(true);
+          setVerifyNotice(data.message || "Your email is already verified.");
+          toast.success("Already verified");
+        } else {
+          setVerifyNotice(data.message || `Verification link sent to ${session?.user?.email}.`);
+          toast.success("Verification email sent");
+        }
+      } else {
+        toast.error(data.error || "Failed to send verification email");
+      }
+    } finally { setSendingVerify(false); }
+  }
 
   async function saveName(e: React.FormEvent) {
     e.preventDefault();
@@ -249,6 +285,40 @@ function AccountTab({ session, update }: any) {
       </Card>
 
       <Card title="Email Address" desc="Used to sign in and receive notifications." icon={Mail}>
+        {/* Verification status + Send Verification button */}
+        <div className="mb-4 rounded-lg border border-[#E4E6EB] bg-[#F0F2F5] p-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {emailVerified === true ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#D1FAE5] text-[#065F46]">
+                <Shield size={11} /> EMAIL VERIFIED
+              </span>
+            ) : emailVerified === false ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#92400E]">
+                <AlertCircle size={11} /> NOT VERIFIED
+              </span>
+            ) : (
+              <span className="text-[11px] text-[#65676B]">Checking verification status…</span>
+            )}
+            <span className="text-xs text-[#65676B]">{session?.user?.email}</span>
+          </div>
+          {emailVerified === false && (
+            <button
+              type="button"
+              onClick={handleSendVerification}
+              disabled={sendingVerify}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-[#1877F2] hover:bg-[#166FE5] disabled:opacity-60"
+            >
+              {sendingVerify ? "Sending…" : "Send Verification"}
+            </button>
+          )}
+        </div>
+        {verifyNotice && (
+          <div className="mb-4 rounded-lg border border-[#1877F2]/20 bg-[#EBF3FF] p-3 text-xs text-[#1C1E21] flex items-start gap-2">
+            <AlertCircle size={13} className="mt-0.5 shrink-0 text-[#1877F2]" />
+            <span>{verifyNotice}</span>
+          </div>
+        )}
+
         {emailNotice && (
           <div className="mb-4 rounded-lg border border-[#FBBF24]/40 bg-[#FFFBEB] p-3 text-xs text-[#92400E] flex items-start gap-2">
             <AlertCircle size={13} className="mt-0.5 shrink-0" />
@@ -543,9 +613,61 @@ function BillingTab({ session, update, planTier }: any) {
               </>
             )}
           </Card>
+
+          <RemovePaymentMethodCard />
         </>
       )}
     </>
+  );
+}
+
+function RemovePaymentMethodCard() {
+  const [working, setWorking] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function handleRemove() {
+    if (!confirm("Remove your saved payment method? We'll send a confirmation link to your email — the removal only completes after you click that link.")) return;
+    setWorking(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/user/payment-method/remove", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setNotice(data.message || "Confirmation link sent.");
+        toast.success("Check your email");
+      } else {
+        toast.error(data.error || "Failed to start removal");
+      }
+    } finally { setWorking(false); }
+  }
+
+  return (
+    <Card title="Payment Method" desc="Remove the saved payment method on file." icon={CreditCard}>
+      <div className="flex items-start gap-3 mb-4">
+        <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-[#1C1E21]">Email confirmation required</p>
+          <p className="text-xs text-[#65676B] mt-1 leading-relaxed">
+            For your security, removing a saved payment method requires email verification. We&apos;ll send a
+            confirmation link to your email — your payment method (and any active subscription) is only
+            removed after you click that link, which expires in 30 minutes.
+          </p>
+        </div>
+      </div>
+      {notice && (
+        <div className="mb-4 rounded-lg border border-[#1877F2]/20 bg-[#EBF3FF] p-3 text-xs text-[#1C1E21] flex items-start gap-2">
+          <AlertCircle size={13} className="mt-0.5 shrink-0 text-[#1877F2]" />
+          <span>{notice}</span>
+        </div>
+      )}
+      <button
+        onClick={handleRemove}
+        disabled={working}
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-red-600 text-sm font-semibold border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+      >
+        {working ? "Sending…" : "Send removal confirmation"}
+      </button>
+    </Card>
   );
 }
 

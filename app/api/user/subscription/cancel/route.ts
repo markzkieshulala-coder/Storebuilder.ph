@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureSchemaMigrations } from "@/lib/db-migrations";
+import { sendSubscriptionCancelledEmail, sendSubscriptionRestoredEmail } from "@/lib/email";
 
 // Two cancellation modes:
 //   POST   { immediate: true }  → downgrade to FREE NOW; cancel active sub
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     // Read user WITHOUT pendingPlan in select — never crashes on legacy DB
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, plan: true, planExpiresAt: true },
+      select: { id: true, name: true, email: true, plan: true, planExpiresAt: true },
     });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
     if (user.plan === "FREE") {
@@ -53,6 +54,16 @@ export async function POST(req: Request) {
           user.id
         );
       } catch { /* columns missing — fine */ }
+
+      // Fire-and-forget email — never fail the cancel because email broke.
+      if (user.email) {
+        sendSubscriptionCancelledEmail({
+          to: user.email,
+          name: user.name || user.email,
+          plan: user.plan,
+          immediate: true,
+        }).catch((e) => console.error("[cancel] email:", e));
+      }
 
       return NextResponse.json({ success: true, immediate: true, plan: "FREE" });
     }
@@ -102,6 +113,17 @@ export async function POST(req: Request) {
       } catch (e) { console.error("[cancel] planExpiresAt fallback:", e); }
     }
 
+    // Fire-and-forget email
+    if (user.email) {
+      sendSubscriptionCancelledEmail({
+        to: user.email,
+        name: user.name || user.email,
+        plan: user.plan,
+        immediate: false,
+        endsAt,
+      }).catch((e) => console.error("[cancel] email:", e));
+    }
+
     return NextResponse.json({
       success: true,
       message: `Cancellation scheduled. You keep ${user.plan} access until ${endsAt.toISOString().slice(0, 10)}.`,
@@ -133,6 +155,21 @@ export async function DELETE() {
         session.user.id
       );
     } catch { /* legacy DB */ }
+
+    // Fire-and-forget email
+    try {
+      const u = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true, plan: true },
+      });
+      if (u?.email && u.plan !== "FREE") {
+        sendSubscriptionRestoredEmail({
+          to: u.email,
+          name: u.name || u.email,
+          plan: u.plan,
+        }).catch((e) => console.error("[cancel-undo] email:", e));
+      }
+    } catch { /* ignore */ }
 
     return NextResponse.json({ success: true, cancelAtPeriodEnd: false });
   } catch (e: any) {

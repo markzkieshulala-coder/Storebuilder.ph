@@ -163,5 +163,43 @@ export async function ensureSchemaMigrations() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreVisit_websiteId_createdAt_idx" ON "StoreVisit"("websiteId","createdAt")`);
   } catch (e) { console.error("[migrations] StoreVisit:", e); }
 
+  // LoginEvent — per-sign-in audit trail. Used for the admin Login History
+  // panel and the sign-in notification email. Captures device, browser, OS,
+  // IP, and best-effort geolocation.
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "LoginEvent" (
+      "id" TEXT PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "ip" TEXT,
+      "userAgent" TEXT,
+      "browser" TEXT,
+      "os" TEXT,
+      "device" TEXT,
+      "location" TEXT,
+      "provider" TEXT,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "LoginEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "LoginEvent_userId_createdAt_idx" ON "LoginEvent"("userId","createdAt" DESC)`);
+  } catch (e) { console.error("[migrations] LoginEvent:", e); }
+
+  // Email verification token used by the "Send Verification" flow. Separate
+  // from pendingEmail* fields, which are reserved for email-CHANGE flows.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifyToken" TEXT`);
+  } catch (e) { console.error("[migrations] emailVerifyToken col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifyExpires" TIMESTAMPTZ`);
+  } catch (e) { console.error("[migrations] emailVerifyExpires col:", e); }
+
+  // PaymentMethod-removal verification token. Held on the User row briefly
+  // while we wait for the user to click the confirm link in their email.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paymentRemovalToken" TEXT`);
+  } catch (e) { console.error("[migrations] paymentRemovalToken col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paymentRemovalExpires" TIMESTAMPTZ`);
+  } catch (e) { console.error("[migrations] paymentRemovalExpires col:", e); }
+
   ran = true;
 }

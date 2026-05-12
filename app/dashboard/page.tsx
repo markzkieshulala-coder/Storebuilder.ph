@@ -67,6 +67,9 @@ function DashboardContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openToolsId, setOpenToolsId] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [sendingVerify, setSendingVerify] = useState(false);
+  const [verifyDismissed, setVerifyDismissed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -79,10 +82,31 @@ function DashboardContent() {
       if (session?.user?.image) setAvatarUrl(session.user.image);
       fetch("/api/user/profile")
         .then((r) => r.json())
-        .then((d) => { if (d?.image) setAvatarUrl(d.image); })
+        .then((d) => {
+          if (d?.image) setAvatarUrl(d.image);
+          if (typeof d?.emailVerified !== "undefined") setEmailVerified(!!d.emailVerified);
+        })
         .catch(() => {});
     }
   }, [status]);
+
+  async function handleSendVerification() {
+    setSendingVerify(true);
+    try {
+      const res = await fetch("/api/user/verify-email", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.alreadyVerified) {
+          setEmailVerified(true);
+          toast.success("Your email is already verified");
+        } else {
+          toast.success(data.message || "Verification email sent — check your inbox");
+        }
+      } else {
+        toast.error(data.error || "Failed to send verification email");
+      }
+    } finally { setSendingVerify(false); }
+  }
 
   // Refetch credits whenever the dashboard becomes visible again (user
   // returns from /dashboard/settings after cancelling, for instance). This
@@ -189,7 +213,27 @@ function DashboardContent() {
   async function handlePublish(id: string) {
     const res = await fetch(`/api/websites/${id}/publish`, { method: "POST" });
     const data = await res.json();
-    if (res.ok) { toast.success(`Live at ${data.url}`); fetchData(); }
+    if (res.ok) {
+      toast.success(`Live at ${data.url}`);
+      fetchData();
+      // After publishing, probe the URL from the server so we can warn the
+      // user if the subdomain isn't actually reachable (DNS/SSL not set up).
+      setTimeout(() => {
+        fetch(`/api/websites/${id}/health`)
+          .then((r) => r.json())
+          .then((h) => {
+            if (h?.status === "ok" || h?.status === "redirected") return;
+            if (h?.status === "not_published") return;
+            const reason =
+              h?.status === "dns_unresolved" ? "DNS not configured" :
+              h?.status === "connection_closed" ? "Wildcard subdomain not attached to deployment" :
+              h?.status === "tls_error" ? "SSL certificate doesn't cover this subdomain" :
+              h?.detail || "Site not reachable";
+            toast.error(`Domain warning: ${reason}`, { duration: 8000 });
+          })
+          .catch(() => {});
+      }, 1500);
+    }
   }
 
   async function handleUnpublish(id: string) {
@@ -361,6 +405,37 @@ function DashboardContent() {
               {websites.length === 0 ? "Create your first website below" : `${websites.length} website${websites.length !== 1 ? "s" : ""} in your account`}
             </p>
           </div>
+
+          {/* Email verification banner */}
+          {emailVerified === false && !verifyDismissed && (
+            <div className="mb-5 rounded-xl border border-[#FCD34D] bg-[#FFFBEB] p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[#92400E]">Verify your email address</p>
+                  <p className="text-xs text-[#78350F] mt-0.5">
+                    We&apos;ll send a verification link to <strong>{session?.user?.email}</strong> — tap it to confirm your account.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleSendVerification}
+                  disabled={sendingVerify}
+                  className="px-3 py-2 rounded-md text-xs font-semibold text-white bg-[#1877F2] hover:bg-[#166FE5] disabled:opacity-60 whitespace-nowrap"
+                >
+                  {sendingVerify ? "Sending…" : "Send Verification"}
+                </button>
+                <button
+                  onClick={() => setVerifyDismissed(true)}
+                  aria-label="Dismiss"
+                  className="p-1.5 rounded-md text-[#92400E] hover:bg-amber-100"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Plan card */}
           {credits && !isPro && (

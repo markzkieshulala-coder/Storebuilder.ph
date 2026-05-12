@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendSubscriptionPurchasedEmail } from "@/lib/email";
 
 const PAYMONGO_WEBHOOK_SECRET = process.env.PAYMONGO_WEBHOOK_SECRET || "";
 
@@ -47,12 +48,13 @@ export async function POST(req: NextRequest) {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         plan: tier as any,
         planExpiresAt: expiresAt,
       },
+      select: { id: true, name: true, email: true },
     });
 
     // Update subscription status — also set currentPeriodEnd so the deferred
@@ -65,6 +67,25 @@ export async function POST(req: NextRequest) {
         cancelAtPeriodEnd: false,
       },
     });
+
+    // Confirmation email — fire-and-forget. Pull the amount from the
+    // freshly-activated subscription so we report the actual charge.
+    try {
+      const sub = await prisma.subscription.findFirst({
+        where: { paymongoId: linkId },
+        select: { amount: true, billingCycle: true, plan: true },
+      });
+      if (updatedUser.email && sub) {
+        sendSubscriptionPurchasedEmail({
+          to: updatedUser.email,
+          name: updatedUser.name || updatedUser.email,
+          plan: sub.plan,
+          billingCycle: sub.billingCycle as "MONTHLY" | "YEARLY",
+          amountCents: sub.amount,
+          nextRenewal: expiresAt,
+        }).catch((e) => console.error("[webhook] purchase email:", e));
+      }
+    } catch (e) { console.error("[webhook] purchase email lookup:", e); }
 
     console.log(`User ${userId} upgraded to ${tier} via PayMongo link ${linkId}`);
   }

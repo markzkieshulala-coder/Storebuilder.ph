@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendSignInNotificationEmail } from "@/lib/email";
+import { ensureSchemaMigrations } from "@/lib/db-migrations";
+import { randomUUID } from "node:crypto";
 
 function parseUserAgent(ua: string): { browser: string; os: string; device: string } {
   const browser =
@@ -52,6 +54,7 @@ async function getLocation(ip: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSchemaMigrations();
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ ok: true }); // silently skip if no session
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { name: true, email: true },
+      select: { id: true, name: true, email: true },
     });
     if (!user?.email) return NextResponse.json({ ok: true });
 
@@ -83,16 +86,33 @@ export async function POST(req: NextRequest) {
       hour12: true,
     });
 
-    await sendSignInNotificationEmail({
-      to: user.email,
-      name: user.name || user.email,
-      browser,
-      os,
-      device,
-      location,
-      time,
-      ip,
-    });
+    // 1) Record an audit-trail row for the admin Login History panel.
+    //    Best-effort — never fail the sign-in flow on a DB error.
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "LoginEvent" (id, "userId", ip, "userAgent", browser, os, device, location, provider, "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        randomUUID(), user.id, ip, ua, browser, os, device, location, "credentials"
+      );
+    } catch (e) {
+      console.error("[signin-notify] LoginEvent insert:", e);
+    }
+
+    // 2) Fire-and-forget email notification.
+    try {
+      await sendSignInNotificationEmail({
+        to: user.email,
+        name: user.name || user.email,
+        browser,
+        os,
+        device,
+        location,
+        time,
+        ip,
+      });
+    } catch (e) {
+      console.error("[signin-notify] email:", e);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
