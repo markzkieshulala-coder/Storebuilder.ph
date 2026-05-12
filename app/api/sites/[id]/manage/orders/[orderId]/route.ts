@@ -41,6 +41,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data,
   });
 
+  // Fulfillment fields are stored in columns that may not be in the Prisma
+  // schema (added via ensureSchemaMigrations()). Use raw SQL so we don't have
+  // to fight Prisma's type system for what is effectively a forward-compatible
+  // patch.
+  if (body.fulfillmentStatus && ["UNFULFILLED", "PARTIAL", "FULFILLED"].includes(body.fulfillmentStatus)) {
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "StoreOrder" SET "fulfillmentStatus" = $1 WHERE id = $2`,
+        body.fulfillmentStatus, params.orderId
+      );
+    } catch (e) { console.error("[orders.PATCH] fulfillmentStatus:", e); }
+  }
+  if (body.trackingNumber !== undefined) {
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "StoreOrder" SET "trackingNumber" = $1 WHERE id = $2`,
+        body.trackingNumber ? String(body.trackingNumber).slice(0, 200) : null,
+        params.orderId
+      );
+    } catch (e) { console.error("[orders.PATCH] trackingNumber:", e); }
+  }
+
   // If marking paid, increment customer totalSpent
   if (body.status === "PAID" && order.customerEmail) {
     try {

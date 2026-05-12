@@ -35,12 +35,37 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }, { status: 403 });
   }
 
+  // Fetch orders via raw SQL so we can include the new fulfillment columns
+  // (fulfillmentStatus, trackingNumber, discountCode, discountCents) which
+  // were added by ensureSchemaMigrations but aren't in the Prisma schema yet.
+  const websiteId = website.id;
+  const fetchOrdersWithFulfillment = async () => {
+    try {
+      return await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id, "websiteId", "productId", "productName", quantity, "unitPriceCents", "totalCents", currency,
+                "customerName", "customerEmail", "customerPhone", notes, status,
+                "paymongoLinkId", "paymongoCheckoutUrl", "paidAt", "createdAt", "updatedAt",
+                COALESCE("fulfillmentStatus", 'UNFULFILLED') AS "fulfillmentStatus",
+                "trackingNumber",
+                "discountCode",
+                COALESCE("discountCents", 0) AS "discountCents"
+         FROM "StoreOrder"
+         WHERE "websiteId" = $1
+         ORDER BY "createdAt" DESC
+         LIMIT 200`,
+        websiteId
+      );
+    } catch {
+      return prisma.storeOrder.findMany({
+        where: { websiteId },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      });
+    }
+  };
+
   const [orders, customers, contacts, subscribers, visits] = await Promise.all([
-    prisma.storeOrder.findMany({
-      where: { websiteId: website.id },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
+    fetchOrdersWithFulfillment(),
     prisma.storeCustomer.findMany({
       where: { websiteId: website.id },
       orderBy: { lastSeenAt: "desc" },

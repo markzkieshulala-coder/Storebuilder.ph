@@ -163,6 +163,77 @@ export async function ensureSchemaMigrations() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreVisit_websiteId_createdAt_idx" ON "StoreVisit"("websiteId","createdAt")`);
   } catch (e) { console.error("[migrations] StoreVisit:", e); }
 
+  // ─── ENTERPRISE store CRM — Products + Discounts ───────────────────────────
+  // StoreProduct: full product catalog with inventory tracking. Replaces the
+  // ad-hoc "products in jsonContent" approach so admins can edit stock /
+  // status / pricing without re-generating the site.
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreProduct" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "name" TEXT NOT NULL,
+      "description" TEXT,
+      "sku" TEXT,
+      "priceCents" INTEGER NOT NULL DEFAULT 0,
+      "compareAtCents" INTEGER,
+      "currency" TEXT NOT NULL DEFAULT 'PHP',
+      "stock" INTEGER NOT NULL DEFAULT 0,
+      "trackInventory" BOOLEAN NOT NULL DEFAULT true,
+      "imageUrl" TEXT,
+      "images" JSONB,
+      "category" TEXT,
+      "tags" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+      "weightGrams" INTEGER,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreProduct_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreProduct_websiteId_idx" ON "StoreProduct"("websiteId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreProduct_status_idx" ON "StoreProduct"("status")`);
+  } catch (e) { console.error("[migrations] StoreProduct:", e); }
+
+  // StoreDiscount: percentage / fixed-amount coupons. Validated at checkout
+  // time. `usageLimit` and `usageCount` cap how many times a code can be used.
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreDiscount" (
+      "id" TEXT PRIMARY KEY,
+      "websiteId" TEXT NOT NULL,
+      "code" TEXT NOT NULL,
+      "type" TEXT NOT NULL DEFAULT 'PERCENT',
+      "value" INTEGER NOT NULL,
+      "minOrderCents" INTEGER,
+      "usageLimit" INTEGER,
+      "usageCount" INTEGER NOT NULL DEFAULT 0,
+      "startsAt" TIMESTAMPTZ,
+      "endsAt" TIMESTAMPTZ,
+      "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreDiscount_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE,
+      CONSTRAINT "StoreDiscount_websiteId_code_key" UNIQUE ("websiteId","code")
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreDiscount_websiteId_idx" ON "StoreDiscount"("websiteId")`);
+  } catch (e) { console.error("[migrations] StoreDiscount:", e); }
+
+  // Extra columns on StoreOrder used by the new admin Order detail page —
+  // fulfillment status + shipping fields. All optional, all nullable.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "StoreOrder" ADD COLUMN IF NOT EXISTS "fulfillmentStatus" TEXT NOT NULL DEFAULT 'UNFULFILLED'`);
+  } catch (e) { console.error("[migrations] fulfillmentStatus col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "StoreOrder" ADD COLUMN IF NOT EXISTS "shippingAddress" JSONB`);
+  } catch (e) { console.error("[migrations] shippingAddress col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "StoreOrder" ADD COLUMN IF NOT EXISTS "trackingNumber" TEXT`);
+  } catch (e) { console.error("[migrations] trackingNumber col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "StoreOrder" ADD COLUMN IF NOT EXISTS "discountCode" TEXT`);
+  } catch (e) { console.error("[migrations] discountCode col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "StoreOrder" ADD COLUMN IF NOT EXISTS "discountCents" INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) { console.error("[migrations] discountCents col:", e); }
+
   // LoginEvent — per-sign-in audit trail. Used for the admin Login History
   // panel and the sign-in notification email. Captures device, browser, OS,
   // IP, and best-effort geolocation.
