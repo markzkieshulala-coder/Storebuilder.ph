@@ -75,21 +75,31 @@ const PROFESSIONAL_PALETTES = [
 // "AI-generated cartoon site." Each one suggests a distinct typographic and
 // compositional treatment so two consecutive generations don't feel alike.
 const STYLE_DIRECTIONS = [
-  "Editorial magazine — oversized serif-style display type, deep negative space, single full-bleed hero photo, two-column body layout below.",
-  "Swiss minimal — strict 12-column grid, restrained type sizes, single muted accent, monochrome photo treatment, lots of breathing room.",
-  "Quiet luxury — tight letter-spacing, subdued cream/gold accent on charcoal, oversized hero portrait, intimate narrative copy.",
-  "Modern tech — geometric layout, monospace numerical labels, single saturated accent on near-black surfaces, dense product specs, terse confident copy.",
-  "Warm artisan — earthy charcoal-and-bronze palette, generous side margins, story-led about section, close-up macro product photography.",
-  "Premium hospitality — atmospheric darker photography, strong typographic hierarchy, testimonial-led, single warm gold accent.",
-  "Architectural minimalism — long single-column flow, geometric image crops with asymmetric margins, minimalist hairline rules instead of borders.",
-  "Documentary editorial — black-and-white portrait imagery, real-life candid compositions, human-first copy tone, large quote blocks.",
-  "Heritage corporate — classical proportions, founding-year date plates, restrained serif headers, monochrome photography with subtle grain.",
-  "Brutalist editorial — raw asymmetric grid, oversized condensed display type, hairline horizontal rules between sections, no decorative elements.",
-  "Cinematic atmospheric — dim full-bleed hero, dramatic vignette gradient, story arc across sections, narrative-driven copy.",
-  "Contemporary studio — bold portrait imagery, modular asymmetric grid, expressive but disciplined display typography, no decorative gradients.",
-  "Premium boutique — refined spacing, oversized hero, intimate letterspacing on display headers, single muted secondary color.",
-  "Editorial photo essay — full-bleed images alternating with deeply set text columns, image captions in mono, tight body copy.",
-  "Restrained corporate — Inter-style sans, sharp 8pt grid, single accent reserved for CTAs only, everything else neutral.",
+  "Editorial magazine — oversized display type, deep negative space, single full-bleed hero photo, two-column body layout below the fold.",
+  "Swiss minimal — strict 12-column grid, restrained type sizes, single muted accent, monochrome photo treatment, abundant breathing room.",
+  "Quiet luxury — tight letter-spacing, dark charcoal body, oversized hero portrait anchored to left edge, intimate founder narrative.",
+  "Modern tech — geometric layout, monospace numerical labels, single deep navy accent on near-black surfaces, terse confident copy.",
+  "Warm artisan — earthy charcoal-and-bronze tone, generous side margins, story-led about section, macro close-up product photography.",
+  "Premium hospitality — atmospheric full-bleed photography, strong typographic hierarchy, testimonial-first structure, single warm accent.",
+  "Architectural minimalism — long single-column scroll, geometric image crops with asymmetric margins, hairline rules instead of borders.",
+  "Documentary editorial — candid real-life photography, human-first copy tone, large pull-quote blocks, high-contrast black-on-white.",
+  "Heritage brand — classical proportions, founding-year datestamp, dark charcoal headline weight, monochrome photography.",
+  "Brutalist editorial — raw asymmetric grid, oversized condensed uppercase headline, hairline horizontal rules, zero decoration.",
+  "Cinematic atmospheric — dim full-bleed hero, dramatic vignette treatment, narrative-driven story arc, single saturated deep accent.",
+  "Contemporary studio — bold portrait imagery, modular asymmetric grid, expressive but disciplined typography, clean white surface.",
+  "Premium boutique — refined micro-spacing, oversized hero, uppercase tracking on headings, one muted secondary color.",
+  "Editorial photo essay — full-bleed images alternating with deeply inset text columns, mono captions, extremely tight body copy.",
+  "Restrained corporate — sharp 8pt grid, single accent reserved for CTAs only, everything else pure neutral.",
+  "Monochromatic dark — near-black background, white text, single ice-blue or silver accent, dramatic contrast-heavy imagery.",
+  "Off-white linen — warm off-white #FAF7F2 background, espresso text, no accent — image contrast does all the work.",
+  "Gallery white — pure white canvas, oversized typography, large imagery with generous padding, museum-like spacing.",
+  "Compact information-dense — tight grid, small type, many sections visible at once, data-led with clear typographic hierarchy.",
+  "Editorial contrast — alternating pure-black and pure-white section backgrounds, bold headline reversal, no soft grays.",
+  "Luxury retail — product-first layout, very large product imagery at top, minimal text overlaid on white, clean pricing blocks.",
+  "Founder story-first — large single portrait of founder with personal narrative, services secondary, relationship-building tone.",
+  "Portfolio grid — masonry-style image layout as hero, brand name restrained in top-left corner, work speaks for itself.",
+  "Journalistic — long-form about copy, chapter-like section headers, editorial bylines, pull stats in large numerals.",
+  "Dark matter — deep space black background, pure white type, single electric accent only on primary CTA, stark photography.",
 ];
 
 // Section ordering variants — break up the predictable nav→hero→features→…→footer pattern.
@@ -104,6 +114,14 @@ const SECTION_LAYOUT_VARIANTS = [
   "nav → hero → gallery → about → features → stats → newsletter → footer",
   "nav → hero → testimonials → features → about → process → cta → footer",
   "nav → hero → stats → about → gallery → features → testimonials → cta → footer",
+  "nav → hero → about → gallery → features → process → cta → footer",
+  "nav → hero → features → gallery → testimonials → faq → contact → footer",
+  "nav → hero → stats → testimonials → about → process → newsletter → footer",
+  "nav → hero → about → stats → features → gallery → cta → footer",
+  "nav → hero → testimonials → about → stats → process → faq → footer",
+  "nav → hero → gallery → testimonials → features → stats → cta → footer",
+  "nav → hero → process → about → testimonials → faq → newsletter → footer",
+  "nav → hero → features → stats → about → gallery → cta → footer",
 ];
 
 // Hero composition variants — push the AI to render hero differently each time.
@@ -113,7 +131,13 @@ const HERO_COMPOSITIONS = [
   "Centered minimal — small kicker label, big headline, sub-paragraph, two CTAs side-by-side, photo below the fold.",
   "Asymmetric overlap — headline behind the image, photo offset down-right, micro-stats beneath.",
   "Image-first — large square image takes 60% of viewport, headline + short tagline tucked in the remaining 40%.",
-  "Gradient overlay full-bleed — atmospheric image with darkened gradient, kicker, headline, sub, single CTA.",
+  "Dark overlay full-bleed — atmospheric image with semi-opaque dark overlay, kicker in mono caps, single bold CTA.",
+  "Text-dominant — 80% headline typography on white, single portrait image inset at right edge.",
+  "Oversized kicker + short headline — large label text (e.g. 'EST. 2018' or niche category), four-word headline beneath, no CTA above fold.",
+  "Cinematic letterbox — ultra-wide landscape photo, headline in white at vertical center, no other elements.",
+  "Two-column product spotlight — left: headline + short subtext + CTA, right: product or lifestyle photo in a tight frame.",
+  "Full-screen photo with headline pinned top-right, sub text bottom-left — diagonal tension layout.",
+  "Stacked horizontal bands — narrow dark top band (nav), full-bleed hero image middle, white text block at bottom.",
 ];
 
 // ─── Detect & replace non-professional colors ────────────────────────────────
@@ -139,9 +163,13 @@ function isNeonOrBright(hex: string): boolean {
   if (!hex || !hex.startsWith("#") || hex.length < 7) return false;
   const hsl = hexToHsl(hex);
   if (!hsl) return false;
-  // Anything with meaningful saturation is rejected for backgrounds.
-  // Neutral palette only.
-  return hsl.s > 0.10;
+  // Very dark saturated colors (navy, forest green, burgundy) are premium — allow them.
+  if (hsl.l < 0.30) return false;
+  // Vivid + bright = neon. Reject.
+  if (hsl.s > 0.60 && hsl.l > 0.45) return true;
+  // Extremely saturated regardless of lightness — reject.
+  if (hsl.s > 0.85) return true;
+  return false;
 }
 
 // Backgrounds must be neutral — either near-white (luxury light) or near-black
@@ -244,92 +272,190 @@ const UNSPLASH_BASE = "https://images.unsplash.com/photo-";
 // actually match the brand.
 const CATEGORY_PHOTO_POOLS: Record<string, string[]> = {
   footwear: [
+    // leather & dress shoes
     "1542291026-7eec264c27ff", "1551232864-3f0890e580d9", "1490481651871-ab68de25d43d",
-    "1607082348824-0a96f2a4b9da", "1542291026-7eec264c27ff", "1603808033192-08f7a2a5f1a5",
-    "1584735175097-bcd5629a53e9", "1542291026-7eec264c27ff", "1539185100878-f28628d13e5d",
-    "1600269452121-4f2416e55c28", "1491553895911-0055eca6402d", "1539185100878-f28628d13e5d",
+    "1607082348824-0a96f2a4b9da", "1603808033192-08f7a2a5f1a5", "1584735175097-bcd5629a53e9",
+    "1539185100878-f28628d13e5d", "1600269452121-4f2416e55c28", "1491553895911-0055eca6402d",
     "1608231387042-66d1773d3028", "1519415943484-9fa1873496d4", "1606107557195-0e29a4b5b4aa",
-    "1542291026-7eec264c27ff", "1556905055-8f358a7a47b2", "1521334884684-d80222895322",
-    "1583759136431-a55e32e4a9c8", "1600185365926-3a2ce3cdb9eb", "1559582798-678dfc71ccd8",
-    "1543163521-1bf539c55dd2", "1525966222134-fcfa99b8ae77", "1483985988355-763728e1935b",
-    "1549298916-b41d501d3772",
+    "1556905055-8f358a7a47b2", "1521334884684-d80222895322", "1583759136431-a55e32e4a9c8",
+    "1600185365926-3a2ce3cdb9eb", "1559582798-678dfc71ccd8", "1549298916-b41d501d3772",
+    // sneakers & casual
+    "1595341190-0e38ab913f07", "1568702846114-d9d52ab3bcdf", "1556906785-bb1e50b6b8b0",
+    "1510771463591-04ff9ba3e96c", "1591348122397-48b3a3dc2b76", "1595950653106-bac8e5f9a2b0",
+    "1582588678413-dbf45f4823e9", "1556908653-8e86b7d0e6df", "1600185367522-b91a3d3042ca",
+    "1513104890138-7c749659a591", "1612195409025-c684fcf3a87e", "1507003211169-0a1dd7228f2d",
+    // boots & textured materials
+    "1570677509-4f1e7f0a7e9a", "1624292087-fb3aaef2b97d", "1602532305019-3dbbd64f9176",
+    "1519236564366-f5c81f4f5f82", "1614252235316-8bfab313d581", "1605348438312-3b8c3da1b7bc",
+    // cobbler / craft / workshop
+    "1621696322156-c89d58c86ef3", "1574180566232-aaad1b5b8450", "1607749860816-a5d4dfd5e4b3",
+    "1506439773649-6e0eb8cfb237", "1532009877282-3340270e0529", "1565193566173-7a0ee3dbe261",
   ],
   fashion: [
+    // editorial lookbook
     "1483985986-9e7dcf2e1a8e", "1529903672776-b51b5379fcf4", "1445205170230-053b83016050",
     "1567401893414-76b7b1e5a7a5", "1576566588028-4147f3842f27", "1516762689-1b8e44c75a0b",
     "1525507119428-b1f248080c57", "1558618666-fcd25c85cd64", "1554290712-e640351074bd",
-    "1487412947147-5cebf96ef2ff", "1596462502278-27bfdc403348", "1515688594-0eebcca23e55",
-    "1552664730-d307ca884978", "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
     "1434389677669-e08b4cac3105", "1469334031218-e382a71b716b", "1509631179647-0177331693ae",
-    "1517428084727-ff65e139a29e", "1586297135537-9b5cfd5d0203", "1509631179647-0177331693ae",
-    "1496747488704-06a9c4f1add1", "1475180429745-5d1e68e31cd1", "1490481651871-ab68de25d43d",
-    "1539109136881-3be0616acf4b",
+    "1517428084727-ff65e139a29e", "1586297135537-9b5cfd5d0203", "1496747488704-06a9c4f1add1",
+    "1475180429745-5d1e68e31cd1", "1490481651871-ab68de25d43d", "1539109136881-3be0616acf4b",
+    // street style / model shots
+    "1515886657613-9f3515b0c78f", "1508214751196-22927d55b97d", "1490707842-8c0a8fa3c2bf",
+    "1524504388940-b1c1722653e4", "1584043718892-a4e2e8ab1042", "1541101767792-f9b2b1c4f127",
+    "1503341504253-dff4815485f1", "1485230895905-ec40ba36b9bc", "1562572159-4edb4f26e2d5",
+    "1614093302611-ad3d26b7b31a", "1496079509898-20e5a3fc1d0e", "1512316609839-ce654a9fd0b8",
+    // fabric textures / flat lays
+    "1558769132-cb1aea153895", "1530025809667-f3aeee396bcf", "1495474472287-4d71bcdd2085",
+    "1521572163474-6864f9cf17ab", "1603400521630-9f2de124b33b", "1467043153537-a4fba2cd39ef",
   ],
   food: [
+    // plated dishes & fine dining
     "1414235077428-338989a2e8c0", "1476224203421-74177e9bcce6", "1504674900247-0877df9cc836",
     "1555396273-367ea4eb4db5", "1565299624946-b28f40a0ae38", "1490645935967-10de6ba17061",
-    "1482049016688-2d3e1b311543", "1517248135467-4c7edcad34c4", "1559925393-8be0ec4767c8",
-    "1546069901-ba9599a7e63c", "1565958011703-44f9829ba187", "1551024601-bec78aea704b",
-    "1498837167922-ddd27525d352", "1424847651672-bf20a4b0982b", "1540189549336-e6e99c3679fe",
-    "1485921325833-c519f76c4927", "1473093226589-8e0c6927e2f0", "1512621776951-a57141f2eefd",
-    "1490818715327-e7843b5df685", "1504564266660-7f5f4a5fa7ff", "1534482421-64566f976cfa",
-    "1525351484163-7529414344d8", "1482049016688-2d3e1b311543", "1414235077428-338989a2e8c0",
-    "1550966871-3ed3cdb5ed0c",
+    "1517248135467-4c7edcad34c4", "1559925393-8be0ec4767c8", "1546069901-ba9599a7e63c",
+    "1565958011703-44f9829ba187", "1551024601-bec78aea704b", "1498837167922-ddd27525d352",
+    "1424847651672-bf20a4b0982b", "1540189549336-e6e99c3679fe", "1485921325833-c519f76c4927",
+    "1473093226589-8e0c6927e2f0", "1512621776951-a57141f2eefd", "1504564266660-7f5f4a5fa7ff",
+    "1550966871-3ed3cdb5ed0c", "1534482421-64566f976cfa",
+    // cafe & bakery
+    "1509042438644-03b8e48b9df3", "1495474472287-4d71bcdd2085", "1542314831-068cd1dbfeeb",
+    "1481931098730-318b6f776db0", "1517433670267-305172d1699a", "1606787364406-a3c3c1952e0b",
+    "1495147466023-ac5c588e2e94", "1568901346375-23c9450c58cd", "1559056189-7d92b12862f4",
+    "1571091718767-18b5b1457add", "1534040385115-33dcb3f21137", "1504388535701-3f72cb39a5af",
   ],
   beauty: [
-    "1560066984-138dadb4c035", "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
-    "1487412947147-5cebf96ef2ff", "1596462502278-27bfdc403348", "1515688594-0eebcca23e55",
-    "1570172619644-dfd03ed5d881", "1522337360788-8b13dee7a37e", "1519415943484-9fa1873496d4",
+    // skincare & products
+    "1560066984-138dadb4c035", "1570172619644-dfd03ed5d881", "1522337360788-8b13dee7a37e",
     "1516975080664-ed2fc6a32937", "1512290923902-8a9f81dc236c", "1522338242992-e1f1c1b65a39",
-    "1487412947147-5cebf96ef2ff", "1519824187-d30049d47b50", "1616394584738-fc6e612e71b9",
-    "1599566150163-29194dcaad36", "1526413232644-8a7f3d23a04b", "1607748851610-cef42b53c18e",
-    "1516975080664-ed2fc6a32937", "1518459439390-bd1e3c5cac2f", "1598300042247-d088f8ab3a91",
-    "1596462502278-27bfdc403348", "1588776814546-daab30f11f40", "1570172619644-dfd03ed5d881",
-    "1611073615830-b3a79be91b0d",
+    "1519824187-d30049d47b50", "1616394584738-fc6e612e71b9", "1599566150163-29194dcaad36",
+    "1526413232644-8a7f3d23a04b", "1607748851610-cef42b53c18e", "1518459439390-bd1e3c5cac2f",
+    "1598300042247-d088f8ab3a91", "1588776814546-daab30f11f40", "1611073615830-b3a79be91b0d",
+    // salon & treatment
+    "1515377905703-c4788e51af15", "1582095133179-bfd5a1b6cd60", "1540555700478-4be289fbecef",
+    "1559762384-1b1f534e5a26", "1516841273335-e04b7dc3f29e", "1582037928769-181f13fc44e7",
+    "1611336273904-de0b0e0eedb1", "1535585209876-c1b4b8bfc05d", "1598440947619-2c35fc9aa908",
+    // spa & wellness atmosphere
+    "1544161513-0179fe746fd5", "1600334129128-685f39be5481", "1614253901-5b3b5c3fad12",
+    "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b", "1596462502278-27bfdc403348",
+    "1515688594-0eebcca23e55", "1487412947147-5cebf96ef2ff", "1519415943484-9fa1873496d4",
   ],
   tech: [
-    "1518770660439-4636190af475", "1497366216548-37526070297c", "1552664730-d307ca884978",
-    "1519389950473-47ba0277781c", "1461749280684-dccba630e2f6", "1581291518857-4e27b48ff24e",
+    // workspace & desk setups
+    "1518770660439-4636190af475", "1497366216548-37526070297c", "1519389950473-47ba0277781c",
+    "1461749280684-dccba630e2f6", "1581291518857-4e27b48ff24e", "1499951360447-b19be8fe80f5",
+    "1486312338219-ce68d2c6f44d", "1517048676732-d65bc937f952", "1504868584819-f8e8b4b6d7e3",
+    "1516116216624-53ad0573a9c6", "1531297484001-80022131f5a1", "1558494949-ef010cbdcc31",
+    "1553877522-43269d4ea984", "1498050108023-c5249f4df085", "1451187580459-43490279c0fa",
+    "1550751827-4bd374c3f58b", "1563770660941-10a27b6e73fd", "1517373116369-9bdb8cdc2f9a",
+    "1580894894513-541e088a3209", "1504384308090-c894fdcc538d",
+    // developer & software
     "1593642632559-0c6d3fc62b89", "1587620962725-abab7fe55159", "1531403009284-440f080d1e12",
-    "1499951360447-b19be8fe80f5", "1486312338219-ce68d2c6f44d", "1517048676732-d65bc937f952",
-    "1504868584819-f8e8b4b6d7e3", "1516116216624-53ad0573a9c6", "1531297484001-80022131f5a1",
-    "1558494949-ef010cbdcc31", "1504384308090-c894fdcc538d", "1553877522-43269d4ea984",
-    "1498050108023-c5249f4df085", "1451187580459-43490279c0fa", "1550751827-4bd374c3f58b",
-    "1504384308090-c894fdcc538d", "1563770660941-10a27b6e73fd", "1517373116369-9bdb8cdc2f9a",
-    "1580894894513-541e088a3209",
+    "1552664730-d307ca884978", "1521791136064-7986c2920216", "1555421689-3596236e427f",
+    "1574717024453-354056aafa98", "1607799279861-4dd421888d00", "1542831010-ee7bf77da4a9",
+    "1537432376769-00f5c2f4c8d2", "1629654297299-c8506221ca97", "1610563166150-b34b5703a6a2",
   ],
   portfolio: [
+    // creative studio & equipment
     "1513475382585-d06e58bcb0e0", "1547891654-e66ed7ebb968", "1561070791-2526d30994b8",
-    "1502691876148-a84978e59af8", "1516259762381-22954d7d3ad2", "1499781350541-7783f6c6a0c8",
-    "1551038247-3d9af20df552", "1534447677768-be436bb09401", "1524758631624-e2822e304c36",
-    "1600880292203-757bb62b4baf", "1557804506-669a67965ba0", "1497366811353-6870744d04b2",
-    "1558618666-fcd25c85cd64", "1554290712-e640351074bd", "1516259762381-22954d7d3ad2",
-    "1513519245088-8b16c46c7ab1", "1481627834876-b7833e8f5a27", "1460661419201-fd4cecdf8a8b",
-    "1456926631375-92c8ce872def", "1471897488348-1f7c9c7f1a63", "1507721999473-8ff76701704d",
-    "1517960813568-27820b2fa5cd", "1451187580459-43490279c0fa", "1520085601670-ee14aa5fa3e2",
-    "1543269865-cbf427effbad",
+    "1502691876148-a84978e59af8", "1499781350541-7783f6c6a0c8", "1551038247-3d9af20df552",
+    "1534447677768-be436bb09401", "1524758631624-e2822e304c36", "1600880292203-757bb62b4baf",
+    "1557804506-669a67965ba0", "1497366811353-6870744d04b2", "1513519245088-8b16c46c7ab1",
+    "1481627834876-b7833e8f5a27", "1460661419201-fd4cecdf8a8b", "1456926631375-92c8ce872def",
+    "1471897488348-1f7c9c7f1a63", "1507721999473-8ff76701704d", "1520085601670-ee14aa5fa3e2",
+    "1558618666-fcd25c85cd64", "1554290712-e640351074bd",
+    // photography / videography
+    "1516259762381-22954d7d3ad2", "1517960813568-27820b2fa5cd", "1543269865-cbf427effbad",
+    "1452587925148-ce544e77e70d", "1534655088264-f5f6bda6fa7b", "1576671414432-78c7ca295958",
+    "1587578855966-97e4c9eb56e0", "1606406054219-619c4e9d87e7", "1609348262030-cf0a3cd8b7fc",
+    "1550938498-ab43a42d9c8d", "1481162854517-d9be8c4a9f08", "1603481588273-2f7786ba4505",
   ],
   interior: [
+    // living rooms & furniture
     "1486325212027-8081e485255e", "1502602898657-3e91760cbb34", "1507089947368-19c1da9775ae",
     "1486718448742-163732cd1544", "1497366754035-f200968a6e72", "1555041469-a586c61ea9bc",
-    "1524758631624-e2822e304c36", "1600880292203-757bb62b4baf", "1557804506-669a67965ba0",
-    "1558618666-fcd25c85cd64", "1560185127-6a5ac5f39d69", "1585128792020-2ea88b98f8bb",
-    "1493809842364-78817add7ffb", "1556020685-bfb6b8e2fb9e", "1616486448229-72a87b5d5041",
-    "1600210492493-0946911123ea", "1600596542815-0c35f65a7b0b", "1567038327802-9b1d1e28d8e7",
-    "1615874959474-d609969a20ed", "1584622650111-993a426fbf0a", "1596700348-30ce42a01ae5",
-    "1560448204-e02f11c3d0e2", "1556912167-f556b55b23d5", "1550226891-ef0b7a2d0d34",
-    "1534430480872-3498386ece01",
+    "1560185127-6a5ac5f39d69", "1585128792020-2ea88b98f8bb", "1493809842364-78817add7ffb",
+    "1556020685-bfb6b8e2fb9e", "1616486448229-72a87b5d5041", "1600210492493-0946911123ea",
+    "1600596542815-0c35f65a7b0b", "1567038327802-9b1d1e28d8e7", "1615874959474-d609969a20ed",
+    "1584622650111-993a426fbf0a", "1560448204-e02f11c3d0e2", "1556912167-f556b55b23d5",
+    "1550226891-ef0b7a2d0d34", "1534430480872-3498386ece01",
+    // kitchens, dining, bedrooms
+    "1556909114-f6e7ad7d3136", "1558618666-fcd25c85cd64", "1505692952047-1a78307da8d2",
+    "1564078516393-cf04bd966897", "1507652313519-cda5a2b95d94", "1618221195710-dd6b41faaeaa",
+    "1549497538-10d0464ac18c", "1576698483491-8c43f0862543", "1598928506311-c55ded91a20c",
+    "1590381105924-c72589b9ef3f", "1604709177225-055f99402ea3", "1582037928769-181f13fc44e7",
   ],
   health: [
-    "1524178232363-1fb2b075b655", "1571019613454-1cb2f99b2d8b", "1544367567-0f2fcb009e0b",
-    "1523050854058-8df90110c9f1", "1517836357463-d25dfeac3438", "1549737328-b0a28445d6a9",
-    "1507120878965-54b2d3939100", "1571019613914-f86c7f5f5e18", "1540339832862-474599807c3b",
-    "1544198365-f5d60b6d8190", "1571019614099-cf8c2c1cd40d", "1546483875-ad9f36d26a85",
-    "1571019613454-1cb2f99b2d8b", "1519311726-d61bde75f1c0", "1518310383802-640c2de311b2",
+    // gym & fitness
+    "1524178232363-1fb2b075b655", "1523050854058-8df90110c9f1", "1517836357463-d25dfeac3438",
+    "1549737328-b0a28445d6a9", "1507120878965-54b2d3939100", "1540339832862-474599807c3b",
+    "1544198365-f5d60b6d8190", "1519311726-d61bde75f1c0", "1518310383802-640c2de311b2",
     "1534438327015-2e4dee4ce60e", "1584464491033-f628beba22af", "1574680096145-d05b474e2155",
     "1540497077302-073d6b8ee1e0", "1529516222807-2536f98c9b4e", "1572521165-1416b9869d02",
     "1521791136064-7986c2920216", "1548534228-56f94a0aa55c", "1576678927484-cc907957088c",
     "1506126279646-a697353d3166",
+    // yoga & wellness
+    "1544161513-0179fe746fd5", "1516310502399-09f4e3a9e2e5", "1539794830-405e1ccd3a73",
+    "1571019613914-f86c7f5f5e18", "1571019614099-cf8c2c1cd40d", "1546483875-ad9f36d26a85",
+    "1537368910025-700350fe46c7", "1559595500-e15296b8b2b4", "1558016283-4f0e04d0c3e1",
+    "1518611012118-696072aa579a", "1506905925346-21bda4d32df4", "1547592166-23ac88de23eb",
+  ],
+  coffee: [
+    // cafe interiors & atmosphere
+    "1509042438644-03b8e48b9df3", "1495474472287-4d71bcdd2085", "1542314831-068cd1dbfeeb",
+    "1481931098730-318b6f776db0", "1517433670267-305172d1699a", "1555951015-6da899b5c2cd",
+    "1493857671505-72967e2e2760", "1521017432531-fbd92d768814", "1501339847302-ac426a4a7cbb",
+    "1461023058943-07fcbe16d735", "1495615080073-6b4b3ef22246", "1569598119741-b3f73af12c77",
+    // espresso / latte art / beans
+    "1510972525817-7b1bb1b69e18", "1554118811-1e0d58224f24", "1495474472287-4d71bcdd2085",
+    "1525362081669-2b476bb628c3", "1511920183355-89db95e5fb28", "1587734195503-904fca47e0e9",
+    "1568651985836-b04fd09e4ba3", "1442512435317-3b08e7b1e736", "1509042438644-03b8e48b9df3",
+    "1518057532296-7449abc37d9c", "1434389677669-e08b4cac3105", "1502781252888-9143e6ea9b09",
+    // barista at work
+    "1602985429285-5d9c2986d6de", "1497515114865-36b3e5f39e30", "1558618666-fcd25c85cd64",
+    "1508666185905-466023ab3ec8", "1436076863939-06870fe779c2", "1607012987-5a78a65a3c53",
+  ],
+  jewelry: [
+    // rings, necklaces, earrings
+    "1515562141207-7a88fb7ce338", "1603161168305-79da6e10258b", "1573408301185-9521e7d27212",
+    "1587304540539-18c547aeba49", "1605100804763-247f67b3557e", "1611085583191-a3b181a88558",
+    "1617038260897-41a533e3f0d8", "1598560917505-59118b0eb7b4", "1605100804763-247f67b3557e",
+    "1581252177561-25ae2a7d0a6a", "1522312346375-d1a52e2b99b3", "1608042314955-7818e3aead46",
+    // flat-lay on marble / minimal surfaces
+    "1602143407151-7f4bda0f1f13", "1507699522086-f7a3131c4395", "1558618048-fcd4737cdbe5",
+    "1614252235316-8bfab313d581", "1594995846645-4abed5d2b979", "1617704548623-340376e0b05c",
+    "1599643477877-530eb83abc8e", "1616763289969-14f7e08568ae", "1603298512564-09b0ea0b5f63",
+    "1573676048-82b7ef26498c", "1589810635657-cf433f5fcab2", "1580706483913-b6ea7db26e87",
+    "1543294001-f1cd7ea5b9fc", "1612278675554-489b31a5dd5a", "1615751283042-e9e578011eea",
+  ],
+  restaurant: [
+    // upscale dining & plating
+    "1414235077428-338989a2e8c0", "1555396273-367ea4eb4db5", "1517248135467-4c7edcad34c4",
+    "1559925393-8be0ec4767c8", "1565958011703-44f9829ba187", "1551024601-bec78aea704b",
+    "1498837167922-ddd27525d352", "1540189549336-e6e99c3679fe", "1512621776951-a57141f2eefd",
+    "1550966871-3ed3cdb5ed0c",
+    // restaurant interiors & ambiance
+    "1414235077428-338989a2e8c0", "1559056189-7d92b12862f4", "1571091718767-18b5b1457add",
+    "1534040385115-33dcb3f21137", "1504388535701-3f72cb39a5af", "1455619452474-d73300d61ebb",
+    "1414235077428-338989a2e8c0", "1466978913421-dad2ebd01d17", "1504674900247-0877df9cc836",
+    "1476224203421-74177e9bcce6", "1490645935967-10de6ba17061", "1568901346375-23c9450c58cd",
+    // chef & kitchen
+    "1543353071-087092ec393a", "1466978913421-dad2ebd01d17", "1504439898-d0bb1c60a5f1",
+    "1530062845289-9109b2c9d409", "1601050690597-df0568f70950", "1607877742574-a75abb0f426e",
+  ],
+  events: [
+    // weddings & celebrations
+    "1519741497674-611481863552", "1464366400600-7168b8af9bc3", "1519741497674-611481863552",
+    "1519225421980-9eab9f9c1d72", "1464366400600-7168b8af9bc3", "1515934733-9f9bce3f8b5b",
+    "1527529482837-4698179dc6ce", "1465495976277-a703f73bec8a", "1606800052052-943a01aef71b",
+    "1583939003579-730e3918a45a", "1532635240-cdd5bd4e6b19",
+    // venue & florals
+    "1519741497674-611481863552", "1526047932273-341f2a7631f9", "1527529482837-4698179dc6ce",
+    "1516051662689-12edbf34bcf8", "1600334129128-685f39be5481", "1511795409834-ef04bbd61622",
+    "1519225421980-9eab9f9c1d72", "1507003211169-0a1dd7228f2d", "1552673352-aeff79d678e7",
+    "1465495976277-a703f73bec8a", "1519741497674-611481863552", "1606800052052-943a01aef71b",
+    // event decor & atmosphere
+    "1540575467063-b3a1aeb66497", "1501281668745-b526be2f353b", "1551818255-a7060ae81f6e",
+    "1530026405591-2b4b24cf35e9", "1519225421980-9eab9f9c1d72", "1515934733-9f9bce3f8b5b",
   ],
   // General fallback — editorial / business / varied
   general: [
@@ -341,21 +467,27 @@ const CATEGORY_PHOTO_POOLS: Record<string, string[]> = {
     "1502691876148-a84978e59af8", "1519741497674-611481863552", "1464366400600-7168b8af9bc3",
     "1525966222134-fcfa99b8ae77", "1543163521-1bf539c55dd2", "1461749280684-dccba630e2f6",
     "1519389950473-47ba0277781c", "1551038247-3d9af20df552", "1534447677768-be436bb09401",
-    "1600596542815-0c35f65a7b0b",
+    "1600596542815-0c35f65a7b0b", "1521737711867-e3b97375f902", "1556742049-0cfed4f719b8",
+    "1611532736597-de2d4265fba3", "1519831307965-2b22a0b27f43", "1504439898-d0bb1c60a5f1",
+    "1579389083395-4507e98f5e67", "1542744173-8e7e53415bb0", "1530099163-39c0b00f9f24",
   ],
 };
 
 // Infer which photo category best matches a generation prompt.
 function inferPhotoCategory(userPrompt: string): string {
   const q = userPrompt.toLowerCase();
-  if (/shoe|sneaker|footwear|boot|sandal|heel|leather shoe|calzado|sapatos/.test(q)) return "footwear";
-  if (/fashion|clothing|apparel|boutique|wear|dress|shirt|terno|thus|blouse|skirt|pants|jeans|suit/.test(q)) return "fashion";
-  if (/food|restaurant|cafe|coffee|bakery|catering|dining|cuisine|bar|bistro|kain|lutuin|pagkain|resto/.test(q)) return "food";
-  if (/salon|spa|beauty|skincare|hair|nail|lash|brow|ganda|aesthetics|wellness clinic/.test(q)) return "beauty";
-  if (/tech|software|app|dev|digital|it services|web agency|startup|saas|platform|coding|programmer/.test(q)) return "tech";
-  if (/portfolio|photography|photographer|videographer|creative|artist|design studio|illustration/.test(q)) return "portfolio";
-  if (/interior|furniture|home decor|renovation|architecture|condo|real estate|property/.test(q)) return "interior";
-  if (/gym|fitness|workout|health|yoga|pilates|sports|training|coach|nutrition/.test(q)) return "health";
+  if (/shoe|sneaker|footwear|boot|sandal|heel|leather shoe|calzado|sapatos|cobbler|cordwainer|loafer|oxford|derby/.test(q)) return "footwear";
+  if (/jewelry|jewellery|ring|necklace|earring|bracelet|gold|silver|diamond|gemstone|accessory|accessories|alahas/.test(q)) return "jewelry";
+  if (/wedding|event|party|celebration|catering event|venue|florals|flowers|anniversary|debut|baptism/.test(q)) return "events";
+  if (/coffee shop|cafe|barista|espresso|latte|cappuccino|brew|kape|coffeehouse/.test(q)) return "coffee";
+  if (/restaurant|dining|bistro|brasserie|tasting menu|fine dining|diner|eatery/.test(q)) return "restaurant";
+  if (/food|bakery|catering|cuisine|bar|kain|lutuin|pagkain|restaurant|pastry|bake|bread|dessert|cake/.test(q)) return "food";
+  if (/fashion|clothing|apparel|boutique|wear|dress|shirt|terno|blouse|skirt|pants|jeans|suit|streetwear|couture|luto|damit/.test(q)) return "fashion";
+  if (/salon|spa|beauty|skincare|hair|nail|lash|brow|ganda|aesthetics|wellness clinic|facial|waxing|massage|blow dry/.test(q)) return "beauty";
+  if (/tech|software|app|dev|digital|it services|web agency|startup|saas|platform|coding|programmer|cybersecurity|cloud/.test(q)) return "tech";
+  if (/portfolio|photography|photographer|videographer|creative|artist|design studio|illustration|graphic|content creator|filmmaker/.test(q)) return "portfolio";
+  if (/interior|furniture|home decor|renovation|architecture|condo|real estate|property|staging|modular/.test(q)) return "interior";
+  if (/gym|fitness|workout|health|yoga|pilates|sports|training|coach|nutrition|crossfit|martial arts|boxing|muay thai/.test(q)) return "health";
   return "general";
 }
 
@@ -926,8 +1058,21 @@ function postProcess(
     resetPhotoPool(category);
   }
 
-  // Force Google Sans always
-  website.fonts = { heading: "Google Sans", body: "Google Sans" };
+  // Pick a varied but premium font pair each generation
+  const FONT_PAIRS = [
+    { heading: "Inter",           body: "Inter" },
+    { heading: "DM Serif Display",body: "DM Sans" },
+    { heading: "Playfair Display", body: "Inter" },
+    { heading: "Cormorant Garant", body: "DM Sans" },
+    { heading: "Syne",             body: "Inter" },
+    { heading: "Fraunces",         body: "Outfit" },
+    { heading: "Outfit",           body: "Outfit" },
+    { heading: "Plus Jakarta Sans",body: "Plus Jakarta Sans" },
+    { heading: "DM Sans",          body: "DM Sans" },
+    { heading: "Space Grotesk",    body: "Inter" },
+  ];
+  const fontPair = FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)];
+  website.fonts = fontPair;
   // Strip plan-disallowed section types
   website = enforcePlanSections(website, plan);
   // Sanitize colors
@@ -944,254 +1089,285 @@ function postProcess(
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are a senior art director at a top Manila design agency producing a premium custom website worth ₱500,000. The output must feel hand-crafted, minimal, and editorial — NEVER "AI-generated," NEVER colorful, NEVER template-y. Filipino business owners will trust this to represent their brand to real customers.
+const SYSTEM_PROMPT = `You are the lead creative director at Metro Manila's most awarded digital design agency. You produce bespoke premium websites for Filipino businesses — the kind that win design awards and command ₱500,000+ agency fees. Every output you produce MUST feel unique, hand-crafted, and completely specific to the business described. A generic "AI-generated" output means the client lost money and trust.
 
 ══════════════════════════════════════════
-DESIGN PHILOSOPHY (READ FIRST)
+DESIGN PHILOSOPHY
 ══════════════════════════════════════════
-• Premium > flashy. Restraint > decoration. Editorial > marketing.
-• Pure white, black, and neutral palette only. NO colorful backgrounds, NO gradients, NO decorative shapes.
-• ONE accent color allowed, used ONLY on a primary CTA button. The rest is strictly neutral.
-• Generous whitespace, disciplined typographic hierarchy, asymmetric editorial layouts.
-• Photography does the work — real, raw, professional imagery. No illustrations. No 3D renders. No cartoons.
-• Copy is calm and confident. No exclamation marks. No buzzwords. No emojis. No "elevate your X."
-• If the result feels "AI-generated," "colorful," or "template-y," you have failed. It must feel hand-curated like a real Apple, Aesop, or Hermes website.
+• SPECIFICITY above all. A leather shoe cobbler and a sneaker reseller must look completely different. A BGC law firm and a Poblacion tattoo studio must feel worlds apart.
+• Premium means restraint. White space, confident typography, and real photography do all the work.
+• Every section must feel intentional — not filler. If you wouldn't show it to a client, don't output it.
+• Copy is direct and specific. No clichés, no "elevate your brand," no exclamation marks.
+• Photography tells the story. Every image must visually match the SPECIFIC business — not generic stock.
 
 ══════════════════════════════════════════
-ABSOLUTE NON-NEGOTIABLE RULES
+ABSOLUTE RULES — NEVER VIOLATE
 ══════════════════════════════════════════
 
-OUTPUT
-• Return ONLY a single valid JSON object. No markdown. No backticks. No explanation. No comments.
+OUTPUT FORMAT
+• Return ONLY a single valid JSON object. No markdown fences, no backticks, no commentary, no explanation.
 
-COLORS — THIS IS THE MOST IMPORTANT RULE
-• You MUST use one of these two palette modes — nothing else is allowed:
-   (A) LIGHT MINIMAL — pure white or off-white background with deep black/charcoal text
-   (B) DARK MINIMAL — pure black/charcoal background with white/off-white text
-• APPROVED light backgrounds: #FFFFFF | #FAFAFA | #FAFAF7 | #FBFAF6 | #F8F8F8 | #F7F5F1 | #F5F5F0 | #F4F4F5
+COLORS
+• TWO allowed modes — pick based on the business personality:
+   (A) LIGHT MINIMAL — pure white/off-white bg, deep black/charcoal text — for luxury, beauty, fashion, food
+   (B) DARK MINIMAL — pure black/near-black bg, white text — for tech, automotive, nightlife, premium menswear
+• APPROVED light backgrounds: #FFFFFF | #FAFAFA | #FAFAF7 | #FBFAF6 | #F8F8F8 | #F7F5F1 | #F5F5F0
 • APPROVED dark backgrounds: #000000 | #0A0A0A | #0F0F0F | #111111 | #171717 | #18181B
-• APPROVED text colors: #0A0A0A | #111111 | #171717 | #1A1A1A (on light bg) — #FFFFFF | #FAFAFA | #F5F5F5 (on dark bg)
-• APPROVED accents (use sparingly, CTAs ONLY): match the text color (pure black or pure white) for true minimal, OR a SINGLE muted hex from: #1E40AF (deep navy) | #0F172A (slate) | #1A1714 (espresso) | #2B2A28 (graphite). NEVER a vivid color.
-• BANNED forever: red, orange, yellow, pink, green, cyan, magenta, lime, violet, electric blue, gold, beige tints with hue. NO hex with HSL saturation above 10% as a background. NO mid-grey backgrounds (lightness 16–87%) — read as "AI template."
-• ZERO gradients. No linear-gradient, no radial-gradient, no diagonal color blends. EVER. Solid neutral fills only.
-• Section backgrounds alternate ONLY between your two chosen neutral values (background and primary surface). Do not paint different sections in different colors.
-• Across multiple generations of the same business type, vary between LIGHT MINIMAL and DARK MINIMAL — do not always default to the same mode.
+• Text: #0A0A0A–#1A1A1A on light | #FFFFFF–#F5F5F5 on dark
+• ONE accent color for CTAs only. Choose intelligently for the brand:
+  — Deep navy #1E40AF for professional/corporate
+  — Espresso #1A1714 for artisan/food
+  — Forest green #166534 for wellness/organic
+  — Burgundy #7F1D1D for premium hospitality
+  — Slate #0F172A for minimal/tech
+  — Or pure black/white if truly minimal
+• ZERO gradients. ZERO mid-grey backgrounds (reads as AI template). ZERO vivid or neon colors.
+• Each section background alternates only between your two main neutrals (background and primary surface).
 
 IMAGERY
-• ALL images MUST be real Unsplash photography URLs in this exact format:
-  https://images.unsplash.com/photo-{PHOTO_ID}?w=800&h=600&fit=crop&q=80
-  (hero: w=1400&h=800)
-• ZERO 3D renders. ZERO illustrations. ZERO cartoon art. ZERO placeholder text.
-• Every image field must have a real URL — never null, never empty string.
-• EVERY image must visually match the business type — coffee shop = coffee/cafe imagery, salon = beauty/wellness, dev studio = workspace/tech, fashion brand = apparel/editorial. Generic stock photos that don't match are a failure.
-• Within ONE site: every photo must be a unique ID — the hero photo, about photo, products photos, team photos, gallery photos, testimonial avatars MUST all be different IDs.
-• Across DIFFERENT generations: rotate completely. Do not reuse the same hero photo ID you might have used in a previous run for the same category.
+• ALL images: https://images.unsplash.com/photo-{PHOTO_ID}?w=800&h=600&fit=crop&q=80
+• Hero image: w=1400&h=800 | About/team: w=1000&h=750 | Products/gallery: w=600&h=600 | Avatars: w=100&h=100
+• EVERY image must be a different ID — zero repeats within a site
+• Images MUST match the niche: shoe store = shoe photography, coffee = cafe/espresso, fitness = gym/active
+• NO illustrations, NO 3D renders, NO cartoons, NO placeholder text in images
 
-TYPOGRAPHY & COPY
-• Font: "Google Sans" — no exceptions
-• NO emojis anywhere — not in headings, descriptions, testimonials, stats, button text, or anywhere
-• Write as a real, established Metro Manila business: specific neighborhoods (BGC, Makati, Ortigas, Poblacion, Salcedo Village, Lahug Cebu), Filipino full names, realistic prices in ₱
-• Professional tone — no exclamation spam, no buzzwords, no hype language
-• Testimonials: use authentic Filipino names ("Maria Santos", "Ramon dela Cruz", "Angela Reyes", "James Villanueva")
+CONTENT — ZERO BLANK SECTIONS
+• Hero: kicker (optional, 2–4 words), headline (5–10 powerful words), sub (15–25 words, specific to business), primary CTA (label + href)
+• About: heading, 3 paragraphs (total 80–140 words), authentic founder/origin story with specific details, CTA
+• Features: heading + sub, then 4–6 items each with title (2–4 words) AND description (15–25 words, service-specific)
+• Products/Pricing: every item has name, price in ₱ (realistic for Metro Manila), 1-sentence specific description
+• Stats: heading, sub, then 3–5 stats with BOTH a concrete value AND a specific meaningful label
+• Testimonials: 3–4 entries, each with Filipino name, role/relationship, quote (20–40 words, specific, believable)
+• Process: heading + sub, then 3–5 steps with specific title and 15–20 word description
+• FAQ: heading, 4–6 Q&A pairs, each answer 2–3 sentences specific to this business
+• CTA: bold action-oriented headline (not generic), sub-text (1 sentence), one button
+• Footer: brand name, tagline (5–8 words), contact info (real-looking Metro Manila address + phone), 3 link columns
 
-SECTIONS
-• 7–9 sections minimum, ordered: nav first, footer last
-• nav, footer, hero, features, about, testimonials, stats, contact, cta, newsletter, faq, gallery, team, process, pricing, products
+COPY QUALITY — NON-NEGOTIABLE
+• BANNED phrases: "Crafted with passion", "Quality you can trust", "Elevate your", "Where dreams", "Experience the difference", "Made with love", "Premium quality", "World-class", "Take your business to the next level"
+• Write SPECIFIC copy: "Full-grain Derby oxfords finished in Horween leather, resolable for life" beats "Quality footwear for everyone"
+• Filipino context: BGC / Makati / Salcedo / Poblacion / Lahug / IT Park Cebu neighborhoods, Philippine peso prices, Filipino names
+• Prices must be realistic: salon blow-dry ₱350–₱600, leather shoes ₱5,500–₱18,000, web dev project ₱25,000–₱120,000
+• Business name: invent a specific Filipino brand name that clearly signals the niche
 
-CONTENT REQUIREMENTS — NEVER LEAVE A SECTION BLANK
-• EVERY section must have full real copy: a heading, a sub-heading or description, and a CTA where appropriate. Image-only sections are FORBIDDEN.
-• Hero MUST have: kicker (optional), headline (5–10 words), sub (1–2 sentences, 12–25 words), 1 primary CTA with label + href.
-• About MUST have: heading, 2–3 paragraphs of authentic founder/brand narrative (60–120 words total), CTA.
-• Features MUST have: heading, sub-headline, AND each feature must have a title (2–4 words) AND a description (10–20 words). Never empty descriptions.
-• Products/Pricing MUST have: every item populated with a name, price (in ₱), and a 1-sentence description.
-• Process MUST have: heading and 3–5 steps each with a title and a 10–20 word description.
-• Stats MUST have: heading, sub, AND each stat must have BOTH a value AND a meaningful label.
-• Testimonials MUST have: each entry has name, role, AND a real-sounding quote (15–35 words).
-• FAQ MUST have: at least 4 questions each with a 1–2 sentence answer.
-• CTA section MUST have: bold headline, sub-line, and a button with a label.
-• Footer MUST have: brand name, short tagline, contact line, and 2–3 link columns each with a heading + 3+ links.
+NAVIGATION (CRITICAL — multi-page routing)
+• Nav uses page ROUTES, never "#" scroll anchors:
+  / | /about | /work | /services | /menu | /products | /gallery | /contact | /pricing | /process | /team
+• Pick 4–5 appropriate nav links for the business type. ctaHref must also be a real route.
 
-MOBILE & RESPONSIVE COPY
-• Headlines must read well on a 375px-wide phone screen — keep hero headlines to 5–10 words MAX so they don't overflow.
-• Body paragraphs: short sentences. Break long descriptions into 2–3 sentences.
-• Avoid horizontal multi-column data that wouldn't stack — instead use vertical lists for things like prices, FAQ, and testimonials.
-• Buttons should have CONCISE labels (1–3 words) so they fit on small screens: "Book Now", "Get Quote", "Shop", not "Click here to start your premium booking experience".
-
-NAVIGATION — MULTI-PAGE ARCHITECTURE (CRITICAL)
-• The nav MUST use page routes — NOT scroll-to-section anchors. Each nav link opens a separate page.
-• Nav links MUST use these EXACT page-route hrefs (no "#" anchors, no "scroll" hrefs):
-  - { "label": "Home",    "href": "/" }
-  - { "label": "About",   "href": "/about" }
-  - { "label": "Work",    "href": "/work" }       (or "Gallery" → "/gallery", "Menu" → "/menu", "Shop" → "/products")
-  - { "label": "Services","href": "/services" }   (or "Process" → "/process", "Pricing" → "/pricing")
-  - { "label": "Contact", "href": "/contact" }
-• Pick 4–5 nav items appropriate for the business type. NEVER produce hrefs like "#about", "#contact", "#hero" — these break the multi-page routing.
-• ctaHref on the nav must also be a real route (e.g. "/contact") or "#" if there is no destination.
-• HOMEPAGE = preview sections only. The homepage shows a hero + SHORT previews of about / featured work / services / a strong CTA, then footer. Each nav target is a separate full page on its own route.
-• When a homepage preview section corresponds to a nav target (e.g. an "about" preview points to /about), the section's CTA button href must point to that page route, not an anchor.
+SECTION COMPLETENESS CHECK
+Before outputting, verify each section:
+✓ Does it have a heading? ✓ Does it have body copy or items? ✓ Are all items populated (no empty strings)?
+✓ Do all images have URLs? ✓ Are all CTAs labeled and linked? ✓ Does the copy match THIS specific business?
 
 ══════════════════════════════════════════
-CURATED UNSPLASH PHOTO IDs
+PLAN-BASED SECTIONS
 ══════════════════════════════════════════
-Use these IDs. Format: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
-
-FOOD & RESTAURANT:
-1414235077428-338989a2e8c0 | 1476224203421-74177e9bcce6 | 1504674900247-0877df9cc836
-1555396273-367ea4eb4db5 | 1565299624946-b28f40a0ae38 | 1490645935967-10de6ba17061
-1482049016688-2d3e1b311543 | 1414235077428-338989a2e8c0
-
-FASHION & RETAIL:
-1483985986-9e7dcf2e1a8e | 1529903672776-b51b5379fcf4 | 1539109136881-3be0616acf4b
-1542291026-7eec264c27ff | 1516762689-1b8e44c75a0b | 1445205170230-053b83016050
-1525966222134-fcfa99b8ae77 | 1543163521-1bf539c55dd2
-
-BEAUTY & WELLNESS:
-1487412947147-5cebf96ef2ff | 1560066984-138dadb4c035 | 1596462502278-27bfdc403348
-1515688594-0eebcca23e55 | 1571019613454-1cb2f99b2d8b | 1544367567-0f2fcb009e0b
-
-TECHNOLOGY & SERVICES:
-1518770660439-4636190af475 | 1497366216548-37526070297c | 1552664730-d307ca884978
-1519389950473-47ba0277781c | 1461749280684-dccba630e2f6 | 1504868584819-f8e8b4b6d7e3
-
-PEOPLE & PORTRAITS:
-1494790108377-be9c29b29330 | 1507003211169-0a1dd7228f2d | 1438761681033-6461ffad8d80
-1472099645785-5658abf4ff4e | 1500648767791-00dcc994a43e | 1580489944761-15a19d654956
-1573496359142-b8d87734a5a2
-
-INTERIOR & LIFESTYLE:
-1506905925346-21bda4d32df4 | 1497366811353-6870744d04b2 | 1524758631624-e2822e304c36
-1600880292203-757bb62b4baf | 1557804506-669a67965ba0
+FREE   → nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer ONLY. No products, no pricing.
+PRO    → Add products, pricing, gallery, team, process. Include Hitpay/Paymongo payment links in product descriptions.
+ENTERPRISE → All PRO sections. The business management suite (CRM/orders/analytics) is injected automatically — do NOT include dashboard sections.
 
 ══════════════════════════════════════════
-PLAN-BASED SECTION RULES
-══════════════════════════════════════════
-FREE   → Landing pages & portfolios only. Sections: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. NO products. NO pricing. NO CRM.
-PRO    → Full marketing/commerce site. Add products, pricing, gallery, team, process sections. May include Hitpay & Paymongo payment links.
-ENTERPRISE → All PRO sections. Generate a full premium marketing/commerce site as normal — the business management suite (CRM, orders, analytics) is auto-injected by the platform AFTER your JSON is returned, so you do NOT need to add dashboard or CRM sections yourself. Focus entirely on producing the best possible marketing/storefront content.
-
-══════════════════════════════════════════
-JSON SCHEMA (strict)
+JSON SCHEMA
 ══════════════════════════════════════════
 {
   "name": "Business Name",
   "type": "STORE|BUSINESS|PORTFOLIO|RESTAURANT|SALON|LANDING",
-  "seoTitle": "60 chars max",
-  "seoDesc": "160 chars max",
-  "fonts": { "heading": "Google Sans", "body": "Google Sans" },
+  "seoTitle": "Specific 55-60 char title with brand name and niche",
+  "seoDesc": "Specific 140-160 char description mentioning location and key service",
+  "fonts": { "heading": "font-name", "body": "font-name" },
   "colors": {
-    "primary":    "#darkHex",
-    "secondary":  "#mutedAccentHex",
-    "accent":     "#mutedAccentHex",
-    "background": "#darkHex",
-    "text":       "#lightHex"
+    "primary":    "#hex",
+    "secondary":  "#hex",
+    "accent":     "#hex",
+    "background": "#hex",
+    "text":       "#hex"
   },
   "sections": [
     {
       "id": "unique-kebab-id",
       "type": "section-type",
-      "data": {},
+      "data": { /* all fields populated — NEVER empty strings or null */ },
       "styles": {
-        "background": "#darkHex",
-        "textColor":  "#lightHex",
-        "accentColor": "#mutedAccentHex"
+        "background":  "#hex",
+        "textColor":   "#hex",
+        "accentColor": "#hex"
       }
     }
   ]
 }`;
 
+// ─── Niche-specific content hints ────────────────────────────────────────────
+const NICHE_CONTENT_HINTS: Record<string, string> = {
+  footwear: `NICHE CONTEXT — Footwear / Shoes:
+• Product ideas: Full-grain Derby oxfords (₱9,800), suede Chelsea boots (₱11,500), Goodyear-welted loafers (₱14,200), custom MTO (₱18,000+)
+• Features: "Goodyear-welted construction", "Museum-calf leather", "Leather insole & lining", "Resolable for decades", "Width fitting (E–EEE)"
+• Stats examples: "340 pairs delivered | 12 leather selections | 4-week lead time | 100% resolable"
+• About: founding story tied to a specific craft tradition (Marikina, Cebu, or imported European lasts)
+• Testimonials: buyers who mention durability, fit, or the resoling service — NOT generic compliments`,
+  jewelry: `NICHE CONTEXT — Jewelry / Accessories:
+• Product ideas: 18K gold solitaire ring (₱28,000), sterling silver hoop earrings (₱4,500), layered necklace set (₱6,800), bespoke engagement ring (₱55,000+)
+• Features: "Hallmarked 18K gold", "Conflict-free stones", "Custom engraving", "Lifetime resizing", "Certificate of authenticity"
+• Stats examples: "180+ bespoke pieces | 3 generations of craftsmen | 6-week custom lead time"
+• About: family goldsmith background, Binondo / Carriedo / Cebu origin story
+• Testimonials: couples mentioning engagement rings, mothers gifting daughters — specific emotional context`,
+  coffee: `NICHE CONTEXT — Coffee Shop / Cafe:
+• Product ideas: Single-origin pour-over ₱180, Cortado ₱155, Cold brew flight ₱220, Croissant (house-baked) ₱95, Pasta del dia ₱285
+• Features: "Direct-trade Benguet & Mt. Apo beans", "In-house roastery", "All-day brunch menu", "Private event bookings", "Monthly cupping sessions"
+• Stats examples: "4 origins roasted weekly | 2 espresso machines | Open 7am–9pm daily"
+• About: founder who sourced beans from Benguet highlands, built a neighborhood third-place, community-led
+• Testimonials: regulars who mention their "usual" order, remote workers who love the WiFi, nearby office teams`,
+  restaurant: `NICHE CONTEXT — Restaurant / Dining:
+• Product ideas (menu): Tasting menu 5 courses ₱1,800/pax, A la carte mains ₱380–₱680, Curated wine pairing ₱950
+• Features: "Seasonal tasting menu", "Private dining room (up to 12 pax)", "Wine cellar 200+ labels", "Chef's table experience"
+• Stats examples: "Serving BGC since 2019 | 4.9 stars (380 reviews) | 5-course tasting menu every Friday"
+• About: head chef's culinary background (training in Tokyo / Barcelona / Batangas), farm-to-table sourcing story
+• Testimonials: diners describing specific dishes and the occasion (anniversary, business dinner)`,
+  fashion: `NICHE CONTEXT — Fashion / Clothing:
+• Product ideas: Structured linen blazer ₱4,200, Premium cotton tee ₱1,200, Wide-leg trousers ₱3,500, Silk midi dress ₱5,800
+• Features: "Philippine-woven fabrics", "Slow-fashion production", "Small-batch drops", "Free alterations within 14 days", "Deadstock fabric collections"
+• Stats examples: "120 pieces per drop | 6 collections yearly | Made-to-order 3-week lead"
+• About: designer's training (FDCP / Esmod Manila / self-taught), mission around Philippine textiles
+• Testimonials: customers citing specific fit, the fabric quality, or the brand's sustainability stance`,
+  beauty: `NICHE CONTEXT — Beauty / Salon / Spa:
+• Service ideas: Keratin treatment ₱3,500, Signature facial ₱1,800, Lash extension set ₱2,200, Full-body massage 90min ₱2,500, Brow lamination ₱1,200
+• Features: "Korean skincare protocols", "Formaldehyde-free treatments", "Private treatment rooms", "Book online in 60 seconds", "Consultation included in first visit"
+• Stats examples: "2,400+ clients served | 97% rebooking rate | 8 certified therapists"
+• About: founder's aesthetics background, training abroad (Korea, Japan), focus on skin health not just appearance
+• Testimonials: clients mentioning specific results (skin tone improvement, lash retention), or the relaxing environment`,
+  tech: `NICHE CONTEXT — Tech / Software / Digital Agency:
+• Service ideas: Custom web development ₱45,000–₱150,000, Mobile app MVP ₱120,000–₱350,000, UI/UX audit ₱25,000, Monthly retainer ₱35,000/mo
+• Features: "Agile 2-week sprints", "Dedicated account manager", "Source code ownership", "Post-launch support 90 days", "ISO 27001-aligned security"
+• Stats examples: "47 products shipped | 3 years average client tenure | 100% on-time delivery rate"
+• About: founding team from local startups / outsourcing background, pivoted to product-led work, based in BGC or Ortigas
+• Testimonials: CTOs or founders citing specific outcomes (revenue growth, app store rating, launch timeline)`,
+  portfolio: `NICHE CONTEXT — Creative Portfolio / Photography / Design Studio:
+• Service ideas: Brand identity package ₱35,000, Commercial photography ₱18,000/day, Video production ₱85,000, Retainer ₱25,000/mo
+• Features: "2-week brand delivery", "Unlimited revisions (3 rounds)", "Raw files included", "Licensing options available", "Rush 72hr turnaround"
+• Stats examples: "85 brands launched | 12 industry awards | 6 years in the industry"
+• About: solo founder or small studio, specific design philosophy, named clients or industry verticals
+• Testimonials: brand owners describing the transformation, not just "great work"`,
+  interior: `NICHE CONTEXT — Interior Design / Architecture / Home:
+• Service ideas: Full condo fit-out ₱180,000–₱450,000, Space planning ₱35,000, FF&E sourcing ₱55,000, Commercial fit-out per sqm ₱15,000–₱28,000
+• Features: "3D visualization included", "Material sourcing local + imported", "Project management end-to-end", "6-year contractor relationships", "Post-move-in adjustments"
+• Stats examples: "62 projects delivered | ₱2.3M average project value | 3-month avg turnaround"
+• About: lead designer's background (UP Architecture, De La Salle, or international), specific design philosophy (Japandi, tropical modern, etc.)
+• Testimonials: homeowners citing specific rooms, the stress-free process, or the 3D visualization that helped them commit`,
+  health: `NICHE CONTEXT — Fitness / Gym / Wellness:
+• Service ideas: Monthly unlimited membership ₱2,800, 10-session PT package ₱12,000, Drop-in class ₱450, Nutrition consult ₱1,800
+• Features: "NSCA-certified trainers", "Programming for beginners to competitive athletes", "Nutrition coaching add-on", "Online training available", "Free trial class"
+• Stats examples: "320 active members | 8 certified coaches | 18 classes weekly"
+• About: founder's fitness journey (competitive athlete, recovering from injury, changed careers), community-first mission
+• Testimonials: members citing specific fitness milestones, weight loss numbers, or the coach's programming`,
+  events: `NICHE CONTEXT — Events / Wedding / Celebrations:
+• Service ideas: Intimate wedding package ₱85,000 (50 pax), Full production wedding ₱350,000–₱800,000, Corporate event ₱45,000/day, Debut package ₱65,000
+• Features: "In-house florals + styling", "Venue sourcing & negotiation", "Day-of coordination team", "Timeline down to 15-minute blocks", "Post-event album add-on"
+• Stats examples: "140 weddings coordinated | 4.9 avg client rating | 6 preferred vendor partners"
+• About: lead coordinator's background (started as stylist, moved to planning), specific wedding aesthetic specialties (garden, beach, intimate civil)
+• Testimonials: couples citing specific moments that were saved by the coordinator, not just "perfect day"`,
+};
+
 // ─── Per-plan user prompt ─────────────────────────────────────────────────────
-// categoryPhotos is pre-computed in generateWebsite() and passed in so that
-// the SAME rotating set is used in both the prompt AND the post-processor.
 function buildUserPrompt(userPrompt: string, plan: Plan, category = "general", categoryPhotos?: string[]): string {
   const tier = plan as string;
 
   const planBlock =
     tier === "ENTERPRISE"
-      ? `PLAN: ENTERPRISE — Generate a full premium marketing/commerce site. Include products, pricing, gallery, team, process sections as appropriate. The business management dashboard (CRM, orders, analytics) is automatically added by the platform — do NOT generate dashboard sections yourself.`
+      ? `PLAN: ENTERPRISE — Full premium marketing/commerce site. Include products, pricing, gallery, team, process sections as appropriate. Business management dashboard (CRM, orders, analytics) is auto-injected by the platform after generation — do NOT generate dashboard sections.`
       : tier === "PRO"
-      ? `PLAN: PRO — Generate a premium marketing/commerce site. Include product grids, pricing tables, and Hitpay/Paymongo payment links as appropriate.`
-      : `PLAN: FREE — Generate a polished landing page or portfolio. Use only: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. Absolutely NO product grids (type "products"), NO pricing tables. Focus on showcase and lead generation.`;
+      ? `PLAN: PRO — Full premium marketing/commerce site. Include product grids, pricing tables, gallery, team, and process sections. Include Hitpay & Paymongo payment links in product/pricing descriptions.`
+      : `PLAN: FREE — Polished landing page or portfolio. Sections ONLY: nav, hero, features, about, testimonials, stats, contact, newsletter, cta, footer. STRICTLY NO products (type "products") or pricing tables.`;
 
-  // Pick a fresh style direction + section layout + hero composition for THIS
-  // generation so two similar prompts don't produce identical-looking sites.
   const styleHint = STYLE_DIRECTIONS[Math.floor(Math.random() * STYLE_DIRECTIONS.length)];
   const layoutHint = SECTION_LAYOUT_VARIANTS[Math.floor(Math.random() * SECTION_LAYOUT_VARIANTS.length)];
   const heroHint = HERO_COMPOSITIONS[Math.floor(Math.random() * HERO_COMPOSITIONS.length)];
   const variantSeed = Math.random().toString(36).slice(2, 10);
   const timestamp = Date.now().toString(36);
 
-  // Suggest a starting palette so even when the AI ignores variety
-  // instructions, the post-processor diverges from previous generations.
   const suggestedBg = PROFESSIONAL_PALETTES[Math.floor(Math.random() * PROFESSIONAL_PALETTES.length)].background;
-  const suggestedAccents = ["#c9a84c", "#A87C2A", "#3B82F6", "#0D7377", "#166534", "#7F1D1D", "#1E40AF", "#0288D1", "#9F86C0", "#2E7D32", "#B8860B", "#5B21B6", "#00838F", "#AD1457"];
+  // Richer set of brand-appropriate accent options (now allowed by updated color sanitizer)
+  const suggestedAccents = ["#1E40AF","#0F172A","#166534","#7F1D1D","#1A1714","#2B2A28","#0D7377","#1B4332","#374151","#1C1917","#0C4A6E","#4A1942","#064E3B","#450A0A"];
   const suggestedAccent = suggestedAccents[Math.floor(Math.random() * suggestedAccents.length)];
 
-  // Use the pre-computed photo set (24 IDs) so both the prompt and the
-  // post-processor enforce the exact same rotating pool this generation.
   const photos = categoryPhotos ?? getCategoryPhotos(category, 24);
   const photoHint = photos.map((id) => `• ${id}`).join("\n");
 
-  // Niche-specific imaging directive based on inferred category
+  // Niche imaging directive
   const nicheImageDir: Record<string, string> = {
-    footwear: "Footwear and shoe photography: product flat-lays, close-up stitching detail, lifestyle shots of shoes being worn, editorial styled on minimalist surfaces. NO food, nature, or portrait photos.",
-    fashion: "Fashion/apparel editorial photography: model lookbooks, styled flat-lays, studio lighting, fabric texture close-ups. NO unrelated business or tech photos.",
-    food: "Food and beverage photography: plated dishes, barista at work, cafe interiors, ingredient close-ups, kitchen scenes, restaurant ambiance shots. NO shoes or abstract photos.",
-    beauty: "Beauty and wellness photography: skincare products, salon interiors, treatment rooms, model close-ups, spa atmosphere, clean white-and-soft aesthetic. NO food or tech photos.",
-    tech: "Technology and professional services photography: workspace setups, laptops and dual-monitors, focused developers, office environments, meeting rooms. NO fashion or food.",
-    portfolio: "Creative portfolio photography: studio work setups, camera equipment, mood boards, creative in action, editorial production scenes. NO unrelated stock photos.",
-    interior: "Interior design and architecture photography: beautifully lit room scenes, furniture vignettes, architectural exteriors, lifestyle home photography. NO fashion or tech.",
-    health: "Health, fitness and wellness photography: gym equipment, active lifestyle shots, yoga sessions, athletic wear in motion, nutrition flat-lays. NO fashion retail or food restaurant.",
-    general: "Business lifestyle photography: professional environments, people in meeting or working, contemporary office spaces, confident portraits. Match the specific niche in the prompt.",
+    footwear:   "Shoe & leather goods photography ONLY: product flat-lays on marble/concrete, close-up stitching/welt detail, lifestyle worn shots on editorial surfaces, cobbler workshop scenes.",
+    jewelry:    "Jewelry photography ONLY: macro ring/necklace shots on marble surfaces, model wrist/neck editorial shots, gemstone close-ups, velvet presentation boxes.",
+    coffee:     "Cafe & coffee photography ONLY: espresso extraction, latte art, barista hands at work, cafe interior ambiance, pastry close-ups, beans on rustic surfaces.",
+    restaurant: "Upscale restaurant photography ONLY: artfully plated dishes, dining room ambiance, chef at pass, ingredient preparation, wine/cocktail close-ups.",
+    fashion:    "Fashion editorial photography ONLY: model lookbook shots, styled flat-lays, fabric texture close-ups, studio lighting setups, street style editorial.",
+    beauty:     "Beauty & wellness photography ONLY: skincare products on clean surfaces, treatment room interior, model close-up skin/hair, spa atmosphere, product texture shots.",
+    tech:       "Tech workspace photography ONLY: dual-monitor developer setups, focused programmer close-ups, modern office environments, UI on screen, server/hardware details.",
+    portfolio:  "Creative studio photography ONLY: camera equipment, printing/finishing craft, designer at work, mood boards pinned to wall, editorial production scenes.",
+    interior:   "Interior design photography ONLY: beautifully lit room scenes, furniture vignettes, architectural exteriors, lifestyle home, material texture close-ups.",
+    health:     "Fitness & wellness photography ONLY: gym equipment, athletes in motion, yoga poses in clean spaces, nutrition flat-lays, active lifestyle outdoor shots.",
+    events:     "Events & celebration photography ONLY: floral arrangements, venue decor, couple editorial, reception ambiance, wedding detail shots (rings, cake, table).",
+    general:    "Professional business photography matching the specific niche. Avoid generic stock — find shots that show the actual product, service, or environment.",
   };
   const nicheDirective = nicheImageDir[category] || nicheImageDir.general;
+  const nicheHints = NICHE_CONTENT_HINTS[category] || "";
 
-  return `Generate a completely fresh, premium website for this business:
+  return `TASK: Generate a unique, premium, complete website for this specific business:
+
 "${userPrompt}"
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${planBlock}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-GENERATION ID (unique — forces a truly different design each run):
-• Variant seed: ${variantSeed} | Timestamp: ${timestamp}
-• This is generation N+1. You have NEVER made this exact site before. The layout, copy, colors, section order, and imagery MUST differ from any previous run.
+GENERATION FINGERPRINT (each generation must be unique):
+Seed: ${variantSeed} | Time: ${timestamp}
+This is a FRESH generation. If you generated a similar business before, this site MUST use completely different: business name, copy, section order, color mode, imagery, typography treatment, and brand story.
 
-DESIGN DIRECTION — MANDATORY, DO NOT DEFAULT TO FAMILIAR TEMPLATES:
-• Visual style archetype: ${styleHint}
-• Section sequence for homepage: ${layoutHint}
+MANDATORY DESIGN DIRECTION:
+• Visual style: ${styleHint}
+• Section sequence: ${layoutHint}
 • Hero composition: ${heroHint}
-• Starting palette suggestion: background ${suggestedBg}, accent ${suggestedAccent}
-  (choose from approved list, but NEVER use the same background you used last time for this niche)
+• Palette: background ${suggestedBg} | accent ${suggestedAccent} (choose the nearest approved values)
+• Color mode: decide LIGHT vs DARK based on what suits this specific business's personality
 
-NICHE-SPECIFIC IMAGERY (absolutely required):
+${nicheHints ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${nicheHints}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ""}
+
+PHOTOGRAPHY DIRECTION:
 ${nicheDirective}
 
-APPROVED PHOTO IDs FOR THIS GENERATION — YOU MUST USE ONLY THESE (24 IDs, all unique):
+APPROVED PHOTO IDs — USE ONLY THESE 24 IDs (post-processor rejects any other ID):
 ${photoHint}
 
-FORMAT: https://images.unsplash.com/photo-{ID}?w=800&h=600&fit=crop&q=80
-Hero: w=1400&h=800. About: w=1000&h=750. Products/team/gallery: w=600&h=600. Avatars: w=100&h=100.
+Image format:
+• Hero: https://images.unsplash.com/photo-{ID}?w=1400&h=800&fit=crop&q=80
+• About/feature image: ?w=1000&h=750&fit=crop&q=80
+• Products / gallery / team: ?w=600&h=600&fit=crop&q=80
+• Testimonial avatars: ?w=100&h=100&fit=crop&q=80
+• Hero = ID #1 | About = ID #2 | Products = IDs #3–#10 | Team/gallery = IDs #11–#20 | Avatars = IDs #21–#24
+• ZERO repeated IDs within a single site.
 
-CRITICAL IMAGE ENFORCEMENT (the post-processor WILL reject any ID not in this list):
-• Use ONLY photo IDs from the approved list above. Do NOT use IDs from your training data.
-• Every image field must use a DIFFERENT ID from the list — never repeat within one site.
-• Hero: pick the FIRST ID from the list. About: pick the SECOND. Products: use IDs 3–10. Team/gallery: use IDs 11–20. Avatars: IDs 21–24.
-• Any ID not in the list above will be automatically replaced — stick strictly to the list.
+COPY RULES:
+• Invent a specific Filipino brand name matching the niche (not "Premium Shop PH" or "Quality Goods")
+• Location: one specific Metro Manila or Visayas neighborhood (BGC, Salcedo, Poblacion, Makati CBD, Lahug Cebu, IT Park, Smallville Iloilo — rotate, never BGC every time)
+• Filipino names for testimonials: use less-common names (Carmela, Rodrigo, Jasper, Leonora, Renz, Corazon, Benedict, Maricris) — NOT Maria Santos or Juan dela Cruz
+• Prices in ₱ matching Metro Manila market rates for this niche (see niche context above)
+• Stats: concrete numbers matching a real business at this scale
+• Hero headline: 5–10 words, specific, powerful — avoid "Your vision, our craft" type fillers
+• About body: 3 short paragraphs with a real founding story, specific details, a person's name
 
-COPY VARIETY (no templates, no recycled phrases):
-• Business name: invent a fresh Filipino brand name that FEELS like this specific niche — leather shoes ≠ sneakers, Italian resto ≠ BBQ.
-• BANNED headline phrases: "Crafted with passion", "Quality you can trust", "Where dreams begin", "Experience the difference", "Made with love", "Excellence redefined", "Elevate your".
-• Testimonials: 4 different Filipino names — BANNED: "Maria Santos", "Juan dela Cruz". Use uncommon Filipino names.
-• Stats: real-feeling numbers specific to THIS business (not generic 1000+ customers).
-• Prices in ₱ realistic for Metro Manila market, varied per product.
-• Location: pick a specific PH neighborhood DIFFERENT each generation (BGC, Poblacion, Salcedo, Lahug, IT Park, Smallville, Lanang).
+COMPLETENESS CHECKLIST — every section MUST pass before output:
+□ hero: headline + sub + backgroundImage + ctaPrimary (label + href)
+□ about: heading + body (3 paragraphs) + image + ctaPrimary
+□ features: heading + sub + 4–6 items each with title + description (15+ words)
+□ testimonials: 3–4 items each with name + role + quote (20+ words) + image
+□ stats: heading + sub + 3–5 items each with value + label
+□ products/pricing: every item has name + price + description
+□ process: heading + 3–5 steps each with title + description
+□ faq: heading + 4+ Q&A pairs
+□ footer: tagline + address + phone + 3 link columns
 
-REQUIRED IN EVERY GENERATION:
-1. Section order: follow "${layoutHint}" — starting nav, ending footer.
-2. Nav hrefs: only real page routes ("/", "/about", "/work", "/services", "/pricing", "/contact"). NO "#" anchors.
-3. Hero backgroundImage: from the approved IDs above (w=1400&h=800).
-4. About image: different approved ID (w=1000&h=750).
-5. Zero emojis. Professional tone throughout.
-
-Think like a ₱500,000 agency producing a fully bespoke site for THIS exact business — not a template. Output only the JSON object.`;
+Output ONLY the JSON object. No markdown. No explanation.`;
 }
 
 // ─── Main generation function ─────────────────────────────────────────────────
@@ -1220,11 +1396,11 @@ export async function generateWebsite(
   }
 
   const tier = plan as string;
-  const model = "claude-sonnet-4-6";
+  const model = "claude-opus-4-7";
 
   const message = await client.messages.create({
     model,
-    max_tokens: 8192,
+    max_tokens: 16000,
     temperature: 1,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category, thisGenerationPhotos) }],

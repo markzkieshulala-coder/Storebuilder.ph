@@ -60,11 +60,14 @@ export function calculateTokenCost(
   let outputCostPer1M = 0;
 
   if (model.includes("haiku")) {
-    inputCostPer1M = 0.25; // $0.25 per 1M input tokens
-    outputCostPer1M = 1.25; // $1.25 per 1M output tokens
+    inputCostPer1M = 0.25;
+    outputCostPer1M = 1.25;
+  } else if (model.includes("opus")) {
+    inputCostPer1M = 15.0;
+    outputCostPer1M = 75.0;
   } else if (model.includes("sonnet")) {
-    inputCostPer1M = 3.0; // $3.00 per 1M input tokens
-    outputCostPer1M = 15.0; // $15.00 per 1M output tokens
+    inputCostPer1M = 3.0;
+    outputCostPer1M = 15.0;
   }
 
   const costUsd =
