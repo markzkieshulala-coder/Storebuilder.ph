@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureSchemaMigrations } from "@/lib/db-migrations";
+import { createNotification } from "@/lib/notifications";
 
 // Public — newsletter signups from the newsletter section of any published site.
 export async function POST(req: NextRequest) {
@@ -53,6 +54,15 @@ export async function POST(req: NextRequest) {
       console.error("[newsletter] persist failed:", e);
       return NextResponse.json({ error: "Could not subscribe. Try again." }, { status: 500 });
     }
+
+    createNotification({
+      websiteId: website.id,
+      type: "newsletter.subscribed",
+      title: "New newsletter subscriber",
+      body: name ? `${String(name).slice(0, 80)} (${lcEmail})` : lcEmail,
+      href: `/dashboard/sites/${website.id}/manage/marketing`,
+      metadata: { email: lcEmail, name: name ? String(name) : null },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

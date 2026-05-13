@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { sendContactFormEmail } from "@/lib/email";
 import { ensureSchemaMigrations } from "@/lib/db-migrations";
+import { createNotification, contactTitleFor } from "@/lib/notifications";
 
 // Public endpoint — submitted from the contact section of any published site.
 // Routes the message to whatever email is configured in the site's contact
@@ -91,6 +92,17 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[contact] persist failed:", e);
     }
+
+    // Bell-icon notification — title varies with website type so a portfolio
+    // says "New inquiry", a landing page says "New lead", etc.
+    createNotification({
+      websiteId: website.id,
+      type: "contact.submitted",
+      title: `${contactTitleFor((website as any).type)} from ${String(name).slice(0, 80)}`,
+      body: String(message).slice(0, 280),
+      href: `/dashboard/sites/${website.id}/manage/marketing`,
+      metadata: { name: String(name).slice(0, 200), email: String(email).toLowerCase() },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

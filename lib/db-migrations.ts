@@ -234,6 +234,29 @@ export async function ensureSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE "StoreOrder" ADD COLUMN IF NOT EXISTS "discountCents" INTEGER NOT NULL DEFAULT 0`);
   } catch (e) { console.error("[migrations] discountCents col:", e); }
 
+  // Notification — central inbox for the website owner. Anything that happens
+  // on a published Enterprise website (orders, contact messages, newsletter
+  // signups, etc.) creates a row here so it appears in the bell-icon dropdown.
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "Notification" (
+      "id" TEXT PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "websiteId" TEXT,
+      "type" TEXT NOT NULL,
+      "title" TEXT NOT NULL,
+      "body" TEXT,
+      "href" TEXT,
+      "metadata" JSONB,
+      "read" BOOLEAN NOT NULL DEFAULT false,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "readAt" TIMESTAMPTZ,
+      CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
+      CONSTRAINT "Notification_websiteId_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Notification_userId_createdAt_idx" ON "Notification"("userId","createdAt" DESC)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Notification_userId_read_idx" ON "Notification"("userId","read")`);
+  } catch (e) { console.error("[migrations] Notification:", e); }
+
   // LoginEvent — per-sign-in audit trail. Used for the admin Login History
   // panel and the sign-in notification email. Captures device, browser, OS,
   // IP, and best-effort geolocation.

@@ -8,6 +8,7 @@ import {
   BarChart3, Settings, ExternalLink, ArrowLeft, ChevronRight,
   Menu, X, Sparkles, Search,
 } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 // Shopify-style two-column shell — fixed left nav, scrollable main content.
 // Every /dashboard/sites/[id]/manage/* page renders inside this layout via
@@ -61,16 +62,28 @@ export default function ManageShell({
           </div>
           <span className="text-sm font-semibold truncate">{site?.name || "Store"}</span>
         </div>
-        {site?.subdomain && (
-          <a
-            href={`https://${site.subdomain}.storebuilder.ph`}
-            target="_blank" rel="noopener noreferrer"
-            className="ml-auto p-2 rounded-md hover:bg-white/10"
-            aria-label="View store"
-          >
-            <ExternalLink size={14} />
-          </a>
-        )}
+        <div className="ml-auto flex items-center gap-1">
+          <div className="bg-white/10 rounded-full">
+            <NotificationBell compact />
+          </div>
+          {site?.subdomain && (
+            <a
+              href={`https://${site.subdomain}.storebuilder.ph`}
+              target="_blank" rel="noopener noreferrer"
+              className="p-2 rounded-md hover:bg-white/10"
+              aria-label="View store"
+            >
+              <ExternalLink size={14} />
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* ── Desktop floating notification bell (top-right) ── */}
+      <div className="hidden lg:flex fixed top-4 right-6 z-40 items-center gap-2">
+        <div className="bg-white border border-gray-200 rounded-full px-1 py-0.5 shadow-sm">
+          <NotificationBell />
+        </div>
       </div>
 
       {/* ── Sidebar (mobile drawer) ── */}

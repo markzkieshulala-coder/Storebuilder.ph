@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { ensureSchemaMigrations } from "@/lib/db-migrations";
+import { createNotification } from "@/lib/notifications";
 
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET_KEY!;
 
@@ -77,8 +78,9 @@ export async function POST(req: NextRequest) {
     // Persist as a PENDING order. Webhook will mark it PAID later when we wire
     // it; for now the dashboard surfaces all attempts so the merchant can see
     // demand even before PayMongo confirms payment.
+    let createdOrderId: string | null = null;
     try {
-      await prisma.storeOrder.create({
+      const created = await prisma.storeOrder.create({
         data: {
           websiteId: website.id,
           productId: String(productId),
@@ -93,9 +95,23 @@ export async function POST(req: NextRequest) {
           paymongoLinkId: paymongoLinkId || null,
           paymongoCheckoutUrl: checkoutUrl || null,
         },
+        select: { id: true },
       });
+      createdOrderId = created.id;
     } catch (e) {
       console.error("[checkout/product] order persist failed:", e);
+    }
+
+    if (createdOrderId) {
+      const pesos = `₱${(totalCentavos / 100).toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
+      createNotification({
+        websiteId: website.id,
+        type: "order.placed",
+        title: `New order from ${customerName || customerEmail || "a customer"}`,
+        body: `${qty} × ${product.name || "Product"} — ${pesos}`,
+        href: `/dashboard/sites/${website.id}/manage/orders/${createdOrderId}`,
+        metadata: { orderId: createdOrderId, totalCents: totalCentavos },
+      });
     }
 
     // Upsert customer record so the CRM sees this person even if payment fails

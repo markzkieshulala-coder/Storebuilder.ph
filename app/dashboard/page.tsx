@@ -11,6 +11,7 @@ import {
   EyeOff, ChevronDown, Share2, Copy, Check, MoreVertical, BarChart3, Briefcase,
   ArrowLeft,
 } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 import { signOut } from "next-auth/react";
 import toast from "react-hot-toast";
 import { timeUntilReset } from "@/lib/utils";
@@ -336,6 +337,16 @@ function DashboardContent() {
             <Sparkles size={13} color="#fff" />
           </div>
           <span className="font-bold text-sm text-gray-900">Storebuilder.ph</span>
+        </div>
+        <div className="ml-auto">
+          <NotificationBell compact />
+        </div>
+      </div>
+
+      {/* ── Desktop floating top-right cluster ── */}
+      <div className="hidden lg:flex fixed top-4 right-6 z-30 items-center gap-2">
+        <div className="bg-white border border-[#E4E6EB] rounded-full px-1 py-0.5 shadow-sm">
+          <NotificationBell />
         </div>
       </div>
 
