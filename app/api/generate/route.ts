@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { prompt } = generateSchema.parse(body);
 
-    // Always fetch the freshest plan from DB — never trust the JWT cookie.
+    // Always read the freshest plan from DB — never trust the JWT cookie.
     const freshUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { plan: true, planExpiresAt: true },
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Step 1 + 2: Stitch design → Claude content fill ──────────────────────
+    // ── Stitch designs → Claude implements → editable JSON website ────────────
     const { website, usage } = await generateWebsiteWithStitch(prompt, activePlan);
 
     // Generate unique subdomain
@@ -68,20 +68,14 @@ export async function POST(req: NextRequest) {
       subdomain = `${subdomain}-${Date.now().toString(36)}`;
     }
 
-    // Save to database — jsonContent holds minimal metadata; htmlContent holds
-    // the full Stitch+Claude rendered page.
+    // Store the JSON — fully editable in the editor
     const savedWebsite = await prisma.website.create({
       data: {
         userId: session.user.id,
         name: website.name,
         type: website.type as never,
         prompt,
-        jsonContent: {
-          name: website.name,
-          type: website.type,
-          stitchGenerated: true,
-        },
-        htmlContent: website.htmlContent,
+        jsonContent: website as never,
         subdomain,
         seoTitle: website.seoTitle,
         seoDesc: website.seoDesc,
@@ -90,18 +84,20 @@ export async function POST(req: NextRequest) {
     });
 
     // Log token usage
-    await prisma.tokenUsageLog.create({
-      data: {
-        userId: session.user.id,
-        websiteId: savedWebsite.id,
-        model: usage.model,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        totalTokens: usage.inputTokens + usage.outputTokens,
-        costUsd: usage.costUsd,
-        costPhp: usage.costPhp,
-      },
-    });
+    if (usage.model !== "mock") {
+      await prisma.tokenUsageLog.create({
+        data: {
+          userId: session.user.id,
+          websiteId: savedWebsite.id,
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          totalTokens: usage.inputTokens + usage.outputTokens,
+          costUsd: usage.costUsd,
+          costPhp: usage.costPhp,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -109,6 +105,7 @@ export async function POST(req: NextRequest) {
         id: savedWebsite.id,
         name: savedWebsite.name,
         subdomain: savedWebsite.subdomain,
+        jsonContent: website,
         seoTitle: website.seoTitle,
         seoDesc: website.seoDesc,
       },
@@ -122,7 +119,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Stitch-specific errors — always surface the canonical user message ──
+    // ── Stitch failures always surface the canonical message ──────────────
     if (error instanceof StitchError) {
       console.error("[POST /api/generate] Stitch error:", error.code, error.message);
       return NextResponse.json(
@@ -137,8 +134,8 @@ export async function POST(req: NextRequest) {
 
     const err = error as { status?: number; message?: string };
     console.error("[POST /api/generate] error:", err?.status, err?.message ?? error);
-
     const msg: string = err?.message ?? "";
+
     if (msg.includes("STITCH_API_KEY")) {
       return NextResponse.json(
         {
@@ -151,7 +148,7 @@ export async function POST(req: NextRequest) {
     }
     if (msg.includes("ANTHROPIC_API_KEY")) {
       return NextResponse.json(
-        { error: "AI content service not configured. Please set ANTHROPIC_API_KEY." },
+        { error: "AI service not configured. Please set ANTHROPIC_API_KEY." },
         { status: 500 }
       );
     }

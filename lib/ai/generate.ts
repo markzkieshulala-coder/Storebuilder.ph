@@ -474,7 +474,7 @@ const CATEGORY_PHOTO_POOLS: Record<string, string[]> = {
 };
 
 // Infer which photo category best matches a generation prompt.
-function inferPhotoCategory(userPrompt: string): string {
+export function inferPhotoCategory(userPrompt: string): string {
   const q = userPrompt.toLowerCase();
   if (/shoe|sneaker|footwear|boot|sandal|heel|leather shoe|calzado|sapatos|cobbler|cordwainer|loafer|oxford|derby/.test(q)) return "footwear";
   if (/jewelry|jewellery|ring|necklace|earring|bracelet|gold|silver|diamond|gemstone|accessory|accessories|alahas/.test(q)) return "jewelry";
@@ -503,7 +503,7 @@ function shuffle<T>(arr: T[]): T[] {
 // Pick a rotating subset of photo IDs from a category pool so two consecutive
 // generations of the same niche always get different photos injected.
 let _categoryOffset: Record<string, number> = {};
-function getCategoryPhotos(category: string, count = 12): string[] {
+export function getCategoryPhotos(category: string, count = 12): string[] {
   const pool = CATEGORY_PHOTO_POOLS[category] || CATEGORY_PHOTO_POOLS.general;
   const offset = (_categoryOffset[category] ?? 0) % pool.length;
   _categoryOffset[category] = (offset + count) % pool.length;
@@ -1037,11 +1037,17 @@ function injectEnterpriseSections(website: GeneratedWebsite): GeneratedWebsite {
 }
 
 // ─── Master post-processor ────────────────────────────────────────────────────
-function postProcess(
+export type PostProcessOptions = {
+  skipColorSanitize?: boolean;
+  skipFontAssignment?: boolean;
+};
+
+export function postProcess(
   website: GeneratedWebsite,
   plan: string,
   category = "general",
-  approvedPhotos?: string[]
+  approvedPhotos?: string[],
+  options: PostProcessOptions = {}
 ): GeneratedWebsite {
   // Build the approved-ID set for this generation. When provided, sanitizeImages
   // will REJECT any photo the AI returned that isn't in this set — guaranteeing
@@ -1071,12 +1077,16 @@ function postProcess(
     { heading: "DM Sans",          body: "DM Sans" },
     { heading: "Space Grotesk",    body: "Inter" },
   ];
-  const fontPair = FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)];
-  website.fonts = fontPair;
+  if (!options.skipFontAssignment) {
+    const fontPair = FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)];
+    website.fonts = fontPair;
+  }
   // Strip plan-disallowed section types
   website = enforcePlanSections(website, plan);
-  // Sanitize colors
-  website = sanitizeColors(website);
+  // Sanitize colors — skip when Stitch is providing the palette
+  if (!options.skipColorSanitize) {
+    website = sanitizeColors(website);
+  }
   // Ensure real Unsplash images (enforce approved set)
   website = sanitizeImages(website, approvedIds);
   // Fill empty visual sections (gallery / team / testimonials / faq / stats)
