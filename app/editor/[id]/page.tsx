@@ -197,6 +197,12 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       const res = await fetch(`/api/websites/${params.id}`);
       if (!res.ok) { router.push("/dashboard"); return; }
       const data = await res.json();
+      // Stitch-designed sites are stored as raw HTML; the JSON section editor
+      // can't represent them. Send users to the preview view instead.
+      if (data.website?.htmlContent) {
+        router.push(`/preview/${params.id}`);
+        return;
+      }
       const content = data.website.jsonContent as GeneratedWebsite;
       setWebsite(content);
       setRawWebsite(data.website);

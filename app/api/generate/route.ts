@@ -68,14 +68,21 @@ export async function POST(req: NextRequest) {
       subdomain = `${subdomain}-${Date.now().toString(36)}`;
     }
 
-    // Store the JSON — fully editable in the editor
+    // Stitch IS the design. Store the full HTML as htmlContent and a minimal
+    // jsonContent for metadata. Renderers (preview, published site, editor
+    // preview) check htmlContent first and embed it via iframe.
     const savedWebsite = await prisma.website.create({
       data: {
         userId: session.user.id,
         name: website.name,
         type: website.type as never,
         prompt,
-        jsonContent: website as never,
+        jsonContent: {
+          name: website.name,
+          type: website.type,
+          stitchGenerated: true,
+        },
+        htmlContent: website.htmlContent,
         subdomain,
         seoTitle: website.seoTitle,
         seoDesc: website.seoDesc,
@@ -105,7 +112,6 @@ export async function POST(req: NextRequest) {
         id: savedWebsite.id,
         name: savedWebsite.name,
         subdomain: savedWebsite.subdomain,
-        jsonContent: website,
         seoTitle: website.seoTitle,
         seoDesc: website.seoDesc,
       },
