@@ -110,11 +110,25 @@ export async function POST(req: NextRequest) {
       },
       usage: process.env.NODE_ENV === "development" ? usage : undefined,
     });
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
-    console.error("Generate error:", error);
+    console.error("[POST /api/generate] error:", error?.status, error?.message ?? error);
+    // Surface actionable messages for known failure modes
+    const msg: string = error?.message ?? "";
+    if (msg.includes("ANTHROPIC_API_KEY")) {
+      return NextResponse.json({ error: "API key not configured. Please set ANTHROPIC_API_KEY." }, { status: 500 });
+    }
+    if (error?.status === 401 || msg.toLowerCase().includes("authentication")) {
+      return NextResponse.json({ error: "Invalid API key. Check your ANTHROPIC_API_KEY in environment variables." }, { status: 500 });
+    }
+    if (error?.status === 429) {
+      return NextResponse.json({ error: "Rate limit reached. Please wait a moment and try again." }, { status: 429 });
+    }
+    if (error?.status === 400 && msg.toLowerCase().includes("model")) {
+      return NextResponse.json({ error: "AI model not available on your API plan. Check Anthropic console." }, { status: 500 });
+    }
     return NextResponse.json(
       { error: "Generation failed. Please try again." },
       { status: 500 }

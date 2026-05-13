@@ -1395,16 +1395,44 @@ export async function generateWebsite(
     };
   }
 
-  const tier = plan as string;
-  const model = "claude-opus-4-7";
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY is not configured. Please add it to your environment variables.");
+  }
 
-  const message = await client.messages.create({
-    model,
-    max_tokens: 16000,
-    temperature: 1,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category, thisGenerationPhotos) }],
-  });
+  const tier = plan as string;
+  // Try the best available model; fall back gracefully to sonnet if opus is not accessible.
+  const preferredModel = "claude-opus-4-7";
+  const fallbackModel  = "claude-sonnet-4-6";
+
+  let message: Awaited<ReturnType<typeof client.messages.create>>;
+  let model = preferredModel;
+
+  try {
+    message = await client.messages.create({
+      model: preferredModel,
+      max_tokens: 16000,
+      temperature: 1,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category, thisGenerationPhotos) }],
+    });
+  } catch (err: any) {
+    const isModelErr = err?.status === 404 || err?.status === 400 ||
+      String(err?.message ?? "").toLowerCase().includes("model");
+    if (isModelErr) {
+      console.warn(`[generate] ${preferredModel} not accessible (${err?.status}), falling back to ${fallbackModel}`);
+      model = fallbackModel;
+      message = await client.messages.create({
+        model: fallbackModel,
+        max_tokens: 8192,
+        temperature: 1,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: buildUserPrompt(userPrompt, plan, category, thisGenerationPhotos) }],
+      });
+    } else {
+      console.error("[generate] API error:", err?.status, err?.message);
+      throw err;
+    }
+  }
 
   const content = message.content[0];
   if (content.type !== "text") throw new Error("Unexpected response type from AI provider");
@@ -1422,8 +1450,6 @@ export async function generateWebsite(
     throw new Error("AI provider returned invalid JSON. Please try again.");
   }
 
-  // Post-process with the pre-computed photo list so the approved-ID enforcement
-  // in sanitizeImages() uses exactly the IDs we told the AI to use.
   website = postProcess(website, tier, category, thisGenerationPhotos);
 
   const inputTokens = message.usage.input_tokens;
