@@ -165,6 +165,33 @@ export default function AdminUserDetailPage() {
     } finally { setSendingVerify(false); }
   }
 
+  // Manual verification (no email round-trip) — admin types the user's
+  // Account ID to confirm and we flip emailVerified directly. Used when the
+  // customer cannot receive the email or the inbox is unreachable.
+  async function handleMarkVerified() {
+    if (!user) return;
+    const confirm = window.prompt(
+      `Mark this user as verified WITHOUT sending an email.\n\nTo confirm, type the user's Account ID exactly:\n\n${user.id}`,
+      ""
+    );
+    if (!confirm) return;
+    setSendingVerify(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/mark-verified`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: confirm }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "User marked as verified.");
+        setUser((prev) => prev ? { ...prev, emailVerified: new Date().toISOString() as any } : prev);
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally { setSendingVerify(false); }
+  }
+
   async function handleRemovePayment() {
     if (!user) return;
     const confirm = window.prompt(
@@ -526,19 +553,32 @@ export default function AdminUserDetailPage() {
               onSave={async (v) => patch({ email: v })} />
             <div style={ROW}>
               <span style={KEY}>Email Verified</span>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {user.emailVerified ? (
                   <span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#D1FAE5", color: "#065F46" }}>VERIFIED</span>
                 ) : (
                   <span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: "#FEF3C7", color: "#92400E" }}>UNVERIFIED</span>
                 )}
-                <button
-                  onClick={handleSendVerification}
-                  disabled={sendingVerify || !user.email}
-                  style={{ padding: "5px 12px", background: sendingVerify ? "#E5E7EB" : "#EBF3FF", color: BLUE, border: "1px solid #BFDBFE", borderRadius: "6px", cursor: sendingVerify || !user.email ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap", opacity: !user.email ? 0.5 : 1 }}
-                >
-                  {sendingVerify ? "Sending…" : "Send Verification Link"}
-                </button>
+                {!user.emailVerified && (
+                  <>
+                    <button
+                      onClick={handleMarkVerified}
+                      disabled={sendingVerify}
+                      title="Manually mark this user verified — no email is sent. Requires admin to confirm with the user's Account ID."
+                      style={{ padding: "5px 12px", background: sendingVerify ? "#E5E7EB" : "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", borderRadius: "6px", cursor: sendingVerify ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                    >
+                      Verify by Account ID
+                    </button>
+                    <button
+                      onClick={handleSendVerification}
+                      disabled={sendingVerify || !user.email}
+                      title="Send a verification link to the user's email — they need to click it to confirm."
+                      style={{ padding: "5px 12px", background: sendingVerify ? "#E5E7EB" : "#EBF3FF", color: BLUE, border: "1px solid #BFDBFE", borderRadius: "6px", cursor: sendingVerify || !user.email ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap", opacity: !user.email ? 0.5 : 1 }}
+                    >
+                      {sendingVerify ? "Sending…" : "Send Verification Link"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             <div style={ROW}>

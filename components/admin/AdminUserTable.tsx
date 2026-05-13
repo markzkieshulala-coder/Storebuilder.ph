@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Shield, User, Sparkles, Mail, X, Building2 } from "lucide-react";
+import { Crown, Shield, User, Star, Mail, X, Building2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 type UserRow = {
@@ -102,7 +102,7 @@ export default function AdminUserTable({ users }: { users: UserRow[] }) {
                         <>
                           <span className="text-white/25">/</span>
                           <span className="flex items-center gap-1 text-pink-400">
-                            <Sparkles size={10} />
+                            <Star size={10} />
                             Influencer
                           </span>
                         </>

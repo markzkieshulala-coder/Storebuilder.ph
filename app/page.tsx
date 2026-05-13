@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Zap, Globe, Shield, Star, ChevronDown, Check, X, Sparkles } from "lucide-react";
+import { ArrowRight, Zap, Globe, Shield, Star, ChevronDown, Check, X, Wand2 } from "lucide-react";
 
 const BLUE = "#1877F2";
 
@@ -319,9 +319,9 @@ const FEATURES = [
     description: "GCash payments, prices in Philippine Peso, local aesthetics. Everything your business needs to go online.",
   },
   {
-    icon: Sparkles,
-    title: "AI-designed, not templated",
-    description: "Every website is uniquely created by our AI technology partner. No cookie-cutter templates. Truly creative output.",
+    icon: Wand2,
+    title: "Custom-designed, not templated",
+    description: "Every website is uniquely created for your business. No cookie-cutter templates — truly tailored output.",
   },
   {
     icon: Shield,
@@ -513,7 +513,7 @@ export default function HomePage() {
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
-                      <Sparkles size={16} />
+                      <Zap size={16} />
                       Generate
                     </>
                   )}
@@ -546,7 +546,7 @@ export default function HomePage() {
           <h2 className="text-center text-2xl md:text-3xl font-bold mb-2 text-gray-900">
             See what you can build
           </h2>
-          <p className="text-center text-gray-500 mb-10">AI-generated websites, not templates</p>
+          <p className="text-center text-gray-500 mb-10">Custom-built websites, not templates</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {EXAMPLE_SITES.map(({ name, type, Component: SitePreview }, i) => (
               <motion.div
@@ -568,8 +568,8 @@ export default function HomePage() {
                     <span className="text-xs text-gray-400 ml-2">{type}</span>
                   </div>
                   <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <Sparkles size={11} />
-                    AI Generated
+                    <Zap size={11} />
+                    Custom-built
                   </span>
                 </div>
               </motion.div>

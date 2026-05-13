@@ -43,7 +43,23 @@ export async function POST(req: NextRequest) {
       sectionEmail ||
       ((contactSection?.data as any)?.email as string | undefined);
 
-    let recipient = settingsEmail || sectionContactEmail;
+    // Prefer the merchant's configured Business Email from the Inbox
+    // settings — that's the live "where do replies go" address. Fall back
+    // to the editor-set settings/section email, then the account email.
+    let businessEmail: string | null = null;
+    let forwardContactEmails = true;
+    try {
+      const rows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT "businessEmail", "forwardContactEmails" FROM "Website" WHERE id = $1 LIMIT 1`,
+        website.id
+      );
+      if (rows?.[0]) {
+        businessEmail = rows[0].businessEmail ?? null;
+        forwardContactEmails = rows[0].forwardContactEmails ?? true;
+      }
+    } catch {}
+
+    let recipient = businessEmail || settingsEmail || sectionContactEmail;
     if (!recipient) {
       const owner = await prisma.user.findUnique({ where: { id: website.userId } });
       recipient = owner?.email ?? undefined;
@@ -55,14 +71,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await sendContactFormEmail({
-      to: recipient,
-      storeName: website.name,
-      fromName: String(name).slice(0, 200),
-      fromEmail: email,
-      message: String(message),
-      subdomain: website.subdomain,
-    });
+    // Only forward if the merchant hasn't disabled email forwarding (they
+    // may want everything to stay in-app via the inbox). Submission is
+    // always persisted regardless.
+    if (forwardContactEmails) {
+      try {
+        await sendContactFormEmail({
+          to: recipient,
+          storeName: website.name,
+          fromName: String(name).slice(0, 200),
+          fromEmail: email,
+          message: String(message),
+          subdomain: website.subdomain ?? undefined,
+        });
+      } catch (e) {
+        console.error("[contact] forward email failed:", e);
+        // Don't fail the submission if email forwarding fails — the message
+        // is still saved to the inbox.
+      }
+    }
 
     // Persist the submission so the merchant's dashboard CRM can show it
     try {
@@ -100,7 +127,7 @@ export async function POST(req: NextRequest) {
       type: "contact.submitted",
       title: `${contactTitleFor((website as any).type)} from ${String(name).slice(0, 80)}`,
       body: String(message).slice(0, 280),
-      href: `/dashboard/sites/${website.id}/manage/marketing`,
+      href: `/dashboard/sites/${website.id}/manage/inbox`,
       metadata: { name: String(name).slice(0, 200), email: String(email).toLowerCase() },
     });
 

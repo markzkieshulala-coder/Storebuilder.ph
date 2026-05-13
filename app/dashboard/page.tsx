@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
+  Store, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
   Crown, Clock, AlertCircle, Zap, Camera, CheckCircle2, Menu, X,
   EyeOff, ChevronDown, Share2, Copy, Check, MoreVertical, BarChart3, Briefcase,
   ArrowLeft,
@@ -70,7 +70,19 @@ function DashboardContent() {
   const [openToolsId, setOpenToolsId] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [sendingVerify, setSendingVerify] = useState(false);
-  const [verifyDismissed, setVerifyDismissed] = useState(false);
+  // Persist dismissal across reloads — once a user closes the banner we
+  // don't show it again until they verify (or clear local storage).
+  const [verifyDismissed, setVerifyDismissedRaw] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (localStorage.getItem("sb:verify-dismissed") === "1") setVerifyDismissedRaw(true);
+    } catch {}
+  }, []);
+  function setVerifyDismissed(v: boolean) {
+    setVerifyDismissedRaw(v);
+    try { if (v) localStorage.setItem("sb:verify-dismissed", "1"); else localStorage.removeItem("sb:verify-dismissed"); } catch {}
+  }
   const menuRef = useRef<HTMLDivElement>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -109,22 +121,24 @@ function DashboardContent() {
     } finally { setSendingVerify(false); }
   }
 
-  // Refetch credits whenever the dashboard becomes visible again (user
-  // returns from /dashboard/settings after cancelling, for instance). This
-  // keeps the plan badge and "Upgrade" prompt in sync with the DB without
-  // requiring a hard reload.
+  // Refetch credits when the dashboard is hidden for >2 minutes — covers
+  // returning from billing/settings without thrashing the API on every
+  // alt-tab. Plain alt-tab / app switching keeps cached state.
   useEffect(() => {
     if (status !== "authenticated") return;
+    let hiddenAt: number | null = null;
     function onVisible() {
-      if (document.visibilityState === "visible") fetchData();
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (document.visibilityState === "visible" && hiddenAt && Date.now() - hiddenAt > 120_000) {
+        fetchData();
+      }
+      hiddenAt = null;
     }
-    function onFocus() { fetchData(); }
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onFocus);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onFocus);
-    };
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [status]);
   useEffect(() => {
     const url = searchParams.get("generate");
@@ -334,7 +348,7 @@ function DashboardContent() {
         </Link>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: BLUE }}>
-            <Sparkles size={13} color="#fff" />
+            <Store size={13} color="#fff" />
           </div>
           <span className="font-bold text-sm text-gray-900">Storebuilder.ph</span>
         </div>
@@ -468,8 +482,8 @@ function DashboardContent() {
           {/* Generation box */}
           <div className="bg-white rounded-2xl border border-[#E4E6EB] p-4 sm:p-6 mb-6">
             <h2 className="text-sm font-bold text-[#1C1E21] mb-4 flex items-center gap-2">
-              <Sparkles size={15} style={{ color: BLUE }} />
-              Generate a new website
+              <Zap size={15} style={{ color: BLUE }} />
+              Create a new website
             </h2>
             {isGenerating ? (
               <div className="py-8 text-center">
@@ -505,7 +519,7 @@ function DashboardContent() {
                     className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
                     style={{ background: BLUE, fontFamily: FONT }}
                   >
-                    <Sparkles size={15} />
+                    <Zap size={15} />
                     Generate
                   </button>
                 </div>
@@ -637,6 +651,24 @@ function DashboardContent() {
                                     <ExternalLink size={13} className="text-gray-400" />
                                     View live site
                                   </a>
+                                )}
+                                <div className="h-px bg-gray-100" />
+                                {site.published ? (
+                                  <button
+                                    onClick={() => { setOpenToolsId(null); handleUnpublish(site.id); }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-amber-700 hover:bg-amber-50 transition-colors"
+                                  >
+                                    <EyeOff size={13} />
+                                    Unpublish website
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => { setOpenToolsId(null); handlePublish(site.id); }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-emerald-700 hover:bg-emerald-50 transition-colors"
+                                  >
+                                    <Zap size={13} />
+                                    Publish website
+                                  </button>
                                 )}
                               </div>
                             );
@@ -801,7 +833,7 @@ function SidebarContent({
       <div className="px-5 py-4 border-b border-[#E4E6EB] flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 no-underline" onClick={onClose}>
           <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#1877F2" }}>
-            <Sparkles size={14} color="#fff" />
+            <Store size={14} color="#fff" />
           </div>
           <span className="font-bold text-sm text-[#1C1E21]" style={{ fontFamily: FONT }}>Storebuilder.ph</span>
         </Link>

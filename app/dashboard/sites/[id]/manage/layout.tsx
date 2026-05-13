@@ -23,7 +23,7 @@ export default async function ManageLayout({
 
   const website = await prisma.website.findFirst({
     where: { id: params.id, userId: session.user.id },
-    select: { id: true, name: true, subdomain: true, published: true },
+    select: { id: true, name: true, subdomain: true, published: true, type: true },
   });
   if (!website) redirect("/dashboard");
 
@@ -37,23 +37,23 @@ export default async function ManageLayout({
   // because there's no point loading the sidebar nav.
   if (!getPlan(user?.plan).canGenerateCRM) {
     return (
-      <div className="min-h-screen bg-[#F1F1F1] flex items-center justify-center px-4 py-10" style={{ fontFamily: "'Inter', 'Google Sans', system-ui, sans-serif" }}>
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-[#1A1A1A] mx-auto mb-4 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F8FF] flex items-center justify-center px-4 py-10" style={{ fontFamily: "'Inter', 'Google Sans', system-ui, sans-serif" }}>
+        <div className="max-w-md w-full bg-white border border-[#E0E7FF] rounded-2xl p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-[#1877F2] mx-auto mb-4 flex items-center justify-center">
             <Crown size={20} className="text-white" />
           </div>
-          <h1 className="text-xl font-bold text-[#1A1A1A] mb-2">Store management is an Enterprise feature</h1>
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            Upgrade to Enterprise to access the full Shopify-style management console — orders,
-            products, customers, discounts, analytics, and shipping settings.
+          <h1 className="text-xl font-bold text-[#0F172A] mb-2">Business Tools is an Enterprise feature</h1>
+          <p className="text-sm text-[#64748B] mb-6 leading-relaxed">
+            Upgrade to Enterprise to access the full management console —
+            inbox, orders, products, customers, marketing, analytics, and settings.
           </p>
           <Link
             href="/upgrade"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#1A1A1A] text-white text-sm font-semibold hover:bg-black transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#1877F2] text-white text-sm font-semibold hover:bg-[#166FE5] transition-colors"
           >
             View Enterprise plans <ArrowRight size={14} />
           </Link>
-          <Link href="/dashboard" className="block mt-4 text-xs text-gray-400 hover:text-gray-600">
+          <Link href="/dashboard" className="block mt-4 text-xs text-[#94A3B8] hover:text-[#1877F2]">
             ← Back to all websites
           </Link>
         </div>

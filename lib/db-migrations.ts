@@ -295,5 +295,40 @@ export async function ensureSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paymentRemovalExpires" TIMESTAMPTZ`);
   } catch (e) { console.error("[migrations] paymentRemovalExpires col:", e); }
 
+  // Per-site business email + auto-forward toggle. Set in Business Tools →
+  // Settings → Email; replies from the in-app inbox are sent with this as
+  // the reply-to address so customer responses land here directly.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Website" ADD COLUMN IF NOT EXISTS "businessEmail" TEXT`);
+  } catch (e) { console.error("[migrations] businessEmail col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Website" ADD COLUMN IF NOT EXISTS "forwardContactEmails" BOOLEAN NOT NULL DEFAULT true`);
+  } catch (e) { console.error("[migrations] forwardContactEmails col:", e); }
+
+  // Inbox reply log — every reply the merchant sends from the CRM inbox is
+  // persisted so the conversation history stays attached to the original
+  // contact submission.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "StoreContactSubmission" ADD COLUMN IF NOT EXISTS "subject" TEXT`);
+  } catch (e) { console.error("[migrations] contact subject col:", e); }
+  try {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "StoreContactReply" (
+      "id" TEXT PRIMARY KEY,
+      "submissionId" TEXT NOT NULL,
+      "websiteId" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "subject" TEXT,
+      "body" TEXT NOT NULL,
+      "deliveredAt" TIMESTAMPTZ,
+      "error" TEXT,
+      "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreContactReply_submission_fkey" FOREIGN KEY ("submissionId") REFERENCES "StoreContactSubmission"("id") ON DELETE CASCADE,
+      CONSTRAINT "StoreContactReply_website_fkey" FOREIGN KEY ("websiteId") REFERENCES "Website"("id") ON DELETE CASCADE,
+      CONSTRAINT "StoreContactReply_user_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreContactReply_submissionId_idx" ON "StoreContactReply"("submissionId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoreContactReply_websiteId_idx" ON "StoreContactReply"("websiteId")`);
+  } catch (e) { console.error("[migrations] StoreContactReply:", e); }
+
   ran = true;
 }

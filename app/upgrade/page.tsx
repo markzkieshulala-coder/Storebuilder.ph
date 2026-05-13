@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Crown, Check, Zap, Globe, Shield, CreditCard, Database, Share2, Sparkles } from "lucide-react";
+import { Crown, Check, Zap, Globe, Shield, CreditCard, Database, Share2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { PLANS, pesos } from "@/lib/plans";
 
@@ -26,7 +26,7 @@ const PLAN_FEATURES: Record<"FREE" | "PRO" | "ENTERPRISE", { included: { icon: a
   },
   PRO: {
     included: [
-      { icon: Sparkles, text: "Up to 10 websites per month" },
+      { icon: Zap, text: "Up to 10 websites per month" },
       { icon: Check, text: "Access to all editor features" },
       { icon: CreditCard, text: "Add Hitpay & Paymongo payment links" },
       { icon: Share2, text: "Template link sharing for generated websites" },
@@ -36,7 +36,7 @@ const PLAN_FEATURES: Record<"FREE" | "PRO" | "ENTERPRISE", { included: { icon: a
   },
   ENTERPRISE: {
     included: [
-      { icon: Sparkles, text: "Up to 20 websites per month" },
+      { icon: Crown, text: "Up to 20 websites per month" },
       { icon: Check, text: "Access to all editor features" },
       { icon: CreditCard, text: "Add Hitpay & Paymongo payment links" },
       { icon: Database, text: "System / CRM generation for each website" },

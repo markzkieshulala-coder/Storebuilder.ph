@@ -1099,7 +1099,7 @@ export default function EditorPage({ params }: { params: { id: string } }) {
               onScrollToSection={scrollToSection}
               currentPage={currentEditorPage}
               onPageChange={(page) => setCurrentEditorPage(page)}
-              visibleTabs={["site", "payments"]}
+              visibleTabs={["payments"]}
             />
           </div>
         </aside>

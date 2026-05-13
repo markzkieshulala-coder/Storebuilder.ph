@@ -196,10 +196,26 @@ function SectionShell({
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dragHeightRef = useRef<number | null>(null);
-  const [hover, setHover] = useState(false);
+  // Click-to-select model: section controls only appear when the user clicks
+  // the section. Hovering does NOT trigger any popups — that was confusing
+  // because moving the mouse across the canvas opened "Change background
+  // color" / "Delete section" buttons on every section in turn.
+  const [selected, setSelected] = useState(false);
   const [resizing, setResizing] = useState(false);
   const [liveHeight, setLiveHeight] = useState<number | null>(null);
   const sectionAlign = section.styles?.textAlign as "left" | "center" | "right" | undefined;
+
+  // Deselect when the user clicks outside the section.
+  useEffect(() => {
+    if (!selected || !isEditable) return;
+    function onDocDown(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setSelected(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [selected, isEditable]);
 
   // Per-viewport height: prefer scoped key (e.g. "mobile:minHeight"),
   // fall back to the legacy unscoped "minHeight" only on desktop so older
@@ -279,8 +295,14 @@ function SectionShell({
       ref={wrapperRef}
       data-sb-section-index={index}
       id={anchorId}
-      onMouseEnter={() => isEditable && setHover(true)}
-      onMouseLeave={() => isEditable && !resizing && setHover(false)}
+      onClick={(e) => {
+        if (!isEditable) return;
+        // Don't capture clicks on contentEditable text — those are handled
+        // by the per-field editor / floating toolbar, not the section shell.
+        const t = e.target as HTMLElement;
+        if (t.closest('[contenteditable="true"]') || t.closest("input, textarea, select, button, a")) return;
+        setSelected(true);
+      }}
       style={{
         position: "relative",
         scrollMarginTop: "80px",
@@ -293,8 +315,8 @@ function SectionShell({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        outline: resizing ? "2px dashed #1877F2" : (isEditable && hover ? "1px dashed rgba(24,119,242,0.4)" : undefined),
-        outlineOffset: resizing ? "-2px" : (isEditable && hover ? "-1px" : undefined),
+        outline: resizing ? "2px dashed #1877F2" : (isEditable && selected ? "1px dashed rgba(24,119,242,0.4)" : undefined),
+        outlineOffset: resizing ? "-2px" : (isEditable && selected ? "-1px" : undefined),
         transition: resizing ? "none" : "outline-color 0.12s ease",
       }}
     >
@@ -308,13 +330,13 @@ function SectionShell({
           section={section}
           website={website}
           onUpdate={onUpdateSectionStyle}
-          visible={hover || resizing}
+          visible={selected || resizing}
         />
       )}
 
       {/* Section delete button — visible on hover in editor mode.
           Single-click removes the entire section from the page. */}
-      {isEditable && onDeleteSection && (hover || resizing) && (
+      {isEditable && onDeleteSection && (selected || resizing) && (
         <button
           type="button"
           onClick={(e) => {
@@ -356,8 +378,6 @@ function SectionShell({
         <div
           onPointerDown={startResize}
           onMouseDown={(e) => e.preventDefault()}
-          onPointerEnter={() => setHover(true)}
-          onPointerLeave={() => !resizing && setHover(false)}
           title="Drag to resize this section (up shrinks, down grows)"
           style={{
             position: "absolute",
@@ -372,7 +392,7 @@ function SectionShell({
             cursor: "ns-resize",
             touchAction: "none",
             userSelect: "none",
-            background: hover || resizing ? "rgba(24,119,242,0.10)" : "transparent",
+            background: selected || resizing ? "rgba(24,119,242,0.10)" : "transparent",
           }}
         >
           <div
@@ -380,10 +400,10 @@ function SectionShell({
               width: 40,
               height: 4,
               borderRadius: 2,
-              background: hover || resizing ? "#1877F2" : "rgba(255,255,255,0.35)",
-              transition: hover || resizing ? "none" : "background 0.2s ease",
+              background: selected || resizing ? "#1877F2" : "rgba(255,255,255,0.35)",
+              transition: selected || resizing ? "none" : "background 0.2s ease",
               position: "relative",
-              boxShadow: hover || resizing ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
+              boxShadow: selected || resizing ? "0 0 0 2px rgba(255,255,255,0.5)" : undefined,
             }}
           >
             {resizing && liveHeight && (

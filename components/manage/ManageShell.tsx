@@ -6,32 +6,82 @@ import { useEffect, useState } from "react";
 import {
   Home, ShoppingBag, Package, Users, Megaphone, Tag,
   BarChart3, Settings, ExternalLink, ArrowLeft, ChevronRight,
-  Menu, X, Sparkles, Search,
+  Menu, X, Search, Store, Briefcase, Inbox, Image as ImageIcon,
+  FileText, MessageSquare,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
-// Shopify-style two-column shell — fixed left nav, scrollable main content.
-// Every /dashboard/sites/[id]/manage/* page renders inside this layout via
-// the layout.tsx file. Active route is highlighted from `usePathname()` so
-// links work as real Next.js navigation (URL changes, browser history works).
+// Two-column management shell — blue & white branded, fixed left nav, scrollable
+// main content. Every /dashboard/sites/[id]/manage/* page renders inside this
+// layout via the layout.tsx file. The nav is customised per website type so a
+// Portfolio gets project/inquiry-focused tools and a Store gets commerce tools.
 
 export type SiteHeader = {
   id: string;
   name: string;
   subdomain: string | null;
   published: boolean;
+  type?: string | null;
 };
 
-const NAV: { href: string; label: string; Icon: any; badge?: string }[] = [
-  { href: "",            label: "Home",       Icon: Home },
-  { href: "/orders",     label: "Orders",     Icon: ShoppingBag },
-  { href: "/products",   label: "Products",   Icon: Package },
-  { href: "/customers",  label: "Customers",  Icon: Users },
-  { href: "/marketing",  label: "Marketing",  Icon: Megaphone },
-  { href: "/discounts",  label: "Discounts",  Icon: Tag },
-  { href: "/analytics",  label: "Analytics",  Icon: BarChart3 },
-  { href: "/settings",   label: "Settings",   Icon: Settings },
-];
+type NavItem = { href: string; label: string; Icon: any };
+
+// Nav builder — different website types see different tools so the management
+// console matches what the site actually does. Inbox/Customers/Analytics/
+// Settings/Marketing are shared across every type.
+function navForType(type: string | null | undefined): NavItem[] {
+  const t = (type || "").toUpperCase();
+
+  if (t === "PORTFOLIO") {
+    return [
+      { href: "",            label: "Overview",   Icon: Home },
+      { href: "/inbox",      label: "Inbox",      Icon: Inbox },
+      { href: "/customers",  label: "Contacts",   Icon: Users },
+      { href: "/products",   label: "Projects",   Icon: Briefcase },
+      { href: "/marketing",  label: "Marketing",  Icon: Megaphone },
+      { href: "/analytics",  label: "Analytics",  Icon: BarChart3 },
+      { href: "/settings",   label: "Settings",   Icon: Settings },
+    ];
+  }
+
+  if (t === "BUSINESS" || t === "LANDING" || t === "PERSONAL") {
+    return [
+      { href: "",            label: "Overview",   Icon: Home },
+      { href: "/inbox",      label: "Inbox",      Icon: Inbox },
+      { href: "/customers",  label: "Leads",      Icon: Users },
+      { href: "/marketing",  label: "Marketing",  Icon: Megaphone },
+      { href: "/analytics",  label: "Analytics",  Icon: BarChart3 },
+      { href: "/settings",   label: "Settings",   Icon: Settings },
+    ];
+  }
+
+  // STORE / RESTAURANT / SALON / default → full commerce nav
+  return [
+    { href: "",            label: "Home",       Icon: Home },
+    { href: "/orders",     label: "Orders",     Icon: ShoppingBag },
+    { href: "/products",   label: "Products",   Icon: Package },
+    { href: "/customers",  label: "Customers",  Icon: Users },
+    { href: "/inbox",      label: "Inbox",      Icon: Inbox },
+    { href: "/marketing",  label: "Marketing",  Icon: Megaphone },
+    { href: "/discounts",  label: "Discounts",  Icon: Tag },
+    { href: "/analytics",  label: "Analytics",  Icon: BarChart3 },
+    { href: "/settings",   label: "Settings",   Icon: Settings },
+  ];
+}
+
+// Friendly label for the brand row — e.g. "Portfolio" vs "Store" — so the
+// console reads like a tool for that specific kind of site.
+function typeLabel(type: string | null | undefined): string {
+  const t = (type || "").toUpperCase();
+  if (t === "PORTFOLIO") return "Portfolio";
+  if (t === "BUSINESS") return "Business";
+  if (t === "LANDING") return "Landing";
+  if (t === "PERSONAL") return "Personal";
+  if (t === "RESTAURANT") return "Restaurant";
+  if (t === "SALON") return "Salon";
+  if (t === "STORE") return "Store";
+  return "Site";
+}
 
 export default function ManageShell({
   site,
@@ -50,28 +100,26 @@ export default function ManageShell({
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-[#F1F1F1]" style={{ fontFamily: "'Inter', 'Google Sans', system-ui, -apple-system, sans-serif" }}>
-      {/* ── Top bar (mobile) ── */}
-      <div className="lg:hidden sticky top-0 z-40 h-14 bg-[#1A1A1A] text-white flex items-center px-3 gap-2 border-b border-black">
-        <button onClick={() => setMobileOpen(true)} className="p-2 rounded-md hover:bg-white/10" aria-label="Open menu">
+    <div className="min-h-screen bg-[#F5F8FF]" style={{ fontFamily: "'Inter', 'Google Sans', system-ui, -apple-system, sans-serif" }}>
+      {/* ── Top bar (mobile) — blue header to match brand ── */}
+      <div className="lg:hidden sticky top-0 z-40 h-14 bg-white text-[#0F172A] flex items-center px-3 gap-2 border-b border-[#E0E7FF]">
+        <button onClick={() => setMobileOpen(true)} className="p-2 rounded-md hover:bg-[#EFF4FF] text-[#1877F2]" aria-label="Open menu">
           <Menu size={18} />
         </button>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-md bg-[#5B8DEF]/20 border border-[#5B8DEF]/40 flex items-center justify-center">
-            <Sparkles size={13} className="text-[#5B8DEF]" />
+          <div className="w-7 h-7 rounded-md bg-[#1877F2] flex items-center justify-center">
+            <Store size={13} className="text-white" />
           </div>
-          <span className="text-sm font-semibold truncate">{site?.name || "Store"}</span>
+          <span className="text-sm font-semibold truncate text-[#0F172A]">{site?.name || typeLabel(site?.type)}</span>
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <div className="bg-white/10 rounded-full">
-            <NotificationBell compact />
-          </div>
+          <NotificationBell compact />
           {site?.subdomain && (
             <a
               href={`https://${site.subdomain}.storebuilder.ph`}
               target="_blank" rel="noopener noreferrer"
-              className="p-2 rounded-md hover:bg-white/10"
-              aria-label="View store"
+              className="p-2 rounded-md hover:bg-[#EFF4FF] text-[#1877F2]"
+              aria-label="View live site"
             >
               <ExternalLink size={14} />
             </a>
@@ -81,26 +129,26 @@ export default function ManageShell({
 
       {/* ── Desktop floating notification bell (top-right) ── */}
       <div className="hidden lg:flex fixed top-4 right-6 z-40 items-center gap-2">
-        <div className="bg-white border border-gray-200 rounded-full px-1 py-0.5 shadow-sm">
+        <div className="bg-white border border-[#E0E7FF] rounded-full px-1 py-0.5 shadow-sm">
           <NotificationBell />
         </div>
       </div>
 
-      {/* ── Sidebar (mobile drawer) ── */}
+      {/* ── Sidebar (mobile drawer) — white with blue accents ── */}
       {mobileOpen && (
         <>
-          <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed top-0 left-0 bottom-0 w-72 bg-[#1A1A1A] text-white z-50 lg:hidden flex flex-col">
+          <div className="fixed inset-0 bg-[#0F172A]/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+          <aside className="fixed top-0 left-0 bottom-0 w-72 bg-white text-[#0F172A] z-50 lg:hidden flex flex-col border-r border-[#E0E7FF]">
             <SidebarBody site={site} base={base} pathname={pathname} onItemClick={() => setMobileOpen(false)} />
-            <button onClick={() => setMobileOpen(false)} className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-white/10">
+            <button onClick={() => setMobileOpen(false)} className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-[#EFF4FF] text-[#1877F2]">
               <X size={16} />
             </button>
           </aside>
         </>
       )}
 
-      {/* ── Sidebar (desktop, fixed) ── */}
-      <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 w-60 bg-[#1A1A1A] text-white z-30 flex-col">
+      {/* ── Sidebar (desktop, fixed) — clean white w/ blue rail ── */}
+      <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 w-60 bg-white text-[#0F172A] z-30 flex-col border-r border-[#E0E7FF]">
         <SidebarBody site={site} base={base} pathname={pathname} />
       </aside>
 
@@ -124,16 +172,19 @@ function SidebarBody({ site, base, pathname, onItemClick }: {
     return pathname === full || pathname.startsWith(full + "/");
   }
 
+  const nav = navForType(site?.type);
+  const label = typeLabel(site?.type);
+
   return (
     <>
       {/* Brand row */}
-      <div className="px-4 py-4 border-b border-white/10 flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-md bg-[#5B8DEF]/20 border border-[#5B8DEF]/40 flex items-center justify-center shrink-0">
-          <Sparkles size={14} className="text-[#5B8DEF]" />
+      <div className="px-4 py-4 border-b border-[#E0E7FF] flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-lg bg-[#1877F2] flex items-center justify-center shrink-0">
+          <Store size={16} className="text-white" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold leading-tight truncate">{site?.name || "Store"}</p>
-          <p className="text-[10px] text-white/50 truncate">{site?.subdomain ? `${site.subdomain}.storebuilder.ph` : "—"}</p>
+          <p className="text-[13px] font-semibold leading-tight truncate text-[#0F172A]">{site?.name || label}</p>
+          <p className="text-[10px] text-[#64748B] truncate">{site?.subdomain ? `${site.subdomain}.storebuilder.ph` : label + " tools"}</p>
         </div>
       </div>
 
@@ -141,14 +192,14 @@ function SidebarBody({ site, base, pathname, onItemClick }: {
       <Link
         href="/dashboard"
         onClick={onItemClick}
-        className="mx-3 mt-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+        className="mx-3 mt-3 mb-1 flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] text-[#64748B] hover:text-[#1877F2] hover:bg-[#EFF4FF] transition-colors"
       >
         <ArrowLeft size={12} /> All websites
       </Link>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-0.5">
-        {NAV.map(({ href, label, Icon }) => {
+        {nav.map(({ href, label, Icon }) => {
           const active = isActive(href);
           return (
             <Link
@@ -157,32 +208,32 @@ function SidebarBody({ site, base, pathname, onItemClick }: {
               onClick={onItemClick}
               className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors ${
                 active
-                  ? "bg-white/12 text-white font-medium"
-                  : "text-white/65 hover:bg-white/5 hover:text-white"
+                  ? "bg-[#1877F2] text-white font-semibold"
+                  : "text-[#475569] hover:bg-[#EFF4FF] hover:text-[#1877F2]"
               }`}
             >
-              <Icon size={14} className={active ? "text-white" : "text-white/55"} />
+              <Icon size={14} className={active ? "text-white" : "text-[#64748B]"} />
               {label}
-              {active && <ChevronRight size={12} className="ml-auto text-white/40" />}
+              {active && <ChevronRight size={12} className="ml-auto text-white/80" />}
             </Link>
           );
         })}
       </nav>
 
-      {/* View store + plan footer */}
-      <div className="px-3 py-3 border-t border-white/10 flex flex-col gap-2">
+      {/* View live + plan footer */}
+      <div className="px-3 py-3 border-t border-[#E0E7FF] flex flex-col gap-2 bg-[#F8FAFF]">
         {site?.subdomain && site.published && (
           <a
             href={`https://${site.subdomain}.storebuilder.ph`}
             target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-2.5 py-2 rounded-md text-[12px] text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+            className="flex items-center gap-2 px-2.5 py-2 rounded-md text-[12px] text-[#1877F2] hover:bg-[#EFF4FF] font-medium transition-colors"
           >
-            <ExternalLink size={12} /> View live store
+            <ExternalLink size={12} /> View live site
           </a>
         )}
-        <div className="px-2.5 py-1.5 rounded-md bg-white/5">
-          <p className="text-[10px] text-white/40 uppercase tracking-wider">Plan</p>
-          <p className="text-[11px] font-semibold text-white">Enterprise</p>
+        <div className="px-2.5 py-1.5 rounded-md bg-white border border-[#E0E7FF]">
+          <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider">Plan</p>
+          <p className="text-[11px] font-semibold text-[#1877F2]">Enterprise</p>
         </div>
       </div>
     </>
@@ -201,8 +252,8 @@ export function PageHeader({
   return (
     <div className="flex items-start sm:items-center justify-between gap-3 mb-5 sm:mb-6 flex-wrap">
       <div className="min-w-0">
-        <h1 className="text-[20px] sm:text-[22px] font-bold text-[#1A1A1A] leading-tight tracking-tight">{title}</h1>
-        {subtitle && <p className="text-[13px] text-[#6B7280] mt-1">{subtitle}</p>}
+        <h1 className="text-[20px] sm:text-[22px] font-bold text-[#0F172A] leading-tight tracking-tight">{title}</h1>
+        {subtitle && <p className="text-[13px] text-[#64748B] mt-1">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>

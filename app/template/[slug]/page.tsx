@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Lock, AlertCircle, User } from "lucide-react";
+import { Zap, ArrowRight, Lock, AlertCircle, User } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import type { GeneratedWebsite } from "@/lib/ai/generate";
@@ -140,7 +140,7 @@ export default function TemplatePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider mb-1" style={{ background: "#EBF3FF", color: BLUE }}>
-              <Sparkles size={10} />
+              <Zap size={10} />
               Storebuilder Template
             </div>
             <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">{template.name}</h1>
@@ -299,7 +299,7 @@ function LockedPreview({
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
               style={{ background: BLUE }}
             >
-              <Sparkles size={14} />
+              <Zap size={14} />
               Sign up free
               <ArrowRight size={14} />
             </Link>

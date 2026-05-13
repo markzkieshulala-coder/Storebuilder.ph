@@ -1,19 +1,122 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_SERVER_HOST || "smtp.gmail.com",
-  port: Number(process.env.EMAIL_SERVER_PORT) || 587,
-  secure: Number(process.env.EMAIL_SERVER_PORT) === 465,
-  auth: {
-    user: process.env.EMAIL_SERVER_USER,
-    pass: process.env.EMAIL_SERVER_PASSWORD,
-  },
-});
+// Email config validation — every send goes through here so we fail loudly
+// when SMTP env vars are missing instead of silently dropping the message.
+// Without these vars Nodemailer throws cryptic "Missing credentials"
+// errors deep inside the API route and the user just sees "Email service
+// unavailable" with no hint about what's wrong.
+export type EmailConfigCheck = {
+  ok: boolean;
+  host: string;
+  port: number;
+  hasUser: boolean;
+  hasPassword: boolean;
+  from: string;
+  missing: string[];
+};
+
+export function checkEmailConfig(): EmailConfigCheck {
+  const host = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
+  const port = Number(process.env.EMAIL_SERVER_PORT) || 587;
+  const hasUser = !!process.env.EMAIL_SERVER_USER;
+  const hasPassword = !!process.env.EMAIL_SERVER_PASSWORD;
+  const from = process.env.EMAIL_FROM || "Storebuilder.ph <noreply@storebuilder.ph>";
+  const missing: string[] = [];
+  if (!hasUser) missing.push("EMAIL_SERVER_USER");
+  if (!hasPassword) missing.push("EMAIL_SERVER_PASSWORD");
+  if (!process.env.EMAIL_FROM) missing.push("EMAIL_FROM (using fallback)");
+  return { ok: hasUser && hasPassword, host, port, hasUser, hasPassword, from, missing };
+}
+
+let transporterCache: nodemailer.Transporter | null = null;
+function getTransporter(): nodemailer.Transporter {
+  if (transporterCache) return transporterCache;
+  const cfg = checkEmailConfig();
+  transporterCache = nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.port === 465,
+    auth: { user: process.env.EMAIL_SERVER_USER, pass: process.env.EMAIL_SERVER_PASSWORD },
+    // Surface SMTP errors faster — without these, a misconfigured host hangs
+    // the request for the full default of >2 minutes.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+  return transporterCache;
+}
 
 const FROM = process.env.EMAIL_FROM || "Storebuilder.ph <noreply@storebuilder.ph>";
 
 async function sendMail(opts: { to: string; subject: string; html: string; text: string; replyTo?: string }) {
-  return transporter.sendMail({ from: FROM, ...opts });
+  const cfg = checkEmailConfig();
+  if (!cfg.ok) {
+    throw new Error(
+      `Email service not configured. Missing env vars: ${cfg.missing.join(", ")}. ` +
+      `Set EMAIL_SERVER_USER and EMAIL_SERVER_PASSWORD (and EMAIL_FROM) in your environment, then redeploy.`
+    );
+  }
+  return getTransporter().sendMail({ from: FROM, ...opts });
+}
+
+// Verify SMTP credentials without actually sending an email. Used by the
+// admin "Test email delivery" panel to quickly diagnose configuration
+// problems.
+export async function verifyTransport(): Promise<{ ok: boolean; error?: string }> {
+  const cfg = checkEmailConfig();
+  if (!cfg.ok) return { ok: false, error: `Missing env vars: ${cfg.missing.join(", ")}` };
+  try {
+    await getTransporter().verify();
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "SMTP verification failed" };
+  }
+}
+
+// Generic reply-to-customer email used by the in-app inbox. Subject and body
+// are admin-provided; replyTo is set to the business email so the customer
+// can hit "reply" in their email client and land back at the merchant.
+export async function sendInboxReplyEmail(opts: {
+  to: string;
+  customerName: string;
+  subject: string;
+  message: string;
+  businessName: string;
+  businessEmail: string;
+  subdomain?: string | null;
+}) {
+  const safe = (s: string) => s.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string));
+  const escaped = safe(opts.message).replace(/\n/g, "<br/>");
+  const footer = opts.subdomain ? `${opts.subdomain}.storebuilder.ph` : opts.businessName;
+  return sendMail({
+    to: opts.to,
+    replyTo: opts.businessEmail,
+    subject: opts.subject || `Reply from ${opts.businessName}`,
+    text: `Hi ${opts.customerName || "there"},\n\n${opts.message}\n\n— ${opts.businessName}\nReply to this email to respond.\n\nSent via ${footer}`,
+    html: `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Google Sans',Roboto,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">
+        <tr><td style="background:#1877F2;padding:22px 28px">
+          <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase">${safe(opts.businessName)}</p>
+          <h1 style="margin:4px 0 0;color:#fff;font-size:18px;font-weight:700">A message from ${safe(opts.businessName)}</h1>
+        </td></tr>
+        <tr><td style="padding:28px;color:#374151;font-size:14px;line-height:1.6">
+          <p style="margin:0 0 12px">Hi <strong>${safe(opts.customerName || "there")}</strong>,</p>
+          <div style="margin:0 0 18px">${escaped}</div>
+          <p style="margin:0 0 0;color:#9ca3af;font-size:12px">— ${safe(opts.businessName)} · just reply to this email to respond</p>
+        </td></tr>
+        <tr><td style="padding:14px 28px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="margin:0;color:#9ca3af;font-size:11px">Sent via ${safe(footer)} · powered by Storebuilder.ph</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
+  });
 }
 
 export async function sendPasswordResetEmail(to: string, token: string) {

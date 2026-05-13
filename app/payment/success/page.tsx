@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { CheckCircle, Crown, Sparkles } from "lucide-react";
+import { CheckCircle, Crown, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function PaymentSuccessPage() {
@@ -34,18 +34,18 @@ export default function PaymentSuccessPage() {
           Welcome to Pro!
         </h1>
         <p className="text-white/50 mb-8">
-          Your account has been upgraded. You now have unlimited website generations powered by our premium AI technology partner.
+          Your account has been upgraded. You now have unlimited website generations and premium-quality output.
         </p>
 
         <div className="p-5 rounded-2xl bg-gradient-to-b from-violet-950/50 to-transparent border border-violet-500/20 mb-8 text-left">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Sparkles size={16} className="text-violet-400" />
+            <Star size={16} className="text-violet-400" />
             What you unlocked:
           </h3>
           <ul className="space-y-2 text-sm text-white/60">
             {[
-              "Unlimited AI website generations",
-              "Premium AI quality — smarter, more detailed output",
+              "Unlimited website generations",
+              "Premium-quality output — smarter, more detailed websites",
               "Custom domain connection",
               "Remove Storebuilder.ph branding",
               "Priority support",
@@ -62,7 +62,7 @@ export default function PaymentSuccessPage() {
           href="/dashboard"
           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-violet-600 hover:bg-violet-500 font-medium transition-colors"
         >
-          <Sparkles size={18} />
+          <Star size={18} />
           Start building
         </Link>
       </motion.div>
