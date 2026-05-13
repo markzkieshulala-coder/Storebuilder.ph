@@ -9,13 +9,6 @@ import { GeneratedWebsite } from "@/lib/ai/generate";
 import { EditorContextType } from "@/components/editor/EditorContext";
 import { selectHomepageSections, selectSubpageSections } from "@/lib/site/pageSections";
 
-// Editor preview uses default editor context overrides except `isPreview` is
-// true so internal nav routes ("/about", "/contact") don't try to navigate
-// away from /editor/{id}/preview to non-existent paths on storebuilder.ph.
-//
-// Page switching: nav clicks update local state via onEditorPageChange and
-// the canvas re-renders the corresponding page sections. This mirrors the
-// published-site behaviour but stays inside this preview tab.
 function makeCtx(
   currentPage: string,
   setCurrentPage: (p: string) => void
@@ -47,6 +40,8 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams();
   const isRaw = searchParams.get("raw") === "1";
   const [website, setWebsite] = useState<GeneratedWebsite | null>(null);
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
+  const [siteName, setSiteName] = useState<string>("");
   const [subdomain, setSubdomain] = useState("");
   const [published, setPublished] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -61,23 +56,25 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     fetch(`/api/websites/${params.id}`)
       .then((r) => r.json())
       .then((data) => {
-        setWebsite(data.website?.jsonContent || null);
-        setSubdomain(data.website?.subdomain || "");
-        setPublished(data.website?.published || false);
+        const w = data.website;
+        setSiteName(w?.name || "");
+        setSubdomain(w?.subdomain || "");
+        setPublished(w?.published || false);
+        if (w?.htmlContent) {
+          setHtmlContent(w.htmlContent);
+        } else {
+          setWebsite(w?.jsonContent || null);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [status, params.id]);
 
-  // Always inject subdomain so product links work in preview. For unpublished
-  // sites the payment API still blocks checkout, but the product info page loads.
   const websiteWithSubdomain = useMemo(
     () => (website && subdomain ? { ...website, subdomain } : website),
     [website, subdomain]
   );
 
-  // Filter the sections for the currently-viewed page so nav clicks open
-  // dedicated pages just like the published site.
   const visibleWebsite = useMemo(() => {
     if (!websiteWithSubdomain) return null;
     if (currentPage === "/") {
@@ -100,14 +97,79 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  // Raw embed mode (used by the preview button for a clean full-page view)
+  // Stitch-generated site — embed the full HTML in an iframe
+  if (htmlContent) {
+    if (isRaw) {
+      return (
+        <iframe
+          srcDoc={htmlContent}
+          style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+          title={siteName}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
+      );
+    }
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div
+          className="fixed top-0 left-0 right-0 z-[99999] h-10 flex items-center justify-between px-4 gap-3"
+          style={{
+            background: "linear-gradient(90deg, #1d4ed8, #2563eb)",
+            boxShadow: "0 2px 12px rgba(37,99,235,0.4)",
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-white font-bold text-sm tracking-tight shrink-0">Storebuilder.ph</span>
+            <span className="text-white/30 shrink-0">|</span>
+            <span className="text-white/60 text-xs shrink-0">Preview</span>
+            {siteName && (
+              <>
+                <span className="text-white/30 shrink-0">·</span>
+                <span className="text-white/70 text-xs truncate">{siteName}</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {published && subdomain && (
+              <a
+                href={`https://${subdomain}.storebuilder.ph`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs font-medium transition-colors"
+              >
+                <ExternalLink size={11} />
+                View Live
+              </a>
+            )}
+            <button
+              onClick={() => window.close()}
+              className="flex items-center gap-1 text-white/60 hover:text-white text-xs transition-colors"
+            >
+              <X size={13} />
+              Close
+            </button>
+          </div>
+        </div>
+        <div className="pt-10 flex-1">
+          <iframe
+            srcDoc={htmlContent}
+            style={{ width: "100%", height: "calc(100vh - 40px)", border: "none", display: "block" }}
+            title={siteName}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Raw embed mode for JSON-based sites
   if (isRaw) {
     return visibleWebsite ? <WebsiteRenderer website={visibleWebsite} editorContext={ctx} /> : null;
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Branded preview bar — fixed, sits above website content */}
+      {/* Branded preview bar */}
       <div
         className="fixed top-0 left-0 right-0 z-[99999] h-10 flex items-center justify-between px-4 gap-3"
         style={{
@@ -115,7 +177,6 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
           boxShadow: "0 2px 12px rgba(37,99,235,0.4)",
         }}
       >
-        {/* Left: branding */}
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-white font-bold text-sm tracking-tight shrink-0">Storebuilder.ph</span>
           <span className="text-white/30 shrink-0">|</span>
@@ -133,7 +194,6 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
           )}
         </div>
 
-        {/* Right: actions */}
         <div className="flex items-center gap-3 shrink-0">
           {currentPage !== "/" && (
             <button
@@ -165,7 +225,6 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* Website content — offset by branded bar height */}
       <div className="pt-10 flex-1">
         {visibleWebsite ? (
           <WebsiteRenderer website={visibleWebsite} editorContext={ctx} />

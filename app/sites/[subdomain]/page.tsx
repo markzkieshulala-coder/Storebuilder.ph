@@ -37,10 +37,22 @@ export default async function SubdomainPage({ params }: Props) {
 
   if (!website) notFound();
 
-  // Inject subdomain so ProductsSection can build checkout URLs.
-  // The homepage renders ONLY homepage-relevant sections (hero, about preview,
-  // features preview, testimonials, CTA) so it doesn't duplicate the content
-  // that lives on dedicated /services /pricing /faq /contact pages.
+  // Stitch-generated sites store the full HTML document in htmlContent.
+  if (website.htmlContent) {
+    return (
+      <>
+        <VisitTracker subdomain={website.subdomain!} path="/" />
+        <iframe
+          srcDoc={website.htmlContent}
+          style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+          title={website.name}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
+      </>
+    );
+  }
+
+  // Legacy JSON-based sites use the component renderer.
   const raw = website.jsonContent as GeneratedWebsite;
   const homepageSections = selectHomepageSections(raw);
   const content: GeneratedWebsite = {

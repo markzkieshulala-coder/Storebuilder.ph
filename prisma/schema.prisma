@@ -90,6 +90,7 @@ model Website {
   type        WebsiteType @default(BUSINESS)
   prompt      String   @db.Text
   jsonContent Json
+  htmlContent String?  @db.Text
   published   Boolean  @default(false)
   subdomain   String?  @unique
   customDomain String? @unique

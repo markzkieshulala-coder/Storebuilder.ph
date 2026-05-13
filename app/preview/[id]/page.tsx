@@ -17,6 +17,19 @@ export default async function PreviewPage({ params }: { params: { id: string } }
   const website = await prisma.website.findUnique({ where: { id: params.id } });
   if (!website) notFound();
 
+  // Stitch-generated sites store a complete HTML document in htmlContent.
+  // Render it in a full-viewport iframe so the page's own styles are isolated.
+  if (website.htmlContent) {
+    return (
+      <iframe
+        srcDoc={website.htmlContent}
+        style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+        title={website.name}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      />
+    );
+  }
+
   const content = website.jsonContent as GeneratedWebsite;
 
   return (
