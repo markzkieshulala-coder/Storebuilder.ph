@@ -58,18 +58,19 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { jsonContent, name, published, seoTitle, seoDesc, customDomain } = body;
+    const { jsonContent, htmlContent, name, published, seoTitle, seoDesc, customDomain } = body;
 
     // Build dynamic SET clause for only the fields that were provided
     const sets: string[] = [];
     const values: any[] = [];
     let i = 1;
-    if (jsonContent !== undefined) { sets.push(`"jsonContent" = $${i++}::jsonb`); values.push(JSON.stringify(jsonContent)); }
-    if (name !== undefined)        { sets.push(`name = $${i++}`); values.push(name); }
-    if (published !== undefined)   { sets.push(`published = $${i++}`); values.push(published); }
-    if (seoTitle !== undefined)    { sets.push(`"seoTitle" = $${i++}`); values.push(seoTitle); }
-    if (seoDesc !== undefined)     { sets.push(`"seoDesc" = $${i++}`); values.push(seoDesc); }
-    if (customDomain !== undefined){ sets.push(`"customDomain" = $${i++}`); values.push(customDomain); }
+    if (jsonContent !== undefined)   { sets.push(`"jsonContent" = $${i++}::jsonb`); values.push(JSON.stringify(jsonContent)); }
+    if (htmlContent !== undefined)   { sets.push(`"htmlContent" = $${i++}`); values.push(htmlContent); }
+    if (name !== undefined)          { sets.push(`name = $${i++}`); values.push(name); }
+    if (published !== undefined)     { sets.push(`published = $${i++}`); values.push(published); }
+    if (seoTitle !== undefined)      { sets.push(`"seoTitle" = $${i++}`); values.push(seoTitle); }
+    if (seoDesc !== undefined)       { sets.push(`"seoDesc" = $${i++}`); values.push(seoDesc); }
+    if (customDomain !== undefined)  { sets.push(`"customDomain" = $${i++}`); values.push(customDomain); }
     sets.push(`"updatedAt" = NOW()`);
 
     if (values.length === 0) {
@@ -83,7 +84,7 @@ export async function PATCH(
     // If we updated content for a published site, bust ISR so the live page
     // reflects the edit on the next request instead of waiting up to 60s.
     const updated = updatedRows[0];
-    if (updated?.published && (jsonContent !== undefined || name !== undefined)) {
+    if (updated?.published && (jsonContent !== undefined || htmlContent !== undefined || name !== undefined)) {
       try { revalidatePath(`/sites/${updated.subdomain}`); } catch {}
     }
 

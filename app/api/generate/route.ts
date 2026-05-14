@@ -58,33 +58,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Stitch designs → Claude extracts content → editable JSON website ─────
-    const { website, htmlContent, usage } = await generateWebsiteWithStitch(
-      prompt,
-      activePlan
-    );
+    // ── Stitch designs → Claude rebuilds as structured Tailwind HTML ──────────
+    const { result, usage } = await generateWebsiteWithStitch(prompt, activePlan);
 
     // Generate unique subdomain
-    let subdomain = generateSubdomain(website.name);
+    let subdomain = generateSubdomain(result.name);
     const existing = await prisma.website.findUnique({ where: { subdomain } });
     if (existing) {
       subdomain = `${subdomain}-${Date.now().toString(36)}`;
     }
 
-    // jsonContent is the editable source of truth — the renderer and editor
-    // work off this. htmlContent stores the raw Stitch design as a fidelity
-    // reference (useful for future re-extraction, screenshots, debugging).
+    // htmlContent is the full structured HTML — the editor and all renderers
+    // use this directly. jsonContent stores lightweight metadata only.
     const savedWebsite = await prisma.website.create({
       data: {
         userId: session.user.id,
-        name: website.name,
-        type: website.type as never,
+        name: result.name,
+        type: result.type as never,
         prompt,
-        jsonContent: website as never,
-        htmlContent,
+        jsonContent: {
+          name: result.name,
+          type: result.type,
+          seoTitle: result.seoTitle,
+          seoDesc: result.seoDesc,
+          stitchGenerated: true,
+          version: 2,
+        },
+        htmlContent: result.htmlContent,
         subdomain,
-        seoTitle: website.seoTitle,
-        seoDesc: website.seoDesc,
+        seoTitle: result.seoTitle,
+        seoDesc: result.seoDesc,
         published: false,
       },
     });
@@ -111,8 +114,8 @@ export async function POST(req: NextRequest) {
         id: savedWebsite.id,
         name: savedWebsite.name,
         subdomain: savedWebsite.subdomain,
-        seoTitle: website.seoTitle,
-        seoDesc: website.seoDesc,
+        seoTitle: result.seoTitle,
+        seoDesc: result.seoDesc,
       },
       usage: process.env.NODE_ENV === "development" ? usage : undefined,
     });
@@ -124,7 +127,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Stitch failures always surface the canonical message ──────────────
     if (error instanceof StitchError) {
       console.error("[POST /api/generate] Stitch error:", error.code, error.message);
       return NextResponse.json(

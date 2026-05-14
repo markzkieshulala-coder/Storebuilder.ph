@@ -1,32 +1,32 @@
 /**
- * Stitch-led website generation pipeline.
+ * Stitch-led website generation — new pipeline.
  *
- *   1. Stitch designs the website (creative direction, layout, palette, copy)
- *   2. We download Stitch's HTML
- *   3. Claude is invoked ONLY as a content converter — it extracts the real
- *      text, images, and section flow from Stitch's HTML and maps them into
- *      our editable section JSON schema. Claude does NOT design anything.
- *   4. Stitch's color palette and font choices are parsed directly from the
- *      HTML's CSS — never substituted by us.
+ * Workflow (do NOT revert to any prior approach):
+ *   1. Stitch API generates the full website HTML (it is the designer)
+ *   2. We pass the FULL Stitch HTML to Claude
+ *   3. Claude REBUILDS it as clean, structured Tailwind HTML with
+ *      data-editable attributes on every editable element
+ *   4. The result is stored as htmlContent and served/edited directly
  *
- * The resulting GeneratedWebsite renders through the existing WebsiteRenderer
- * so every editor feature (per-field edit, image drop, theme menu, section
- * resize, add/remove) keeps working unchanged.
+ * Claude never designs. It only builds what Stitch designed.
+ * The output is a complete HTML document, structured for the drag-and-drop
+ * editor (section → container → element hierarchy, data-editable attributes).
  */
 
 import Anthropic from "@anthropic-ai/sdk";
 import { stitch, StitchError } from "@google/stitch-sdk";
 import { Plan } from "@prisma/client";
-import {
-  GeneratedWebsite,
-  Section,
-  postProcess,
-  inferPhotoCategory,
-  getCategoryPhotos,
-} from "./generate";
 import { calculateTokenCost } from "@/lib/utils";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+export type StitchResult = {
+  htmlContent: string;
+  name: string;
+  type: string;
+  seoTitle: string;
+  seoDesc: string;
+};
 
 export type StitchUsage = {
   model: string;
@@ -36,7 +36,7 @@ export type StitchUsage = {
   costPhp: number;
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Type inference ───────────────────────────────────────────────────────────
 
 function inferWebsiteType(prompt: string): string {
   const q = prompt.toLowerCase();
@@ -48,129 +48,7 @@ function inferWebsiteType(prompt: string): string {
   return "BUSINESS";
 }
 
-// Strip noise so Claude focuses on visible content, not Tailwind utility soup.
-function stripStitchHtml(html: string): string {
-  let s = html;
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
-  s = s.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
-  s = s.replace(/<svg[\s\S]*?<\/svg>/gi, "");
-  s = s.replace(/<!--[\s\S]*?-->/g, "");
-  s = s.replace(/\sclass="[^"]*"/gi, "");
-  s = s.replace(/\sstyle="[^"]*"/gi, "");
-  s = s.replace(/\s(data-[a-z0-9-]+)="[^"]*"/gi, "");
-  s = s.replace(/\s(aria-[a-z0-9-]+)="[^"]*"/gi, "");
-  const bodyMatch = s.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  if (bodyMatch?.[1]) s = bodyMatch[1];
-  s = s.replace(/\n{2,}/g, "\n").replace(/[ \t]+/g, " ").trim();
-  return s;
-}
-
-// Pull every distinct hex/rgb colour used so Stitch's palette is what the site
-// actually uses — we never overwrite it with our own approved-palette list.
-function extractStitchColors(rawHtml: string): {
-  background?: string;
-  text?: string;
-  accent?: string;
-  primary?: string;
-  secondary?: string;
-} {
-  const buckets = new Map<string, number>();
-  const hexRe = /#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\b/g;
-  let m: RegExpExecArray | null;
-  while ((m = hexRe.exec(rawHtml))) {
-    const hex = normaliseHex(`#${m[1]}`);
-    buckets.set(hex, (buckets.get(hex) ?? 0) + 1);
-  }
-  const rgbRe = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g;
-  while ((m = rgbRe.exec(rawHtml))) {
-    const hex = rgbToHex(+m[1], +m[2], +m[3]);
-    buckets.set(hex, (buckets.get(hex) ?? 0) + 1);
-  }
-  if (buckets.size === 0) return {};
-
-  const sorted: Array<[string, number]> = [];
-  buckets.forEach((count, hex) => sorted.push([hex, count]));
-  sorted.sort((a, b) => b[1] - a[1]);
-  let background: string | undefined;
-  let text: string | undefined;
-  let accent: string | undefined;
-  for (const [hex] of sorted) {
-    const L = luminance(hex);
-    if (!background && (L > 0.9 || L < 0.08)) background = hex;
-    if (background && !text && Math.abs(L - luminance(background)) > 0.55) text = hex;
-    if (!accent && saturation(hex) > 0.35) accent = hex;
-    if (background && text && accent) break;
-  }
-  background = background ?? sorted[0]?.[0];
-  text =
-    text ??
-    sorted.find(([h]) => Math.abs(luminance(h) - luminance(background!)) > 0.4)?.[0] ??
-    sorted[1]?.[0];
-  const secondary = sorted.find(([h]) => h !== background && h !== text && h !== accent)?.[0];
-  return { background, text, accent, primary: background, secondary };
-}
-
-function normaliseHex(hex: string): string {
-  let h = hex.toUpperCase();
-  if (h.length === 4) h = "#" + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
-  return h;
-}
-function rgbToHex(r: number, g: number, b: number): string {
-  const c = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
-  return `#${c(r)}${c(g)}${c(b)}`.toUpperCase();
-}
-function luminance(hex: string): number {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16) / 255;
-  const g = parseInt(h.slice(2, 4), 16) / 255;
-  const b = parseInt(h.slice(4, 6), 16) / 255;
-  const f = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-}
-function saturation(hex: string): number {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16) / 255;
-  const g = parseInt(h.slice(2, 4), 16) / 255;
-  const b = parseInt(h.slice(4, 6), 16) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  return max === 0 ? 0 : (max - min) / max;
-}
-
-// Pull Google Fonts choices out of the <link href="..."> tag so we use the
-// exact families Stitch chose for headings and body text.
-function extractStitchFonts(rawHtml: string): { heading?: string; body?: string } {
-  const families: string[] = [];
-  const linkRe = /fonts\.googleapis\.com\/css2\?([^"']+)/gi;
-  let m: RegExpExecArray | null;
-  while ((m = linkRe.exec(rawHtml))) {
-    const params = m[1].replace(/&amp;/g, "&");
-    const familyRe = /family=([^&:]+)/g;
-    let f: RegExpExecArray | null;
-    while ((f = familyRe.exec(params))) {
-      families.push(decodeURIComponent(f[1]).replace(/\+/g, " ").trim());
-    }
-  }
-  const fams: string[] = [];
-  const styleFamRe = /font-family\s*:\s*['"]?([^,'";}]+)/gi;
-  while ((m = styleFamRe.exec(rawHtml))) {
-    const name = m[1].trim();
-    if (name && !/^(serif|sans-serif|monospace|var\()/i.test(name)) fams.push(name);
-  }
-  const seen: Record<string, true> = {};
-  const unique: string[] = [];
-  for (const f of families.concat(fams)) {
-    if (!seen[f]) { seen[f] = true; unique.push(f); }
-  }
-  const out: { heading?: string; body?: string } = {};
-  if (unique[0]) out.heading = unique[0];
-  if (unique[1]) out.body = unique[1];
-  else if (unique[0]) out.body = unique[0];
-  return out;
-}
-
-// ─── Stitch fetch ────────────────────────────────────────────────────────────
+// ─── Stitch SDK call ──────────────────────────────────────────────────────────
 
 async function runStitch(userPrompt: string): Promise<string> {
   if (!process.env.STITCH_API_KEY) {
@@ -218,101 +96,138 @@ async function runStitch(userPrompt: string): Promise<string> {
   }
 }
 
-// ─── Content extraction prompt ───────────────────────────────────────────────
+// ─── Claude system prompt ─────────────────────────────────────────────────────
 
-const EXTRACTION_SYSTEM = `You are a CONTENT EXTRACTOR, not a designer or writer.
+const REBUILD_SYSTEM = `You are a WEBSITE BUILDER, not a designer.
 
-Your only job: take a Stitch-generated HTML page and map its REAL content into the editable section JSON schema below. You do NOT invent text, rename businesses, rewrite copy, swap images, or make design decisions. Every headline, sentence, product name, price, testimonial quote, image URL, statistic, and label MUST come verbatim from the Stitch HTML. If something is missing, omit the field — never make it up.
+You receive the full HTML output of a Google Stitch website. Your task is to rebuild it as clean, production-ready HTML that looks EXACTLY like the Stitch design AND is structured for a drag-and-drop editor.
 
-═══════════════════════════════════════
-SECTION SCHEMA
-═══════════════════════════════════════
-Each section has: { "id": "<kebab-uuid>", "type": "<one of below>", "data": { ... }, "styles": { } }
+════════════════════════════════════════════
+CRITICAL — NEVER VIOLATE THESE CONTENT RULES
+════════════════════════════════════════════
+• Copy EVERY text element verbatim — do not add, remove, rewrite, or paraphrase ANY word
+• Copy EVERY image src URL exactly as it appears in Stitch — never substitute or shorten
+• Copy EVERY link href exactly — never invent hrefs
+• Match EVERY color exactly — extract the hex/rgb from Stitch's CSS and apply identically
+• Match EVERY font exactly — copy the Google Fonts <link> tags from Stitch's <head>
+• Include EVERY section in the SAME ORDER as Stitch — do not skip or reorder anything
+• Copy ALL prices, names, labels, and UI text verbatim
 
-Allowed section types (use the SAME ORDER they appear in the Stitch HTML):
-- nav        data: { logo, links:[{label,href}], cta:{text,href} }
-- hero       data: { badge?, headline, subheadline?, description?, ctaPrimary:{text,href}, ctaSecondary?:{text,href}, backgroundImage? }
-- features   data: { headline, subheadline?, features:[{icon?, title, description, image?}] }
-- products   data: { headline, subheadline?, products:[{name, price, description?, image}] }
-- testimonials data: { headline?, testimonials:[{quote, name, role?, image?}] }
-- about      data: { headline, body, image?, stats?:[{value,label}] }
-- stats      data: { headline?, stats:[{value,label,description?}] }
-- pricing    data: { headline, subheadline?, plans:[{name, price, period?, description?, features:[string], ctaText?}] }
-- faq        data: { headline, faqs:[{question, answer}] }
-- gallery    data: { headline?, images:[{url, caption?}] }
-- team       data: { headline?, members:[{name, role, image?, bio?}] }
-- process    data: { headline?, steps:[{title, description}] }
-- contact    data: { headline, description?, fields?:[{label,placeholder}], map? }
-- newsletter data: { headline, description?, ctaText? }
-- cta        data: { headline, description?, ctaPrimary:{text,href} }
-- text-block data: { heading?, body }
-- image      data: { image, caption? }
-- footer     data: { logo?, tagline?, links?:[{heading,items:[{label,href}]}], copyright, social?:[{platform,href}] }
+════════════════════════════════════════════
+STRUCTURE — MANDATORY PATTERN FOR EVERY SECTION
+════════════════════════════════════════════
+Every top-level visible region (nav, hero, features, products, testimonials, gallery, about, contact, footer, etc.) MUST follow this exact pattern:
 
-═══════════════════════════════════════
-EXTRACTION RULES
-═══════════════════════════════════════
-1. Walk the HTML in document order. For each visible region, decide which section type best matches its content (a top nav → "nav"; a big hero with one CTA → "hero"; a grid of feature cards → "features"; a grid of products with prices → "products"; etc.).
-2. Pull EXACT TEXT from the HTML for every field. Preserve casing, punctuation, currency symbols, line breaks (as spaces).
-3. Pull EXACT IMAGE URLS from <img src="…">. If an image is a background-image on a node, copy that URL too. Never substitute or shorten URLs.
-4. Pull EXACT LINK HREFS from <a href="…">.
-5. If the HTML has no products / features / testimonials etc., DO NOT add that section. Output only what is actually in the HTML.
-6. ID format: use a slug + short random suffix (e.g. "hero-7a2k"). No two sections share an id.
-7. styles MUST be {} for every section. We compute styles from the page-level palette separately.
-8. Return strictly: { "name": "<brand name from HTML>", "type": "<inferred>", "seoTitle": "<title from HTML>", "seoDesc": "<meta description from HTML>", "sections": [...] }
-9. The name comes from the <title>, brand name in nav, or H1 — whatever the HTML actually shows. NEVER use the user's raw prompt.
+<section id="<kebab-name>" data-editable="section" data-section-index="<0-based-n>" class="<tailwind>">
+  <div data-editable="container" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- child elements with data-editable attributes below -->
+  </div>
+</section>
 
+For <nav> and <footer>, use the appropriate semantic tag but still include data-editable="section":
+  <nav data-editable="section" data-section-index="0" ...>
+  <footer data-editable="section" data-section-index="N" ...>
+
+Assign data-editable values like this:
+• data-editable="text"   → every <h1> <h2> <h3> <h4> <h5> <p> and text-only <span>
+• data-editable="image"  → every <img>
+• data-editable="button" → every <button> and <a> styled as a CTA / action button
+• data-editable="link"   → every <a> that is a nav link or plain text link
+• data-editable="container" → layout wrapper divs (direct children of section)
+
+════════════════════════════════════════════
+STYLING RULES
+════════════════════════════════════════════
+• Use Tailwind CSS for ALL layout, spacing, and responsive behavior
+• Include <script src="https://cdn.tailwindcss.com"></script> in <head>
+• For exact brand colors from Stitch that have no standard Tailwind equivalent, use inline style="color:#hex" or style="background-color:#hex"
+• Include the Google Fonts <link> tags from Stitch's <head> for exact typography
+• Make the site FULLY RESPONSIVE — add sm: md: lg: breakpoints on all sections
+• Images MUST use object-fit: cover and defined dimensions so they render correctly
+
+════════════════════════════════════════════
 OUTPUT FORMAT
-• A single valid JSON object. No markdown fences. No commentary. No explanation. JSON only.`;
+════════════════════════════════════════════
+• A single, complete, valid HTML document (<!DOCTYPE html> … </html>)
+• No markdown code fences — raw HTML only
+• No comments or explanations outside of the HTML
+• All <img> tags must have real src URLs from Stitch (never use placeholder URLs)`;
 
-function buildExtractionPrompt(strippedHtml: string, fallbackPrompt: string): string {
-  const MAX = 80_000;
-  const html =
-    strippedHtml.length > MAX ? strippedHtml.slice(0, MAX) + "\n<!-- truncated -->" : strippedHtml;
-  return `Extract the website below into the section JSON schema. Output JSON only.
+function buildRebuildPrompt(stitchHtml: string, userPrompt: string): string {
+  // Keep base64 images truncated to avoid blowing the context window.
+  const cleaned = stitchHtml.replace(
+    /src="data:image\/[^"]{200,}"/gi,
+    'src="data:image/removed-base64"'
+  );
+  // Cap input — Stitch outputs are usually <100KB of HTML
+  const MAX = 120_000;
+  const html = cleaned.length > MAX
+    ? cleaned.slice(0, MAX) + "\n<!-- ...stitch output truncated... -->"
+    : cleaned;
 
-Original user prompt (for context, NOT for content): ${fallbackPrompt}
+  return `Rebuild this Stitch-designed website as clean Tailwind HTML with data-editable attributes.
+Follow EVERY instruction in the system prompt exactly.
 
-STITCH HTML (the source of every text, image URL, link, and section in your output):
+User's original prompt (context only — content must come from Stitch HTML): ${userPrompt}
+
+=== STITCH HTML (source of all content, structure, colors, fonts, images) ===
 ${html}`;
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+// ─── Metadata extraction from the rebuilt HTML ───────────────────────────────
+
+function extractMetadata(html: string, fallbackPrompt: string): {
+  name: string;
+  seoTitle: string;
+  seoDesc: string;
+} {
+  const decode = (s: string) =>
+    s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").trim();
+
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const descMatch  = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
+  const h1Match    = html.match(/<h1[^>]*>\s*([^<]+?)\s*<\/h1>/i);
+
+  const title = titleMatch?.[1] ? decode(titleMatch[1]) : "";
+  const desc  = descMatch?.[1]  ? decode(descMatch[1])  : "";
+  const h1    = h1Match?.[1]    ? decode(h1Match[1])    : "";
+
+  const fallback = fallbackPrompt.split(/[.,!?\n]/)[0].trim().slice(0, 50);
+  const name     = (h1 || title || fallback).slice(0, 80);
+  const seoTitle = (title || name).slice(0, 70);
+  const seoDesc  = (desc || `${name} — ${fallbackPrompt}`).slice(0, 200);
+  return { name, seoTitle, seoDesc };
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function generateWebsiteWithStitch(
   userPrompt: string,
-  plan: Plan
-): Promise<{
-  website: GeneratedWebsite;
-  htmlContent: string;
-  usage: StitchUsage;
-}> {
-  // 1. Stitch designs
-  const rawHtml = await runStitch(userPrompt);
+  _plan: Plan
+): Promise<{ result: StitchResult; usage: StitchUsage }> {
+  // Step 1: Stitch designs the full website
+  const stitchHtml = await runStitch(userPrompt);
 
-  // 2. Pull Stitch's actual design tokens out of the HTML
-  const stitchColors = extractStitchColors(rawHtml);
-  const stitchFonts = extractStitchFonts(rawHtml);
-
-  // 3. Claude converts Stitch's HTML content into editable JSON sections
+  // Step 2: Claude rebuilds it as clean Tailwind HTML + data-editable structure
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
       "ANTHROPIC_API_KEY is not configured. Please add it to your environment variables."
     );
   }
-  const strippedHtml = stripStitchHtml(rawHtml);
 
   const preferredModel = "claude-opus-4-7";
-  const fallbackModel = "claude-sonnet-4-6";
+  const fallbackModel  = "claude-sonnet-4-6";
   let model = preferredModel;
   let message: Awaited<ReturnType<typeof anthropic.messages.create>>;
+
   try {
     message = await anthropic.messages.create({
       model: preferredModel,
-      max_tokens: 16000,
-      temperature: 0.2,
-      system: EXTRACTION_SYSTEM,
-      messages: [{ role: "user", content: buildExtractionPrompt(strippedHtml, userPrompt) }],
+      max_tokens: 32000,
+      temperature: 0.1,
+      system: REBUILD_SYSTEM,
+      messages: [{ role: "user", content: buildRebuildPrompt(stitchHtml, userPrompt) }],
     });
   } catch (err: unknown) {
     const e = err as { status?: number; message?: string };
@@ -322,80 +237,36 @@ export async function generateWebsiteWithStitch(
     model = fallbackModel;
     message = await anthropic.messages.create({
       model: fallbackModel,
-      max_tokens: 8192,
-      temperature: 0.2,
-      system: EXTRACTION_SYSTEM,
-      messages: [{ role: "user", content: buildExtractionPrompt(strippedHtml, userPrompt) }],
+      max_tokens: 16000,
+      temperature: 0.1,
+      system: REBUILD_SYSTEM,
+      messages: [{ role: "user", content: buildRebuildPrompt(stitchHtml, userPrompt) }],
     });
   }
 
   const block = message.content[0];
-  if (block.type !== "text") {
-    throw new Error("Unexpected response type from extractor.");
-  }
-  let jsonText = block.text.trim();
-  if (jsonText.startsWith("```")) {
-    jsonText = jsonText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-  }
-  let parsed: {
-    name?: string;
-    type?: string;
-    seoTitle?: string;
-    seoDesc?: string;
-    sections?: Section[];
-  };
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
-    throw new Error("Extractor returned invalid JSON. Please try again.");
+  if (block.type !== "text") throw new Error("Unexpected response type from AI provider.");
+
+  let builtHtml = block.text.trim();
+  // Strip any accidental markdown fences Claude may emit
+  if (builtHtml.startsWith("```")) {
+    builtHtml = builtHtml.replace(/^```(?:html)?\n?/, "").replace(/\n?```$/, "");
   }
 
-  // 4. Assemble the GeneratedWebsite using Stitch's tokens — never our own.
-  const inferredType = parsed.type || inferWebsiteType(userPrompt);
-  const website: GeneratedWebsite = {
-    name:
-      (parsed.name || "").slice(0, 80) ||
-      userPrompt.split(/[.,!?\n]/)[0].trim().slice(0, 50),
-    type: inferredType,
-    seoTitle: (parsed.seoTitle || parsed.name || "").slice(0, 70),
-    seoDesc: (parsed.seoDesc || "").slice(0, 200),
-    fonts: {
-      heading: stitchFonts.heading || "Inter",
-      body: stitchFonts.body || stitchFonts.heading || "Inter",
-    },
-    colors: {
-      primary: stitchColors.primary || stitchColors.background || "#FFFFFF",
-      secondary: stitchColors.secondary || stitchColors.accent || "#737373",
-      accent: stitchColors.accent || stitchColors.text || "#0A0A0A",
-      background: stitchColors.background || "#FFFFFF",
-      text: stitchColors.text || "#0A0A0A",
-    },
-    sections: (parsed.sections || []).map((s) => ({
-      ...s,
-      styles: s.styles || {},
-    })),
-  };
+  // Sanity: ensure we got actual HTML
+  if (!builtHtml.includes("</") || builtHtml.length < 500) {
+    throw new Error("Website builder returned invalid output. Please try again.");
+  }
 
-  // 5. Post-process: skip colour and font replacement so Stitch's palette and
-  //    typography survive untouched. Image sanitisation still runs as a safety
-  //    net for any blank image fields Stitch left behind.
-  const category = inferPhotoCategory(userPrompt);
-  const approvedPhotos = getCategoryPhotos(category, 24);
-  const finalWebsite = postProcess(
-    website,
-    plan as string,
-    category,
-    approvedPhotos,
-    { skipColorSanitize: true, skipFontAssignment: true }
-  );
+  const { name, seoTitle, seoDesc } = extractMetadata(builtHtml, userPrompt);
+  const type = inferWebsiteType(userPrompt);
 
-  const inputTokens = message.usage.input_tokens;
+  const inputTokens  = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
   const { usd, php } = calculateTokenCost(inputTokens, outputTokens, model);
 
   return {
-    website: finalWebsite,
-    htmlContent: rawHtml,
+    result: { htmlContent: builtHtml, name, type, seoTitle, seoDesc },
     usage: {
       model: `stitch+${model}`,
       inputTokens,

@@ -17,12 +17,20 @@ export default async function PreviewPage({ params }: { params: { id: string } }
   const website = await prisma.website.findUnique({ where: { id: params.id } });
   if (!website) notFound();
 
-  // jsonContent is the editable source of truth — what the editor edits is
-  // what we render here. The raw Stitch HTML is kept on the row as a fidelity
-  // reference only; we don't render it directly because that would diverge
-  // from the editor's view.
-  const content = website.jsonContent as GeneratedWebsite;
+  // Stitch v2 sites: htmlContent is the source of truth — render directly.
+  if (website.htmlContent) {
+    return (
+      <iframe
+        srcDoc={website.htmlContent}
+        style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+        title={website.name}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      />
+    );
+  }
 
+  // Legacy JSON-based sites use the component renderer.
+  const content = website.jsonContent as GeneratedWebsite;
   return (
     <>
       <style>{`

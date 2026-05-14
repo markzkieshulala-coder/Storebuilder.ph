@@ -57,7 +57,8 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
         const w = data.website;
         setSubdomain(w?.subdomain || "");
         setPublished(w?.published || false);
-        setWebsite(w?.jsonContent || null);
+        // HTML-based sites use jsonContent as metadata only; the full page is htmlContent.
+        setWebsite(w?.htmlContent ? null : (w?.jsonContent || null));
         setLoading(false);
       })
       .catch(() => setLoading(false));

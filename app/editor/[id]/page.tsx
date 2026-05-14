@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
+import HtmlEditor from "@/components/editor/HtmlEditor";
 import { GeneratedWebsite } from "@/lib/ai/generate";
 import { EditorContextType, FloatingToolbarTarget, SelectedField, ViewMode } from "@/components/editor/EditorContext";
 import { EditorFieldState } from "@/components/editor/EditableField";
@@ -30,6 +31,9 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [website, setWebsite] = useState<GeneratedWebsite | null>(null);
   const [rawWebsite, setRawWebsite] = useState<any>(null);
+  // HTML-based sites (Stitch v2) store their full content in htmlContent.
+  // These are edited via HtmlEditor, not the JSON section editor.
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -197,12 +201,18 @@ export default function EditorPage({ params }: { params: { id: string } }) {
       const res = await fetch(`/api/websites/${params.id}`);
       if (!res.ok) { router.push("/dashboard"); return; }
       const data = await res.json();
-      const content = data.website.jsonContent as GeneratedWebsite;
-      setWebsite(content);
-      setRawWebsite(data.website);
-      setPublished(data.website.published);
-      setHistory([content]);
-      setHistoryIndex(0);
+      const w = data.website;
+      setRawWebsite(w);
+      setPublished(w.published);
+      // Stitch v2 sites have htmlContent — use the HTML editor.
+      if (w.htmlContent && w.jsonContent?.stitchGenerated) {
+        setHtmlContent(w.htmlContent);
+      } else {
+        const content = w.jsonContent as GeneratedWebsite;
+        setWebsite(content);
+        setHistory([content]);
+        setHistoryIndex(0);
+      }
     } finally {
       setLoading(false);
     }
@@ -611,6 +621,20 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     } catch (err: any) {
       toast.error(err.message || "Upload failed", { id: "img-upload" });
     }
+  }
+
+  // Stitch v2 HTML sites — full HTML editor
+  if (!loading && htmlContent) {
+    return (
+      <HtmlEditor
+        websiteId={params.id}
+        initialHtml={htmlContent}
+        siteName={rawWebsite?.name || "Website"}
+        subdomain={rawWebsite?.subdomain || undefined}
+        published={published}
+        onPublishChange={setPublished}
+      />
+    );
   }
 
   if (loading || !website) {
