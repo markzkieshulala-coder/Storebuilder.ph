@@ -1,16 +1,15 @@
 /**
- * Stitch-led website generation — new pipeline.
+ * Stitch → Claude website generation. THIS IS THE ONLY GENERATION PATH.
  *
- * Workflow (do NOT revert to any prior approach):
- *   1. Stitch API generates the full website HTML (it is the designer)
- *   2. We pass the FULL Stitch HTML to Claude
- *   3. Claude REBUILDS it as clean, structured Tailwind HTML with
- *      data-editable attributes on every editable element
- *   4. The result is stored as htmlContent and served/edited directly
+ *   1. User prompt → Stitch API → full website design (HTML)
+ *   2. The FULL, UNMODIFIED Stitch HTML is passed to Claude
+ *   3. Claude rebuilds it as clean, production-ready Tailwind HTML with
+ *      data-editable attributes — same sections, same order, same text,
+ *      same images, same colours. No redesign, no simplification, no skipping.
+ *   4. If Claude's output is cut off (stop_reason="max_tokens"), we
+ *      AUTOMATICALLY CONTINUE — looping until the document is complete.
  *
- * Claude never designs. It only builds what Stitch designed.
- * The output is a complete HTML document, structured for the drag-and-drop
- * editor (section → container → element hierarchy, data-editable attributes).
+ * The old generate.ts pipeline has been removed. There is no fallback.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -100,18 +99,19 @@ async function runStitch(userPrompt: string): Promise<string> {
 
 const REBUILD_SYSTEM = `You are a WEBSITE BUILDER, not a designer.
 
-You receive the full HTML output of a Google Stitch website. Your task is to rebuild it as clean, production-ready HTML that looks EXACTLY like the Stitch design AND is structured for a drag-and-drop editor.
+You receive the FULL, UNMODIFIED HTML output of a Google Stitch website. Your task is to rebuild it as clean, production-ready HTML that looks EXACTLY like the Stitch design AND is structured for a drag-and-drop editor.
 
 ════════════════════════════════════════════
 CRITICAL — NEVER VIOLATE THESE CONTENT RULES
 ════════════════════════════════════════════
 • Copy EVERY text element verbatim — do not add, remove, rewrite, or paraphrase ANY word
-• Copy EVERY image src URL exactly as it appears in Stitch — never substitute or shorten
+• Copy EVERY image src URL exactly as it appears in Stitch — never substitute, shorten, or replace with placeholders
 • Copy EVERY link href exactly — never invent hrefs
 • Match EVERY color exactly — extract the hex/rgb from Stitch's CSS and apply identically
 • Match EVERY font exactly — copy the Google Fonts <link> tags from Stitch's <head>
-• Include EVERY section in the SAME ORDER as Stitch — do not skip or reorder anything
+• Include EVERY section in the SAME ORDER as Stitch — do not skip, merge, or reorder anything
 • Copy ALL prices, names, labels, and UI text verbatim
+• Do not redesign. Do not simplify. Do not skip sections. Do not replace with generic layouts.
 
 ════════════════════════════════════════════
 STRUCTURE — MANDATORY PATTERN FOR EVERY SECTION
@@ -129,10 +129,10 @@ For <nav> and <footer>, use the appropriate semantic tag but still include data-
   <footer data-editable="section" data-section-index="N" ...>
 
 Assign data-editable values like this:
-• data-editable="text"   → every <h1> <h2> <h3> <h4> <h5> <p> and text-only <span>
-• data-editable="image"  → every <img>
-• data-editable="button" → every <button> and <a> styled as a CTA / action button
-• data-editable="link"   → every <a> that is a nav link or plain text link
+• data-editable="text"      → every <h1> <h2> <h3> <h4> <h5> <p> and text-only <span>
+• data-editable="image"     → every <img>
+• data-editable="button"    → every <button> and <a> styled as a CTA / action button
+• data-editable="link"      → every <a> that is a nav link or plain text link
 • data-editable="container" → layout wrapper divs (direct children of section)
 
 ════════════════════════════════════════════
@@ -143,35 +143,124 @@ STYLING RULES
 • For exact brand colors from Stitch that have no standard Tailwind equivalent, use inline style="color:#hex" or style="background-color:#hex"
 • Include the Google Fonts <link> tags from Stitch's <head> for exact typography
 • Make the site FULLY RESPONSIVE — add sm: md: lg: breakpoints on all sections
-• Images MUST use object-fit: cover and defined dimensions so they render correctly
+• Images MUST use object-fit:cover with defined width/height so they render correctly
 
 ════════════════════════════════════════════
 OUTPUT FORMAT
 ════════════════════════════════════════════
-• A single, complete, valid HTML document (<!DOCTYPE html> … </html>)
-• No markdown code fences — raw HTML only
-• No comments or explanations outside of the HTML
-• All <img> tags must have real src URLs from Stitch (never use placeholder URLs)`;
+• A single, complete, valid HTML document starting with <!DOCTYPE html> and ending with </html>
+• Raw HTML only — NO markdown code fences, NO comments outside the HTML, NO explanation
+• All <img> tags must use real src URLs from the Stitch HTML — never placeholders
+• If your response is cut off, the next message will say "continue". When you see that, OUTPUT ONLY THE CONTINUATION starting from exactly where you stopped — no preamble, no repetition, no closing remarks. Just the remaining HTML so the assembled document is valid.`;
 
-function buildRebuildPrompt(stitchHtml: string, userPrompt: string): string {
-  // Keep base64 images truncated to avoid blowing the context window.
-  const cleaned = stitchHtml.replace(
-    /src="data:image\/[^"]{200,}"/gi,
-    'src="data:image/removed-base64"'
-  );
-  // Cap input — Stitch outputs are usually <100KB of HTML
-  const MAX = 120_000;
-  const html = cleaned.length > MAX
-    ? cleaned.slice(0, MAX) + "\n<!-- ...stitch output truncated... -->"
-    : cleaned;
+// ─── Continuation-aware Claude call ──────────────────────────────────────────
+// Stitch HTML is passed RAW (no truncation, no base64 stripping).
+// If Claude hits max_tokens, we loop with a "continue" message until done.
 
-  return `Rebuild this Stitch-designed website as clean Tailwind HTML with data-editable attributes.
-Follow EVERY instruction in the system prompt exactly.
+const MAX_CONTINUATIONS = 6; // safety cap so a runaway model can't loop forever
 
-User's original prompt (context only — content must come from Stitch HTML): ${userPrompt}
+async function buildHtmlWithClaude(stitchHtml: string, userPrompt: string): Promise<{
+  html: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error(
+      "ANTHROPIC_API_KEY is not configured. Please add it to your environment variables."
+    );
+  }
 
-=== STITCH HTML (source of all content, structure, colors, fonts, images) ===
-${html}`;
+  const initialUserMsg = `Rebuild this Stitch-designed website as clean Tailwind HTML with data-editable attributes.
+Follow EVERY instruction in the system prompt exactly. The Stitch HTML below is the COMPLETE, AUTHORITATIVE source — every text, image, color, font, link, and section in your output must come from it verbatim.
+
+User's original prompt (context only — never use this as content): ${userPrompt}
+
+=== STITCH HTML (raw, full, unmodified) ===
+${stitchHtml}`;
+
+  // Model + max_tokens. claude-opus-4-7 supports 32K output, sonnet 4.6 supports 64K.
+  const preferredModel = "claude-opus-4-7";
+  const fallbackModel = "claude-sonnet-4-6";
+  const modelMaxTokens: Record<string, number> = {
+    "claude-opus-4-7": 32000,
+    "claude-sonnet-4-6": 64000,
+  };
+  let model = preferredModel;
+  let maxTokens = modelMaxTokens[model];
+
+  const messages: { role: "user" | "assistant"; content: string }[] = [
+    { role: "user", content: initialUserMsg },
+  ];
+
+  let assembled = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let attempt = 0;
+
+  while (attempt <= MAX_CONTINUATIONS) {
+    attempt++;
+
+    let response: Awaited<ReturnType<typeof anthropic.messages.create>>;
+    try {
+      response = await anthropic.messages.create({
+        model,
+        max_tokens: maxTokens,
+        temperature: 0.1,
+        system: REBUILD_SYSTEM,
+        messages,
+      });
+    } catch (err: unknown) {
+      const e = err as { status?: number; message?: string };
+      const isModelErr =
+        attempt === 1 && (e?.status === 404 || e?.status === 400 || /model/i.test(String(e?.message ?? "")));
+      if (!isModelErr) throw err;
+      // Fall back to sonnet only on the very first try, then continue normally.
+      model = fallbackModel;
+      maxTokens = modelMaxTokens[model];
+      response = await anthropic.messages.create({
+        model,
+        max_tokens: maxTokens,
+        temperature: 0.1,
+        system: REBUILD_SYSTEM,
+        messages,
+      });
+    }
+
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
+
+    const block = response.content[0];
+    if (!block || block.type !== "text") {
+      throw new Error("Unexpected response type from Claude.");
+    }
+    let chunk = block.text;
+
+    // First chunk may have markdown fence — strip the opening only.
+    if (assembled.length === 0 && chunk.trimStart().startsWith("```")) {
+      chunk = chunk.replace(/^\s*```(?:html)?\n?/, "");
+    }
+    // Final chunk may end with a fence — strip the closing.
+    if (response.stop_reason !== "max_tokens" && chunk.trimEnd().endsWith("```")) {
+      chunk = chunk.replace(/\n?```\s*$/, "");
+    }
+
+    assembled += chunk;
+
+    if (response.stop_reason !== "max_tokens") break;
+
+    // Output was cut off — push the partial as the assistant turn and ask
+    // for the rest. The system prompt instructs Claude to continue from
+    // exactly where it stopped with no preamble.
+    messages.push({ role: "assistant", content: block.text });
+    messages.push({ role: "user", content: "continue" });
+  }
+
+  if (attempt > MAX_CONTINUATIONS) {
+    console.warn(`[stitch-generate] Hit ${MAX_CONTINUATIONS} continuation rounds — accepting partial output.`);
+  }
+
+  return { html: assembled, model, inputTokens, outputTokens };
 }
 
 // ─── Metadata extraction from the rebuilt HTML ───────────────────────────────
@@ -209,51 +298,14 @@ export async function generateWebsiteWithStitch(
   // Step 1: Stitch designs the full website
   const stitchHtml = await runStitch(userPrompt);
 
-  // Step 2: Claude rebuilds it as clean Tailwind HTML + data-editable structure
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not configured. Please add it to your environment variables."
-    );
-  }
-
-  const preferredModel = "claude-opus-4-7";
-  const fallbackModel  = "claude-sonnet-4-6";
-  let model = preferredModel;
-  let message: Awaited<ReturnType<typeof anthropic.messages.create>>;
-
-  try {
-    message = await anthropic.messages.create({
-      model: preferredModel,
-      max_tokens: 32000,
-      temperature: 0.1,
-      system: REBUILD_SYSTEM,
-      messages: [{ role: "user", content: buildRebuildPrompt(stitchHtml, userPrompt) }],
-    });
-  } catch (err: unknown) {
-    const e = err as { status?: number; message?: string };
-    const isModelErr =
-      e?.status === 404 || e?.status === 400 || /model/i.test(String(e?.message ?? ""));
-    if (!isModelErr) throw err;
-    model = fallbackModel;
-    message = await anthropic.messages.create({
-      model: fallbackModel,
-      max_tokens: 16000,
-      temperature: 0.1,
-      system: REBUILD_SYSTEM,
-      messages: [{ role: "user", content: buildRebuildPrompt(stitchHtml, userPrompt) }],
-    });
-  }
-
-  const block = message.content[0];
-  if (block.type !== "text") throw new Error("Unexpected response type from AI provider.");
-
-  let builtHtml = block.text.trim();
-  // Strip any accidental markdown fences Claude may emit
-  if (builtHtml.startsWith("```")) {
-    builtHtml = builtHtml.replace(/^```(?:html)?\n?/, "").replace(/\n?```$/, "");
-  }
+  // Step 2: Claude builds it (with auto-continuation on truncation)
+  const { html, model, inputTokens, outputTokens } = await buildHtmlWithClaude(
+    stitchHtml,
+    userPrompt
+  );
 
   // Sanity: ensure we got actual HTML
+  const builtHtml = html.trim();
   if (!builtHtml.includes("</") || builtHtml.length < 500) {
     throw new Error("Website builder returned invalid output. Please try again.");
   }
@@ -261,8 +313,6 @@ export async function generateWebsiteWithStitch(
   const { name, seoTitle, seoDesc } = extractMetadata(builtHtml, userPrompt);
   const type = inferWebsiteType(userPrompt);
 
-  const inputTokens  = message.usage.input_tokens;
-  const outputTokens = message.usage.output_tokens;
   const { usd, php } = calculateTokenCost(inputTokens, outputTokens, model);
 
   return {
