@@ -58,8 +58,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Stitch designs → Claude implements → editable JSON website ────────────
-    const { website, usage } = await generateWebsiteWithStitch(prompt, activePlan);
+    // ── Stitch designs → Claude extracts content → editable JSON website ─────
+    const { website, htmlContent, usage } = await generateWebsiteWithStitch(
+      prompt,
+      activePlan
+    );
 
     // Generate unique subdomain
     let subdomain = generateSubdomain(website.name);
@@ -68,21 +71,17 @@ export async function POST(req: NextRequest) {
       subdomain = `${subdomain}-${Date.now().toString(36)}`;
     }
 
-    // Stitch IS the design. Store the full HTML as htmlContent and a minimal
-    // jsonContent for metadata. Renderers (preview, published site, editor
-    // preview) check htmlContent first and embed it via iframe.
+    // jsonContent is the editable source of truth — the renderer and editor
+    // work off this. htmlContent stores the raw Stitch design as a fidelity
+    // reference (useful for future re-extraction, screenshots, debugging).
     const savedWebsite = await prisma.website.create({
       data: {
         userId: session.user.id,
         name: website.name,
         type: website.type as never,
         prompt,
-        jsonContent: {
-          name: website.name,
-          type: website.type,
-          stitchGenerated: true,
-        },
-        htmlContent: website.htmlContent,
+        jsonContent: website as never,
+        htmlContent,
         subdomain,
         seoTitle: website.seoTitle,
         seoDesc: website.seoDesc,

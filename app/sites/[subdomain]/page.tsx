@@ -37,22 +37,9 @@ export default async function SubdomainPage({ params }: Props) {
 
   if (!website) notFound();
 
-  // Stitch-generated sites store the full HTML document in htmlContent.
-  if (website.htmlContent) {
-    return (
-      <>
-        <VisitTracker subdomain={website.subdomain!} path="/" />
-        <iframe
-          srcDoc={website.htmlContent}
-          style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
-          title={website.name}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />
-      </>
-    );
-  }
-
-  // Legacy JSON-based sites use the component renderer.
+  // jsonContent is the editable source of truth — what the user edits is what
+  // gets published. The raw Stitch HTML is stored separately as a fidelity
+  // reference and never rendered directly here.
   const raw = website.jsonContent as GeneratedWebsite;
   const homepageSections = selectHomepageSections(raw);
   const content: GeneratedWebsite = {
