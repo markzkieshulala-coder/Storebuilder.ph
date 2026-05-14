@@ -1,9 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
 import VisitTracker from "@/components/VisitTracker";
-import { GeneratedWebsite } from "@/lib/ai/generate";
-import { selectHomepageSections } from "@/lib/site/pageSections";
 import type { Metadata } from "next";
 
 interface Props {
@@ -35,39 +32,18 @@ export default async function SubdomainPage({ params }: Props) {
     },
   });
 
-  if (!website) notFound();
+  if (!website || !website.htmlContent) notFound();
 
-  // Stitch v2 sites: htmlContent is the source of truth — render directly.
-  if (website.htmlContent) {
-    return (
-      <>
-        <VisitTracker subdomain={website.subdomain!} path="/" />
-        <iframe
-          srcDoc={website.htmlContent}
-          style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
-          title={website.name}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />
-      </>
-    );
-  }
-
-  // Legacy JSON-based sites use the component renderer.
-  const raw = website.jsonContent as GeneratedWebsite;
-  const homepageSections = selectHomepageSections(raw);
-  const content: GeneratedWebsite = {
-    ...raw,
-    sections: homepageSections,
-    subdomain: website.subdomain ?? undefined,
-  };
-
+  // Stitch-generated sites: htmlContent IS the website. Render it directly.
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=DM+Serif+Display:ital@0;1&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Syne:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,200;12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap');
-      `}</style>
       <VisitTracker subdomain={website.subdomain!} path="/" />
-      <WebsiteRenderer website={content} />
+      <iframe
+        srcDoc={website.htmlContent}
+        style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+        title={website.name}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      />
     </>
   );
 }

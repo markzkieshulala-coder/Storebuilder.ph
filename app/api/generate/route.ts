@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { generateWebsiteWithStitch } from "@/lib/ai/stitch-generate";
+import { generateWebsite } from "@/lib/ai/generate";
 import { checkAndConsumeCredit } from "@/lib/credits";
 import { prisma } from "@/lib/prisma";
 import { generateSubdomain } from "@/lib/utils";
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Stitch designs → Claude rebuilds as structured Tailwind HTML ──────────
-    const { result, usage } = await generateWebsiteWithStitch(prompt, activePlan);
+    // ── Stitch generates the full design → embed assets → return self-contained HTML ──
+    const { result, usage } = await generateWebsite(prompt, activePlan);
 
     // Generate unique subdomain
     let subdomain = generateSubdomain(result.name);

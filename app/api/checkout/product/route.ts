@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const content = website.jsonContent as GeneratedWebsite;
-    const productsSection = content.sections.find((s) => s.type === "products");
+    const productsSection = (content.sections ?? []).find((s) => s.type === "products");
     const products = (productsSection?.data as any)?.products || [];
 
     const product = products.find((p: any) => p.id === productId) || products[Number(productId)];

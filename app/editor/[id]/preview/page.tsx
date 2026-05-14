@@ -1,49 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { ExternalLink, X, Home } from "lucide-react";
-import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
-import { GeneratedWebsite } from "@/lib/ai/generate";
-import { EditorContextType } from "@/components/editor/EditorContext";
-import { selectHomepageSections, selectSubpageSections } from "@/lib/site/pageSections";
+import { ExternalLink, X } from "lucide-react";
 
-function makeCtx(
-  currentPage: string,
-  setCurrentPage: (p: string) => void
-): EditorContextType {
-  return {
-    isEditable: false,
-    isPreview: true,
-    viewMode: "desktop",
-    currentEditorPage: currentPage,
-    onEditorPageChange: (p) => {
-      setCurrentPage(p);
-      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
-    },
-    onTextChange: () => {},
-    onNestedTextChange: () => {},
-    onImageUpload: () => {},
-    onSectionClick: () => {},
-    onShowToolbar: () => {},
-    selectedField: null,
-    onSelectField: () => {},
-    onUpdateEditor: () => {},
-    onResetEditor: () => {},
-    getEditorState: () => undefined,
-  };
-}
+type WebsiteMeta = {
+  id: string;
+  name: string;
+  subdomain: string | null;
+  published: boolean;
+  htmlContent: string | null;
+};
 
 export default function PreviewPage({ params }: { params: { id: string } }) {
   const { status } = useSession();
   const searchParams = useSearchParams();
   const isRaw = searchParams.get("raw") === "1";
-  const [website, setWebsite] = useState<GeneratedWebsite | null>(null);
-  const [subdomain, setSubdomain] = useState("");
-  const [published, setPublished] = useState(false);
+  const [meta, setMeta] = useState<WebsiteMeta | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState<string>("/");
 
   useEffect(() => {
     if (status === "unauthenticated") window.close();
@@ -53,32 +28,10 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     if (status !== "authenticated") return;
     fetch(`/api/websites/${params.id}`)
       .then((r) => r.json())
-      .then((data) => {
-        const w = data.website;
-        setSubdomain(w?.subdomain || "");
-        setPublished(w?.published || false);
-        // HTML-based sites use jsonContent as metadata only; the full page is htmlContent.
-        setWebsite(w?.htmlContent ? null : (w?.jsonContent || null));
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      .then((data) => { setMeta(data.website ?? null); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [status, params.id]);
-
-  const websiteWithSubdomain = useMemo(
-    () => (website && subdomain ? { ...website, subdomain } : website),
-    [website, subdomain]
-  );
-
-  const visibleWebsite = useMemo(() => {
-    if (!websiteWithSubdomain) return null;
-    if (currentPage === "/") {
-      return { ...websiteWithSubdomain, sections: selectHomepageSections(websiteWithSubdomain) };
-    }
-    const slug = currentPage.replace(/^\//, "");
-    return { ...websiteWithSubdomain, sections: selectSubpageSections(websiteWithSubdomain, slug) };
-  }, [websiteWithSubdomain, currentPage]);
-
-  const ctx = useMemo(() => makeCtx(currentPage, setCurrentPage), [currentPage]);
 
   if (loading) {
     return (
@@ -91,14 +44,32 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  // Raw embed mode
+  if (!meta?.htmlContent) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-md text-center bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+          <h1 className="text-lg font-semibold text-gray-900 mb-2">Website not found</h1>
+          <p className="text-sm text-gray-500">
+            This website can&apos;t be previewed. Please regenerate it from the dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isRaw) {
-    return visibleWebsite ? <WebsiteRenderer website={visibleWebsite} editorContext={ctx} /> : null;
+    return (
+      <iframe
+        srcDoc={meta.htmlContent}
+        style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+        title={meta.name}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      />
+    );
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Branded preview bar */}
       <div
         className="fixed top-0 left-0 right-0 z-[99999] h-10 flex items-center justify-between px-4 gap-3"
         style={{
@@ -110,32 +81,18 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
           <span className="text-white font-bold text-sm tracking-tight shrink-0">Storebuilder.ph</span>
           <span className="text-white/30 shrink-0">|</span>
           <span className="text-white/60 text-xs shrink-0">Preview</span>
-          {website?.name && (
+          {meta.name && (
             <>
               <span className="text-white/30 shrink-0">·</span>
-              <span className="text-white/70 text-xs truncate">{website.name}</span>
+              <span className="text-white/70 text-xs truncate">{meta.name}</span>
             </>
-          )}
-          {currentPage !== "/" && (
-            <span className="text-white/90 text-xs font-mono bg-white/15 px-2 py-0.5 rounded shrink-0">
-              {currentPage}
-            </span>
           )}
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          {currentPage !== "/" && (
-            <button
-              onClick={() => { setCurrentPage("/"); window.scrollTo({ top: 0, behavior: "auto" }); }}
-              className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs font-medium transition-colors"
-            >
-              <Home size={11} />
-              Home
-            </button>
-          )}
-          {published && subdomain && (
+          {meta.published && meta.subdomain && (
             <a
-              href={`https://${subdomain}.storebuilder.ph${currentPage}`}
+              href={`https://${meta.subdomain}.storebuilder.ph`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs font-medium transition-colors"
@@ -155,13 +112,12 @@ export default function PreviewPage({ params }: { params: { id: string } }) {
       </div>
 
       <div className="pt-10 flex-1">
-        {visibleWebsite ? (
-          <WebsiteRenderer website={visibleWebsite} editorContext={ctx} />
-        ) : (
-          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-            Website not found
-          </div>
-        )}
+        <iframe
+          srcDoc={meta.htmlContent}
+          style={{ width: "100%", height: "calc(100vh - 2.5rem)", border: "none", display: "block" }}
+          title={meta.name}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
       </div>
     </div>
   );

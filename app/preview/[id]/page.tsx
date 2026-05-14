@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import WebsiteRenderer from "@/components/renderer/WebsiteRenderer";
-import { GeneratedWebsite } from "@/lib/ai/generate";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -17,26 +15,30 @@ export default async function PreviewPage({ params }: { params: { id: string } }
   const website = await prisma.website.findUnique({ where: { id: params.id } });
   if (!website) notFound();
 
-  // Stitch v2 sites: htmlContent is the source of truth — render directly.
-  if (website.htmlContent) {
+  // Stitch-generated sites render directly from htmlContent. Anything else
+  // is from the deprecated pipeline and can no longer be previewed.
+  if (!website.htmlContent) {
     return (
-      <iframe
-        srcDoc={website.htmlContent}
-        style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
-        title={website.name}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-      />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-md text-center bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+          <h1 className="text-lg font-semibold text-gray-900 mb-2">
+            This website can't be previewed
+          </h1>
+          <p className="text-sm text-gray-500">
+            It was created with an older format that's no longer supported.
+            Please regenerate it from the dashboard.
+          </p>
+        </div>
+      </div>
     );
   }
 
-  // Legacy JSON-based sites use the component renderer.
-  const content = website.jsonContent as GeneratedWebsite;
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Serif+Display&family=Cormorant+Garamond:wght@300;400;600&family=Syne:wght@400;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap');
-      `}</style>
-      <WebsiteRenderer website={content} isPreview />
-    </>
+    <iframe
+      srcDoc={website.htmlContent}
+      style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+      title={website.name}
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+    />
   );
 }
