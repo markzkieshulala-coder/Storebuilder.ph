@@ -47,6 +47,29 @@ function inferWebsiteType(prompt: string): string {
   return "BUSINESS";
 }
 
+// ─── Brand name extraction ───────────────────────────────────────────────────
+
+function extractBrandName(prompt: string): string | null {
+  const patterns = [
+    /brand\s+name\s*[:\-–]\s*(.+?)(?:\n|$)/i,
+    /brand\s+name\s+is\s+(.+?)(?:\n|\.|,|$)/i,
+    /brand\s*[:\-–]\s*(.+?)(?:\n|$)/i,
+    /store\s+name\s*[:\-–]\s*(.+?)(?:\n|$)/i,
+    /business\s+name\s*[:\-–]\s*(.+?)(?:\n|$)/i,
+    /company\s+name\s*[:\-–]\s*(.+?)(?:\n|$)/i,
+    /shop\s+name\s*[:\-–]\s*(.+?)(?:\n|$)/i,
+    /called\s+"(.+?)"/i,
+    /called\s+'(.+?)'/i,
+    /named\s+"(.+?)"/i,
+    /named\s+'(.+?)'/i,
+  ];
+  for (const pat of patterns) {
+    const m = prompt.match(pat);
+    if (m?.[1]) return m[1].trim().replace(/^['"]|['"]$/g, "");
+  }
+  return null;
+}
+
 // ─── Stitch SDK call ──────────────────────────────────────────────────────────
 
 async function runStitch(userPrompt: string): Promise<string> {
@@ -105,13 +128,28 @@ You receive the FULL, UNMODIFIED HTML output of a Google Stitch website. Your ta
 CRITICAL — NEVER VIOLATE THESE CONTENT RULES
 ════════════════════════════════════════════
 • Copy EVERY text element verbatim — do not add, remove, rewrite, or paraphrase ANY word
-• Copy EVERY image src URL exactly as it appears in Stitch — never substitute, shorten, or replace with placeholders
+• Copy EVERY image src URL EXACTLY as it appears in Stitch — character-for-character identical. NEVER substitute, shorten, omit, or replace with /placeholder.svg, placeholder.com, picsum.photos, lorempixel.com, via.placeholder.com, unsplash.it, or ANY other placeholder. If Stitch has an image URL, it MUST appear in your output unchanged.
+• Copy EVERY CSS background-image: url('...') value EXACTLY as it appears — both in <style> blocks AND in inline style="" attributes. NEVER remove, replace, or omit background images.
 • Copy EVERY link href exactly — never invent hrefs
 • Match EVERY color exactly — extract the hex/rgb from Stitch's CSS and apply identically
 • Match EVERY font exactly — copy the Google Fonts <link> tags from Stitch's <head>
 • Include EVERY section in the SAME ORDER as Stitch — do not skip, merge, or reorder anything
 • Copy ALL prices, names, labels, and UI text verbatim
 • Do not redesign. Do not simplify. Do not skip sections. Do not replace with generic layouts.
+
+════════════════════════════════════════════
+IMAGE RENDERING — MANDATORY
+════════════════════════════════════════════
+Every <img> tag MUST have:
+• src="<exact URL from Stitch>" — never a placeholder
+• A defined display size: use Tailwind classes like w-full h-64 object-cover or explicit style="width:100%;height:300px;object-fit:cover"
+• loading="lazy"
+
+Every background image MUST be:
+• Set via inline style: style="background-image:url('...');background-size:cover;background-position:center"
+• The URL must be verbatim from Stitch's CSS — do not abbreviate, escape, or modify it
+
+If a section in Stitch has a background image/color/gradient, the rebuilt section MUST have an identical background. NEVER leave a section with a plain white/transparent background if Stitch showed it with a visual background.
 
 ════════════════════════════════════════════
 STRUCTURE — MANDATORY PATTERN FOR EVERY SECTION
@@ -159,7 +197,11 @@ OUTPUT FORMAT
 
 const MAX_CONTINUATIONS = 6; // safety cap so a runaway model can't loop forever
 
-async function buildHtmlWithClaude(stitchHtml: string, userPrompt: string): Promise<{
+async function buildHtmlWithClaude(
+  stitchHtml: string,
+  userPrompt: string,
+  brandName: string | null
+): Promise<{
   html: string;
   model: string;
   inputTokens: number;
@@ -171,10 +213,15 @@ async function buildHtmlWithClaude(stitchHtml: string, userPrompt: string): Prom
     );
   }
 
-  const initialUserMsg = `Rebuild this Stitch-designed website as clean Tailwind HTML with data-editable attributes.
-Follow EVERY instruction in the system prompt exactly. The Stitch HTML below is the COMPLETE, AUTHORITATIVE source — every text, image, color, font, link, and section in your output must come from it verbatim.
+  const brandOverride = brandName
+    ? `\n\n⚠️ MANDATORY BRAND NAME OVERRIDE ⚠️
+The user explicitly specified their brand name as: "${brandName}"
+You MUST replace EVERY occurrence of the Stitch-generated brand name with "${brandName}" — in the nav logo, hero heading, page <title>, footer, about section, meta tags, and anywhere else the brand name appears. The user's brand name is FINAL and overrides whatever Stitch generated. Do not use any other brand name.\n`
+    : "";
 
-User's original prompt (context only — never use this as content): ${userPrompt}
+  const initialUserMsg = `Rebuild this Stitch-designed website as clean Tailwind HTML with data-editable attributes.
+Follow EVERY instruction in the system prompt exactly. The Stitch HTML below is the COMPLETE, AUTHORITATIVE source — every image URL, color, font, link, and section in your output must come from it verbatim.${brandOverride}
+User's original prompt (context only): ${userPrompt}
 
 === STITCH HTML (raw, full, unmodified) ===
 ${stitchHtml}`;
@@ -265,7 +312,11 @@ ${stitchHtml}`;
 
 // ─── Metadata extraction from the rebuilt HTML ───────────────────────────────
 
-function extractMetadata(html: string, fallbackPrompt: string): {
+function extractMetadata(
+  html: string,
+  fallbackPrompt: string,
+  brandName: string | null
+): {
   name: string;
   seoTitle: string;
   seoDesc: string;
@@ -283,8 +334,9 @@ function extractMetadata(html: string, fallbackPrompt: string): {
   const h1    = h1Match?.[1]    ? decode(h1Match[1])    : "";
 
   const fallback = fallbackPrompt.split(/[.,!?\n]/)[0].trim().slice(0, 50);
-  const name     = (h1 || title || fallback).slice(0, 80);
-  const seoTitle = (title || name).slice(0, 70);
+  // User's explicit brand name always wins
+  const name     = (brandName || h1 || title || fallback).slice(0, 80);
+  const seoTitle = (brandName ? `${brandName} — Official Store` : title || name).slice(0, 70);
   const seoDesc  = (desc || `${name} — ${fallbackPrompt}`).slice(0, 200);
   return { name, seoTitle, seoDesc };
 }
@@ -295,13 +347,17 @@ export async function generateWebsiteWithStitch(
   userPrompt: string,
   _plan: Plan
 ): Promise<{ result: StitchResult; usage: StitchUsage }> {
+  // Extract explicit brand name before calling Stitch so we can override later
+  const brandName = extractBrandName(userPrompt);
+
   // Step 1: Stitch designs the full website
   const stitchHtml = await runStitch(userPrompt);
 
   // Step 2: Claude builds it (with auto-continuation on truncation)
   const { html, model, inputTokens, outputTokens } = await buildHtmlWithClaude(
     stitchHtml,
-    userPrompt
+    userPrompt,
+    brandName
   );
 
   // Sanity: ensure we got actual HTML
@@ -310,7 +366,7 @@ export async function generateWebsiteWithStitch(
     throw new Error("Website builder returned invalid output. Please try again.");
   }
 
-  const { name, seoTitle, seoDesc } = extractMetadata(builtHtml, userPrompt);
+  const { name, seoTitle, seoDesc } = extractMetadata(builtHtml, userPrompt, brandName);
   const type = inferWebsiteType(userPrompt);
 
   const { usd, php } = calculateTokenCost(inputTokens, outputTokens, model);
