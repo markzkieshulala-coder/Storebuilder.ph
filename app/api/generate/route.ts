@@ -6,7 +6,6 @@ import { checkAndConsumeCredit } from "@/lib/credits";
 import { prisma } from "@/lib/prisma";
 import { generateSubdomain } from "@/lib/utils";
 import { Plan } from "@prisma/client";
-import { StitchError } from "@google/stitch-sdk";
 import { z } from "zod";
 
 const generateSchema = z.object({
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Stitch generates the full design → embed assets → return self-contained HTML ──
+    // Native Premium Generator — runs the four design skills through Claude
     const { result, usage } = await generateWebsite(prompt, activePlan);
 
     // Generate unique subdomain
@@ -68,7 +67,7 @@ export async function POST(req: NextRequest) {
       subdomain = `${subdomain}-${Date.now().toString(36)}`;
     }
 
-    // htmlContent is the full structured HTML — the editor and all renderers
+    // htmlContent is the full self-contained HTML — the editor and all renderers
     // use this directly. jsonContent stores lightweight metadata only.
     const savedWebsite = await prisma.website.create({
       data: {
@@ -81,8 +80,8 @@ export async function POST(req: NextRequest) {
           type: result.type,
           seoTitle: result.seoTitle,
           seoDesc: result.seoDesc,
-          stitchGenerated: true,
-          version: 2,
+          nativeGenerated: true,
+          version: 3,
         },
         htmlContent: result.htmlContent,
         subdomain,
@@ -93,20 +92,18 @@ export async function POST(req: NextRequest) {
     });
 
     // Log token usage
-    if (usage.model !== "mock") {
-      await prisma.tokenUsageLog.create({
-        data: {
-          userId: session.user.id,
-          websiteId: savedWebsite.id,
-          model: usage.model,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          totalTokens: usage.inputTokens + usage.outputTokens,
-          costUsd: usage.costUsd,
-          costPhp: usage.costPhp,
-        },
-      });
-    }
+    await prisma.tokenUsageLog.create({
+      data: {
+        userId: session.user.id,
+        websiteId: savedWebsite.id,
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.inputTokens + usage.outputTokens,
+        costUsd: usage.costUsd,
+        costPhp: usage.costPhp,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -127,33 +124,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (error instanceof StitchError) {
-      console.error("[POST /api/generate] Stitch error:", error.code, error.message);
-      return NextResponse.json(
-        {
-          error:
-            "Website design service is currently unavailable. Please try again in a few moments.",
-          code: "STITCH_UNAVAILABLE",
-        },
-        { status: 503 }
-      );
-    }
-
     const err = error as { status?: number; message?: string };
     console.error("[POST /api/generate] error:", err?.status, err?.message ?? error);
     const msg: string = err?.message ?? "";
 
-    if (msg.includes("STITCH_API_KEY")) {
-      return NextResponse.json(
-        {
-          error:
-            "Website design service is currently unavailable. Please try again in a few moments.",
-          code: "STITCH_UNAVAILABLE",
-        },
-        { status: 503 }
-      );
-    }
-    if (msg.includes("ANTHROPIC_API_KEY")) {
+    if (msg.includes("ANTHROPIC_API_KEY") || msg.includes("api_key")) {
       return NextResponse.json(
         { error: "AI service not configured. Please set ANTHROPIC_API_KEY." },
         { status: 500 }
@@ -174,9 +149,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        error:
-          "Website design service is currently unavailable. Please try again in a few moments.",
-        code: "STITCH_UNAVAILABLE",
+        error: "Website generation is currently unavailable. Please try again in a few moments.",
+        code: "GENERATOR_UNAVAILABLE",
       },
       { status: 503 }
     );
