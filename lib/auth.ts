@@ -204,7 +204,17 @@ export const authOptions: NextAuthOptions = {
             token.plan = dbUser.plan;
             token.name = dbUser.name ?? token.name;
             token.email = dbUser.email ?? token.email;
-            token.picture = dbUser.image ?? token.picture;
+            // Avatar handling: data-URI uploads can be up to 2 MB. Putting
+            // those into the JWT balloons the session cookie past Node's
+            // 8 KB header limit and produces HTTP 431 on every request.
+            // For data URIs we store a stable endpoint URL instead; the
+            // client fetches the actual bytes from /api/user/avatar.
+            const img = dbUser.image ?? null;
+            if (img?.startsWith("data:")) {
+              token.picture = "/api/user/avatar";
+            } else if (img) {
+              token.picture = img;
+            }
           }
         } catch {
           // DB unavailable — keep existing token values
