@@ -178,6 +178,15 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user }) {
+      // NextAuth v4 pre-populates token.picture = user.image from the credentials
+      // authorize() return value BEFORE this callback runs. If that image is a
+      // data URI (e.g. a user-uploaded avatar), it can be several MB and will
+      // balloon the session cookie to 180 KB+, causing HTTP 431 on every request.
+      // Strip it immediately — the canonical value always comes from the DB below.
+      if (typeof token.picture === "string" && token.picture.startsWith("data:")) {
+        token.picture = "/api/user/avatar";
+      }
+
       if (user) {
         // Fresh sign-in — seed token from the user object the signIn
         // callback populated above.
@@ -217,7 +226,10 @@ export const authOptions: NextAuthOptions = {
             }
           }
         } catch {
-          // DB unavailable — keep existing token values
+          // DB unavailable — ensure we still don't keep a stale data URI.
+          if (typeof token.picture === "string" && token.picture.startsWith("data:")) {
+            token.picture = "/api/user/avatar";
+          }
         }
 
         // Deferred-downgrade resolution — uses raw SQL so a missing pendingPlan

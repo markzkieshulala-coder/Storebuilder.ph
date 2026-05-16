@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node --max-http-header-size=32768 ./node_modules/next/dist/bin/next dev",
+    "dev": "node --max-http-header-size=524288 ./node_modules/next/dist/bin/next dev",
     "build": "prisma generate && prisma db push --accept-data-loss && next build",
-    "start": "node --max-http-header-size=32768 ./node_modules/next/dist/bin/next start",
+    "start": "node --max-http-header-size=524288 ./node_modules/next/dist/bin/next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:generate": "dotenv -e .env.local -- prisma generate",
