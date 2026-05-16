@@ -93,11 +93,18 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Incorrect password");
         }
 
+        // Never return a data-URI image — NextAuth copies this directly into
+        // token.picture before the jwt() callback runs, which can produce a
+        // 180 KB+ JWT cookie and HTTP 431 on every subsequent request.
+        const safeImage = user.image?.startsWith("data:")
+          ? "/api/user/avatar"
+          : (user.image ?? null);
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          image: user.image,
+          image: safeImage,
           role: user.role,
           plan: user.plan,
         };
