@@ -11,10 +11,10 @@
  *   3. instrumentForEditor() adds data-editable attributes (sections, text,
  *      images, buttons) so the HtmlEditor can mutate any element in place.
  *
- * Claude IS the designer in this pipeline — guided exclusively by the four
- * skill documents in lib/ai/native-generator/skills/. This file's only job
- * is to call the generator, apply editor instrumentation, and return the
- * standardised result shape that app/api/generate/route.ts expects.
+ * Claude IS the designer in this pipeline — guided exclusively by the
+ * Website Generator System bundle at lib/ai/native-generator/system/.
+ * This file's only job is to call the generator, apply editor instrumentation,
+ * and return the standardised result shape that app/api/generate/route.ts expects.
  */
 
 import { Plan } from "@prisma/client";

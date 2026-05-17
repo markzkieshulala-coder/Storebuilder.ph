@@ -1,0 +1,167 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "timestamp": "2026-05-15T00:00:00Z",
+    "pipeline_name": "premium-asset-pipeline",
+    "source_udm_version": "1.0.0",
+    "website_type": "landing-page",
+    "industry_niche": "",
+    "target_audience": "",
+    "generation_id": "uuid"
+  },
+  "assets": {
+    "hero_images": [
+      {
+        "id": "hero_01",
+        "slot": "hero_images",
+        "source": "unsplash",
+        "external_id": "",
+        "url": "",
+        "alt_text": "",
+        "prompt_or_query": "",
+        "dimensions": { "width": 1920, "height": 1080 },
+        "aspect_ratio": "16:9",
+        "dominant_colors": [],
+        "mood_match_score": 0.0,
+        "uniqueness_score": 1.0,
+        "used_in_components": ["hero"],
+        "photographer_name": "",
+        "attribution_url": "",
+        "license": "unsplash-license"
+      }
+    ],
+    "product_images": [],
+    "background_textures": [],
+    "icon_set": [],
+    "testimonial_avatars": [],
+    "team_photos": [],
+    "gallery_images": [],
+    "lifestyle_images": [],
+    "decorative_illustrations": [],
+    "pending_assets": []
+  },
+  "copy": {
+    "headline": {
+      "module_id": "copy_headline",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "awareness"
+    },
+    "subheadline": {
+      "module_id": "copy_subheadline",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "interest"
+    },
+    "cta_primary": {
+      "module_id": "copy_cta_primary",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "action"
+    },
+    "cta_secondary": {
+      "module_id": "copy_cta_secondary",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "consideration"
+    },
+    "benefits": {
+      "module_id": "copy_benefits",
+      "items": [
+        {
+          "title": "",
+          "description": "",
+          "icon_ref": ""
+        }
+      ],
+      "tone_tags": [],
+      "conversion_focus": "desire"
+    },
+    "social_proof_intro": {
+      "module_id": "copy_social_proof_intro",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "trust"
+    },
+    "testimonials": {
+      "module_id": "copy_testimonials",
+      "items": [
+        {
+          "quote": "",
+          "name": "",
+          "role": "",
+          "company": "",
+          "avatar_ref": ""
+        }
+      ],
+      "tone_tags": [],
+      "conversion_focus": "trust"
+    },
+    "pricing_toggle": {
+      "module_id": "copy_pricing_toggle",
+      "monthly_label": "Monthly",
+      "annual_label": "Annual",
+      "tone_tags": [],
+      "conversion_focus": "consideration"
+    },
+    "pricing_cta": {
+      "module_id": "copy_pricing_cta",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "action"
+    },
+    "faq_intro": {
+      "module_id": "copy_faq_intro",
+      "header": "",
+      "subtext": "",
+      "tone_tags": [],
+      "conversion_focus": "objection_handling"
+    },
+    "faq_items": {
+      "module_id": "copy_faq_items",
+      "items": [
+        {
+          "question": "",
+          "answer": ""
+        }
+      ],
+      "tone_tags": [],
+      "conversion_focus": "objection_handling"
+    },
+    "footer_tagline": {
+      "module_id": "copy_footer_tagline",
+      "text": "",
+      "char_count": 0,
+      "tone_tags": [],
+      "conversion_focus": "brand_reinforcement"
+    },
+    "seo": {
+      "meta_title": "",
+      "meta_description": "",
+      "tone_tags": [],
+      "conversion_focus": "discovery"
+    },
+    "navigation": {
+      "labels": [
+        { "label": "", "target_section": "" }
+      ],
+      "tone_tags": [],
+      "conversion_focus": "wayfinding"
+    }
+  },
+  "anti_repetition_log": {
+    "generation_id": "uuid",
+    "assets_used_count": 0,
+    "new_entries": [],
+    "blocked_candidates": [],
+    "borderline_warnings": []
+  },
+  "warnings": [],
+  "fallback_notes": []
+}
