@@ -9,7 +9,7 @@ import {
   Store, Globe, Edit3, Trash2, ExternalLink, Settings, LogOut,
   Crown, Clock, AlertCircle, Zap, Camera, CheckCircle2, Menu, X,
   EyeOff, ChevronDown, Share2, Copy, Check, MoreVertical, BarChart3, Briefcase,
-  ArrowLeft,
+  ArrowLeft, Pencil,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import { signOut } from "next-auth/react";
@@ -68,6 +68,8 @@ function DashboardContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openToolsId, setOpenToolsId] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [sendingVerify, setSendingVerify] = useState(false);
   // Persist dismissal across reloads — once a user closes the banner we
@@ -272,6 +274,22 @@ function DashboardContent() {
     } catch {
       toast.success(`Template link: ${data.shareUrl}`, { duration: 8000 });
     }
+  }
+
+  async function handleRename(id: string, name: string) {
+    if (!name.trim()) return;
+    const res = await fetch(`/api/websites/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) {
+      setWebsites(prev => prev.map(w => w.id === id ? { ...w, name: name.trim() } : w));
+      toast.success("Name updated");
+    } else {
+      toast.error("Failed to rename");
+    }
+    setEditingNameId(null);
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -680,7 +698,28 @@ function DashboardContent() {
 
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3 className="text-sm font-bold text-[#1C1E21] leading-snug truncate">{site.name}</h3>
+                      {editingNameId === site.id ? (
+                        <input
+                          autoFocus
+                          value={editingNameValue}
+                          onChange={e => setEditingNameValue(e.target.value)}
+                          onBlur={() => handleRename(site.id, editingNameValue)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") handleRename(site.id, editingNameValue);
+                            if (e.key === "Escape") setEditingNameId(null);
+                          }}
+                          className="flex-1 text-sm font-bold text-[#1C1E21] border-b border-[#1877F2] outline-none bg-transparent min-w-0"
+                        />
+                      ) : (
+                        <button
+                          className="flex items-center gap-1 group text-left min-w-0"
+                          onClick={() => { setEditingNameId(site.id); setEditingNameValue(site.name); }}
+                          title="Click to rename"
+                        >
+                          <h3 className="text-sm font-bold text-[#1C1E21] leading-snug truncate">{site.name}</h3>
+                          <Pencil size={11} className="shrink-0 text-gray-300 group-hover:text-[#1877F2] transition-colors" />
+                        </button>
+                      )}
                       <span className="text-[10px] text-[#8A8D91] shrink-0 mt-0.5">{site.type}</span>
                     </div>
                     <p className="text-xs text-[#8A8D91] mb-4">

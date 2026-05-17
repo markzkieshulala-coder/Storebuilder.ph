@@ -397,26 +397,26 @@ export default function HtmlEditor({
       {/* ── Top bar ── */}
       <div
         className="flex items-center justify-between px-3 h-12 shrink-0 gap-2"
-        style={{ background: "#1e293b", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ background: "#fff", borderBottom: "1px solid #E4E6EB" }}
       >
         {/* Left */}
         <div className="flex items-center gap-2 min-w-0">
-          <Link href="/dashboard" className="flex items-center gap-1.5 text-white/60 hover:text-white text-xs font-medium transition-colors">
+          <Link href="/dashboard" className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-xs font-medium transition-colors">
             <ArrowLeft size={13} />
             <span className="hidden sm:inline">Dashboard</span>
           </Link>
-          <span className="text-white/20">|</span>
-          <span className="text-white/80 text-sm font-medium truncate max-w-[160px]">{siteName}</span>
+          <span className="text-gray-300">|</span>
+          <span className="text-gray-800 text-sm font-semibold truncate max-w-[160px]">{siteName}</span>
         </div>
 
         {/* Center — viewport controls */}
-        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           {(["desktop", "tablet", "mobile"] as ViewMode[]).map((v) => (
             <button
               key={v}
               onClick={() => setViewMode(v)}
               title={v.charAt(0).toUpperCase() + v.slice(1)}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === v ? "bg-white/20 text-white" : "text-white/40 hover:text-white/80"}`}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === v ? "bg-[#1877F2] text-white shadow-sm" : "text-gray-400 hover:text-gray-700"}`}
             >
               {v === "desktop" ? <Monitor size={14} /> : v === "tablet" ? <Tablet size={14} /> : <Smartphone size={14} />}
             </button>
@@ -427,7 +427,7 @@ export default function HtmlEditor({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => window.open(`/preview/${websiteId}`, "_blank")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           >
             <Eye size={12} />
             <span className="hidden sm:inline">Preview</span>
@@ -436,7 +436,7 @@ export default function HtmlEditor({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : saved ? <CheckCircle size={12} className="text-green-400" /> : <Save size={12} />}
             Save
@@ -460,7 +460,7 @@ export default function HtmlEditor({
               href={`https://${subdomain}.storebuilder.ph`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-white/50 hover:text-white transition-colors"
+              className="flex items-center gap-1 text-gray-400 hover:text-gray-700 transition-colors"
               title="View live site"
             >
               <ExternalLink size={12} />
@@ -475,36 +475,36 @@ export default function HtmlEditor({
         {sidebarOpen && (
           <div
             className="w-52 shrink-0 flex flex-col border-r overflow-hidden"
-            style={{ background: "#1e293b", borderColor: "rgba(255,255,255,0.07)" }}
+            style={{ background: "#fff", borderColor: "#E4E6EB" }}
           >
-            <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-              <span className="text-white/50 text-xs font-semibold uppercase tracking-widest">Sections</span>
-              <button onClick={() => setSidebarOpen(false)} className="text-white/30 hover:text-white/70">
+            <div className="px-3 pt-3 pb-2 flex items-center justify-between border-b border-gray-100">
+              <span className="text-gray-400 text-xs font-semibold uppercase tracking-widest">Sections</span>
+              <button onClick={() => setSidebarOpen(false)} className="text-gray-300 hover:text-gray-600">
                 <X size={12} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1">
+            <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5 pt-2">
               {sections.length === 0 && (
-                <p className="text-white/30 text-xs px-1 pt-2">Loading sections…</p>
+                <p className="text-gray-300 text-xs px-1 pt-2">Loading sections…</p>
               )}
               {sections.map((sec, i) => (
                 <div
                   key={sec.id}
-                  className="flex items-center gap-1 group rounded-md px-2 py-1.5 hover:bg-white/5"
+                  className="flex items-center gap-1 group rounded-md px-2 py-1.5 hover:bg-blue-50 cursor-pointer"
                 >
-                  <span className="text-white/60 text-xs truncate flex-1 capitalize">
+                  <span className="text-gray-600 text-xs truncate flex-1 capitalize">
                     {sec.label.replace(/^sb-sec-\d+$/, `Section ${i + 1}`).replace(/-/g, " ")}
                   </span>
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
                     <button
                       onClick={() => moveSectionUp(i)}
-                      className="text-white/40 hover:text-white p-0.5 rounded"
+                      className="text-gray-300 hover:text-[#1877F2] p-0.5 rounded"
                     >
                       <ChevronUp size={11} />
                     </button>
                     <button
                       onClick={() => moveSectionDown(i)}
-                      className="text-white/40 hover:text-white p-0.5 rounded"
+                      className="text-gray-300 hover:text-[#1877F2] p-0.5 rounded"
                     >
                       <ChevronDown size={11} />
                     </button>
@@ -518,7 +518,7 @@ export default function HtmlEditor({
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="w-6 shrink-0 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white/40 hover:text-white/80 border-r border-white/5 text-xs"
+            className="w-6 shrink-0 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 border-r border-gray-200 text-xs"
           >
             ›
           </button>
@@ -551,46 +551,45 @@ export default function HtmlEditor({
         {rightOpen && (
           <div
             className="w-64 shrink-0 flex flex-col border-l overflow-hidden"
-            style={{ background: "#1e293b", borderColor: "rgba(255,255,255,0.07)" }}
+            style={{ background: "#fff", borderColor: "#E4E6EB" }}
           >
-            <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-              <span className="text-white/50 text-xs font-semibold uppercase tracking-widest">
+            <div className="px-3 pt-3 pb-2 flex items-center justify-between border-b border-gray-100">
+              <span className="text-gray-400 text-xs font-semibold uppercase tracking-widest">
                 {selected ? "Element" : "Properties"}
               </span>
-              <button onClick={() => setRightOpen(false)} className="text-white/30 hover:text-white/70">
+              <button onClick={() => setRightOpen(false)} className="text-gray-300 hover:text-gray-600">
                 <X size={12} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-3 pb-4">
               {!selected ? (
-                <p className="text-white/25 text-xs mt-4 leading-relaxed">
+                <p className="text-gray-400 text-xs mt-4 leading-relaxed">
                   Click any text, image, or button on the preview to select and edit it.
                 </p>
               ) : (
-                <div className="space-y-4 pt-1">
+                <div className="space-y-4 pt-3">
                   {/* Type badge */}
-                  <div className="flex items-center gap-2">
-                    {selected.type === "image" ? <ImagePlus size={13} className="text-blue-400" />
-                      : selected.type === "button" || selected.type === "link" ? <Link2 size={13} className="text-purple-400" />
-                      : <Type size={13} className="text-green-400" />}
-                    <span className="text-white/50 text-xs capitalize">{selected.type} element</span>
+                  <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                    {selected.type === "image" ? <ImagePlus size={13} className="text-blue-500" />
+                      : selected.type === "button" || selected.type === "link" ? <Link2 size={13} className="text-purple-500" />
+                      : <Type size={13} className="text-green-500" />}
+                    <span className="text-gray-500 text-xs font-medium capitalize">{selected.type} element</span>
                   </div>
 
                   {/* Text / button editing */}
                   {(selected.type === "text" || selected.type === "button" || selected.type === "link") && (
                     <div>
-                      <label className="block text-white/40 text-xs mb-1 font-medium">Text content</label>
+                      <label className="block text-gray-500 text-xs mb-1 font-medium">Text content</label>
                       <textarea
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         rows={3}
-                        className="w-full text-xs rounded-md px-2.5 py-2 text-white placeholder-white/20 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        style={{ background: "rgba(255,255,255,0.06)" }}
+                        className="w-full text-xs rounded-md px-2.5 py-2 text-gray-800 placeholder-gray-300 bg-gray-50 border border-gray-200 resize-none focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
                       />
                       <button
                         onClick={applyTextEdit}
-                        className="mt-1.5 w-full py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                        className="mt-1.5 w-full py-1.5 rounded-md text-xs font-medium bg-[#1877F2] hover:bg-blue-700 text-white transition-colors"
                       >
                         Apply
                       </button>
@@ -600,13 +599,12 @@ export default function HtmlEditor({
                   {/* Href editing for links/buttons */}
                   {(selected.type === "button" || selected.type === "link") && (
                     <div>
-                      <label className="block text-white/40 text-xs mb-1 font-medium">Link URL</label>
+                      <label className="block text-gray-500 text-xs mb-1 font-medium">Link URL</label>
                       <input
                         type="text"
                         value={editHref}
                         onChange={(e) => setEditHref(e.target.value)}
-                        className="w-full text-xs rounded-md px-2.5 py-2 text-white placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        style={{ background: "rgba(255,255,255,0.06)" }}
+                        className="w-full text-xs rounded-md px-2.5 py-2 text-gray-800 placeholder-gray-300 bg-gray-50 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
                         placeholder="https://..."
                       />
                       <button
@@ -621,13 +619,13 @@ export default function HtmlEditor({
                   {/* Image editing */}
                   {selected.type === "image" && (
                     <div>
-                      <label className="block text-white/40 text-xs mb-1 font-medium">Image</label>
+                      <label className="block text-gray-500 text-xs mb-1 font-medium">Image</label>
                       {selected.src && !selected.src.includes("data:") && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={selected.src}
                           alt=""
-                          className="w-full h-24 object-cover rounded-md mb-2"
+                          className="w-full h-24 object-cover rounded-md mb-2 border border-gray-100"
                         />
                       )}
                       <button
@@ -635,17 +633,16 @@ export default function HtmlEditor({
                           setPendingImgPath(selected.path);
                           imageInput?.click();
                         }}
-                        className="w-full py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center justify-center gap-1.5"
+                        className="w-full py-1.5 rounded-md text-xs font-medium bg-[#1877F2] hover:bg-blue-700 text-white transition-colors flex items-center justify-center gap-1.5"
                       >
                         <ImagePlus size={11} />
                         Replace image
                       </button>
-                      <p className="text-white/25 text-xs mt-1.5 text-center">or paste URL below</p>
+                      <p className="text-gray-300 text-xs mt-1.5 text-center">or paste URL below</p>
                       <input
                         type="text"
                         placeholder="https://..."
-                        className="mt-1 w-full text-xs rounded-md px-2.5 py-2 text-white placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        style={{ background: "rgba(255,255,255,0.06)" }}
+                        className="mt-1 w-full text-xs rounded-md px-2.5 py-2 text-gray-800 placeholder-gray-300 bg-gray-50 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             const url = (e.target as HTMLInputElement).value.trim();
@@ -661,7 +658,7 @@ export default function HtmlEditor({
 
                   <button
                     onClick={() => setSelected(null)}
-                    className="w-full py-1.5 rounded-md text-xs text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors flex items-center justify-center gap-1"
+                    className="w-full py-1.5 rounded-md text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1 border border-gray-200"
                   >
                     <X size={11} />
                     Deselect
@@ -675,7 +672,7 @@ export default function HtmlEditor({
         {!rightOpen && (
           <button
             onClick={() => setRightOpen(true)}
-            className="w-6 shrink-0 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white/40 hover:text-white/80 border-l border-white/5 text-xs"
+            className="w-6 shrink-0 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 border-l border-gray-200 text-xs"
           >
             ‹
           </button>

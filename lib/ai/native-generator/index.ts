@@ -96,9 +96,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1585386959984-a4155224a1ad?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "🚚", title: "Free Shipping", desc: "Free delivery on all orders over ₱999. Fast and reliable nationwide." },
-      { icon: "🔒", title: "Secure Payment", desc: "GCash, credit card, and COD accepted. 100% safe checkout." },
-      { icon: "↩️", title: "Easy Returns", desc: "Not satisfied? Return within 30 days, no questions asked." },
+      { icon: "01", title: "Free Shipping", desc: "Free delivery on all orders over ₱999. Fast and reliable nationwide." },
+      { icon: "02", title: "Secure Payment", desc: "GCash, credit card, and COD accepted. 100% safe checkout." },
+      { icon: "03", title: "Easy Returns", desc: "Not satisfied? Return within 30 days, no questions asked." },
     ],
     products: [
       { name: "Premium Item", price: "₱1,299", desc: "High-quality product crafted for everyday use.", image: "photo-1523275335684-37898b6baf30?w=600&h=600&auto=format&fit=crop&q=80", badge: "Best Seller" },
@@ -130,9 +130,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1504674900247-0877df9cc836?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "👨‍🍳", title: "Expert Chefs", desc: "Our kitchen team trained in top culinary institutions, bringing authentic flavours to every dish." },
-      { icon: "🌿", title: "Fresh Ingredients", desc: "Sourced daily from local farms and markets — no preservatives, pure taste." },
-      { icon: "🍽️", title: "Dine or Deliver", desc: "Enjoy the ambiance in-house or get your favourites delivered to your doorstep." },
+      { icon: "01", title: "Expert Chefs", desc: "Our kitchen team trained in top culinary institutions, bringing authentic flavours to every dish." },
+      { icon: "02", title: "Fresh Ingredients", desc: "Sourced daily from local farms and markets — no preservatives, pure taste." },
+      { icon: "03", title: "Dine or Deliver", desc: "Enjoy the ambiance in-house or get your favourites delivered to your doorstep." },
     ],
     products: [
       { name: "Signature Plate", price: "₱380", desc: "Our most-loved creation. Rich, bold, and unforgettable.", image: "photo-1546069901-ba9599a7e63c?w=600&h=600&auto=format&fit=crop&q=80", badge: "Chef's Pick" },
@@ -164,9 +164,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1487412947147-5cebf100ffc2?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "✨", title: "Expert Stylists", desc: "Our licensed professionals stay ahead of every trend to give you your best look." },
-      { icon: "💆", title: "Relaxing Experience", desc: "A calm, welcoming environment designed to help you unwind and rejuvenate." },
-      { icon: "🌸", title: "Premium Products", desc: "We use only top-tier, skin-safe products for all treatments and services." },
+      { icon: "01", title: "Expert Stylists", desc: "Our licensed professionals stay ahead of every trend to give you your best look." },
+      { icon: "02", title: "Relaxing Experience", desc: "A calm, welcoming environment designed to help you unwind and rejuvenate." },
+      { icon: "03", title: "Premium Products", desc: "We use only top-tier, skin-safe products for all treatments and services." },
     ],
     products: [
       { name: "Haircut & Style", price: "₱450", desc: "Precision cut and blowout tailored to your face shape.", image: "photo-1522337360788-8b13dee7a37e?w=600&h=600&auto=format&fit=crop&q=80", badge: "Popular" },
@@ -198,9 +198,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1507003211169-0a1dd7228f2d?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "🎨", title: "UI/UX Design", desc: "User-centred interfaces that are intuitive, accessible, and visually stunning." },
-      { icon: "💻", title: "Web Development", desc: "Clean, fast, and scalable front-end and full-stack engineering." },
-      { icon: "📱", title: "Mobile Apps", desc: "Cross-platform mobile experiences built for iOS and Android." },
+      { icon: "01", title: "UI/UX Design", desc: "User-centred interfaces that are intuitive, accessible, and visually stunning." },
+      { icon: "02", title: "Web Development", desc: "Clean, fast, and scalable front-end and full-stack engineering." },
+      { icon: "03", title: "Mobile Apps", desc: "Cross-platform mobile experiences built for iOS and Android." },
     ],
     products: [
       { name: "E-Commerce Platform", price: "View Case Study →", desc: "End-to-end design and development for a ₱50M+ online retailer.", image: "photo-1467232004-0de3e13d5296?w=600&h=600&auto=format&fit=crop&q=80", badge: "Featured" },
@@ -232,9 +232,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1434030216411-0b793f4b4173?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "⚡", title: "Lightning Fast", desc: "Sub-second response times. Your team stays in flow with zero lag." },
-      { icon: "🔐", title: "Enterprise Security", desc: "SOC 2 Type II certified. End-to-end encryption on every data point." },
-      { icon: "📊", title: "Real-Time Analytics", desc: "Live dashboards and custom reports — insight when you need it." },
+      { icon: "01", title: "Lightning Fast", desc: "Sub-second response times. Your team stays in flow with zero lag." },
+      { icon: "02", title: "Enterprise Security", desc: "SOC 2 Type II certified. End-to-end encryption on every data point." },
+      { icon: "03", title: "Real-Time Analytics", desc: "Live dashboards and custom reports — insight when you need it." },
     ],
     products: [
       { name: "Starter", price: "₱999/mo", desc: "Perfect for small teams. Up to 5 seats, 10GB storage, email support.", image: "photo-1460925895917-afdab827c52f?w=600&h=600&auto=format&fit=crop&q=80" },
@@ -266,9 +266,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1553877522-43269d4ea984?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "🚀", title: "Launch Fast", desc: "Go live in minutes. No technical knowledge required — just your vision." },
-      { icon: "📈", title: "Grow Reliably", desc: "Built-in analytics and conversion tools to keep your momentum going." },
-      { icon: "🤝", title: "Trusted by Thousands", desc: "Join 50,000+ Filipino entrepreneurs already growing their business online." },
+      { icon: "01", title: "Launch Fast", desc: "Go live in minutes. No technical knowledge required — just your vision." },
+      { icon: "02", title: "Grow Reliably", desc: "Built-in analytics and conversion tools to keep your momentum going." },
+      { icon: "03", title: "Trusted by Thousands", desc: "Join 50,000+ Filipino entrepreneurs already growing their business online." },
     ],
     products: [
       { name: "Core Package", price: "₱999", desc: "Everything you need to launch and grow your online presence.", image: "photo-1460925895917-afdab827c52f?w=600&h=600&auto=format&fit=crop&q=80", badge: "Best Value" },
@@ -300,9 +300,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1553877522-43269d4ea984?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "🎯", title: "Strategy First", desc: "Every campaign starts with deep research and a clear north star objective." },
-      { icon: "✍️", title: "Compelling Creative", desc: "Content that stops the scroll, builds brand love, and drives action." },
-      { icon: "📊", title: "Data-Driven Results", desc: "We track every peso of your budget and optimise relentlessly." },
+      { icon: "01", title: "Strategy First", desc: "Every campaign starts with deep research and a clear north star objective." },
+      { icon: "02", title: "Compelling Creative", desc: "Content that stops the scroll, builds brand love, and drives action." },
+      { icon: "03", title: "Data-Driven Results", desc: "We track every peso of your budget and optimise relentlessly." },
     ],
     products: [
       { name: "Brand Identity", price: "from ₱25,000", desc: "Logo, guidelines, and brand voice that sets you apart.", image: "photo-1460925895917-afdab827c52f?w=600&h=600&auto=format&fit=crop&q=80" },
@@ -334,9 +334,9 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
       "photo-1474631245212-32dc3c8310c6?w=600&h=600&auto=format&fit=crop&q=80",
     ],
     features: [
-      { icon: "📚", title: "Expert Instructors", desc: "Learn from industry practitioners with real-world experience." },
-      { icon: "🎓", title: "Accredited Certificates", desc: "Recognised credentials that employers and institutions trust." },
-      { icon: "💡", title: "Flexible Learning", desc: "Self-paced or live sessions — fit your studies around your life." },
+      { icon: "01", title: "Expert Instructors", desc: "Learn from industry practitioners with real-world experience." },
+      { icon: "02", title: "Accredited Certificates", desc: "Recognised credentials that employers and institutions trust." },
+      { icon: "03", title: "Flexible Learning", desc: "Self-paced or live sessions — fit your studies around your life." },
     ],
     products: [
       { name: "Foundation Course", price: "₱1,999", desc: "Perfect for beginners. Build a solid base of knowledge in 4 weeks.", image: "photo-1434030216411-0b793f4b4173?w=600&h=600&auto=format&fit=crop&q=80", badge: "Bestseller" },
@@ -556,7 +556,7 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 @media(min-width:900px){.features-grid{grid-template-columns:repeat(3,1fr)}}
 .feature-card{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--shape-radius-lg);padding:2rem;display:flex;flex-direction:column;gap:1rem;transition:box-shadow var(--motion-speed) var(--motion-easing),transform var(--motion-speed) var(--motion-easing)}
 .feature-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
-.feature-icon{font-size:2rem;width:3rem;height:3rem;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--color-accent) 12%,transparent);border-radius:var(--shape-radius)}
+.feature-icon{width:3rem;height:3rem;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--color-accent) 15%,transparent);border-radius:var(--shape-radius);font-family:var(--font-heading);font-size:0.75rem;font-weight:800;color:var(--color-accent);letter-spacing:0.02em}
 .feature-title{font-family:var(--font-heading);font-size:var(--text-size-h3);font-weight:600;color:var(--color-text)}
 .feature-desc{font-size:var(--text-size-body);color:var(--color-text-muted);line-height:var(--line-height-relaxed)}
 
@@ -628,19 +628,28 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 // ─── Section builders ─────────────────────────────────────────────────────────
 
 function buildNav(cfg: WebsiteConfig): string {
+  // Map display labels to actual section IDs in the compiled HTML
+  const ANCHOR: Record<string, string> = {
+    "Home": "#hero", "Shop": "#products", "Collections": "#products",
+    "Menu": "#products", "Services": "#products", "Work": "#products",
+    "Courses": "#products", "Pricing": "#products", "Features": "#features",
+    "About": "#about", "About Us": "#about", "Gallery": "#about", "Blog": "#about",
+    "Contact": "#contact", "Book": "#contact", "Reservations": "#contact", "Login": "#contact",
+  };
   const nicheLinks: Record<Niche, string[]> = {
     STORE:      ["Home", "Shop", "Collections", "About", "Contact"],
     RESTAURANT: ["Home", "Menu", "About Us", "Reservations", "Contact"],
     SALON:      ["Home", "Services", "Gallery", "About", "Book"],
     PORTFOLIO:  ["Home", "Work", "About", "Services", "Contact"],
-    SAAS:       ["Home", "Features", "Pricing", "About", "Login"],
+    SAAS:       ["Home", "Features", "Pricing", "About", "Contact"],
     LANDING:    ["Home", "Features", "Pricing", "About", "Contact"],
     AGENCY:     ["Home", "Services", "Work", "About", "Contact"],
     EDUCATION:  ["Home", "Courses", "About", "Blog", "Contact"],
   };
   const links = nicheLinks[cfg.niche];
-  const li = links.map(l => `<li><a href="#${l.toLowerCase().replace(/\s+/g, "-")}">${l}</a></li>`).join("");
-  const mob = links.map(l => `<a href="#${l.toLowerCase().replace(/\s+/g, "-")}" data-editable="link">${l}</a>`).join("");
+  const href = (l: string) => ANCHOR[l] ?? `#${l.toLowerCase().replace(/\s+/g, "-")}`;
+  const li = links.map(l => `<li><a href="${href(l)}">${l}</a></li>`).join("");
+  const mob = links.map(l => `<a href="${href(l)}" data-editable="link">${l}</a>`).join("");
   return `
 <nav data-editable="section" data-section-label="Navigation" id="nav">
   <div class="container nav-inner">
@@ -673,7 +682,7 @@ function buildHero(cfg: WebsiteConfig): string {
 
   if (cfg.heroLayout === "fullscreen") {
     return `
-<section data-editable="section" data-section-label="Hero" class="hero hero-fullscreen">
+<section data-editable="section" data-section-label="Hero" class="hero hero-fullscreen" id="hero">
   <div class="hero-fullscreen-bg">
     <img data-editable="image" src="${img}" alt="${cfg.businessName}">
     <div class="hero-fullscreen-overlay"></div>
@@ -692,7 +701,7 @@ function buildHero(cfg: WebsiteConfig): string {
 
   if (cfg.heroLayout === "centered") {
     return `
-<section data-editable="section" data-section-label="Hero" class="hero hero-centered section">
+<section data-editable="section" data-section-label="Hero" class="hero hero-centered section" id="hero">
   <div class="container inner">
     <span class="badge badge-accent" data-editable="text">Now Live in the Philippines</span>
     <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
@@ -710,7 +719,7 @@ function buildHero(cfg: WebsiteConfig): string {
 
   // Default: split
   return `
-<section data-editable="section" data-section-label="Hero" class="hero hero-split section">
+<section data-editable="section" data-section-label="Hero" class="hero hero-split section" id="hero">
   <div class="container inner">
     <div class="hero-text">
       <span class="hero-pretitle" data-editable="text">Welcome to ${cfg.businessName}</span>
@@ -818,18 +827,112 @@ function buildTestimonials(cfg: WebsiteConfig): string {
 </section>`;
 }
 
-function buildCTA(cfg: WebsiteConfig): string {
+function buildAbout(cfg: WebsiteConfig): string {
+  const aboutCopy: Record<Niche, { heading: string; body: string; stat1: string; stat1l: string; stat2: string; stat2l: string; stat3: string; stat3l: string }> = {
+    STORE:      { heading: "Our Story", body: `${cfg.businessName} was born out of a passion for quality and a commitment to the Filipino customer. Every product we carry is hand-picked for durability, style, and value. We're more than just a shop — we're a brand you can trust.`, stat1: "50K+", stat1l: "Happy Customers", stat2: "4.9", stat2l: "Average Rating", stat3: "100%", stat3l: "Quality Guarantee" },
+    RESTAURANT: { heading: "Our Heritage", body: `${cfg.businessName} has been crafting unforgettable dining experiences since its founding. We believe food is more than sustenance — it's memory, culture, and connection. Every dish tells the story of our kitchen's heart.`, stat1: "15+", stat1l: "Years of Service", stat2: "200+", stat2l: "Menu Items", stat3: "5-Star", stat3l: "Dining Rating" },
+    SALON:      { heading: "About the Studio", body: `At ${cfg.businessName}, we combine artistry with expertise to help you look and feel your absolute best. Our team of licensed stylists and beauty professionals are dedicated to staying current with the latest trends and techniques.`, stat1: "10K+", stat1l: "Happy Clients", stat2: "15+", stat2l: "Expert Stylists", stat3: "8+", stat3l: "Years in Business" },
+    PORTFOLIO:  { heading: "About Me", body: `I'm a multidisciplinary designer and developer based in the Philippines, passionate about crafting digital experiences that are both beautiful and functional. With over 8 years of experience, I've helped startups and established brands achieve their vision.`, stat1: "8+", stat1l: "Years Experience", stat2: "120+", stat2l: "Projects Delivered", stat3: "98%", stat3l: "Client Satisfaction" },
+    SAAS:       { heading: "Why We Built This", body: `${cfg.businessName} started when our founders noticed that most business tools were built for large enterprises, leaving Filipino SMEs behind. We set out to build a platform that's powerful enough for enterprise but simple enough for everyone.`, stat1: "10K+", stat1l: "Active Users", stat2: "99.9%", stat2l: "Uptime SLA", stat3: "4x", stat3l: "Faster Than Alternatives" },
+    LANDING:    { heading: "Who We Are", body: `${cfg.businessName} is a team of dedicated professionals committed to helping businesses grow. We believe that every entrepreneur deserves access to world-class tools and strategies — regardless of their budget or technical background.`, stat1: "50K+", stat1l: "Businesses Served", stat2: "4.9", stat2l: "Average Rating", stat3: "3 Years", stat3l: "In the Industry" },
+    AGENCY:     { heading: "About the Agency", body: `${cfg.businessName} is a full-service marketing agency built for the modern Philippine brand. We combine strategy, creativity, and data to help businesses grow faster, build stronger brands, and connect meaningfully with their audiences.`, stat1: "200+", stat1l: "Brands Served", stat2: "₱500M+", stat2l: "Revenue Generated", stat3: "5+", stat3l: "Industry Awards" },
+    EDUCATION:  { heading: "Our Mission", body: `${cfg.businessName} exists to make world-class education accessible to every Filipino. We believe that the right knowledge and skills can transform lives — and we're committed to delivering them through practical, industry-relevant programmes.`, stat1: "25K+", stat1l: "Students Enrolled", stat2: "95%", stat2l: "Completion Rate", stat3: "100+", stat3l: "Expert Instructors" },
+  };
+  const a = aboutCopy[cfg.niche];
   return `
-<section data-editable="section" data-section-label="Call to Action" class="cta-section" id="contact">
-  <div class="container cta-inner">
-    <h2 class="cta-headline" data-editable="text">Ready to Get Started with ${cfg.businessName}?</h2>
-    <p class="cta-sub" data-editable="text">Join thousands of satisfied customers across the Philippines. Take the first step today — no commitment required.</p>
-    <div class="cta-actions">
-      <a href="mailto:hello@${cfg.businessName.toLowerCase().replace(/\s+/g, "")}.com" class="btn-cta-primary" data-editable="button">${cfg.ctaPrimary}</a>
-      <a href="#features" class="btn-cta-ghost" data-editable="button">Learn More</a>
+<section data-editable="section" data-section-label="About" class="section" id="about" style="background:var(--color-surface)">
+  <div class="container" style="display:grid;gap:4rem;align-items:center">
+    <div style="max-width:700px;margin:0 auto;text-align:center">
+      <h2 class="section-title" data-editable="text">${a.heading}</h2>
+      <p class="section-subtitle" data-editable="text" style="margin:1.25rem auto 2.5rem">${a.body}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:2.5rem;justify-content:center">
+        <div><div class="hero-stat-value" data-editable="text">${a.stat1}</div><div class="hero-stat-label" data-editable="text">${a.stat1l}</div></div>
+        <div><div class="hero-stat-value" data-editable="text">${a.stat2}</div><div class="hero-stat-label" data-editable="text">${a.stat2l}</div></div>
+        <div><div class="hero-stat-value" data-editable="text">${a.stat3}</div><div class="hero-stat-label" data-editable="text">${a.stat3l}</div></div>
+      </div>
     </div>
   </div>
 </section>`;
+}
+
+function buildContact(cfg: WebsiteConfig): string {
+  const labels: Record<Niche, { heading: string; sub: string }> = {
+    STORE:      { heading: "Get in Touch", sub: "Have a question about an order? We typically reply within a few hours." },
+    RESTAURANT: { heading: "Make a Reservation", sub: "Reserve your table or inquire about private events and catering." },
+    SALON:      { heading: "Book an Appointment", sub: "Ready for a transformation? Fill in the form and we'll confirm your slot." },
+    PORTFOLIO:  { heading: "Start a Project", sub: "Tell me about your project and I'll get back to you within 24 hours." },
+    SAAS:       { heading: "Contact Sales", sub: "Interested in a plan? Our team will set up a personalised walkthrough." },
+    LANDING:    { heading: "Get in Touch", sub: "Have questions? Send us a message and we'll respond quickly." },
+    AGENCY:     { heading: "Let's Work Together", sub: "Tell us about your brand and goals. Free consultation included." },
+    EDUCATION:  { heading: "Enrol or Inquire", sub: "Send us a message about courses, schedules, or enrolment details." },
+  };
+  const l = labels[cfg.niche];
+  return `
+<section data-editable="section" data-section-label="Contact" class="cta-section" id="contact">
+  <div class="container" style="max-width:700px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:3rem">
+      <h2 class="cta-headline" data-editable="text">${l.heading}</h2>
+      <p class="cta-sub" data-editable="text" style="margin-top:1rem">${l.sub}</p>
+    </div>
+    <form id="sb-contact-form" style="display:flex;flex-direction:column;gap:1rem;background:rgba(255,255,255,0.08);padding:2.5rem;border-radius:var(--shape-radius-lg)">
+      <div style="display:grid;gap:1rem;grid-template-columns:1fr 1fr">
+        <input type="text" name="name" placeholder="Your Name" required
+          style="padding:.875rem 1.25rem;border-radius:var(--shape-radius);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:var(--text-size-small);font-family:var(--font-body);outline:none"
+          onfocus="this.style.borderColor='rgba(255,255,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.2)'" />
+        <input type="email" name="email" placeholder="Your Email" required
+          style="padding:.875rem 1.25rem;border-radius:var(--shape-radius);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:var(--text-size-small);font-family:var(--font-body);outline:none"
+          onfocus="this.style.borderColor='rgba(255,255,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.2)'" />
+      </div>
+      <textarea name="message" placeholder="Your message..." rows="5" required
+        style="padding:.875rem 1.25rem;border-radius:var(--shape-radius);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:var(--text-size-small);font-family:var(--font-body);resize:vertical;outline:none"
+        onfocus="this.style.borderColor='rgba(255,255,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.2)'"></textarea>
+      <button type="submit" class="btn-cta-primary" style="align-self:center;padding:.875rem 2.5rem;cursor:pointer;border:none">
+        Send Message
+      </button>
+      <div id="sb-form-msg" style="text-align:center;font-size:.9rem;min-height:1.5rem"></div>
+    </form>
+  </div>
+</section>
+<script>
+(function(){
+  var form=document.getElementById('sb-contact-form');
+  if(!form)return;
+  var inputs=form.querySelectorAll('input,textarea');
+  inputs.forEach(function(el){
+    el.addEventListener('input',function(){el.style.color='#fff';});
+  });
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var btn=form.querySelector('button[type="submit"]');
+    var msg=document.getElementById('sb-form-msg');
+    var orig=btn.textContent;
+    btn.textContent='Sending...';btn.disabled=true;
+    var sub=window.location.hostname.split('.storebuilder')[0]||window.location.hostname;
+    var data={
+      subdomain:sub,
+      name:form.querySelector('[name="name"]').value,
+      email:form.querySelector('[name="email"]').value,
+      message:form.querySelector('[name="message"]').value
+    };
+    fetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.success){
+        form.innerHTML='<p style="color:#fff;font-weight:600;text-align:center;padding:2rem;font-size:1.125rem">Thank you! We will get back to you shortly.</p>';
+      }else{
+        msg.textContent=d.error||'Something went wrong. Please try again.';
+        msg.style.color='#fca5a5';
+        btn.textContent=orig;btn.disabled=false;
+      }
+    })
+    .catch(function(){
+      msg.textContent='Failed to send. Please check your connection and try again.';
+      msg.style.color='#fca5a5';
+      btn.textContent=orig;btn.disabled=false;
+    });
+  });
+})();
+</script>`;
 }
 
 function buildFooter(cfg: WebsiteConfig): string {
@@ -884,7 +987,8 @@ function compileWebsite(cfg: WebsiteConfig): string {
     buildFeatures(cfg),
     buildProducts(cfg),
     buildTestimonials(cfg),
-    buildCTA(cfg),
+    buildAbout(cfg),
+    buildContact(cfg),
     buildFooter(cfg),
   ].join("\n");
 
