@@ -60,7 +60,9 @@ const COMP_CONTAINER         = read("universal-component-library/assets/componen
 
 // ─── Model config ─────────────────────────────────────────────────────────────
 
-const MODEL = (process.env.GENERATOR_MODEL ?? "claude-opus-4-7") as string;
+// Sonnet is the default: it's 3-5× faster than Opus and fully capable of
+// following the SKILL instructions. Override with GENERATOR_MODEL env var.
+const MODEL = (process.env.GENERATOR_MODEL ?? "claude-sonnet-4-6") as string;
 
 const PRICING: Record<string, { input: number; output: number }> = {
   "claude-opus-4-7":   { input: 15   / 1_000_000, output: 75  / 1_000_000 },
@@ -323,17 +325,23 @@ export async function runNativeGenerator(
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 12000,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Generate a premium website for the following request:\n\n${userPrompt}`,
-      },
-    ],
-  });
+  const response = await client.messages.create(
+    {
+      model: MODEL,
+      max_tokens: 8000,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Generate a premium website for the following request:\n\n${userPrompt}`,
+        },
+      ],
+    },
+    // 5-minute request timeout — the large system prompt + HTML output can
+    // take up to 90 s on Sonnet. Default SDK timeout is 600 s but we set it
+    // explicitly so it's visible and intentional.
+    { timeout: 300_000 }
+  );
 
   const text = response.content
     .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")

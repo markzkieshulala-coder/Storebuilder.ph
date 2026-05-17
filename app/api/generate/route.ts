@@ -8,6 +8,9 @@ import { generateSubdomain } from "@/lib/utils";
 import { Plan } from "@prisma/client";
 import { z } from "zod";
 
+// Allow up to 5 minutes — generation can take 60-90 s with the full system prompt.
+export const maxDuration = 300;
+
 const generateSchema = z.object({
   prompt: z.string().min(5, "Prompt too short").max(8000, "Prompt too long"),
 });
@@ -124,26 +127,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const err = error as { status?: number; message?: string };
-    console.error("[POST /api/generate] error:", err?.status, err?.message ?? error);
-    const msg: string = err?.message ?? "";
+    const err = error as { status?: number; message?: string; error?: { type?: string } };
+    const msg: string = err?.message ?? String(error) ?? "";
+    console.error("[POST /api/generate] error:", err?.status, msg);
 
-    if (msg.includes("ANTHROPIC_API_KEY") || msg.includes("api_key")) {
+    // Missing or invalid API key
+    if (
+      err?.status === 401 ||
+      msg.toLowerCase().includes("api key") ||
+      msg.toLowerCase().includes("api_key") ||
+      msg.toLowerCase().includes("authentication") ||
+      msg.toLowerCase().includes("x-api-key")
+    ) {
       return NextResponse.json(
-        { error: "AI service not configured. Please set ANTHROPIC_API_KEY." },
+        { error: "Invalid or missing ANTHROPIC_API_KEY. Check your .env.local file." },
         { status: 500 }
       );
     }
-    if (err?.status === 401 || msg.toLowerCase().includes("authentication")) {
-      return NextResponse.json(
-        { error: "Invalid API key. Check your environment variables." },
-        { status: 500 }
-      );
-    }
-    if (err?.status === 429) {
+    // Rate limit
+    if (err?.status === 429 || msg.toLowerCase().includes("rate limit")) {
       return NextResponse.json(
         { error: "Rate limit reached. Please wait a moment and try again." },
         { status: 429 }
+      );
+    }
+    // Context / token limit
+    if (msg.toLowerCase().includes("token") && msg.toLowerCase().includes("limit")) {
+      return NextResponse.json(
+        { error: "Prompt too long for the model. Try a shorter description." },
+        { status: 400 }
+      );
+    }
+    // Timeout
+    if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
+      return NextResponse.json(
+        { error: "Generation timed out. Try a shorter prompt or try again." },
+        { status: 503 }
+      );
+    }
+    // In development expose the real error so it's actionable
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.json(
+        { error: msg || "Unknown generation error", code: "GENERATOR_ERROR" },
+        { status: 503 }
       );
     }
 
