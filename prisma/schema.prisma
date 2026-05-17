@@ -63,6 +63,11 @@ model User {
   pendingEmailToken   String?
   pendingEmailExpires DateTime?
 
+  // Initial-email verification flow (separate from email-change above).
+  // Used by app/api/user/verify-email and app/api/admin/users/[id]/verify-email.
+  emailVerifyToken   String?
+  emailVerifyExpires DateTime?
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
