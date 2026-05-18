@@ -75,6 +75,124 @@ interface WebsiteConfig {
   seoDesc: string;
 }
 
+// Pools of hero and product images per niche — randomized per generation so two
+// sites in the same niche never look the same. Image IDs are Unsplash photo IDs.
+const HERO_IMAGE_POOLS: Record<Niche, string[]> = {
+  STORE: [
+    "photo-1607082348824-0a96f2a4b9da", "photo-1441986300917-64674bd600d8",
+    "photo-1483985988355-763728e1935b", "photo-1556905055-8f358a7a47b2",
+    "photo-1573739022854-abceaeb585dc", "photo-1607082350899-7e105aa886ae",
+    "photo-1483721310020-03333e577078", "photo-1490481651871-ab68de25d43d",
+  ],
+  RESTAURANT: [
+    "photo-1414235077428-338989a2e8c0", "photo-1517248135467-4c7edcad34c4",
+    "photo-1466978913421-dad2ebd01d17", "photo-1424847651672-bf20a4b0982b",
+    "photo-1555396273-367ea4eb4db5", "photo-1540189549336-e6e99c3679fe",
+    "photo-1559339352-11d035aa65de", "photo-1551782450-a2132b4ba21d",
+  ],
+  SALON: [
+    "photo-1560066984-138daab4346c", "photo-1522337360788-8b13dee7a37e",
+    "photo-1487412947147-5cebf100ffc2", "photo-1583001931096-959e9a1a6223",
+    "photo-1607008829749-c0f284a49841", "photo-1503951914875-452162b0f3f1",
+    "photo-1554519515-242161756769", "photo-1633681926022-84c23e8cb2d6",
+  ],
+  PORTFOLIO: [
+    "photo-1498050108023-c5249f4df085", "photo-1519389950473-47ba0277781c",
+    "photo-1517048676732-d65bc937f952", "photo-1542744173-8e7e53415bb0",
+    "photo-1581291518857-4e27b48ff24e", "photo-1610563166150-b34df4f3bcd6",
+    "photo-1559028012-481c04fa702d", "photo-1502920917128-1aa500764cbd",
+  ],
+  SAAS: [
+    "photo-1551434678-e076c223a692", "photo-1460925895917-afdab827c52f",
+    "photo-1551288049-bebda4e38f71", "photo-1556761175-5973dc0f32e7",
+    "photo-1556761175-b413da4baf72", "photo-1559136555-9303baea8ebd",
+    "photo-1542744173-8e7e53415bb0", "photo-1531403009284-440f080d1e12",
+  ],
+  LANDING: [
+    "photo-1551434678-e076c223a692", "photo-1522071820081-009f0129c71c",
+    "photo-1556761175-4b46a572b786", "photo-1542744173-8e7e53415bb0",
+    "photo-1553877522-43269d4ea984", "photo-1521737604893-d14cc237f11d",
+    "photo-1556761175-5973dc0f32e7", "photo-1517048676732-d65bc937f952",
+  ],
+  AGENCY: [
+    "photo-1521737604893-d14cc237f11d", "photo-1542744173-8e7e53415bb0",
+    "photo-1556761175-5973dc0f32e7", "photo-1559028012-481c04fa702d",
+    "photo-1517048676732-d65bc937f952", "photo-1553877522-43269d4ea984",
+    "photo-1581291518857-4e27b48ff24e", "photo-1551434678-e076c223a692",
+  ],
+  EDUCATION: [
+    "photo-1522202176988-66273c2fd55f", "photo-1513258496099-48168024aec0",
+    "photo-1509062522246-3755977927d7", "photo-1503676260728-1c00da094a0b",
+    "photo-1427504494785-3a9ca7044f45", "photo-1546410531-bb4caa6b424d",
+    "photo-1434030216411-0b793f4b4173", "photo-1571260899304-425eee4c7efc",
+  ],
+};
+
+const PRODUCT_IMAGE_POOLS: Record<Niche, string[]> = {
+  STORE: [
+    "photo-1523275335684-37898b6baf30", "photo-1542291026-7eec264c27ff",
+    "photo-1491553895911-0055eca6402d", "photo-1585386959984-a4155224a1ad",
+    "photo-1505740420928-5e560c06d30e", "photo-1560769629-975ec94e6a86",
+    "photo-1546868871-7041f2a55e12", "photo-1525507119028-ed4c629a60a3",
+    "photo-1572635196237-14b3f281503f", "photo-1495121605193-b116b5b9c5fe",
+    "photo-1572804013309-59a88b7e92f1", "photo-1607522370275-f14206abe5d3",
+  ],
+  RESTAURANT: [
+    "photo-1546069901-ba9599a7e63c", "photo-1565299624946-b28f40a04680",
+    "photo-1565958011703-44f9829ba187", "photo-1504674900247-0877df9cc836",
+    "photo-1525351484163-7529414344d8", "photo-1565958011703-44f9829ba187",
+    "photo-1565299507177-b0ac66763828", "photo-1567620905732-2d1ec7ab7445",
+    "photo-1567620832903-9fc6debc209f", "photo-1540189549336-e6e99c3679fe",
+    "photo-1551782450-a2132b4ba21d", "photo-1481931098730-318b6f776db0",
+  ],
+  SALON: [
+    "photo-1522337360788-8b13dee7a37e", "photo-1570172619644-dfd03ed5d881",
+    "photo-1519014816548-bf5fe059798b", "photo-1487412947147-5cebf100ffc2",
+    "photo-1607008829749-c0f284a49841", "photo-1503951914875-452162b0f3f1",
+    "photo-1546552768-9e3a94b38a59", "photo-1560869713-7d0a29430803",
+    "photo-1571646034647-52e6ea84b28c", "photo-1553521306-1deb33e90c1c",
+  ],
+  PORTFOLIO: [
+    "photo-1467232004-0de3e13d5296", "photo-1545235617-9465d2a55698",
+    "photo-1522202176988-66273c2fd55f", "photo-1507003211169-0a1dd7228f2d",
+    "photo-1581291518857-4e27b48ff24e", "photo-1559028012-481c04fa702d",
+    "photo-1542744173-8e7e53415bb0", "photo-1517048676732-d65bc937f952",
+    "photo-1531403009284-440f080d1e12", "photo-1497032628192-86f99bcd76bc",
+  ],
+  SAAS: [
+    "photo-1460925895917-afdab827c52f", "photo-1551288049-bebda4e38f71",
+    "photo-1573496359142-b8d87734a5a2", "photo-1434030216411-0b793f4b4173",
+    "photo-1556761175-4b46a572b786", "photo-1556761175-b413da4baf72",
+    "photo-1559136555-9303baea8ebd", "photo-1531403009284-440f080d1e12",
+  ],
+  LANDING: [
+    "photo-1460925895917-afdab827c52f", "photo-1551288049-bebda4e38f71",
+    "photo-1522071820081-009f0129c71c", "photo-1553877522-43269d4ea984",
+    "photo-1556761175-4b46a572b786", "photo-1556761175-5973dc0f32e7",
+    "photo-1542744173-8e7e53415bb0", "photo-1517048676732-d65bc937f952",
+  ],
+  AGENCY: [
+    "photo-1460925895917-afdab827c52f", "photo-1551288049-bebda4e38f71",
+    "photo-1557804506-669a67965ba0", "photo-1553877522-43269d4ea984",
+    "photo-1542744173-8e7e53415bb0", "photo-1556761175-5973dc0f32e7",
+    "photo-1559028012-481c04fa702d", "photo-1581291518857-4e27b48ff24e",
+  ],
+  EDUCATION: [
+    "photo-1434030216411-0b793f4b4173", "photo-1513258496099-48168024aec0",
+    "photo-1509062522246-3755977927d7", "photo-1474631245212-32dc3c8310c6",
+    "photo-1503676260728-1c00da094a0b", "photo-1427504494785-3a9ca7044f45",
+    "photo-1546410531-bb4caa6b424d", "photo-1571260899304-425eee4c7efc",
+  ],
+};
+
+// Simple deterministic hash so the same business name always picks the same images,
+// but two different names get different images even within the same niche.
+function hashString(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
 // ─── Niche design tokens + content ───────────────────────────────────────────
 
 const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
@@ -417,12 +535,28 @@ function buildConfig(prompt: string): WebsiteConfig {
     EDUCATION: "Learn Today. Lead Tomorrow.",
   };
 
+  // Pick hero + product images from the pool based on a hash of the business
+  // name so two sites in the same niche get different images, but the same name
+  // always gets a consistent look.
+  const seed = hashString(businessName + niche);
+  const heroPool = HERO_IMAGE_POOLS[niche];
+  const productPool = PRODUCT_IMAGE_POOLS[niche];
+  const heroPick = `${heroPool[seed % heroPool.length]}?w=1200&h=800&auto=format&fit=crop&q=80`;
+  // Pick 4 distinct product images starting at an offset
+  const productPicks = [0, 1, 2, 3].map(
+    (i) => `${productPool[(seed + i * 3) % productPool.length]}?w=600&h=600&auto=format&fit=crop&q=80`
+  );
+  const productsWithImages = base.products.map((p, i) => ({ ...p, image: productPicks[i] || p.image }));
+
   return {
     ...base,
     businessName,
     niche,
     tagline: taglines[niche],
     primaryColor: overrideColor ?? base.primaryColor,
+    heroImage: heroPick,
+    productImages: productPicks,
+    products: productsWithImages,
     seoTitle: `${businessName} — ${taglines[niche].split(".")[0]}`,
     seoDesc: `${businessName} | ${taglines[niche]} Serving customers across the Philippines with passion and quality.`,
   };
@@ -500,6 +634,7 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 .nav-mobile{display:none;flex-direction:column;gap:1rem;padding:1.5rem;background:var(--color-background);border-bottom:1px solid var(--color-border)}
 .nav-mobile.open{display:flex}
 .nav-mobile a{font-weight:500;color:var(--color-text);padding:.5rem 0;border-bottom:1px solid var(--color-border)}
+.nav-links a.nav-active,.nav-mobile a.nav-active{color:var(--color-accent);font-weight:700}
 
 /* ── Buttons ── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:var(--shape-radius);font-weight:600;font-family:var(--font-body);transition:all var(--motion-speed) var(--motion-easing);white-space:nowrap}
@@ -628,28 +763,23 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 // ─── Section builders ─────────────────────────────────────────────────────────
 
 function buildNav(cfg: WebsiteConfig): string {
-  // Map display labels to actual section IDs in the compiled HTML
-  const ANCHOR: Record<string, string> = {
-    "Home": "#hero", "Shop": "#products", "Collections": "#products",
-    "Menu": "#products", "Services": "#products", "Work": "#products",
-    "Courses": "#products", "Pricing": "#products", "Features": "#features",
-    "About": "#about", "About Us": "#about", "Gallery": "#about", "Blog": "#about",
-    "Contact": "#contact", "Book": "#contact", "Reservations": "#contact", "Login": "#contact",
-  };
-  const nicheLinks: Record<Niche, string[]> = {
-    STORE:      ["Home", "Shop", "Collections", "About", "Contact"],
-    RESTAURANT: ["Home", "Menu", "About Us", "Reservations", "Contact"],
-    SALON:      ["Home", "Services", "Gallery", "About", "Book"],
-    PORTFOLIO:  ["Home", "Work", "About", "Services", "Contact"],
-    SAAS:       ["Home", "Features", "Pricing", "About", "Contact"],
-    LANDING:    ["Home", "Features", "Pricing", "About", "Contact"],
-    AGENCY:     ["Home", "Services", "Work", "About", "Contact"],
-    EDUCATION:  ["Home", "Courses", "About", "Blog", "Contact"],
+  // True multi-page architecture: every nav link goes to one of FOUR canonical
+  // pages — #home, #shop, #about, #contact. The page-switcher JS at the bottom
+  // of the document shows/hides sections based on the URL hash, so clicking a
+  // nav link feels like navigating to a completely different page.
+  const nicheLinks: Record<Niche, Array<[string, string]>> = {
+    STORE:      [["Home", "#home"], ["Shop", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
+    RESTAURANT: [["Home", "#home"], ["Menu", "#shop"], ["About", "#about"], ["Reservations", "#contact"]],
+    SALON:      [["Home", "#home"], ["Services", "#shop"], ["About", "#about"], ["Book", "#contact"]],
+    PORTFOLIO:  [["Home", "#home"], ["Work", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
+    SAAS:       [["Home", "#home"], ["Pricing", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
+    LANDING:    [["Home", "#home"], ["Features", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
+    AGENCY:     [["Home", "#home"], ["Services", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
+    EDUCATION:  [["Home", "#home"], ["Courses", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
   };
   const links = nicheLinks[cfg.niche];
-  const href = (l: string) => ANCHOR[l] ?? `#${l.toLowerCase().replace(/\s+/g, "-")}`;
-  const li = links.map(l => `<li><a href="${href(l)}">${l}</a></li>`).join("");
-  const mob = links.map(l => `<a href="${href(l)}" data-editable="link">${l}</a>`).join("");
+  const li = links.map(([label, href]) => `<li><a href="${href}" data-page-link="${href.slice(1)}">${label}</a></li>`).join("");
+  const mob = links.map(([label, href]) => `<a href="${href}" data-page-link="${href.slice(1)}" data-editable="link">${label}</a>`).join("");
   return `
 <nav data-editable="section" data-section-label="Navigation" id="nav">
   <div class="container nav-inner">
@@ -682,7 +812,7 @@ function buildHero(cfg: WebsiteConfig): string {
 
   if (cfg.heroLayout === "fullscreen") {
     return `
-<section data-editable="section" data-section-label="Hero" class="hero hero-fullscreen" id="hero">
+<section data-editable="section" data-section-label="Hero" data-page="home" class="hero hero-fullscreen" id="hero">
   <div class="hero-fullscreen-bg">
     <img data-editable="image" src="${img}" alt="${cfg.businessName}">
     <div class="hero-fullscreen-overlay"></div>
@@ -692,7 +822,7 @@ function buildHero(cfg: WebsiteConfig): string {
     <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
     <p class="hero-sub" data-editable="text">Experience something exceptional. We craft every detail with passion and care, delivering quality that speaks for itself.</p>
     <div class="hero-actions">
-      <a href="#products" class="btn btn-accent" data-editable="button">${cfg.ctaPrimary}</a>
+      <a href="#shop" class="btn btn-accent" data-editable="button">${cfg.ctaPrimary}</a>
       <a href="#about" class="btn btn-secondary" style="border-color:rgba(255,255,255,.5);color:#fff" data-editable="button">${cfg.ctaSecondary}</a>
     </div>
   </div>
@@ -701,14 +831,14 @@ function buildHero(cfg: WebsiteConfig): string {
 
   if (cfg.heroLayout === "centered") {
     return `
-<section data-editable="section" data-section-label="Hero" class="hero hero-centered section" id="hero">
+<section data-editable="section" data-section-label="Hero" data-page="home" class="hero hero-centered section" id="hero">
   <div class="container inner">
     <span class="badge badge-accent" data-editable="text">Now Live in the Philippines</span>
     <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
     <p class="hero-sub" data-editable="text">Join thousands of satisfied customers who trust ${cfg.businessName} for quality, speed, and reliability — every single time.</p>
     <div class="hero-actions">
-      <a href="#products" class="btn btn-primary" data-editable="button">${cfg.ctaPrimary}</a>
-      <a href="#features" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
+      <a href="#shop" class="btn btn-primary" data-editable="button">${cfg.ctaPrimary}</a>
+      <a href="#about" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
     </div>
     <div class="hero-centered-img">
       <img data-editable="image" src="${img}" alt="${cfg.businessName}">
@@ -719,15 +849,15 @@ function buildHero(cfg: WebsiteConfig): string {
 
   // Default: split
   return `
-<section data-editable="section" data-section-label="Hero" class="hero hero-split section" id="hero">
+<section data-editable="section" data-section-label="Hero" data-page="home" class="hero hero-split section" id="hero">
   <div class="container inner">
     <div class="hero-text">
       <span class="hero-pretitle" data-editable="text">Welcome to ${cfg.businessName}</span>
       <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
       <p class="hero-sub" data-editable="text">Serving thousands of happy customers across the Philippines. Quality you can trust, service you'll love — every single time.</p>
       <div class="hero-actions">
-        <a href="#products" class="btn btn-primary" data-editable="button">${cfg.ctaPrimary}</a>
-        <a href="#features" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
+        <a href="#shop" class="btn btn-primary" data-editable="button">${cfg.ctaPrimary}</a>
+        <a href="#about" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
       </div>
       ${stats}
     </div>
@@ -746,7 +876,7 @@ function buildFeatures(cfg: WebsiteConfig): string {
       <p class="feature-desc" data-editable="text">${f.desc}</p>
     </div>`).join("");
   return `
-<section data-editable="section" data-section-label="Features" class="features section" id="features">
+<section data-editable="section" data-section-label="Features" data-page="home" class="features section" id="features">
   <div class="container">
     <div class="features-header">
       <h2 class="section-title" data-editable="text">Why Choose ${cfg.businessName}</h2>
@@ -785,7 +915,7 @@ function buildProducts(cfg: WebsiteConfig): string {
     </div>`;
   }).join("");
   return `
-<section data-editable="section" data-section-label="${sectionLabel[cfg.niche]}" class="products section" id="products">
+<section data-editable="section" data-section-label="${sectionLabel[cfg.niche]}" data-page="shop" class="products section" id="products">
   <div class="container">
     <div class="products-header">
       <div>
@@ -816,7 +946,7 @@ function buildTestimonials(cfg: WebsiteConfig): string {
     </div>`;
   }).join("");
   return `
-<section data-editable="section" data-section-label="Testimonials" class="testimonials section" id="testimonials">
+<section data-editable="section" data-section-label="Testimonials" data-page="home" class="testimonials section" id="testimonials">
   <div class="container">
     <div class="testimonials-header">
       <h2 class="section-title" data-editable="text">What Our Customers Say</h2>
@@ -840,7 +970,7 @@ function buildAbout(cfg: WebsiteConfig): string {
   };
   const a = aboutCopy[cfg.niche];
   return `
-<section data-editable="section" data-section-label="About" class="section" id="about" style="background:var(--color-surface)">
+<section data-editable="section" data-section-label="About" data-page="about" class="section" id="about" style="background:var(--color-surface)">
   <div class="container" style="display:grid;gap:4rem;align-items:center">
     <div style="max-width:700px;margin:0 auto;text-align:center">
       <h2 class="section-title" data-editable="text">${a.heading}</h2>
@@ -868,7 +998,7 @@ function buildContact(cfg: WebsiteConfig): string {
   };
   const l = labels[cfg.niche];
   return `
-<section data-editable="section" data-section-label="Contact" class="cta-section" id="contact">
+<section data-editable="section" data-section-label="Contact" data-page="contact" class="cta-section" id="contact">
   <div class="container" style="max-width:700px;margin:0 auto">
     <div style="text-align:center;margin-bottom:3rem">
       <h2 class="cta-headline" data-editable="text">${l.heading}</h2>
@@ -992,6 +1122,54 @@ function compileWebsite(cfg: WebsiteConfig): string {
     buildFooter(cfg),
   ].join("\n");
 
+  const pageSwitcherJS = `
+<script>
+(function(){
+  // Hide all paged sections; show only those matching the current hash page.
+  // The nav shows sections labelled: #home, #shop, #about, #contact
+  // Sections without data-page (nav, footer) are always visible.
+  var PAGES = ['home','shop','about','contact'];
+
+  function getPage() {
+    var h = window.location.hash.slice(1);
+    return PAGES.indexOf(h) !== -1 ? h : 'home';
+  }
+
+  function showPage(page) {
+    var sections = document.querySelectorAll('[data-page]');
+    sections.forEach(function(el) {
+      el.style.display = el.getAttribute('data-page') === page ? '' : 'none';
+    });
+    // Update nav active state
+    var links = document.querySelectorAll('[data-page-link]');
+    links.forEach(function(a) {
+      if (a.getAttribute('data-page-link') === page) {
+        a.classList.add('nav-active');
+      } else {
+        a.classList.remove('nav-active');
+      }
+    });
+    // Close mobile nav if open
+    var mob = document.getElementById('navMobile');
+    if (mob) mob.classList.remove('open');
+  }
+
+  // Initial paint
+  showPage(getPage());
+
+  // Hash changes (nav clicks)
+  window.addEventListener('hashchange', function() { showPage(getPage()); });
+
+  // Intercept page-link clicks to close mobile menu before hash change fires
+  document.querySelectorAll('[data-page-link]').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var page = a.getAttribute('data-page-link');
+      setTimeout(function(){ showPage(page); }, 0);
+    });
+  });
+})();
+</script>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1003,6 +1181,7 @@ function compileWebsite(cfg: WebsiteConfig): string {
 </head>
 <body>
 ${sections}
+${pageSwitcherJS}
 </body>
 </html>`;
 }
