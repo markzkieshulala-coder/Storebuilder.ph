@@ -477,21 +477,27 @@ function detectNiche(prompt: string): Niche {
 
 function extractBusinessName(prompt: string): string {
   const patterns = [
-    /(?:brand(?:\s+name)?\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/,
-    /(?:store\s+name\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/,
-    /(?:business\s+name\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/,
-    /(?:(?:for|called|named)\s+["']?)([A-Z][A-Za-z0-9\s&'.]*?'s)(?:\s|,|\.|$)/,
-    /(?:called\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40})["']?/,
-    /(?:named\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40})["']?/,
-    /(?:for\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,30})(?:["']?\s*,|\s+(?:website|store|shop|brand|salon|restaurant))/,
+    /(?:brand(?:\s+name)?\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/i,
+    /(?:store\s+name\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/i,
+    /(?:business\s+name\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/i,
+    // Possessive form: stop at 's only when followed by lowercase/punct so
+    // "Maria's Bakery" stays intact but "Best Basketball Item's basketball" → "Best Basketball Item's".
+    /(?:(?:for|called|named)\s+["']?)([A-Z][A-Za-z0-9\s&'.]*?'s)(?:\s+[a-z]|,|\.|$)/,
+    /(?:called\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40}?)["']?(?:\s|,|\.|$)/,
+    /(?:named\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40}?)["']?(?:\s|,|\.|$)/,
+    /(?:for\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40}?)(?:["']?\s*,|\s+(?:website|store|shop|brand|salon|restaurant|portfolio|agency|app))/,
   ];
   for (const pat of patterns) {
     const m = prompt.match(pat);
-    if (m?.[1]) return m[1].trim().replace(/['"]+/g, "").slice(0, 60);
+    // Only strip OUTER quotes — never the apostrophe inside "Best Basketball Item's".
+    if (m?.[1]) return m[1].trim().replace(/^["']+|["']+$/g, "").slice(0, 60);
   }
-  const cap = prompt.match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3})\b/);
-  if (cap?.[1] && cap[1].length > 2 && cap[1] !== "Create" && cap[1] !== "Make" && cap[1] !== "Build") return cap[1].slice(0, 40);
-  return "My Business";
+  // Cap-pattern fallback: matches sequences of capitalized words, including
+  // possessive forms like "Best Basketball Item's".
+  const cap = prompt.match(/\b([A-Z][a-zA-Z]+(?:'s)?(?:\s+[A-Z][a-zA-Z]+(?:'s)?){0,4})\b/);
+  const SKIP = /^(?:Create|Make|Build|Generate|Design|Need|Want|Please|Portfolio|Store|Shop|Restaurant|Cafe|Salon|Agency|SaaS|App|Website|Landing|Page)$/i;
+  if (cap?.[1] && cap[1].length > 2 && !SKIP.test(cap[1])) return cap[1].slice(0, 60);
+  return "";
 }
 
 function extractColor(prompt: string): string | null {
@@ -509,9 +515,21 @@ function extractColor(prompt: string): string | null {
   return null;
 }
 
+const NICHE_DEFAULT_NAMES: Record<Niche, string> = {
+  STORE: "The Shop",
+  RESTAURANT: "The Table",
+  SALON: "The Studio",
+  PORTFOLIO: "Atelier",
+  SAAS: "Launchpad",
+  LANDING: "Launch",
+  AGENCY: "The Agency",
+  EDUCATION: "The Academy",
+};
+
 function buildConfig(prompt: string): WebsiteConfig {
   const niche = detectNiche(prompt);
-  const businessName = extractBusinessName(prompt);
+  const extracted = extractBusinessName(prompt);
+  const businessName = extracted || NICHE_DEFAULT_NAMES[niche];
   const overrideColor = extractColor(prompt);
   const base = NICHE_CONFIGS[niche];
 
@@ -526,17 +544,53 @@ function buildConfig(prompt: string): WebsiteConfig {
     EDUCATION: "Learn Today. Lead Tomorrow.",
   };
 
-  // Pick hero + product images from the pool based on a hash of the business
-  // name so two sites in the same niche get different images, but the same name
-  // always gets a consistent look.
+  // Subniche detection — pulls more specific image queries when the prompt
+  // mentions a known vertical (basketball, soccer, fitness, coffee, etc.). The
+  // subniche overrides the generic niche pool with a Picsum seed-based URL that
+  // is GUARANTEED unique per slot (seed includes slot index + keyword).
+  const subnicheKeywords: string[] = (() => {
+    const p = prompt.toLowerCase();
+    const found: string[] = [];
+    const checks: Array<[RegExp, string[]]> = [
+      [/basketball/, ["basketball", "basketball-jersey", "basketball-shoes", "basketball-hoop", "basketball-arena"]],
+      [/soccer|football/, ["soccer", "soccer-ball", "soccer-jersey", "soccer-cleats", "soccer-stadium"]],
+      [/tennis/, ["tennis", "tennis-racket", "tennis-ball", "tennis-court"]],
+      [/sneaker|shoe/, ["sneakers", "sneaker-design", "sneaker-display", "sneaker-collection"]],
+      [/jersey/, ["jersey", "team-jersey", "athletic-wear", "uniform"]],
+      [/fitness|gym|workout/, ["fitness", "gym-equipment", "weights", "training"]],
+      [/coffee|cafe|espresso/, ["coffee", "espresso", "latte-art", "coffee-beans"]],
+      [/pizza/, ["pizza", "pizza-slice", "wood-fired", "pizza-oven"]],
+      [/burger/, ["burger", "cheeseburger", "fries", "milkshake"]],
+      [/sushi/, ["sushi", "sashimi", "nigiri", "sushi-roll"]],
+    ];
+    for (const [re, keys] of checks) if (re.test(p)) found.push(...keys);
+    return found;
+  })();
+
+  // Pick hero + product images. When a subniche is detected, build per-slot
+  // image URLs using Picsum's seeded random endpoint — different seed → different
+  // image, GUARANTEED no duplicates. Otherwise fall back to the curated Unsplash
+  // pool with a stride-of-3 rotation that won't repeat across the 4 slots.
   const seed = hashString(businessName + niche);
-  const heroPool = HERO_IMAGE_POOLS[niche];
-  const productPool = PRODUCT_IMAGE_POOLS[niche];
-  const heroPick = `${heroPool[seed % heroPool.length]}?w=1200&h=800&auto=format&fit=crop&q=80`;
-  // Pick 4 distinct product images starting at an offset
-  const productPicks = [0, 1, 2, 3].map(
-    (i) => `${productPool[(seed + i * 3) % productPool.length]}?w=600&h=600&auto=format&fit=crop&q=80`
-  );
+  let heroPick: string;
+  let productPicks: string[];
+
+  if (subnicheKeywords.length > 0) {
+    const slug = (s: string) => s.replace(/[^a-z0-9-]/g, "");
+    const sig = slug(businessName.toLowerCase().replace(/\s+/g, "-"));
+    heroPick = `https://picsum.photos/seed/${sig}-${subnicheKeywords[0]}-hero/1600/1000`;
+    productPicks = [0, 1, 2, 3].map((i) => {
+      const kw = subnicheKeywords[(i + 1) % subnicheKeywords.length] || subnicheKeywords[0];
+      return `https://picsum.photos/seed/${sig}-${kw}-${i}/800/800`;
+    });
+  } else {
+    const heroPool = HERO_IMAGE_POOLS[niche];
+    const productPool = PRODUCT_IMAGE_POOLS[niche];
+    heroPick = `https://images.unsplash.com/${heroPool[seed % heroPool.length]}?w=1200&h=800&auto=format&fit=crop&q=80`;
+    productPicks = [0, 1, 2, 3].map(
+      (i) => `https://images.unsplash.com/${productPool[(seed + i * 3) % productPool.length]}?w=600&h=600&auto=format&fit=crop&q=80`
+    );
+  }
   const productsWithImages = base.products.map((p, i) => ({ ...p, image: productPicks[i] || p.image }));
 
   return {
@@ -595,11 +649,12 @@ function buildNav(cfg: WebsiteConfig): string {
 }
 
 function buildHero(cfg: WebsiteConfig): string {
-  const img = `https://images.unsplash.com/${cfg.heroImage}`;
+  // heroImage is now always a fully-qualified URL (Unsplash or Picsum-seeded).
+  const img = cfg.heroImage.startsWith("http") ? cfg.heroImage : `https://images.unsplash.com/${cfg.heroImage}`;
   return `
 <section data-editable="section" data-section-label="Hero" data-page="home" class="hero-canvas glow-orb" id="hero" style="padding-top:72px">
   <div class="hero-canvas__viewport">
-    <img data-editable="image" class="hero-canvas__bg-img" src="${img}" alt="${cfg.businessName}">
+    <img data-editable="image" class="hero-canvas__bg-img" src="${img}" alt="${cfg.businessName} — hero feature image">
     <div class="hero-canvas__overlay"></div>
   </div>
   <div class="hero-canvas__content">
@@ -615,6 +670,17 @@ function buildHero(cfg: WebsiteConfig): string {
 }
 
 function buildFeatures(cfg: WebsiteConfig): string {
+  const headings: Record<Niche, { h: string; sub: string }> = {
+    STORE:      { h: `What You Get at ${cfg.businessName}`, sub: "Every order backed by our promise of quality, speed, and care." },
+    RESTAURANT: { h: `What Makes Us Special`,                sub: "From kitchen to table — every detail considered, every flavour intentional." },
+    SALON:      { h: `The ${cfg.businessName} Promise`,      sub: "Expert hands, premium products, and the time you deserve." },
+    PORTFOLIO:  { h: `Skills & Capabilities`,                sub: "A multidisciplinary practice spanning strategy, design, and engineering." },
+    SAAS:       { h: `Built for Modern Teams`,               sub: "Powerful enough for enterprise. Simple enough to deploy on day one." },
+    LANDING:    { h: `What You Get`,                         sub: "Everything you need to launch, grow, and scale — without the noise." },
+    AGENCY:     { h: `How We Work`,                          sub: "Strategy, creative, and data — woven into every engagement." },
+    EDUCATION:  { h: `What You Will Master`,                 sub: "Practical, expert-led learning that translates directly to your career." },
+  };
+  const head = headings[cfg.niche];
   const cards = cfg.features.map((f, i) => `
     <div class="feature-card" style="--card-index:${i}" data-editable="card">
       <div class="feature-card__visual" style="display:flex;align-items:center;justify-content:center;background:rgba(201,169,110,0.05);min-height:120px">
@@ -631,8 +697,8 @@ function buildFeatures(cfg: WebsiteConfig): string {
   return `
 <section data-editable="section" data-section-label="Features" data-page="home" class="feature-grid glow-ambient" id="features">
   <div class="feature-grid__header">
-    <h2 class="feature-grid__heading font-gradient" data-editable="text">Why Choose ${cfg.businessName}</h2>
-    <p class="feature-grid__subheading" data-editable="text">Everything we do is built around your satisfaction. Here is what sets us apart.</p>
+    <h2 class="feature-grid__heading font-gradient" data-editable="text">${head.h}</h2>
+    <p class="feature-grid__subheading" data-editable="text">${head.sub}</p>
   </div>
   <div class="feature-grid__grid">${cards}</div>
 </section>`;
@@ -655,12 +721,16 @@ function buildProducts(cfg: WebsiteConfig): string {
     EDUCATION: "Expert-led programmes for real results.",
   };
   const slides = cfg.products.map((p, i) => {
-    const img = `https://images.unsplash.com/${p.image}`;
+    // p.image is now always a fully-qualified URL (per-slot unique).
+    const img = p.image.startsWith("http") ? p.image : `https://images.unsplash.com/${p.image}`;
     const isEven = i % 2 === 1;
+    // Unique descriptive context string per slot — used as alt text and as a
+    // signal for downstream image-prompt systems (ContextualImagePromptGenerator).
+    const altCtx = `${cfg.businessName} — ${p.name} (${cfg.niche.toLowerCase()} product ${i + 1})`;
     return `
     <div class="cinematic-slide" style="${isEven ? "direction:rtl" : ""}" data-editable="section" data-section-label="${p.name}">
       <div class="cinematic-slide__visual" style="${isEven ? "direction:ltr" : ""}">
-        <img class="cinematic-slide__img" data-editable="image" src="${img}" alt="${p.name}">
+        <img class="cinematic-slide__img" data-editable="image" src="${img}" alt="${altCtx}" data-image-context="${altCtx}">
         <div class="cinematic-slide__img-overlay"></div>
         <div class="cinematic-slide__depth cinematic-slide__depth--back"></div>
         <div class="cinematic-slide__depth cinematic-slide__depth--mid"></div>
@@ -884,18 +954,26 @@ function compileWebsite(cfg: WebsiteConfig): string {
     buildFooter(cfg),
   ].join("\n");
 
-  // Virtual multi-page router: intercepts <a data-page-link="X"> clicks,
-  // pushes a real-looking /page.html URL with history.pushState, shows/hides
-  // sections tagged data-page="X". Back/forward buttons work naturally.
+  // In-memory page router. The compiled output is ONE HTML document with each
+  // logical page expressed as <section data-page="X">. The router builds an
+  // in-memory map `pageSections` of those nodes, intercepts <a data-page-link>
+  // clicks, and toggles visibility — NO history.pushState (it throws
+  // SecurityError inside srcDoc iframes where the origin is 'null', which is
+  // exactly what bites the preview). Native scroll is untouched.
   const virtualRouterJS = `
 <script>
 (function(){
   var PAGES=['home','shop','about','contact'];
-  var PATH_MAP={'/':'home','/index.html':'home','/shop.html':'shop','/menu.html':'shop','/services.html':'shop','/work.html':'shop','/pricing.html':'shop','/features.html':'shop','/courses.html':'shop','/about.html':'about','/contact.html':'contact','/reservations.html':'contact','/book.html':'contact'};
+  var pageSections={};
+  PAGES.forEach(function(p){
+    pageSections[p]=Array.prototype.slice.call(document.querySelectorAll('[data-page="'+p+'"]'));
+  });
 
   function showPage(page){
-    document.querySelectorAll('[data-page]').forEach(function(el){
-      el.style.display=el.getAttribute('data-page')===page?'':'none';
+    if(!pageSections[page])page='home';
+    PAGES.forEach(function(p){
+      var on=(p===page);
+      pageSections[p].forEach(function(el){ el.style.display=on?'':'none'; });
     });
     document.querySelectorAll('.mdx-nav__link,.mdx-footer__col-link').forEach(function(a){
       a.classList.toggle('mdx-nav__link--active',a.getAttribute('data-page-link')===page);
@@ -905,59 +983,41 @@ function compileWebsite(cfg: WebsiteConfig): string {
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  function pageFromPath(p){
-    var clean=p.replace(/\?.*$/,'').replace(/#.*$/,'');
-    return PATH_MAP[clean]||'home';
-  }
-
   document.addEventListener('click',function(e){
     var a=e.target&&e.target.closest?e.target.closest('[data-page-link]'):null;
     if(!a)return;
     var page=a.getAttribute('data-page-link');
     if(!page||PAGES.indexOf(page)===-1)return;
+    // Always preventDefault FIRST to stop the iframe from attempting to load
+    // /shop.html etc. — that physical file doesn't exist and 404s.
     e.preventDefault();
-    var href=a.getAttribute('href')||'/';
-    history.pushState({page:page},'',href);
+    e.stopPropagation();
     showPage(page);
-  });
+  },true);
 
-  window.addEventListener('popstate',function(e){
-    var page=(e.state&&e.state.page)?e.state.page:pageFromPath(location.pathname);
-    showPage(page);
-  });
-
-  var init=pageFromPath(location.pathname);
-  showPage(init);
-  history.replaceState({page:init},'',location.href);
+  showPage('home');
 })();
 </script>`;
 
+  // Lightweight reveal-on-scroll only. NO scroll hijacking — native wheel
+  // and trackpad speed is preserved. Smooth in-page anchor scrolling is
+  // delegated to CSS (html { scroll-behavior: smooth }).
   const cinematicEngine = `
 <script>
 (function(){
-  var io=window.IntersectionObserver&&new IntersectionObserver(function(entries){
-    entries.forEach(function(e){if(e.isIntersecting)e.target.classList.add('is-visible');});
-  },{threshold:0.12,rootMargin:'0px 0px -60px 0px'});
-  if(io){
-    document.querySelectorAll('.feature-card,.philosophy-card,.cinematic-slide,.page-section__inner,.hero-canvas__content,.cinematic-showcase__header,.feature-grid__header').forEach(function(el){
-      el.classList.add('scroll-reveal');
-      io.observe(el);
+  if(!window.IntersectionObserver)return;
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        e.target.classList.add('is-visible');
+        io.unobserve(e.target);
+      }
     });
-  }
-  var lerpOn=false,tY=0,cY=0;
-  function lerpStep(){
-    cY+=(tY-cY)*0.1;
-    var d=Math.abs(cY-tY);
-    window.scrollTo(0,Math.round(cY));
-    if(d>0.5)requestAnimationFrame(lerpStep);
-    else{window.scrollTo(0,tY);lerpOn=false;}
-  }
-  window.addEventListener('wheel',function(e){
-    e.preventDefault();
-    if(!lerpOn){cY=window.scrollY||0;tY=cY;}
-    tY=Math.max(0,Math.min(tY+e.deltaY*1.2,document.body.scrollHeight-window.innerHeight));
-    if(!lerpOn){lerpOn=true;requestAnimationFrame(lerpStep);}
-  },{passive:false});
+  },{threshold:0.12,rootMargin:'0px 0px -60px 0px'});
+  document.querySelectorAll('.feature-card,.philosophy-card,.cinematic-slide,.page-section__inner,.hero-canvas__content,.cinematic-showcase__header,.feature-grid__header').forEach(function(el){
+    el.classList.add('scroll-reveal');
+    io.observe(el);
+  });
 })();
 </script>`;
 
@@ -975,6 +1035,7 @@ function compileWebsite(cfg: WebsiteConfig): string {
   <link rel="stylesheet" href="/css/modules.css">
   <style>
     *{font-family:'Google Sans',system-ui,sans-serif!important}
+    html{scroll-behavior:smooth}
     body{overflow-x:hidden;perspective:1000px;perspective-origin:50% 50%;transform-style:preserve-3d}
     .hero-canvas,.feature-grid,.cinematic-showcase,[id="testimonials"],[id="contact"],[id="footer"]{transform-style:preserve-3d;backface-visibility:hidden}
     .scroll-reveal{opacity:0;transform:translateY(100px) translateZ(-150px) rotateX(15deg);filter:blur(10px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1),filter .9s cubic-bezier(.16,1,.3,1)}

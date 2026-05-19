@@ -157,15 +157,20 @@ function mergePages(emitted) {
     return m ? parseInt(m[1],10) : 0;
   }
 
-  // Handle link clicks (nav + any data-mdx-route in page body)
+  // Handle link clicks (nav + any data-mdx-route in page body). We use capture
+  // phase + stopPropagation so the click is intercepted before any inner JS
+  // can re-trigger a real navigation. pushState is wrapped in try/catch
+  // because srcDoc-loaded iframes can have a 'null' origin where pushState
+  // throws SecurityError; we still want the in-memory page swap to fire.
   document.addEventListener('click',function(e){
-    var a=e.target.closest('[data-mdx-route]');
+    var a=e.target.closest&&e.target.closest('[data-mdx-route]');
     if(!a) return;
     e.preventDefault();
+    e.stopPropagation();
     var idx=parseInt(a.dataset.mdxRoute,10);
-    history.pushState(null,'','#mdx-'+idx);
+    try{ history.pushState(null,'','#mdx-'+idx); }catch(_){}
     show(idx);
-  });
+  },true);
 
   window.addEventListener('popstate',function(){ show(fromHash()); });
   show(fromHash());
