@@ -14,16 +14,6 @@
  * data-editable attributes so the HtmlEditor bridge works normally.
  */
 
-import { readFileSync } from "fs";
-import { join } from "path";
-
-// ─── Load globals.css variable declarations once ──────────────────────────────
-
-const GLOBALS_CSS = readFileSync(
-  join(process.cwd(), "lib/ai/native-generator/system/universal-component-library/assets/globals.css"),
-  "utf-8"
-);
-
 // ─── Public output types (same contract as before) ────────────────────────────
 
 export type NativeGenerationResult = {
@@ -562,328 +552,88 @@ function buildConfig(prompt: string): WebsiteConfig {
   };
 }
 
-// ─── CSS generator ────────────────────────────────────────────────────────────
+// ─── Section builders — MDX Luxury Design System ─────────────────────────────
+// All HTML uses classes from /css/style.css and /css/modules.css (public/css/).
+// No embedded CSS — link tags in <head> load the luxury MDX stylesheet bundle.
 
-function buildCSS(cfg: WebsiteConfig): string {
-  return `
-@import url('https://fonts.googleapis.com/css2?family=${cfg.googleFont}&display=swap');
-
-:root {
-  --color-primary:       ${cfg.primaryColor};
-  --color-secondary:     ${cfg.secondaryColor};
-  --color-accent:        ${cfg.accentColor};
-  --color-background:    ${cfg.backgroundColor};
-  --color-surface:       ${cfg.surfaceColor};
-  --color-text:          ${cfg.textColor};
-  --color-text-muted:    ${cfg.textMutedColor};
-  --color-text-inverse:  #FFFFFF;
-  --color-border:        ${cfg.borderColor};
-  --font-heading:        ${cfg.fontHeading};
-  --font-body:           ${cfg.fontBody};
-  --text-size-hero:      clamp(2.5rem, 6vw, 5rem);
-  --text-size-h1:        clamp(2rem, 4vw, 3.5rem);
-  --text-size-h2:        clamp(1.5rem, 3vw, 2.5rem);
-  --text-size-h3:        clamp(1.125rem, 2vw, 1.5rem);
-  --text-size-body:      clamp(0.9375rem, 1vw + 0.5rem, 1.125rem);
-  --text-size-small:     0.875rem;
-  --line-height-tight:   1.15;
-  --line-height-normal:  1.5;
-  --line-height-relaxed: 1.75;
-  --letter-spacing-tight: -0.02em;
-  --letter-spacing-wide:  0.06em;
-  --shape-radius:        0.625rem;
-  --shape-radius-lg:     1.25rem;
-  --shape-radius-pill:   9999px;
-  --shadow-sm:           0 1px 3px rgba(0,0,0,.07);
-  --shadow-md:           0 4px 16px rgba(0,0,0,.09);
-  --shadow-lg:           0 8px 32px rgba(0,0,0,.12);
-  --motion-speed:        280ms;
-  --motion-easing:       cubic-bezier(0.4,0,0.2,1);
-  --layout-max-width:    1280px;
-  --layout-gap:          1.5rem;
-  --nav-height:          64px;
-  --section-py:          5rem;
-  --section-py-sm:       2.5rem;
-}
-
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:var(--font-body);background:var(--color-background);color:var(--color-text);line-height:var(--line-height-normal);-webkit-font-smoothing:antialiased}
-img{max-width:100%;display:block;object-fit:cover}
-a{color:inherit;text-decoration:none}
-button{cursor:pointer;border:none;background:none;font:inherit}
-
-.container{width:100%;max-width:var(--layout-max-width);margin:0 auto;padding:0 1.5rem}
-.section{padding:var(--section-py-sm) 0}
-@media(min-width:768px){.section{padding:var(--section-py) 0}}
-
-/* ── Navigation ── */
-.nav{position:sticky;top:0;z-index:100;height:var(--nav-height);background:var(--color-background);border-bottom:1px solid var(--color-border);backdrop-filter:blur(12px)}
-.nav-inner{display:flex;align-items:center;justify-content:space-between;height:100%}
-.nav-logo{font-family:var(--font-heading);font-size:1.25rem;font-weight:700;color:var(--color-text);letter-spacing:var(--letter-spacing-tight)}
-.nav-links{display:none;gap:2rem;list-style:none}
-@media(min-width:768px){.nav-links{display:flex}}
-.nav-links a{font-size:var(--text-size-small);font-weight:500;color:var(--color-text-muted);transition:color var(--motion-speed) var(--motion-easing)}
-.nav-links a:hover{color:var(--color-accent)}
-.nav-cta{display:none}
-@media(min-width:640px){.nav-cta{display:inline-flex;align-items:center;padding:.5rem 1.25rem;background:var(--color-primary);color:var(--color-text-inverse);border-radius:var(--shape-radius);font-size:var(--text-size-small);font-weight:600;transition:opacity var(--motion-speed) var(--motion-easing)}}
-.nav-cta:hover{opacity:.85}
-.nav-toggle{display:flex;flex-direction:column;gap:5px;width:24px;cursor:pointer}
-@media(min-width:768px){.nav-toggle{display:none}}
-.nav-toggle span{height:2px;background:var(--color-text);border-radius:2px;transition:all var(--motion-speed)}
-.nav-mobile{display:none;flex-direction:column;gap:1rem;padding:1.5rem;background:var(--color-background);border-bottom:1px solid var(--color-border)}
-.nav-mobile.open{display:flex}
-.nav-mobile a{font-weight:500;color:var(--color-text);padding:.5rem 0;border-bottom:1px solid var(--color-border)}
-.nav-links a.nav-active,.nav-mobile a.nav-active{color:var(--color-accent);font-weight:700}
-
-/* ── Buttons ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:var(--shape-radius);font-weight:600;font-family:var(--font-body);transition:all var(--motion-speed) var(--motion-easing);white-space:nowrap}
-.btn-primary{background:var(--color-primary);color:var(--color-text-inverse);padding:.875rem 2rem;font-size:1rem}
-.btn-primary:hover{opacity:.85;transform:translateY(-1px)}
-.btn-secondary{background:transparent;color:var(--color-primary);padding:.875rem 2rem;font-size:1rem;border:2px solid var(--color-primary)}
-.btn-secondary:hover{background:var(--color-primary);color:var(--color-text-inverse)}
-.btn-accent{background:var(--color-accent);color:var(--color-text-inverse);padding:.875rem 2rem;font-size:1rem}
-.btn-accent:hover{opacity:.85}
-.btn-sm{padding:.5rem 1.25rem;font-size:.875rem}
-
-/* ── Badge ── */
-.badge{display:inline-flex;align-items:center;padding:.25rem .75rem;border-radius:var(--shape-radius-pill);font-size:.8rem;font-weight:600;letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
-.badge-accent{background:color-mix(in srgb,var(--color-accent) 15%,transparent);color:var(--color-accent)}
-.badge-primary{background:var(--color-primary);color:var(--color-text-inverse)}
-
-/* ── Hero ── */
-.hero{overflow:hidden}
-.hero-split{padding:var(--section-py-sm) 0}
-@media(min-width:768px){.hero-split{padding:var(--section-py) 0}}
-.hero-split .inner{display:grid;gap:3rem;align-items:center}
-@media(min-width:900px){.hero-split .inner{grid-template-columns:1fr 1fr}}
-.hero-text{display:flex;flex-direction:column;gap:1.5rem}
-.hero-pretitle{font-size:.875rem;font-weight:600;color:var(--color-accent);letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
-.hero-headline{font-family:var(--font-heading);font-size:var(--text-size-hero);line-height:var(--line-height-tight);letter-spacing:var(--letter-spacing-tight);color:var(--color-text)}
-.hero-sub{font-size:var(--text-size-body);line-height:var(--line-height-relaxed);color:var(--color-text-muted);max-width:38ch}
-.hero-actions{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.5rem}
-.hero-stats{display:flex;flex-wrap:wrap;gap:2.5rem;padding-top:1.5rem;border-top:1px solid var(--color-border)}
-.hero-stat-value{font-family:var(--font-heading);font-size:var(--text-size-h2);font-weight:700;color:var(--color-text);line-height:1}
-.hero-stat-label{font-size:.8rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:var(--letter-spacing-wide);margin-top:.25rem}
-.hero-media{border-radius:var(--shape-radius-lg);overflow:hidden;aspect-ratio:4/3}
-.hero-media img{width:100%;height:100%;object-fit:cover}
-
-.hero-centered{padding:var(--section-py) 0;text-align:center}
-.hero-centered .inner{display:flex;flex-direction:column;align-items:center;gap:1.5rem;max-width:800px;margin:0 auto}
-.hero-centered .hero-sub{text-align:center;max-width:54ch}
-.hero-centered .hero-actions{justify-content:center}
-.hero-centered-img{margin-top:3rem;border-radius:var(--shape-radius-lg);overflow:hidden;aspect-ratio:16/7;width:100%}
-.hero-centered-img img{width:100%;height:100%;object-fit:cover}
-
-.hero-fullscreen{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center}
-.hero-fullscreen-bg{position:absolute;inset:0;z-index:0}
-.hero-fullscreen-bg img{width:100%;height:100%;object-fit:cover}
-.hero-fullscreen-overlay{position:absolute;inset:0;background:color-mix(in srgb,var(--color-primary) 70%,transparent);z-index:1}
-.hero-fullscreen .inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:1.5rem;padding:0 1.5rem;max-width:900px}
-.hero-fullscreen .hero-headline{color:#fff}
-.hero-fullscreen .hero-sub{color:rgba(255,255,255,.8)}
-
-/* ── Features ── */
-.features{background:var(--color-surface)}
-.features-header{text-align:center;margin-bottom:4rem}
-.features-grid{display:grid;gap:2rem}
-@media(min-width:640px){.features-grid{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:900px){.features-grid{grid-template-columns:repeat(3,1fr)}}
-.feature-card{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--shape-radius-lg);padding:2rem;display:flex;flex-direction:column;gap:1rem;transition:box-shadow var(--motion-speed) var(--motion-easing),transform var(--motion-speed) var(--motion-easing)}
-.feature-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
-.feature-icon{width:3rem;height:3rem;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--color-accent) 15%,transparent);border-radius:var(--shape-radius);font-family:var(--font-heading);font-size:0.75rem;font-weight:800;color:var(--color-accent);letter-spacing:0.02em}
-.feature-title{font-family:var(--font-heading);font-size:var(--text-size-h3);font-weight:600;color:var(--color-text)}
-.feature-desc{font-size:var(--text-size-body);color:var(--color-text-muted);line-height:var(--line-height-relaxed)}
-
-/* ── Products / Services / Menu ── */
-.products{background:var(--color-background)}
-.products-header{display:flex;flex-direction:column;gap:.75rem;margin-bottom:3rem}
-@media(min-width:640px){.products-header{flex-direction:row;align-items:flex-end;justify-content:space-between}}
-.products-grid{display:grid;gap:1.5rem;grid-template-columns:1fr}
-@media(min-width:600px){.products-grid{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:900px){.products-grid{grid-template-columns:repeat(4,1fr)}}
-.product-card{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--shape-radius-lg);overflow:hidden;display:flex;flex-direction:column;transition:box-shadow var(--motion-speed),transform var(--motion-speed)}
-.product-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px)}
-.product-img{aspect-ratio:1;overflow:hidden;position:relative}
-.product-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--motion-easing)}
-.product-card:hover .product-img img{transform:scale(1.04)}
-.product-badge{position:absolute;top:.75rem;left:.75rem}
-.product-body{padding:1.25rem;display:flex;flex-direction:column;gap:.5rem;flex:1}
-.product-name{font-family:var(--font-heading);font-size:var(--text-size-h3);font-weight:600;color:var(--color-text)}
-.product-desc{font-size:.9rem;color:var(--color-text-muted);line-height:var(--line-height-relaxed);flex:1}
-.product-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:1rem;border-top:1px solid var(--color-border)}
-.product-price{font-family:var(--font-heading);font-size:var(--text-size-h3);font-weight:700;color:var(--color-text)}
-
-/* ── Testimonials ── */
-.testimonials{background:var(--color-surface)}
-.testimonials-header{text-align:center;margin-bottom:4rem}
-.testimonials-grid{display:grid;gap:1.5rem}
-@media(min-width:640px){.testimonials-grid{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:900px){.testimonials-grid{grid-template-columns:repeat(3,1fr)}}
-.testimonial-card{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--shape-radius-lg);padding:2rem;display:flex;flex-direction:column;gap:1.25rem;box-shadow:var(--shadow-sm)}
-.testimonial-stars{display:flex;gap:.25rem;color:var(--color-accent)}
-.testimonial-quote{font-size:var(--text-size-body);color:var(--color-text);line-height:var(--line-height-relaxed);font-style:italic;flex:1}
-.testimonial-author{display:flex;align-items:center;gap:.75rem;padding-top:1.25rem;border-top:1px solid var(--color-border)}
-.testimonial-avatar{width:44px;height:44px;border-radius:50%;background:color-mix(in srgb,var(--color-accent) 20%,var(--color-surface));display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:700;font-size:1.1rem;color:var(--color-accent);flex-shrink:0}
-.testimonial-name{font-family:var(--font-heading);font-weight:600;font-size:.95rem;color:var(--color-text)}
-.testimonial-role{font-size:.8rem;color:var(--color-text-muted)}
-
-/* ── CTA Banner ── */
-.cta-section{background:var(--color-primary);padding:var(--section-py) 0}
-.cta-inner{text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.5rem;max-width:700px;margin:0 auto}
-.cta-headline{font-family:var(--font-heading);font-size:var(--text-size-h1);font-weight:700;color:#fff;line-height:var(--line-height-tight)}
-.cta-sub{font-size:var(--text-size-body);color:rgba(255,255,255,.75);line-height:var(--line-height-relaxed)}
-.cta-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:1rem}
-.btn-cta-primary{background:#fff;color:var(--color-primary);padding:.875rem 2rem;font-size:1rem;border-radius:var(--shape-radius);font-weight:700;display:inline-flex;align-items:center;transition:opacity var(--motion-speed)}
-.btn-cta-primary:hover{opacity:.9}
-.btn-cta-ghost{border:2px solid rgba(255,255,255,.5);color:#fff;padding:.875rem 2rem;font-size:1rem;border-radius:var(--shape-radius);font-weight:600;display:inline-flex;align-items:center;transition:background var(--motion-speed)}
-.btn-cta-ghost:hover{background:rgba(255,255,255,.1)}
-
-/* ── Section headings ── */
-.section-title{font-family:var(--font-heading);font-size:var(--text-size-h1);font-weight:700;color:var(--color-text);line-height:var(--line-height-tight);letter-spacing:var(--letter-spacing-tight)}
-.section-subtitle{font-size:var(--text-size-body);color:var(--color-text-muted);line-height:var(--line-height-relaxed);max-width:54ch;margin-top:.75rem}
-
-/* ── Footer ── */
-.footer{background:var(--color-primary);color:rgba(255,255,255,.8);padding:4rem 0 2rem}
-.footer-grid{display:grid;gap:3rem;grid-template-columns:1fr}
-@media(min-width:640px){.footer-grid{grid-template-columns:2fr 1fr 1fr}}
-.footer-brand{display:flex;flex-direction:column;gap:1rem}
-.footer-logo{font-family:var(--font-heading);font-size:1.375rem;font-weight:700;color:#fff}
-.footer-tagline{font-size:.9rem;line-height:var(--line-height-relaxed);opacity:.7}
-.footer-col-title{font-family:var(--font-heading);font-weight:600;color:#fff;font-size:.95rem;margin-bottom:1rem;letter-spacing:var(--letter-spacing-wide);text-transform:uppercase}
-.footer-links{display:flex;flex-direction:column;gap:.625rem;list-style:none}
-.footer-links a{font-size:.9rem;color:rgba(255,255,255,.7);transition:color var(--motion-speed)}
-.footer-links a:hover{color:#fff}
-.footer-bottom{margin-top:3rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center}
-@media(min-width:640px){.footer-bottom{flex-direction:row;justify-content:space-between}}
-.footer-copy{font-size:.8rem;opacity:.5}
-`.trim();
-}
-
-// ─── Section builders ─────────────────────────────────────────────────────────
 
 function buildNav(cfg: WebsiteConfig): string {
-  // True multi-page architecture: every nav link goes to one of FOUR canonical
-  // pages — #home, #shop, #about, #contact. The page-switcher JS at the bottom
-  // of the document shows/hides sections based on the URL hash, so clicking a
-  // nav link feels like navigating to a completely different page.
-  const nicheLinks: Record<Niche, Array<[string, string]>> = {
-    STORE:      [["Home", "#home"], ["Shop", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
-    RESTAURANT: [["Home", "#home"], ["Menu", "#shop"], ["About", "#about"], ["Reservations", "#contact"]],
-    SALON:      [["Home", "#home"], ["Services", "#shop"], ["About", "#about"], ["Book", "#contact"]],
-    PORTFOLIO:  [["Home", "#home"], ["Work", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
-    SAAS:       [["Home", "#home"], ["Pricing", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
-    LANDING:    [["Home", "#home"], ["Features", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
-    AGENCY:     [["Home", "#home"], ["Services", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
-    EDUCATION:  [["Home", "#home"], ["Courses", "#shop"], ["About", "#about"], ["Contact", "#contact"]],
+  const nicheLinks: Record<Niche, Array<[string, string, string]>> = {
+    STORE:      [["Home", "/", "home"], ["Shop", "/shop.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    RESTAURANT: [["Home", "/", "home"], ["Menu", "/menu.html", "shop"], ["About", "/about.html", "about"], ["Reservations", "/reservations.html", "contact"]],
+    SALON:      [["Home", "/", "home"], ["Services", "/services.html", "shop"], ["About", "/about.html", "about"], ["Book Now", "/book.html", "contact"]],
+    PORTFOLIO:  [["Home", "/", "home"], ["Work", "/work.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    SAAS:       [["Home", "/", "home"], ["Pricing", "/pricing.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    LANDING:    [["Home", "/", "home"], ["Features", "/features.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    AGENCY:     [["Home", "/", "home"], ["Services", "/services.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    EDUCATION:  [["Home", "/", "home"], ["Courses", "/courses.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
   };
   const links = nicheLinks[cfg.niche];
-  const li = links.map(([label, href]) => `<li><a href="${href}" data-page-link="${href.slice(1)}">${label}</a></li>`).join("");
-  const mob = links.map(([label, href]) => `<a href="${href}" data-page-link="${href.slice(1)}" data-editable="link">${label}</a>`).join("");
+  const li = links.map(([label, href, page]) =>
+    `<a href="${href}" class="mdx-nav__link" data-page-link="${page}" data-editable="link">${label}</a>`
+  ).join("");
   return `
-<nav data-editable="section" data-section-label="Navigation" id="nav">
-  <div class="container nav-inner">
-    <a href="/" class="nav-logo" data-editable="text">${cfg.businessName}</a>
-    <ul class="nav-links">${li}</ul>
-    <a href="#contact" class="nav-cta btn" data-editable="button">${cfg.ctaPrimary}</a>
-    <button class="nav-toggle" id="navToggle" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
-  </div>
-  <div class="nav-mobile" id="navMobile">${mob}</div>
+<nav class="mdx-nav" id="mdx-nav" data-editable="section" data-section-label="Navigation">
+  <a href="/" class="mdx-nav__brand" data-page-link="home">
+    <span class="mdx-nav__brand-mark" data-editable="text">${cfg.businessName}</span>
+    <span class="mdx-nav__brand-sub" data-editable="text">Est. ${new Date().getFullYear()}</span>
+  </a>
+  <div class="mdx-nav__links" id="mdx-nav-links">${li}</div>
+  <button class="mdx-nav__toggle" id="mdx-nav-toggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 <script>
-  (function(){
-    var t=document.getElementById('navToggle');
-    var m=document.getElementById('navMobile');
-    if(t&&m) t.addEventListener('click',function(){m.classList.toggle('open');});
-  })();
+(function(){
+  var nav=document.getElementById('mdx-nav');
+  var toggle=document.getElementById('mdx-nav-toggle');
+  if(toggle&&nav){toggle.addEventListener('click',function(){nav.classList.toggle('mdx-nav--mobile-open');});}
+  window.addEventListener('scroll',function(){if(nav){if(window.scrollY>60)nav.classList.add('mdx-nav--scrolled');else nav.classList.remove('mdx-nav--scrolled');}});
+})();
 </script>`;
 }
 
 function buildHero(cfg: WebsiteConfig): string {
   const img = `https://images.unsplash.com/${cfg.heroImage}`;
-  const stats = cfg.niche === "STORE"
-    ? `<div class="hero-stats">
-        <div><div class="hero-stat-value">50K+</div><div class="hero-stat-label">Happy Customers</div></div>
-        <div><div class="hero-stat-value">4.9★</div><div class="hero-stat-label">Average Rating</div></div>
-        <div><div class="hero-stat-value">100%</div><div class="hero-stat-label">Satisfaction</div></div>
-      </div>` : "";
-
-  if (cfg.heroLayout === "fullscreen") {
-    return `
-<section data-editable="section" data-section-label="Hero" data-page="home" class="hero hero-fullscreen" id="hero">
-  <div class="hero-fullscreen-bg">
-    <img data-editable="image" src="${img}" alt="${cfg.businessName}">
-    <div class="hero-fullscreen-overlay"></div>
-  </div>
-  <div class="inner">
-    <span class="hero-pretitle" data-editable="text">${cfg.businessName}</span>
-    <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
-    <p class="hero-sub" data-editable="text">Experience something exceptional. We craft every detail with passion and care, delivering quality that speaks for itself.</p>
-    <div class="hero-actions">
-      <a href="#shop" class="btn btn-accent" data-editable="button">${cfg.ctaPrimary}</a>
-      <a href="#about" class="btn btn-secondary" style="border-color:rgba(255,255,255,.5);color:#fff" data-editable="button">${cfg.ctaSecondary}</a>
-    </div>
-  </div>
-</section>`;
-  }
-
-  if (cfg.heroLayout === "centered") {
-    return `
-<section data-editable="section" data-section-label="Hero" data-page="home" class="hero hero-centered section" id="hero">
-  <div class="container inner">
-    <span class="badge badge-accent" data-editable="text">Now Live in the Philippines</span>
-    <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
-    <p class="hero-sub" data-editable="text">Join thousands of satisfied customers who trust ${cfg.businessName} for quality, speed, and reliability — every single time.</p>
-    <div class="hero-actions">
-      <a href="#shop" class="btn btn-primary" data-editable="button">${cfg.ctaPrimary}</a>
-      <a href="#about" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
-    </div>
-    <div class="hero-centered-img">
-      <img data-editable="image" src="${img}" alt="${cfg.businessName}">
-    </div>
-  </div>
-</section>`;
-  }
-
-  // Default: split
   return `
-<section data-editable="section" data-section-label="Hero" data-page="home" class="hero hero-split section" id="hero">
-  <div class="container inner">
-    <div class="hero-text">
-      <span class="hero-pretitle" data-editable="text">Welcome to ${cfg.businessName}</span>
-      <h1 class="hero-headline" data-editable="text">${cfg.tagline}</h1>
-      <p class="hero-sub" data-editable="text">Serving thousands of happy customers across the Philippines. Quality you can trust, service you'll love — every single time.</p>
-      <div class="hero-actions">
-        <a href="#shop" class="btn btn-primary" data-editable="button">${cfg.ctaPrimary}</a>
-        <a href="#about" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
-      </div>
-      ${stats}
-    </div>
-    <div class="hero-media">
-      <img data-editable="image" src="${img}" alt="${cfg.businessName}">
+<section data-editable="section" data-section-label="Hero" data-page="home" class="hero-canvas glow-orb" id="hero" style="padding-top:72px">
+  <div class="hero-canvas__viewport">
+    <img data-editable="image" class="hero-canvas__bg-img" src="${img}" alt="${cfg.businessName}">
+    <div class="hero-canvas__overlay"></div>
+  </div>
+  <div class="hero-canvas__content">
+    <span class="hero-canvas__eyebrow" data-editable="text">${cfg.businessName}</span>
+    <h1 class="hero-canvas__title font-gradient-hero" data-editable="text">${cfg.tagline}</h1>
+    <p class="hero-canvas__subtitle" data-editable="text">Serving thousands of happy customers across the Philippines. Quality you can trust, service you will love — every single time.</p>
+    <div class="hero-canvas__actions">
+      <a href="/shop.html" data-page-link="shop" class="btn-luxury btn-luxury-filled" data-editable="button">${cfg.ctaPrimary}</a>
+      <a href="/about.html" data-page-link="about" class="btn-luxury" data-editable="button">${cfg.ctaSecondary}</a>
     </div>
   </div>
 </section>`;
 }
 
 function buildFeatures(cfg: WebsiteConfig): string {
-  const cards = cfg.features.map(f => `
-    <div class="feature-card">
-      <div class="feature-icon">${f.icon}</div>
-      <h3 class="feature-title" data-editable="text">${f.title}</h3>
-      <p class="feature-desc" data-editable="text">${f.desc}</p>
+  const cards = cfg.features.map((f, i) => `
+    <div class="feature-card" style="--card-index:${i}" data-editable="card">
+      <div class="feature-card__visual" style="display:flex;align-items:center;justify-content:center;background:rgba(201,169,110,0.05);min-height:120px">
+        <span style="font-family:'Playfair Display',serif;font-size:2.5rem;font-weight:300;color:rgba(201,169,110,0.4)">${f.icon}</span>
+      </div>
+      <div class="feature-card__img-overlay"></div>
+      <div class="feature-card__lighting"></div>
+      <div class="feature-card__body">
+        <h3 class="feature-card__title" data-editable="text">${f.title}</h3>
+        <p class="feature-card__desc" data-editable="text">${f.desc}</p>
+        <span class="feature-card__arrow">→</span>
+      </div>
     </div>`).join("");
   return `
-<section data-editable="section" data-section-label="Features" data-page="home" class="features section" id="features">
-  <div class="container">
-    <div class="features-header">
-      <h2 class="section-title" data-editable="text">Why Choose ${cfg.businessName}</h2>
-      <p class="section-subtitle" data-editable="text">Everything we do is built around your satisfaction. Here's what sets us apart.</p>
-    </div>
-    <div class="features-grid">${cards}</div>
+<section data-editable="section" data-section-label="Features" data-page="home" class="feature-grid glow-ambient" id="features">
+  <div class="feature-grid__header">
+    <h2 class="feature-grid__heading font-gradient" data-editable="text">Why Choose ${cfg.businessName}</h2>
+    <p class="feature-grid__subheading" data-editable="text">Everything we do is built around your satisfaction. Here is what sets us apart.</p>
   </div>
+  <div class="feature-grid__grid">${cards}</div>
 </section>`;
 }
 
@@ -893,39 +643,50 @@ function buildProducts(cfg: WebsiteConfig): string {
     PORTFOLIO: "Featured Work", SAAS: "Pricing Plans", LANDING: "What We Offer",
     AGENCY: "Our Services", EDUCATION: "Our Courses",
   };
-  const cards = cfg.products.map(p => {
+  const subHeadings: Record<Niche, string> = {
+    STORE: "Carefully curated for quality and value.",
+    RESTAURANT: "Fresh ingredients, bold flavours.",
+    SALON: "Treatments tailored for you.",
+    PORTFOLIO: "Selected work from recent projects.",
+    SAAS: "Simple, transparent pricing.",
+    LANDING: "Everything you need to succeed.",
+    AGENCY: "Full-service solutions for modern brands.",
+    EDUCATION: "Expert-led programmes for real results.",
+  };
+  const slides = cfg.products.map((p, i) => {
     const img = `https://images.unsplash.com/${p.image}`;
-    const badge = p.badge
-      ? `<div class="product-badge"><span class="badge badge-accent" data-editable="text">${p.badge}</span></div>`
-      : "";
+    const isEven = i % 2 === 1;
     return `
-    <div class="product-card">
-      <div class="product-img">
-        <img data-editable="image" src="${img}" alt="${p.name}" loading="lazy">
-        ${badge}
+    <div class="cinematic-slide" style="${isEven ? "direction:rtl" : ""}" data-editable="section" data-section-label="${p.name}">
+      <div class="cinematic-slide__visual" style="${isEven ? "direction:ltr" : ""}">
+        <img class="cinematic-slide__img" data-editable="image" src="${img}" alt="${p.name}">
+        <div class="cinematic-slide__img-overlay"></div>
+        <div class="cinematic-slide__depth cinematic-slide__depth--back"></div>
+        <div class="cinematic-slide__depth cinematic-slide__depth--mid"></div>
+        <div class="cinematic-slide__depth cinematic-slide__depth--front"></div>
       </div>
-      <div class="product-body">
-        <h3 class="product-name" data-editable="text">${p.name}</h3>
-        <p class="product-desc" data-editable="text">${p.desc}</p>
-        <div class="product-footer">
-          <span class="product-price" data-editable="text">${p.price}</span>
-          <a href="#contact" class="btn btn-primary btn-sm" data-editable="button">${cfg.ctaPrimary}</a>
+      <div class="cinematic-slide__text" style="${isEven ? "direction:ltr" : ""}">
+        <div class="cinematic-slide__meta">
+          <span data-editable="text">${String(i + 1).padStart(2, "0")}</span>
+          <span class="cinematic-slide__divider">&#x2014;</span>
+          <span data-editable="text">${p.badge || sectionLabel[cfg.niche]}</span>
+        </div>
+        <h3 class="cinematic-slide__title" data-editable="text">${p.name}</h3>
+        <p class="cinematic-slide__desc" data-editable="text">${p.desc}</p>
+        <div style="margin-top:2rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+          <span style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:500;color:#C9A96E" data-editable="text">${p.price}</span>
+          <a href="/contact.html" data-page-link="contact" class="btn-luxury btn-luxury-filled" data-editable="button" style="font-size:0.8rem;padding:0.5rem 1.5rem">${cfg.ctaPrimary}</a>
         </div>
       </div>
     </div>`;
   }).join("");
   return `
-<section data-editable="section" data-section-label="${sectionLabel[cfg.niche]}" data-page="shop" class="products section" id="products">
-  <div class="container">
-    <div class="products-header">
-      <div>
-        <h2 class="section-title" data-editable="text">${sectionLabel[cfg.niche]}</h2>
-        <p class="section-subtitle" data-editable="text">Carefully crafted for you. Explore what ${cfg.businessName} has to offer.</p>
-      </div>
-      <a href="#contact" class="btn btn-secondary" data-editable="button">${cfg.ctaSecondary}</a>
-    </div>
-    <div class="products-grid">${cards}</div>
+<section data-editable="section" data-section-label="${sectionLabel[cfg.niche]}" data-page="shop" class="cinematic-showcase" id="shop">
+  <div class="cinematic-showcase__header">
+    <h2 class="cinematic-showcase__heading font-gradient" data-editable="text">${sectionLabel[cfg.niche]}</h2>
+    <p class="cinematic-showcase__subheading" data-editable="text">${subHeadings[cfg.niche]}</p>
   </div>
+  <div class="cinematic-showcase__viewport">${slides}</div>
 </section>`;
 }
 
@@ -933,53 +694,61 @@ function buildTestimonials(cfg: WebsiteConfig): string {
   const cards = cfg.testimonials.map(t => {
     const initials = t.name.split(" ").map(w => w[0]).join("").slice(0, 2);
     return `
-    <div class="testimonial-card">
-      <div class="testimonial-stars">★★★★★</div>
-      <p class="testimonial-quote" data-editable="text">"${t.quote}"</p>
-      <div class="testimonial-author">
-        <div class="testimonial-avatar" aria-hidden="true">${initials}</div>
+    <div class="philosophy-card float-depth-slow" data-editable="card">
+      <div class="philosophy-card__num">"</div>
+      <p data-editable="text" style="font-size:0.9375rem;font-weight:300;line-height:1.75;color:rgba(241,240,234,0.75);flex:1;margin-bottom:1.5rem">${t.quote}</p>
+      <div style="display:flex;align-items:center;gap:0.875rem;padding-top:1.25rem;border-top:1px solid rgba(255,255,255,0.06)">
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(201,169,110,0.3),rgba(201,169,110,0.1));display:flex;align-items:center;justify-content:center;font-size:0.875rem;font-weight:600;color:#C9A96E;flex-shrink:0">${initials}</div>
         <div>
-          <p class="testimonial-name" data-editable="text">${t.name}</p>
-          <p class="testimonial-role" data-editable="text">${t.role}, ${t.company}</p>
+          <p style="font-size:0.875rem;font-weight:500;color:#F1F0EA" data-editable="text">${t.name}</p>
+          <p style="font-size:0.75rem;color:rgba(201,169,110,0.7)" data-editable="text">${t.role}, ${t.company}</p>
         </div>
       </div>
     </div>`;
   }).join("");
   return `
-<section data-editable="section" data-section-label="Testimonials" data-page="home" class="testimonials section" id="testimonials">
-  <div class="container">
-    <div class="testimonials-header">
-      <h2 class="section-title" data-editable="text">What Our Customers Say</h2>
-      <p class="section-subtitle" data-editable="text" style="margin:0 auto">Real words from real people who've experienced the ${cfg.businessName} difference.</p>
-    </div>
-    <div class="testimonials-grid">${cards}</div>
+<section data-editable="section" data-section-label="Testimonials" data-page="home" class="glow-ambient" id="testimonials" style="padding:10vh 4vw;background:#060607">
+  <div style="text-align:center;max-width:640px;margin:0 auto 5rem">
+    <h2 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3.2rem);font-weight:500;letter-spacing:-0.01em;margin-bottom:1rem" class="font-gradient" data-editable="text">What Our Customers Say</h2>
+    <p style="font-size:1rem;font-weight:300;line-height:1.7;color:rgba(241,240,234,0.5)" data-editable="text">Real words from real people who have experienced the ${cfg.businessName} difference.</p>
   </div>
+  <div class="philosophy-grid" style="max-width:1400px;margin:0 auto">${cards}</div>
 </section>`;
 }
 
 function buildAbout(cfg: WebsiteConfig): string {
   const aboutCopy: Record<Niche, { heading: string; body: string; stat1: string; stat1l: string; stat2: string; stat2l: string; stat3: string; stat3l: string }> = {
-    STORE:      { heading: "Our Story", body: `${cfg.businessName} was born out of a passion for quality and a commitment to the Filipino customer. Every product we carry is hand-picked for durability, style, and value. We're more than just a shop — we're a brand you can trust.`, stat1: "50K+", stat1l: "Happy Customers", stat2: "4.9", stat2l: "Average Rating", stat3: "100%", stat3l: "Quality Guarantee" },
-    RESTAURANT: { heading: "Our Heritage", body: `${cfg.businessName} has been crafting unforgettable dining experiences since its founding. We believe food is more than sustenance — it's memory, culture, and connection. Every dish tells the story of our kitchen's heart.`, stat1: "15+", stat1l: "Years of Service", stat2: "200+", stat2l: "Menu Items", stat3: "5-Star", stat3l: "Dining Rating" },
+    STORE:      { heading: "Our Story", body: `${cfg.businessName} was born out of a passion for quality and a commitment to the Filipino customer. Every product we carry is hand-picked for durability, style, and value. We are more than just a shop — we are a brand you can trust.`, stat1: "50K+", stat1l: "Happy Customers", stat2: "4.9", stat2l: "Average Rating", stat3: "100%", stat3l: "Quality Guarantee" },
+    RESTAURANT: { heading: "Our Heritage", body: `${cfg.businessName} has been crafting unforgettable dining experiences since its founding. We believe food is more than sustenance — it is memory, culture, and connection. Every dish tells the story of our kitchen's heart.`, stat1: "15+", stat1l: "Years of Service", stat2: "200+", stat2l: "Menu Items", stat3: "5-Star", stat3l: "Dining Rating" },
     SALON:      { heading: "About the Studio", body: `At ${cfg.businessName}, we combine artistry with expertise to help you look and feel your absolute best. Our team of licensed stylists and beauty professionals are dedicated to staying current with the latest trends and techniques.`, stat1: "10K+", stat1l: "Happy Clients", stat2: "15+", stat2l: "Expert Stylists", stat3: "8+", stat3l: "Years in Business" },
-    PORTFOLIO:  { heading: "About Me", body: `I'm a multidisciplinary designer and developer based in the Philippines, passionate about crafting digital experiences that are both beautiful and functional. With over 8 years of experience, I've helped startups and established brands achieve their vision.`, stat1: "8+", stat1l: "Years Experience", stat2: "120+", stat2l: "Projects Delivered", stat3: "98%", stat3l: "Client Satisfaction" },
-    SAAS:       { heading: "Why We Built This", body: `${cfg.businessName} started when our founders noticed that most business tools were built for large enterprises, leaving Filipino SMEs behind. We set out to build a platform that's powerful enough for enterprise but simple enough for everyone.`, stat1: "10K+", stat1l: "Active Users", stat2: "99.9%", stat2l: "Uptime SLA", stat3: "4x", stat3l: "Faster Than Alternatives" },
+    PORTFOLIO:  { heading: "About Me", body: `I am a multidisciplinary designer and developer based in the Philippines, passionate about crafting digital experiences that are both beautiful and functional. With over 8 years of experience, I have helped startups and established brands achieve their vision.`, stat1: "8+", stat1l: "Years Experience", stat2: "120+", stat2l: "Projects Delivered", stat3: "98%", stat3l: "Client Satisfaction" },
+    SAAS:       { heading: "Why We Built This", body: `${cfg.businessName} started when our founders noticed that most business tools were built for large enterprises, leaving Filipino SMEs behind. We set out to build a platform that is powerful enough for enterprise but simple enough for everyone.`, stat1: "10K+", stat1l: "Active Users", stat2: "99.9%", stat2l: "Uptime SLA", stat3: "4x", stat3l: "Faster Than Alternatives" },
     LANDING:    { heading: "Who We Are", body: `${cfg.businessName} is a team of dedicated professionals committed to helping businesses grow. We believe that every entrepreneur deserves access to world-class tools and strategies — regardless of their budget or technical background.`, stat1: "50K+", stat1l: "Businesses Served", stat2: "4.9", stat2l: "Average Rating", stat3: "3 Years", stat3l: "In the Industry" },
-    AGENCY:     { heading: "About the Agency", body: `${cfg.businessName} is a full-service marketing agency built for the modern Philippine brand. We combine strategy, creativity, and data to help businesses grow faster, build stronger brands, and connect meaningfully with their audiences.`, stat1: "200+", stat1l: "Brands Served", stat2: "₱500M+", stat2l: "Revenue Generated", stat3: "5+", stat3l: "Industry Awards" },
-    EDUCATION:  { heading: "Our Mission", body: `${cfg.businessName} exists to make world-class education accessible to every Filipino. We believe that the right knowledge and skills can transform lives — and we're committed to delivering them through practical, industry-relevant programmes.`, stat1: "25K+", stat1l: "Students Enrolled", stat2: "95%", stat2l: "Completion Rate", stat3: "100+", stat3l: "Expert Instructors" },
+    AGENCY:     { heading: "About the Agency", body: `${cfg.businessName} is a full-service marketing agency built for the modern Philippine brand. We combine strategy, creativity, and data to help businesses grow faster, build stronger brands, and connect meaningfully with their audiences.`, stat1: "200+", stat1l: "Brands Served", stat2: "500M+", stat2l: "Revenue Generated", stat3: "5+", stat3l: "Industry Awards" },
+    EDUCATION:  { heading: "Our Mission", body: `${cfg.businessName} exists to make world-class education accessible to every Filipino. We believe that the right knowledge and skills can transform lives — and we are committed to delivering them through practical, industry-relevant programmes.`, stat1: "25K+", stat1l: "Students Enrolled", stat2: "95%", stat2l: "Completion Rate", stat3: "100+", stat3l: "Expert Instructors" },
   };
   const a = aboutCopy[cfg.niche];
   return `
-<section data-editable="section" data-section-label="About" data-page="about" class="section" id="about" style="background:var(--color-surface)">
-  <div class="container" style="display:grid;gap:4rem;align-items:center">
-    <div style="max-width:700px;margin:0 auto;text-align:center">
-      <h2 class="section-title" data-editable="text">${a.heading}</h2>
-      <p class="section-subtitle" data-editable="text" style="margin:1.25rem auto 2.5rem">${a.body}</p>
-      <div style="display:flex;flex-wrap:wrap;gap:2.5rem;justify-content:center">
-        <div><div class="hero-stat-value" data-editable="text">${a.stat1}</div><div class="hero-stat-label" data-editable="text">${a.stat1l}</div></div>
-        <div><div class="hero-stat-value" data-editable="text">${a.stat2}</div><div class="hero-stat-label" data-editable="text">${a.stat2l}</div></div>
-        <div><div class="hero-stat-value" data-editable="text">${a.stat3}</div><div class="hero-stat-label" data-editable="text">${a.stat3l}</div></div>
+<section data-editable="section" data-section-label="About" data-page="about" class="page-section glow-ambient" id="about">
+  <div class="page-section__inner" style="max-width:900px;margin:0 auto;text-align:center">
+    <h2 class="page-section__heading font-gradient" data-editable="text">${a.heading}</h2>
+    <p style="font-size:1.0625rem;font-weight:300;line-height:1.8;color:rgba(241,240,234,0.65);max-width:680px;margin:1.5rem auto 4rem" data-editable="text">${a.body}</p>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4rem;padding:3rem 0;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05)">
+      <div style="text-align:center">
+        <div style="font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3rem);font-weight:500;margin-bottom:0.5rem" class="font-gradient-gold" data-editable="text">${a.stat1}</div>
+        <div style="font-size:0.6875rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(241,240,234,0.4)" data-editable="text">${a.stat1l}</div>
       </div>
+      <div style="text-align:center">
+        <div style="font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3rem);font-weight:500;margin-bottom:0.5rem" class="font-gradient-gold" data-editable="text">${a.stat2}</div>
+        <div style="font-size:0.6875rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(241,240,234,0.4)" data-editable="text">${a.stat2l}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3rem);font-weight:500;margin-bottom:0.5rem" class="font-gradient-gold" data-editable="text">${a.stat3}</div>
+        <div style="font-size:0.6875rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(241,240,234,0.4)" data-editable="text">${a.stat3l}</div>
+      </div>
+    </div>
+    <div style="margin-top:3rem">
+      <a href="/contact.html" data-page-link="contact" class="btn-luxury btn-luxury-filled" data-editable="button">${cfg.ctaPrimary}</a>
     </div>
   </div>
 </section>`;
@@ -989,37 +758,33 @@ function buildContact(cfg: WebsiteConfig): string {
   const labels: Record<Niche, { heading: string; sub: string }> = {
     STORE:      { heading: "Get in Touch", sub: "Have a question about an order? We typically reply within a few hours." },
     RESTAURANT: { heading: "Make a Reservation", sub: "Reserve your table or inquire about private events and catering." },
-    SALON:      { heading: "Book an Appointment", sub: "Ready for a transformation? Fill in the form and we'll confirm your slot." },
-    PORTFOLIO:  { heading: "Start a Project", sub: "Tell me about your project and I'll get back to you within 24 hours." },
+    SALON:      { heading: "Book an Appointment", sub: "Ready for a transformation? Fill in the form and we will confirm your slot." },
+    PORTFOLIO:  { heading: "Start a Project", sub: "Tell me about your project and I will get back to you within 24 hours." },
     SAAS:       { heading: "Contact Sales", sub: "Interested in a plan? Our team will set up a personalised walkthrough." },
-    LANDING:    { heading: "Get in Touch", sub: "Have questions? Send us a message and we'll respond quickly." },
+    LANDING:    { heading: "Get in Touch", sub: "Have questions? Send us a message and we will respond quickly." },
     AGENCY:     { heading: "Let's Work Together", sub: "Tell us about your brand and goals. Free consultation included." },
     EDUCATION:  { heading: "Enrol or Inquire", sub: "Send us a message about courses, schedules, or enrolment details." },
   };
   const l = labels[cfg.niche];
   return `
-<section data-editable="section" data-section-label="Contact" data-page="contact" class="cta-section" id="contact">
-  <div class="container" style="max-width:700px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:3rem">
-      <h2 class="cta-headline" data-editable="text">${l.heading}</h2>
-      <p class="cta-sub" data-editable="text" style="margin-top:1rem">${l.sub}</p>
+<section data-editable="section" data-section-label="Contact" data-page="contact" class="glow-ambient" id="contact" style="padding:10vh 4vw">
+  <div style="max-width:680px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:3.5rem">
+      <h2 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3.2rem);font-weight:500;letter-spacing:-0.01em;margin-bottom:1rem" class="font-gradient" data-editable="text">${l.heading}</h2>
+      <p style="font-size:1rem;font-weight:300;line-height:1.7;color:rgba(241,240,234,0.5)" data-editable="text">${l.sub}</p>
     </div>
-    <form id="sb-contact-form" style="display:flex;flex-direction:column;gap:1rem;background:rgba(255,255,255,0.08);padding:2.5rem;border-radius:var(--shape-radius-lg)">
-      <div style="display:grid;gap:1rem;grid-template-columns:1fr 1fr">
-        <input type="text" name="name" placeholder="Your Name" required
-          style="padding:.875rem 1.25rem;border-radius:var(--shape-radius);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:var(--text-size-small);font-family:var(--font-body);outline:none"
-          onfocus="this.style.borderColor='rgba(255,255,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.2)'" />
-        <input type="email" name="email" placeholder="Your Email" required
-          style="padding:.875rem 1.25rem;border-radius:var(--shape-radius);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:var(--text-size-small);font-family:var(--font-body);outline:none"
-          onfocus="this.style.borderColor='rgba(255,255,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.2)'" />
+    <form id="sb-contact-form" class="contact-form">
+      <div class="contact-form__field">
+        <input type="text" name="name" class="contact-form__input" placeholder="Your Name" required>
       </div>
-      <textarea name="message" placeholder="Your message..." rows="5" required
-        style="padding:.875rem 1.25rem;border-radius:var(--shape-radius);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:var(--text-size-small);font-family:var(--font-body);resize:vertical;outline:none"
-        onfocus="this.style.borderColor='rgba(255,255,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.2)'"></textarea>
-      <button type="submit" class="btn-cta-primary" style="align-self:center;padding:.875rem 2.5rem;cursor:pointer;border:none">
-        Send Message
-      </button>
-      <div id="sb-form-msg" style="text-align:center;font-size:.9rem;min-height:1.5rem"></div>
+      <div class="contact-form__field">
+        <input type="email" name="email" class="contact-form__input" placeholder="Your Email" required>
+      </div>
+      <div class="contact-form__field">
+        <textarea name="message" class="contact-form__input" placeholder="Your message..." rows="5" required style="resize:vertical"></textarea>
+      </div>
+      <button type="submit" class="btn-luxury btn-luxury-filled" style="width:100%;justify-content:center;margin-top:0.5rem">Send Message</button>
+      <div id="sb-form-msg" style="text-align:center;font-size:0.875rem;min-height:1.5rem;margin-top:0.75rem;color:#C9A96E"></div>
     </form>
   </div>
 </section>
@@ -1027,10 +792,6 @@ function buildContact(cfg: WebsiteConfig): string {
 (function(){
   var form=document.getElementById('sb-contact-form');
   if(!form)return;
-  var inputs=form.querySelectorAll('input,textarea');
-  inputs.forEach(function(el){
-    el.addEventListener('input',function(){el.style.color='#fff';});
-  });
   form.addEventListener('submit',function(e){
     e.preventDefault();
     var btn=form.querySelector('button[type="submit"]');
@@ -1048,16 +809,14 @@ function buildContact(cfg: WebsiteConfig): string {
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.success){
-        form.innerHTML='<p style="color:#fff;font-weight:600;text-align:center;padding:2rem;font-size:1.125rem">Thank you! We will get back to you shortly.</p>';
+        form.innerHTML='<p style="color:#C9A96E;text-align:center;padding:2rem;font-size:1.125rem;font-weight:300">Thank you — we will be in touch shortly.</p>';
       }else{
         msg.textContent=d.error||'Something went wrong. Please try again.';
-        msg.style.color='#fca5a5';
         btn.textContent=orig;btn.disabled=false;
       }
     })
     .catch(function(){
-      msg.textContent='Failed to send. Please check your connection and try again.';
-      msg.style.color='#fca5a5';
+      msg.textContent='Failed to send. Please check your connection.';
       btn.textContent=orig;btn.disabled=false;
     });
   });
@@ -1066,43 +825,46 @@ function buildContact(cfg: WebsiteConfig): string {
 }
 
 function buildFooter(cfg: WebsiteConfig): string {
-  const nicheLinks: Record<Niche, string[]> = {
-    STORE:      ["Shop", "Collections", "Shipping Info", "Return Policy"],
-    RESTAURANT: ["Menu", "Reservations", "Private Events", "Gift Cards"],
-    SALON:      ["Services", "Book Online", "Gallery", "Gift Vouchers"],
-    PORTFOLIO:  ["Work", "About", "Process", "Resume"],
-    SAAS:       ["Features", "Pricing", "Documentation", "Status"],
-    LANDING:    ["Features", "Pricing", "About", "Blog"],
-    AGENCY:     ["Services", "Work", "About", "Careers"],
-    EDUCATION:  ["Courses", "Instructors", "Blog", "FAQ"],
+  const nicheLinks: Record<Niche, Array<[string, string, string]>> = {
+    STORE:      [["Shop", "/shop.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    RESTAURANT: [["Menu", "/menu.html", "shop"], ["About", "/about.html", "about"], ["Reservations", "/reservations.html", "contact"]],
+    SALON:      [["Services", "/services.html", "shop"], ["About", "/about.html", "about"], ["Book Now", "/book.html", "contact"]],
+    PORTFOLIO:  [["Work", "/work.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    SAAS:       [["Pricing", "/pricing.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    LANDING:    [["Features", "/features.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    AGENCY:     [["Services", "/services.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
+    EDUCATION:  [["Courses", "/courses.html", "shop"], ["About", "/about.html", "about"], ["Contact", "/contact.html", "contact"]],
   };
   const links = nicheLinks[cfg.niche];
-  const li = links.map(l => `<li><a href="#" data-editable="link">${l}</a></li>`).join("");
+  const li = links.map(([label, href, page]) =>
+    `<li><a href="${href}" data-page-link="${page}" class="mdx-footer__col-link" data-editable="link">${label}</a></li>`
+  ).join("");
   return `
-<footer data-editable="section" data-section-label="Footer" class="footer" id="footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <span class="footer-logo" data-editable="text">${cfg.businessName}</span>
-        <p class="footer-tagline" data-editable="text">${cfg.tagline}</p>
+<footer data-editable="section" data-section-label="Footer" class="mdx-footer" id="footer">
+  <div class="mdx-footer__line"></div>
+  <div class="mdx-footer__top">
+    <div class="mdx-footer__brand">
+      <span class="mdx-footer__brand-mark font-gradient-gold" data-editable="text">${cfg.businessName}</span>
+      <p class="mdx-footer__brand-tagline" data-editable="text">${cfg.tagline}</p>
+    </div>
+    <div class="mdx-footer__sitemap">
+      <div>
+        <p class="mdx-footer__col-title">Navigation</p>
+        <ul class="mdx-footer__col-list">${li}</ul>
       </div>
       <div>
-        <p class="footer-col-title">Quick Links</p>
-        <ul class="footer-links">${li}</ul>
-      </div>
-      <div>
-        <p class="footer-col-title">Contact</p>
-        <ul class="footer-links">
-          <li><a href="mailto:hello@${cfg.businessName.toLowerCase().replace(/\s+/g, "")}.com" data-editable="link">Email Us</a></li>
-          <li><a href="tel:+63" data-editable="link">+63 900 000 0000</a></li>
-          <li><a href="#" data-editable="link">Philippines</a></li>
+        <p class="mdx-footer__col-title">Contact</p>
+        <ul class="mdx-footer__col-list">
+          <li><a href="#" class="mdx-footer__col-link" data-editable="link">Email Us</a></li>
+          <li><a href="tel:+63" class="mdx-footer__col-link" data-editable="link">+63 900 000 0000</a></li>
+          <li><a href="#" class="mdx-footer__col-link" data-editable="link">Philippines</a></li>
         </ul>
       </div>
     </div>
-    <div class="footer-bottom">
-      <p class="footer-copy" data-editable="text">© ${new Date().getFullYear()} ${cfg.businessName}. All rights reserved.</p>
-      <p class="footer-copy" data-editable="text">Built with Storebuilder.ph</p>
-    </div>
+  </div>
+  <div class="mdx-footer__bottom">
+    <p class="mdx-footer__copy" data-editable="text">© ${new Date().getFullYear()} ${cfg.businessName}. All rights reserved.</p>
+    <p class="mdx-footer__copy">Built with Storebuilder.ph</p>
   </div>
 </footer>`;
 }
@@ -1110,7 +872,6 @@ function buildFooter(cfg: WebsiteConfig): string {
 // ─── Main compiler ────────────────────────────────────────────────────────────
 
 function compileWebsite(cfg: WebsiteConfig): string {
-  const css = buildCSS(cfg);
   const sections = [
     buildNav(cfg),
     buildHero(cfg),
@@ -1122,51 +883,51 @@ function compileWebsite(cfg: WebsiteConfig): string {
     buildFooter(cfg),
   ].join("\n");
 
-  const pageSwitcherJS = `
+  // Virtual multi-page router: intercepts <a data-page-link="X"> clicks,
+  // pushes a real-looking /page.html URL with history.pushState, shows/hides
+  // sections tagged data-page="X". Back/forward buttons work naturally.
+  const virtualRouterJS = `
 <script>
 (function(){
-  // Hide all paged sections; show only those matching the current hash page.
-  // The nav shows sections labelled: #home, #shop, #about, #contact
-  // Sections without data-page (nav, footer) are always visible.
-  var PAGES = ['home','shop','about','contact'];
+  var PAGES=['home','shop','about','contact'];
+  var PATH_MAP={'/':'home','/index.html':'home','/shop.html':'shop','/menu.html':'shop','/services.html':'shop','/work.html':'shop','/pricing.html':'shop','/features.html':'shop','/courses.html':'shop','/about.html':'about','/contact.html':'contact','/reservations.html':'contact','/book.html':'contact'};
 
-  function getPage() {
-    var h = window.location.hash.slice(1);
-    return PAGES.indexOf(h) !== -1 ? h : 'home';
+  function showPage(page){
+    document.querySelectorAll('[data-page]').forEach(function(el){
+      el.style.display=el.getAttribute('data-page')===page?'':'none';
+    });
+    document.querySelectorAll('.mdx-nav__link,.mdx-footer__col-link').forEach(function(a){
+      a.classList.toggle('mdx-nav__link--active',a.getAttribute('data-page-link')===page);
+    });
+    var nav=document.getElementById('mdx-nav');
+    if(nav)nav.classList.remove('mdx-nav--mobile-open');
+    window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  function showPage(page) {
-    var sections = document.querySelectorAll('[data-page]');
-    sections.forEach(function(el) {
-      el.style.display = el.getAttribute('data-page') === page ? '' : 'none';
-    });
-    // Update nav active state
-    var links = document.querySelectorAll('[data-page-link]');
-    links.forEach(function(a) {
-      if (a.getAttribute('data-page-link') === page) {
-        a.classList.add('nav-active');
-      } else {
-        a.classList.remove('nav-active');
-      }
-    });
-    // Close mobile nav if open
-    var mob = document.getElementById('navMobile');
-    if (mob) mob.classList.remove('open');
+  function pageFromPath(p){
+    var clean=p.replace(/\?.*$/,'').replace(/#.*$/,'');
+    return PATH_MAP[clean]||'home';
   }
 
-  // Initial paint
-  showPage(getPage());
-
-  // Hash changes (nav clicks)
-  window.addEventListener('hashchange', function() { showPage(getPage()); });
-
-  // Intercept page-link clicks to close mobile menu before hash change fires
-  document.querySelectorAll('[data-page-link]').forEach(function(a) {
-    a.addEventListener('click', function() {
-      var page = a.getAttribute('data-page-link');
-      setTimeout(function(){ showPage(page); }, 0);
-    });
+  document.addEventListener('click',function(e){
+    var a=e.target&&e.target.closest?e.target.closest('[data-page-link]'):null;
+    if(!a)return;
+    var page=a.getAttribute('data-page-link');
+    if(!page||PAGES.indexOf(page)===-1)return;
+    e.preventDefault();
+    var href=a.getAttribute('href')||'/';
+    history.pushState({page:page},'',href);
+    showPage(page);
   });
+
+  window.addEventListener('popstate',function(e){
+    var page=(e.state&&e.state.page)?e.state.page:pageFromPath(location.pathname);
+    showPage(page);
+  });
+
+  var init=pageFromPath(location.pathname);
+  showPage(init);
+  history.replaceState({page:init},'',location.href);
 })();
 </script>`;
 
@@ -1177,27 +938,31 @@ function compileWebsite(cfg: WebsiteConfig): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${cfg.seoTitle}</title>
   <meta name="description" content="${cfg.seoDesc}">
-  <style>${css}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/modules.css">
 </head>
 <body>
 ${sections}
-${pageSwitcherJS}
+${virtualRouterJS}
 </body>
 </html>`;
 }
 
-// ─── Public API (same interface as before — zero breaking changes downstream) ──
+// ─── Public API (same interface — zero breaking changes downstream) ────────────
 
 export async function runNativeGenerator(
   userPrompt: string
 ): Promise<{ result: NativeGenerationResult; usage: NativeGenerationUsage }> {
-  console.log("[DeterministicCompiler] building website locally — zero API calls");
+  console.log("[MDXCompiler] building luxury website locally — zero API calls");
 
   const cfg = buildConfig(userPrompt);
   const htmlContent = compileWebsite(cfg);
 
   console.log(
-    `[DeterministicCompiler] done — niche:${cfg.niche} name:"${cfg.businessName}" html:${htmlContent.length} bytes`
+    `[MDXCompiler] done — niche:${cfg.niche} name:"${cfg.businessName}" html:${htmlContent.length} bytes`
   );
 
   return {
@@ -1209,7 +974,7 @@ export async function runNativeGenerator(
       seoDesc: cfg.seoDesc,
     },
     usage: {
-      model: "deterministic-compiler-v1",
+      model: "mdx-deterministic-compiler-v4",
       inputTokens: 0,
       outputTokens: 0,
       costUsd: 0,
