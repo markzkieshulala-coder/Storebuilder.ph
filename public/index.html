@@ -3,550 +3,422 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MDX Website System Generator — Storebuilder.ph</title>
-  <meta name="description" content="Generate a complete multi-page, cinematic Marcelo Design X-style website from a single business niche prompt.">
-
-  <!-- ─── Fonts ─── -->
+  <title>MDX — Website System Generator</title>
+  <meta name="description" content="Generate a complete multi-page Marcelo Design X website from a single niche prompt.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
 
-  <!-- ─── The 3 luxury stylesheets (drive 3D cinematic animations) ─── -->
+  <!-- The 3 luxury stylesheets that power 3D cinematic animations -->
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/modules.css">
   <link rel="stylesheet" href="/css/intelligence.css">
 
-  <!-- ─── Dashboard chrome (UI-only, leans on the variables above) ─── -->
   <style>
-    /* ───── Layout root ───── */
-    body {
-      background: #060607;
-      color: #F1F0EA;
-      font-family: 'Inter', system-ui, sans-serif;
+    /* ── Root ── */
+    body { background: #060607; color: #F1F0EA; font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+    /* ── Ambient depth ── */
+    .ambient {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 1200px 700px at 50% -10%, rgba(201,169,110,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 800px 500px at 80% 90%, rgba(108,99,255,0.04) 0%, transparent 60%);
+    }
+
+    /* ── Shell ── */
+    .shell {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column; align-items: center;
       min-height: 100vh;
-      padding-bottom: 6rem;
+      padding: 0 1.5rem;
     }
 
-    .gateway-shell {
-      max-width: 1480px;
-      margin: 0 auto;
-      padding: 4rem 2rem 0;
-      position: relative;
-      z-index: 2;
-    }
-
-    /* Ambient gold glow behind the hero */
-    .gateway-shell::before {
-      content: '';
-      position: fixed;
-      top: -25%; left: 50%;
-      transform: translateX(-50%);
-      width: 1100px; height: 700px;
-      background: radial-gradient(ellipse, rgba(201,169,110,0.08) 0%, transparent 65%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ───── Hero header ───── */
-    .gateway-header {
+    /* ── Hero ── */
+    .hero {
+      display: flex; flex-direction: column; align-items: center;
       text-align: center;
-      max-width: 880px;
-      margin: 0 auto 4rem;
-      position: relative;
-      z-index: 1;
+      padding: 7rem 0 4.5rem;
+      max-width: 820px; width: 100%;
     }
-    .gateway-eyebrow {
-      display: inline-block;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #C9A96E;
-      padding: 0.45rem 1rem;
-      border: 1px solid rgba(201,169,110,0.25);
+    .hero-eyebrow {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase; color: #C9A96E;
+      padding: 0.4rem 0.9rem;
+      border: 1px solid rgba(201,169,110,0.22);
       border-radius: 4px;
-      margin-bottom: 2rem;
+      margin-bottom: 2.25rem;
     }
-    .gateway-title {
+    .hero-title {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(2.75rem, 6.4vw, 5.5rem);
+      font-size: clamp(2.8rem, 6.5vw, 5.75rem);
       font-weight: 500;
-      line-height: 1.05;
-      letter-spacing: -0.025em;
+      line-height: 1.04;
+      letter-spacing: -0.028em;
       margin-bottom: 1.5rem;
     }
-    .gateway-title em { font-style: italic; font-weight: 400; }
-    .gateway-subtitle {
-      color: rgba(241,240,234,0.55);
-      font-size: 1.0625rem;
-      line-height: 1.7;
-      max-width: 620px;
-      margin: 0 auto;
+    .hero-title em { font-style: italic; font-weight: 400; }
+    /* gold gradient on the italic span */
+    .hero-title .gold { background: linear-gradient(135deg, #E8D5B7 0%, #C9A96E 40%, #A67B3D 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-sub {
+      font-size: 1.0625rem; color: rgba(241,240,234,0.5);
+      line-height: 1.75; max-width: 560px;
     }
 
-    /* Pipeline visual strip */
-    .pipeline-strip {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.65rem;
-      flex-wrap: wrap;
-      margin: 2.75rem auto 0;
-      max-width: 920px;
+    /* Pipeline label strip */
+    .pipeline {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0.6rem; flex-wrap: wrap;
+      margin-top: 2.75rem;
     }
-    .pipeline-node {
-      background: rgba(20,20,21,0.85);
-      border: 1px solid rgba(201,169,110,0.18);
-      border-radius: 6px;
-      padding: 0.55rem 1.1rem;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #C9A96E;
+    .p-node {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: #C9A96E;
+      padding: 0.42rem 0.9rem;
+      background: rgba(201,169,110,0.06);
+      border: 1px solid rgba(201,169,110,0.16);
+      border-radius: 5px;
     }
-    .pipeline-arrow {
-      color: rgba(201,169,110,0.4);
-      font-size: 1rem;
-    }
+    .p-arrow { color: rgba(201,169,110,0.35); font-size: 0.85rem; }
 
-    /* ───── Generator card ───── */
-    .generator-card {
-      background: linear-gradient(180deg, rgba(20,20,21,0.85) 0%, rgba(15,15,16,0.85) 100%);
+    /* ── Generator card ── */
+    .card {
+      width: 100%; max-width: 820px;
+      background: linear-gradient(170deg, rgba(22,22,24,0.9) 0%, rgba(14,14,15,0.9) 100%);
       border: 1px solid rgba(241,240,234,0.08);
-      border-radius: 20px;
-      padding: 3rem;
-      max-width: 920px;
-      margin: 0 auto;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 32px 90px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
-      position: relative;
-      z-index: 1;
+      border-radius: 22px;
+      padding: 3rem 3rem 2.75rem;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 40px 100px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
     }
-    @media (max-width: 640px) { .generator-card { padding: 2rem 1.5rem; } }
+    @media (max-width: 640px) { .card { padding: 2rem 1.5rem 2rem; border-radius: 16px; } }
 
     .field-label {
       display: block;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(241,240,234,0.55);
-      margin-bottom: 0.75rem;
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(241,240,234,0.45);
+      margin-bottom: 0.85rem;
     }
-
     textarea#nichePrompt {
       width: 100%;
-      background: #0B0B0C;
-      border: 1px solid rgba(241,240,234,0.1);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
+      background: rgba(6,6,7,0.7);
+      border: 1px solid rgba(241,240,234,0.09);
+      border-radius: 13px;
+      padding: 1.375rem 1.5rem;
       color: #F1F0EA;
       font-family: 'Inter', sans-serif;
-      font-size: 1rem;
-      line-height: 1.7;
-      resize: vertical;
-      min-height: 130px;
+      font-size: 1.0625rem;
+      line-height: 1.72;
+      resize: vertical; min-height: 140px;
       outline: none;
-      transition: border-color 200ms;
+      transition: border-color 220ms, box-shadow 220ms;
+      caret-color: #C9A96E;
     }
-    textarea#nichePrompt::placeholder { color: rgba(241,240,234,0.24); }
-    textarea#nichePrompt:focus { border-color: rgba(201,169,110,0.45); box-shadow: 0 0 0 4px rgba(201,169,110,0.06); }
+    textarea#nichePrompt::placeholder { color: rgba(241,240,234,0.2); font-style: italic; }
+    textarea#nichePrompt:focus {
+      border-color: rgba(201,169,110,0.4);
+      box-shadow: 0 0 0 5px rgba(201,169,110,0.07);
+    }
 
-    .field-row {
-      margin-top: 1.5rem;
+    .opt-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+      margin-top: 1.25rem;
     }
-    input#businessName {
+    @media (max-width: 540px) { .opt-row { grid-template-columns: 1fr; } }
+    input.opt-field {
       width: 100%;
-      background: #0B0B0C;
-      border: 1px solid rgba(241,240,234,0.1);
+      background: rgba(6,6,7,0.7);
+      border: 1px solid rgba(241,240,234,0.09);
       border-radius: 10px;
       padding: 0.9rem 1.25rem;
       color: #F1F0EA;
       font-family: 'Inter', sans-serif;
       font-size: 0.9375rem;
       outline: none;
-      transition: border-color 200ms;
+      transition: border-color 220ms;
     }
-    input#businessName::placeholder { color: rgba(241,240,234,0.24); }
-    input#businessName:focus { border-color: rgba(201,169,110,0.45); }
+    input.opt-field::placeholder { color: rgba(241,240,234,0.2); }
+    input.opt-field:focus { border-color: rgba(201,169,110,0.35); }
 
     /* Generate button */
     #generateBtn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      width: 100%;
-      margin-top: 2rem;
-      padding: 1.25rem 2rem;
-      background: linear-gradient(135deg, #E8D5B7 0%, #C9A96E 50%, #A67B3D 100%);
-      color: #0B0B0C;
+      display: flex; align-items: center; justify-content: center; gap: 0.8rem;
+      width: 100%; margin-top: 2rem;
+      padding: 1.3rem 2rem;
+      background: linear-gradient(135deg, #E8D5B7 0%, #C9A96E 48%, #A67B3D 100%);
+      color: #0A0908;
       font-family: 'Inter', sans-serif;
-      font-size: 0.9375rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      border: none;
-      border-radius: 12px;
+      font-size: 0.9375rem; font-weight: 800;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      border: none; border-radius: 13px;
       cursor: pointer;
-      transition: transform 220ms cubic-bezier(0.16,1,0.3,1), box-shadow 220ms;
+      transition: transform 240ms cubic-bezier(0.16,1,0.3,1), box-shadow 240ms, opacity 200ms;
     }
     #generateBtn:not(:disabled):hover {
       transform: translateY(-2px);
-      box-shadow: 0 18px 40px rgba(201,169,110,0.28);
+      box-shadow: 0 20px 50px rgba(201,169,110,0.3), 0 4px 12px rgba(0,0,0,0.4);
     }
-    #generateBtn:disabled { opacity: 0.55; cursor: not-allowed; }
-    #generateBtn .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid rgba(0,0,0,0.25);
-      border-top-color: #0B0B0C;
+    #generateBtn:active { transform: translateY(0); }
+    #generateBtn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-spinner {
+      width: 17px; height: 17px;
+      border: 2.5px solid rgba(10,9,8,0.25);
+      border-top-color: #0A0908;
       border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: none;
+      animation: spin 0.65s linear infinite;
+      display: none; flex-shrink: 0;
     }
-    #generateBtn.is-busy .spinner { display: block; }
+    #generateBtn.is-running .btn-spinner { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Pipeline status under the button */
-    .status-strip {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+    /* Status bar */
+    .status-bar {
+      display: flex; align-items: center; gap: 0.85rem;
       margin-top: 1.5rem;
-      padding: 0.875rem 1.25rem;
-      background: rgba(11,11,12,0.6);
+      padding: 0.9rem 1.25rem;
+      background: rgba(6,6,7,0.55);
       border: 1px solid rgba(241,240,234,0.07);
       border-radius: 10px;
       font-size: 0.8rem;
-      color: rgba(241,240,234,0.6);
+      color: rgba(241,240,234,0.55);
+      min-height: 46px;
     }
-    .status-strip[data-tone="info"]    .status-dot { background: #C9A96E; }
-    .status-strip[data-tone="success"] .status-dot { background: #4ADE80; }
-    .status-strip[data-tone="error"]   .status-dot { background: #F87171; }
     .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: rgba(241,240,234,0.3);
-      flex-shrink: 0;
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(241,240,234,0.25);
+      transition: background 300ms;
     }
+    .status-bar[data-state="running"] .status-dot { background: #C9A96E; animation: pulse 1.2s ease-in-out infinite; }
+    .status-bar[data-state="done"] .status-dot { background: #4ADE80; animation: none; }
+    .status-bar[data-state="error"] .status-dot { background: #F87171; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
 
-    /* ───── Review window ───── */
-    .review-window {
-      max-width: 1480px;
-      margin: 4rem auto 0;
-      opacity: 0;
-      transform: translateY(20px);
+    /* ── Review window ── */
+    .review {
+      width: 100%; max-width: 1480px;
+      margin: 4rem 0 0;
+      opacity: 0; transform: translateY(28px);
       pointer-events: none;
-      transition: opacity 500ms, transform 500ms;
+      transition: opacity 550ms cubic-bezier(0.16,1,0.3,1), transform 550ms cubic-bezier(0.16,1,0.3,1);
     }
-    .review-window.is-visible {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
+    .review.is-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
-    .review-header {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 1.5rem;
-      padding-bottom: 1.5rem;
+    .review-head {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 1.5rem; padding-bottom: 1.75rem;
       border-bottom: 1px solid rgba(241,240,234,0.06);
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
+      margin-bottom: 2rem; flex-wrap: wrap;
     }
-    .review-header-text h2 {
+    .review-title {
       font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-weight: 500;
-      color: #F1F0EA;
-      margin-bottom: 0.4rem;
+      font-size: 2rem; font-weight: 500; color: #F1F0EA;
     }
-    .review-header-text p {
-      color: rgba(241,240,234,0.5);
-      font-size: 0.875rem;
-    }
-    .review-actions { display: flex; gap: 0.75rem; }
-    .secondary-btn {
-      padding: 0.7rem 1.25rem;
-      background: rgba(201,169,110,0.1);
+    .review-sub { font-size: 0.85rem; color: rgba(241,240,234,0.45); margin-top: 0.3rem; }
+    .review-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+    .ghost-btn {
+      padding: 0.65rem 1.1rem;
+      background: rgba(201,169,110,0.07);
       border: 1px solid rgba(201,169,110,0.2);
       color: #C9A96E;
       border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      cursor: pointer;
-      transition: background 180ms;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      cursor: pointer; transition: background 180ms;
     }
-    .secondary-btn:not(:disabled):hover { background: rgba(201,169,110,0.18); }
-    .secondary-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ghost-btn:not(:disabled):hover { background: rgba(201,169,110,0.14); }
+    .ghost-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* Metrics bar */
-    #metricsBar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
+    /* Metrics */
+    .metrics {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem; margin-bottom: 2rem;
     }
     .metric {
-      background: rgba(20,20,21,0.7);
+      background: rgba(20,20,21,0.75);
       border: 1px solid rgba(241,240,234,0.06);
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
+      border-radius: 11px; padding: 1.25rem 1.5rem;
     }
-    .metric-value {
-      display: block;
-      font-family: 'Playfair Display', serif;
-      font-size: 1.75rem;
-      font-weight: 500;
-      color: #C9A96E;
-      line-height: 1.1;
+    .metric-v {
+      display: block; font-family: 'Playfair Display', serif;
+      font-size: 1.85rem; font-weight: 500; color: #C9A96E; line-height: 1.1;
     }
-    .metric-label {
-      display: block;
-      margin-top: 0.4rem;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: rgba(241,240,234,0.45);
+    .metric-l {
+      display: block; margin-top: 0.4rem;
+      font-size: 0.65rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(241,240,234,0.4);
     }
 
-    /* Route pill bar */
-    #routeBar {
-      display: flex;
-      gap: 0.65rem;
-      flex-wrap: wrap;
-      margin-bottom: 1.5rem;
+    /* Route pills */
+    .route-strip {
+      display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem;
     }
     .route-pill {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.15rem;
-      padding: 0.65rem 1.1rem;
-      background: rgba(20,20,21,0.7);
+      display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem;
+      padding: 0.6rem 1rem;
+      background: rgba(18,18,19,0.8);
       border: 1px solid rgba(241,240,234,0.07);
       border-radius: 8px;
-      color: rgba(241,240,234,0.7);
       font-family: 'Inter', sans-serif;
-      cursor: pointer;
-      transition: all 180ms;
-      text-align: left;
+      color: rgba(241,240,234,0.65);
+      cursor: pointer; transition: all 180ms; text-align: left;
     }
-    .route-pill:hover {
-      border-color: rgba(201,169,110,0.35);
-      color: #F1F0EA;
-    }
-    .route-pill.is-active {
-      background: rgba(201,169,110,0.12);
-      border-color: rgba(201,169,110,0.45);
-      color: #F1F0EA;
-    }
-    .route-pill-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    .route-pill-path {
-      font-size: 0.7rem;
-      color: #C9A96E;
-      letter-spacing: 0.04em;
-    }
+    .route-pill:hover { border-color: rgba(201,169,110,0.3); color: #F1F0EA; }
+    .route-pill.is-on { background: rgba(201,169,110,0.1); border-color: rgba(201,169,110,0.4); color: #F1F0EA; }
+    .route-pill-label { font-size: 0.85rem; font-weight: 600; }
+    .route-pill-path { font-size: 0.68rem; color: #C9A96E; letter-spacing: 0.04em; }
 
     /* Preview frame */
-    .preview-shell {
-      background: #0B0B0C;
+    .frame-shell {
+      background: #0A0A0B;
       border: 1px solid rgba(241,240,234,0.07);
-      border-radius: 16px;
-      overflow: hidden;
-      position: relative;
+      border-radius: 16px; overflow: hidden;
     }
-    .preview-chrome {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.75rem 1.25rem;
-      border-bottom: 1px solid rgba(241,240,234,0.06);
-      background: rgba(20,20,21,0.6);
+    .frame-chrome {
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.7rem 1.1rem;
+      background: rgba(18,18,19,0.7);
+      border-bottom: 1px solid rgba(241,240,234,0.05);
     }
-    .preview-dot {
-      width: 11px; height: 11px;
-      border-radius: 50%;
-      background: rgba(241,240,234,0.18);
+    .f-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .f-dot:nth-child(1){background:rgba(248,113,113,0.65)}
+    .f-dot:nth-child(2){background:rgba(251,191,36,0.65)}
+    .f-dot:nth-child(3){background:rgba(74,222,128,0.65)}
+    .frame-url {
+      margin-left: 1rem; font-family: 'Menlo', monospace;
+      font-size: 0.72rem; color: rgba(241,240,234,0.38);
     }
-    .preview-dot:nth-child(1) { background: rgba(248,113,113,0.6); }
-    .preview-dot:nth-child(2) { background: rgba(251,191,36,0.6); }
-    .preview-dot:nth-child(3) { background: rgba(74,222,128,0.6); }
-    .preview-chrome-url {
-      margin-left: 1rem;
-      font-family: 'Menlo', monospace;
-      font-size: 0.75rem;
-      color: rgba(241,240,234,0.45);
-    }
-    iframe#previewFrame {
-      width: 100%;
-      height: 78vh;
-      min-height: 600px;
-      border: none;
-      background: #060607;
-      display: block;
+    iframe#preview {
+      width: 100%; height: 78vh; min-height: 580px;
+      border: none; background: #060607; display: block;
     }
 
-    /* ───── Pipeline log (below preview) ───── */
-    .log-panel {
-      max-width: 1480px;
-      margin: 2.5rem auto 0;
-      background: rgba(15,15,16,0.7);
+    /* Log */
+    .log-wrap {
+      width: 100%; max-width: 1480px;
+      margin: 2.5rem 0 6rem;
+      background: rgba(12,12,13,0.75);
       border: 1px solid rgba(241,240,234,0.06);
-      border-radius: 14px;
-      overflow: hidden;
+      border-radius: 14px; overflow: hidden;
     }
-    .log-panel-head {
-      padding: 1rem 1.5rem;
-      background: rgba(20,20,21,0.7);
-      border-bottom: 1px solid rgba(241,240,234,0.06);
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: rgba(241,240,234,0.55);
+    .log-head {
+      padding: 0.9rem 1.5rem;
+      background: rgba(18,18,19,0.8);
+      border-bottom: 1px solid rgba(241,240,234,0.05);
+      font-size: 0.65rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(241,240,234,0.45);
     }
-    #pipelineLog {
-      padding: 1rem 1.5rem;
-      max-height: 260px;
-      overflow-y: auto;
+    #log {
+      padding: 0.75rem 1.5rem;
+      max-height: 260px; overflow-y: auto;
       font-family: 'Menlo', 'Monaco', monospace;
     }
     .log-row {
-      display: flex;
-      gap: 1rem;
-      padding: 0.45rem 0;
-      font-size: 0.78rem;
+      display: flex; gap: 1rem; padding: 0.45rem 0;
+      font-size: 0.76rem;
       border-bottom: 1px solid rgba(241,240,234,0.04);
     }
     .log-row:last-child { border-bottom: none; }
-    .log-stage {
-      flex-shrink: 0;
-      width: 120px;
+    .log-s {
+      flex-shrink: 0; width: 110px;
+      font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
       color: #C9A96E;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
     }
-    .log-message { color: rgba(241,240,234,0.7); }
-    .log-row[data-status="success"] .log-stage { color: #4ADE80; }
-    .log-row[data-status="error"] .log-stage { color: #F87171; }
-    .log-row[data-status="error"] .log-message { color: #FCA5A5; }
+    .log-m { color: rgba(241,240,234,0.65); }
+    .log-row[data-ok="done"] .log-s { color: #4ADE80; }
+    .log-row[data-ok="err"] .log-s { color: #F87171; }
+    .log-row[data-ok="err"] .log-m { color: #FCA5A5; }
 
-    /* Scrollbar polish */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(201,169,110,0.22); border-radius: 3px; }
-
-    @media (max-width: 720px) {
-      .gateway-shell { padding: 2.5rem 1rem 0; }
-      .gateway-header { margin-bottom: 2.5rem; }
-      .review-window { margin-top: 2.5rem; }
-      iframe#previewFrame { height: 65vh; min-height: 500px; }
-    }
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(201,169,110,0.2);border-radius:3px}
   </style>
 </head>
-
 <body>
+<div class="ambient"></div>
 
-  <!-- ─── Primary generation UI ─── -->
-  <div class="gateway-shell">
+<div class="shell">
 
-    <header class="gateway-header">
-      <span class="gateway-eyebrow">MDX Website System Generator</span>
-      <h1 class="gateway-title">
-        Build a complete <em>multi-page site</em><br>
-        from a single prompt.
-      </h1>
-      <p class="gateway-subtitle">
-        Describe your business niche. The system plans the architecture, writes studio-grade
-        image prompts for every asset, then compiles a 3D cinematic Marcelo Design X-style
-        site — instantly, all in your browser.
-      </p>
+  <!-- ── Hero ── -->
+  <header class="hero">
+    <span class="hero-eyebrow">MDX Website System Generator</span>
+    <h1 class="hero-title">
+      One prompt.<br>
+      <em><span class="gold">Ultra-premium</span> multi-page site.</em>
+    </h1>
+    <p class="hero-sub">
+      Describe your business niche. The intelligence engine plans the full architecture, generates
+      studio-grade contextual image prompts for every asset, then compiles a 3D cinematic
+      Marcelo Design X site — all in your browser, zero API cost.
+    </p>
+    <div class="pipeline">
+      <span class="p-node">Intelligence</span><span class="p-arrow">→</span>
+      <span class="p-node">PageStitcher</span><span class="p-arrow">→</span>
+      <span class="p-node">AssetInversion</span><span class="p-arrow">→</span>
+      <span class="p-node">DocumentTransform</span><span class="p-arrow">→</span>
+      <span class="p-node">Emit</span>
+    </div>
+  </header>
 
-      <div class="pipeline-strip">
-        <span class="pipeline-node">Intelligence</span>
-        <span class="pipeline-arrow">→</span>
-        <span class="pipeline-node">Stitch</span>
-        <span class="pipeline-arrow">→</span>
-        <span class="pipeline-node">Invert</span>
-        <span class="pipeline-arrow">→</span>
-        <span class="pipeline-node">Stamp</span>
-        <span class="pipeline-arrow">→</span>
-        <span class="pipeline-node">Emit</span>
-      </div>
-    </header>
+  <!-- ── Generator card ── -->
+  <section class="card">
+    <label class="field-label" for="nichePrompt">Describe your niche for a premium multi-page site</label>
+    <textarea id="nichePrompt" rows="5"
+      placeholder="A luxury leather goods atelier in Milan specializing in hand-stitched minimalist accessories for the modern gentleman…">A luxury leather goods atelier in Milan specializing in hand-stitched minimalist accessories for the modern gentleman</textarea>
 
-    <!-- ─── Generator card ─── -->
-    <section class="generator-card">
-      <label class="field-label" for="nichePrompt">Business Niche Prompt</label>
-      <textarea id="nichePrompt"
-                rows="5"
-                placeholder="A luxury leather goods atelier in Milan specializing in hand-stitched minimalist accessories for the modern gentleman…">A luxury leather goods atelier in Milan specializing in hand-stitched minimalist accessories for the modern gentleman</textarea>
+    <div class="opt-row">
+      <input class="opt-field" id="businessName" type="text" placeholder="Business name (optional)">
+      <input class="opt-field" id="authToken" type="password" placeholder="Auth token (for saving to dashboard)">
+    </div>
 
-      <div class="field-row">
-        <label class="field-label" for="businessName">Business Name (optional)</label>
-        <input id="businessName" type="text" placeholder="Atelier Vittore">
-      </div>
+    <button type="button" id="generateBtn">
+      <span class="btn-spinner"></span>
+      <span class="btn-label">Generate Marcelo Design X System</span>
+    </button>
 
-      <button type="button" id="generateBtn">
-        <span class="spinner"></span>
-        <span class="btn-label">Generate Website System</span>
-      </button>
-
-      <div class="status-strip" id="statusStrip" data-tone="info">
-        <span class="status-dot"></span>
-        <span id="pipelineStatus">Ready. Click <strong>Generate Website System</strong> to begin.</span>
-      </div>
-    </section>
-  </div>
-
-  <!-- ─── Review window (hidden until generation completes) ─── -->
-  <section class="review-window" id="reviewWindow">
-    <div class="gateway-shell" style="padding-top: 0;">
-
-      <div class="review-header">
-        <div class="review-header-text">
-          <h2>Generated Multi-Page Site</h2>
-          <p>Switch between routes to inspect every page. The luxury CSS is inlined per document.</p>
-        </div>
-        <div class="review-actions">
-          <button type="button" class="secondary-btn" id="downloadBundle" disabled>Download JSON Bundle</button>
-        </div>
-      </div>
-
-      <div id="metricsBar"></div>
-      <div id="routeBar"></div>
-
-      <div class="preview-shell">
-        <div class="preview-chrome">
-          <span class="preview-dot"></span>
-          <span class="preview-dot"></span>
-          <span class="preview-dot"></span>
-          <span class="preview-chrome-url">mdx://compiled-preview</span>
-        </div>
-        <iframe id="previewFrame"
-                title="Compiled site preview"
-                sandbox="allow-scripts allow-same-origin"></iframe>
-      </div>
+    <div class="status-bar" id="statusBar" data-state="idle">
+      <span class="status-dot"></span>
+      <span id="statusText">Ready — click <strong>Generate Marcelo Design X System</strong> to begin.</span>
     </div>
   </section>
 
-  <!-- ─── Pipeline log ─── -->
-  <section class="log-panel">
-    <div class="log-panel-head">Pipeline Event Log</div>
-    <div id="pipelineLog"></div>
+  <!-- ── Review window ── -->
+  <section class="review" id="review">
+    <div class="review-head">
+      <div>
+        <h2 class="review-title">Generated Site</h2>
+        <p class="review-sub" id="reviewSub">Switch pages using the route pills below.</p>
+      </div>
+      <div class="review-actions">
+        <button type="button" class="ghost-btn" id="downloadBtn" disabled>Download Bundle</button>
+        <button type="button" class="ghost-btn" id="saveBtn" disabled>Save to Dashboard</button>
+      </div>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+    <div class="route-strip" id="routeStrip"></div>
+
+    <div class="frame-shell">
+      <div class="frame-chrome">
+        <span class="f-dot"></span><span class="f-dot"></span><span class="f-dot"></span>
+        <span class="frame-url" id="frameUrl">mdx://preview</span>
+      </div>
+      <iframe id="preview" title="Generated site preview" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
   </section>
 
-  <!-- ─── Master controller (auto-wires the dashboard) ─── -->
-  <script type="module" src="/js/system-gateway.js"></script>
+  <!-- ── Pipeline log ── -->
+  <div class="log-wrap">
+    <div class="log-head">Pipeline Event Log</div>
+    <div id="log"></div>
+  </div>
 
+</div><!-- .shell -->
+
+<!-- ONLY generation engine wired here — no old generator references -->
+<script type="module" src="/js/system-gateway.js"></script>
 </body>
 </html>

@@ -13,6 +13,12 @@ export const maxDuration = 300;
 
 const generateSchema = z.object({
   prompt: z.string().min(5, "Prompt too short").max(8000, "Prompt too long"),
+  // MDX engine path — pre-compiled HTML supplied by system-gateway.js.
+  // When present the native generator is skipped entirely.
+  precompiledHtml: z.string().optional(),
+  businessName: z.string().optional(),
+  mdxGenerated: z.boolean().optional(),
+  siteSpec: z.record(z.unknown()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,7 +32,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt } = generateSchema.parse(body);
+    const parsed = generateSchema.parse(body);
+    const { prompt, precompiledHtml, businessName, mdxGenerated, siteSpec } = parsed;
 
     // Always read the freshest plan from DB — never trust the JWT cookie.
     const freshUser = await prisma.user.findUnique({
@@ -60,8 +67,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Native Premium Generator — runs the four design skills through Claude
-    const { result, usage } = await generateWebsite(prompt, activePlan);
+    // ── MDX engine path — HTML already compiled client-side by system-gateway.js.
+    // No API calls, no cost, skip the native generator entirely.
+    let result: { htmlContent: string; name: string; type: string; seoTitle: string; seoDesc: string };
+    let usage: { model: string; inputTokens: number; outputTokens: number; costUsd: number; costPhp: number };
+
+    if (precompiledHtml && precompiledHtml.length > 500) {
+      const siteName = businessName || (siteSpec as { siteName?: string })?.siteName || "MDX Website";
+      const industry = (siteSpec as { industry?: string })?.industry || "Website";
+      result = {
+        htmlContent: precompiledHtml,
+        name: siteName,
+        type: "WEBSITE",
+        seoTitle: `${siteName} — ${industry}`,
+        seoDesc: prompt.slice(0, 160),
+      };
+      usage = { model: "mdx-system-gateway-v2", inputTokens: 0, outputTokens: 0, costUsd: 0, costPhp: 0 };
+    } else {
+      // Fallback: native generator (used only when no pre-compiled HTML is provided)
+      const generated = await generateWebsite(prompt, activePlan);
+      result = generated.result;
+      usage = generated.usage;
+    }
 
     // Generate unique subdomain
     let subdomain = generateSubdomain(result.name);
@@ -83,8 +110,9 @@ export async function POST(req: NextRequest) {
           type: result.type,
           seoTitle: result.seoTitle,
           seoDesc: result.seoDesc,
-          nativeGenerated: true,
-          version: 3,
+          nativeGenerated: !mdxGenerated,
+          mdxGenerated: !!mdxGenerated,
+          version: mdxGenerated ? 4 : 3,
         },
         htmlContent: result.htmlContent,
         subdomain,
