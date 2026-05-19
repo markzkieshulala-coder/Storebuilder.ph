@@ -101,6 +101,8 @@
   let lastPrompt = '';
   let isPipelineRunning = false;
   let isSaving = false;
+  let autosaveOnReady = false;
+  let runningInIframe = false;
   const MIN_PROMPT_LENGTH = 8;
 
   // ============================================================
@@ -387,16 +389,34 @@
       // --- STEP 8: Reveal Save CTA so the user can persist this build ---
       showSaveButton();
 
+      // --- STEP 9: Headless auto-save when launched from the dashboard ---
+      // (the dashboard renders us inside a hidden iframe with autosave=1)
+      if (autosaveOnReady) {
+        autosaveOnReady = false;
+        handleSave();
+      }
+
     } catch (err) {
       console.error('[SystemGateway] Pipeline failure:', err);
       updateLoaderProgress(100, 'Compilation failed. Check console for telemetry.');
       await sleep(900);
       hideLoader();
       setCtaState('idle');
-      showValidation('System compilation error: ' + (err && err.message ? err.message : 'Unknown failure'), 'error');
+      const msg = (err && err.message) ? err.message : 'Unknown failure';
+      showValidation('System compilation error: ' + msg, 'error');
+      reportToParent({ type: 'engine:error', message: msg });
     } finally {
       isPipelineRunning = false;
     }
+  }
+
+  // Forward errors/status to the dashboard when we're embedded as a hidden
+  // iframe. Same-origin, so a direct postMessage works.
+  function reportToParent(payload) {
+    if (!runningInIframe) return;
+    try {
+      window.parent.postMessage(payload, window.location.origin);
+    } catch (_) { /* parent unavailable — ignore */ }
   }
 
   // ============================================================
@@ -487,8 +507,11 @@
       if (res.status === 401) {
         setSaveState('idle', 'Sign in required');
         showValidation('Please sign in to save websites to your account.', 'error');
+        reportToParent({ type: 'engine:error', message: 'Sign in required', code: 'AUTH' });
         // Redirect to sign-in after a beat so the user sees the message.
-        setTimeout(function() { window.location.href = '/auth/signin'; }, 1200);
+        setTimeout(function() {
+          (window.top || window).location.href = '/auth/signin';
+        }, 1200);
         return;
       }
 
@@ -496,17 +519,23 @@
         const msg = (data && data.error) ? data.error : ('Save failed (HTTP ' + res.status + ')');
         setSaveState('idle', 'Save to My Account');
         showValidation(msg, 'error');
+        reportToParent({ type: 'engine:error', message: msg });
         return;
       }
 
-      // Success — redirect to the editor so the user can fine-tune the site
-      // immediately, matching the original dashboard generate → editor flow.
+      // Success — navigate the TOP window (so the dashboard host frame moves
+      // to the editor, not just the inner iframe), matching the original
+      // generate → editor flow.
       setSaveState('saving', 'Saved. Opening editor...');
-      window.location.href = '/editor/' + data.website.id;
+      const target = '/editor/' + data.website.id;
+      reportToParent({ type: 'engine:saved', websiteId: data.website.id, target: target });
+      (window.top || window).location.href = target;
     } catch (err) {
       console.error('[SystemGateway] Save failure:', err);
+      const msg = (err && err.message) ? err.message : 'unknown';
       setSaveState('idle', 'Save to My Account');
-      showValidation('Network error saving website: ' + (err && err.message ? err.message : 'unknown'), 'error');
+      showValidation('Network error saving website: ' + msg, 'error');
+      reportToParent({ type: 'engine:error', message: msg });
     } finally {
       isSaving = false;
     }
@@ -563,7 +592,10 @@
   function init() {
     bindEvents();
 
-    // The dashboard hands off the user's brief via ?prompt=…&autorun=1.
+    // Detect whether the dashboard is hosting us inside a hidden iframe.
+    try { runningInIframe = window.self !== window.top; } catch (_) { runningInIframe = true; }
+
+    // The dashboard hands off the user's brief via ?prompt=…&autorun=1&autosave=1.
     // Honour those parameters before falling back to the demo seed so users
     // who clicked "Generate Website" on the dashboard see their own prompt
     // running immediately, not the Velasca placeholder.
@@ -577,8 +609,10 @@
         seededFromUrl = true;
       }
       shouldAutorun = params.get('autorun') === '1';
+      autosaveOnReady = params.get('autosave') === '1';
       // Strip query string so a refresh doesn't re-trigger the autorun.
-      if (seededFromUrl || shouldAutorun) {
+      // Skip the rewrite inside an iframe — the dashboard owns the visible URL.
+      if ((seededFromUrl || shouldAutorun) && !runningInIframe) {
         var clean = window.location.pathname + window.location.hash;
         window.history.replaceState({}, document.title, clean);
       }
@@ -606,6 +640,7 @@
           // ~4 s window — give up and let the user click manually.
           clearInterval(poll);
           showValidation('Engine modules failed to load. Click "Compile" to retry.', 'error');
+          reportToParent({ type: 'engine:error', message: 'Engine modules failed to load' });
         }
       }, 100);
     }

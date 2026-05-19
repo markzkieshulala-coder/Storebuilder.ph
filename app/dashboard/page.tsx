@@ -160,6 +160,8 @@ function DashboardContent() {
     return () => clearInterval(id);
   }, [isLaunching]);
 
+  const [generatorIframeSrc, setGeneratorIframeSrc] = useState<string | null>(null);
+
   function handleGenerate() {
     const trimmed = prompt.trim();
     if (trimmed.length < 8) {
@@ -171,11 +173,35 @@ function DashboardContent() {
       return;
     }
     setIsLaunching(true);
-    // Hand the prompt to the 3D Generator Engine. It will auto-run the
-    // pipeline and POST the compiled HTML back to /api/generate on save.
-    const url = `/index.html?prompt=${encodeURIComponent(trimmed)}&autorun=1`;
-    window.location.href = url;
+    // Mount the Ultra-Premium 3D Engine in a HIDDEN iframe so the user
+    // never sees the dark cinematic UI — they only see the dashboard's
+    // Facebook-blue loading overlay. The engine auto-runs the pipeline,
+    // auto-saves the result, and navigates the top window to /editor/:id
+    // on success. Engine errors come back via postMessage.
+    const url = `/index.html?prompt=${encodeURIComponent(trimmed)}&autorun=1&autosave=1`;
+    setGeneratorIframeSrc(url);
   }
+
+  // Listen for status messages from the hidden engine iframe.
+  useEffect(() => {
+    if (!isLaunching) return;
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const data = e.data || {};
+      if (data.type === "engine:error") {
+        const msg = (data.code === "AUTH")
+          ? "Please sign in to save websites to your account."
+          : `Generation failed: ${data.message || "unknown error"}`;
+        toast.error(msg);
+        setIsLaunching(false);
+        setGeneratorIframeSrc(null);
+      }
+      // engine:saved is informational — the iframe will navigate the top
+      // window to /editor/:id itself, so we don't need to do anything here.
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [isLaunching]);
   useEffect(() => {
     if (!credits?.resetAt) return;
     const t = setInterval(() => setResetIn(timeUntilReset(new Date(credits.resetAt))), 1000);
@@ -434,6 +460,62 @@ function DashboardContent() {
           onAvatarUpload={handleAvatarUpload}
         />
       </aside>
+
+      {/* ── Generation overlay ── Facebook-blue loading screen shown while
+          the Ultra-Premium 3D Engine runs in a HIDDEN iframe behind the
+          scenes. The iframe drives the engine and, on success, navigates
+          the top window to /editor/:id. */}
+      {isLaunching && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm">
+          <div className="w-[92%] max-w-md bg-white border border-[#E4E6EB] rounded-2xl shadow-xl p-6 sm:p-8 text-center">
+            <div
+              className="w-12 h-12 rounded-2xl mx-auto mb-4 grid place-items-center text-white"
+              style={{ background: BLUE }}
+            >
+              <Zap size={22} />
+            </div>
+            <h3 className="text-base font-bold text-[#1C1E21] mb-1" style={{ fontFamily: FONT }}>
+              Building your website
+            </h3>
+            <p className="text-xs text-[#65676B] mb-4">
+              Ultra-Premium 3D Website System Generator is compiling your site.
+            </p>
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <span className="w-4 h-4 border-2 border-blue-100 border-t-[#1877F2] rounded-full animate-spin" />
+              <span className="text-xs font-medium text-[#1877F2]">
+                {GENERATION_STEPS[generationStep]}
+              </span>
+            </div>
+            <div className="h-1.5 bg-[#E4E6EB] rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: BLUE }}
+                initial={{ width: "5%" }}
+                animate={{ width: "95%" }}
+                transition={{ duration: 14, ease: "easeInOut" }}
+              />
+            </div>
+          </div>
+          {generatorIframeSrc && (
+            <iframe
+              src={generatorIframeSrc}
+              title="Ultra-Premium 3D Engine"
+              aria-hidden="true"
+              tabIndex={-1}
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                left: -9999,
+                top: -9999,
+                border: 0,
+                opacity: 0,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* ── Main content ── */}
       <main className="lg:ml-60 pt-14 lg:pt-0">
