@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { generateWebsite } from "@/lib/ai/generate";
 import { checkAndConsumeCredit } from "@/lib/credits";
 import { prisma } from "@/lib/prisma";
 import { generateSubdomain } from "@/lib/utils";
 import { Plan } from "@prisma/client";
 import { z } from "zod";
 
-// Allow up to 5 minutes — generation can take 60-90 s with the full system prompt.
-export const maxDuration = 300;
+export const maxDuration = 60;
 
+// The server-side Native Premium Generator was retired. All HTML is now
+// compiled in the browser by public/js/ (intelligence-engine →
+// layout-compiler → virtual-router → system-gateway). This route only
+// accepts the precompiled HTML and persists it.
 const generateSchema = z.object({
   prompt: z.string().min(5, "Prompt too short").max(8000, "Prompt too long"),
-  // MDX engine path — pre-compiled HTML supplied by system-gateway.js.
-  // When present the native generator is skipped entirely.
-  precompiledHtml: z.string().optional(),
+  precompiledHtml: z.string().min(500, "Precompiled HTML is required and must be at least 500 characters"),
   businessName: z.string().optional(),
   mdxGenerated: z.boolean().optional(),
   siteSpec: z.record(z.unknown()).optional(),
@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
     const parsed = generateSchema.parse(body);
     const { prompt, precompiledHtml, businessName, mdxGenerated, siteSpec } = parsed;
 
-    // Always read the freshest plan from DB — never trust the JWT cookie.
     const freshUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { plan: true, planExpiresAt: true },
@@ -50,7 +49,6 @@ export async function POST(req: NextRequest) {
       activePlan = "FREE";
     }
 
-    // Check website slot + generation credit
     const websiteCount = await prisma.website.count({
       where: { userId: session.user.id },
     });
@@ -67,38 +65,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── MDX engine path — HTML already compiled client-side by system-gateway.js.
-    // No API calls, no cost, skip the native generator entirely.
-    let result: { htmlContent: string; name: string; type: string; seoTitle: string; seoDesc: string };
-    let usage: { model: string; inputTokens: number; outputTokens: number; costUsd: number; costPhp: number };
+    const siteName = businessName || (siteSpec as { siteName?: string })?.siteName || "Website";
+    const industry = (siteSpec as { industry?: string })?.industry || "Website";
+    const result = {
+      htmlContent: precompiledHtml,
+      name: siteName,
+      type: "WEBSITE",
+      seoTitle: `${siteName} — ${industry}`,
+      seoDesc: prompt.slice(0, 160),
+    };
+    const usage = { model: "ultra-premium-3d-engine", inputTokens: 0, outputTokens: 0, costUsd: 0, costPhp: 0 };
 
-    if (precompiledHtml && precompiledHtml.length > 500) {
-      const siteName = businessName || (siteSpec as { siteName?: string })?.siteName || "MDX Website";
-      const industry = (siteSpec as { industry?: string })?.industry || "Website";
-      result = {
-        htmlContent: precompiledHtml,
-        name: siteName,
-        type: "WEBSITE",
-        seoTitle: `${siteName} — ${industry}`,
-        seoDesc: prompt.slice(0, 160),
-      };
-      usage = { model: "mdx-system-gateway-v2", inputTokens: 0, outputTokens: 0, costUsd: 0, costPhp: 0 };
-    } else {
-      // Fallback: native generator (used only when no pre-compiled HTML is provided)
-      const generated = await generateWebsite(prompt, activePlan);
-      result = generated.result;
-      usage = generated.usage;
-    }
-
-    // Generate unique subdomain
     let subdomain = generateSubdomain(result.name);
     const existing = await prisma.website.findUnique({ where: { subdomain } });
     if (existing) {
       subdomain = `${subdomain}-${Date.now().toString(36)}`;
     }
 
-    // htmlContent is the full self-contained HTML — the editor and all renderers
-    // use this directly. jsonContent stores lightweight metadata only.
     const savedWebsite = await prisma.website.create({
       data: {
         userId: session.user.id,
@@ -110,9 +93,8 @@ export async function POST(req: NextRequest) {
           type: result.type,
           seoTitle: result.seoTitle,
           seoDesc: result.seoDesc,
-          nativeGenerated: !mdxGenerated,
           mdxGenerated: !!mdxGenerated,
-          version: mdxGenerated ? 4 : 3,
+          version: 5,
         },
         htmlContent: result.htmlContent,
         subdomain,
@@ -122,7 +104,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Log token usage
     await prisma.tokenUsageLog.create({
       data: {
         userId: session.user.id,
@@ -154,59 +135,12 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const err = error as { status?: number; message?: string; error?: { type?: string } };
-    const msg: string = err?.message ?? String(error) ?? "";
-    console.error("[POST /api/generate] error:", err?.status, msg);
-
-    // Missing or invalid API key
-    if (
-      err?.status === 401 ||
-      msg.toLowerCase().includes("api key") ||
-      msg.toLowerCase().includes("api_key") ||
-      msg.toLowerCase().includes("authentication") ||
-      msg.toLowerCase().includes("x-api-key")
-    ) {
-      return NextResponse.json(
-        { error: "Invalid or missing ANTHROPIC_API_KEY. Check your .env.local file." },
-        { status: 500 }
-      );
-    }
-    // Rate limit
-    if (err?.status === 429 || msg.toLowerCase().includes("rate limit")) {
-      return NextResponse.json(
-        { error: "Rate limit reached. Please wait a moment and try again." },
-        { status: 429 }
-      );
-    }
-    // Context / token limit
-    if (msg.toLowerCase().includes("token") && msg.toLowerCase().includes("limit")) {
-      return NextResponse.json(
-        { error: "Prompt too long for the model. Try a shorter description." },
-        { status: 400 }
-      );
-    }
-    // Timeout
-    if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
-      return NextResponse.json(
-        { error: "Generation timed out. Try a shorter prompt or try again." },
-        { status: 503 }
-      );
-    }
-    // In development expose the real error so it's actionable
-    if (process.env.NODE_ENV === "development") {
-      return NextResponse.json(
-        { error: msg || "Unknown generation error", code: "GENERATOR_ERROR" },
-        { status: 503 }
-      );
-    }
-
+    const err = error as { message?: string };
+    const msg = err?.message ?? String(error);
+    console.error("[POST /api/generate] error:", msg);
     return NextResponse.json(
-      {
-        error: "Website generation is currently unavailable. Please try again in a few moments.",
-        code: "GENERATOR_UNAVAILABLE",
-      },
-      { status: 503 }
+      { error: msg || "Unable to save website", code: "PERSIST_ERROR" },
+      { status: 500 }
     );
   }
 }
