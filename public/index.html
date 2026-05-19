@@ -3,422 +3,832 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MDX — Website System Generator</title>
-  <meta name="description" content="Generate a complete multi-page Marcelo Design X website from a single niche prompt.">
+  <title>Ultra-Premium 3D Website System Generator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
-
-  <!-- The 3 luxury stylesheets that power 3D cinematic animations -->
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/modules.css">
-  <link rel="stylesheet" href="/css/intelligence.css">
-
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ── Root ── */
-    body { background: #060607; color: #F1F0EA; font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
-
-    /* ── Ambient depth ── */
-    .ambient {
-      position: fixed; inset: 0; pointer-events: none; z-index: 0;
-      background:
-        radial-gradient(ellipse 1200px 700px at 50% -10%, rgba(201,169,110,0.07) 0%, transparent 70%),
-        radial-gradient(ellipse 800px 500px at 80% 90%, rgba(108,99,255,0.04) 0%, transparent 60%);
+    /* ============================================================
+       GLOBAL RESET & BASE
+       ============================================================ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    /* ── Shell ── */
-    .shell {
-      position: relative; z-index: 2;
-      display: flex; flex-direction: column; align-items: center;
-      min-height: 100vh;
-      padding: 0 1.5rem;
+    :root {
+      --glass-bg: rgba(12, 12, 18, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-highlight: rgba(255, 255, 255, 0.03);
+      --accent-primary: #a78bfa;
+      --accent-glow: rgba(167, 139, 250, 0.35);
+      --surface-deep: #07070a;
+      --surface-raised: rgba(20, 20, 30, 0.85);
+      --text-primary: #f0f0f5;
+      --text-secondary: #a0a0b0;
+      --text-micro: #606070;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --font-family: 'Google Sans', 'Segoe UI', system-ui, sans-serif;
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-medium: 360ms cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-slow: 640ms cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* ── Hero ── */
-    .hero {
-      display: flex; flex-direction: column; align-items: center;
-      text-align: center;
-      padding: 7rem 0 4.5rem;
-      max-width: 820px; width: 100%;
-    }
-    .hero-eyebrow {
-      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em;
-      text-transform: uppercase; color: #C9A96E;
-      padding: 0.4rem 0.9rem;
-      border: 1px solid rgba(201,169,110,0.22);
-      border-radius: 4px;
-      margin-bottom: 2.25rem;
-    }
-    .hero-title {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(2.8rem, 6.5vw, 5.75rem);
-      font-weight: 500;
-      line-height: 1.04;
-      letter-spacing: -0.028em;
-      margin-bottom: 1.5rem;
-    }
-    .hero-title em { font-style: italic; font-weight: 400; }
-    /* gold gradient on the italic span */
-    .hero-title .gold { background: linear-gradient(135deg, #E8D5B7 0%, #C9A96E 40%, #A67B3D 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hero-sub {
-      font-size: 1.0625rem; color: rgba(241,240,234,0.5);
-      line-height: 1.75; max-width: 560px;
-    }
-
-    /* Pipeline label strip */
-    .pipeline {
-      display: flex; align-items: center; justify-content: center;
-      gap: 0.6rem; flex-wrap: wrap;
-      margin-top: 2.75rem;
-    }
-    .p-node {
-      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase; color: #C9A96E;
-      padding: 0.42rem 0.9rem;
-      background: rgba(201,169,110,0.06);
-      border: 1px solid rgba(201,169,110,0.16);
-      border-radius: 5px;
-    }
-    .p-arrow { color: rgba(201,169,110,0.35); font-size: 0.85rem; }
-
-    /* ── Generator card ── */
-    .card {
-      width: 100%; max-width: 820px;
-      background: linear-gradient(170deg, rgba(22,22,24,0.9) 0%, rgba(14,14,15,0.9) 100%);
-      border: 1px solid rgba(241,240,234,0.08);
-      border-radius: 22px;
-      padding: 3rem 3rem 2.75rem;
-      backdrop-filter: blur(18px);
-      box-shadow: 0 40px 100px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
-    }
-    @media (max-width: 640px) { .card { padding: 2rem 1.5rem 2rem; border-radius: 16px; } }
-
-    .field-label {
-      display: block;
-      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em;
-      text-transform: uppercase; color: rgba(241,240,234,0.45);
-      margin-bottom: 0.85rem;
-    }
-    textarea#nichePrompt {
+    html, body {
       width: 100%;
-      background: rgba(6,6,7,0.7);
-      border: 1px solid rgba(241,240,234,0.09);
-      border-radius: 13px;
-      padding: 1.375rem 1.5rem;
-      color: #F1F0EA;
-      font-family: 'Inter', sans-serif;
-      font-size: 1.0625rem;
-      line-height: 1.72;
-      resize: vertical; min-height: 140px;
-      outline: none;
-      transition: border-color 220ms, box-shadow 220ms;
-      caret-color: #C9A96E;
-    }
-    textarea#nichePrompt::placeholder { color: rgba(241,240,234,0.2); font-style: italic; }
-    textarea#nichePrompt:focus {
-      border-color: rgba(201,169,110,0.4);
-      box-shadow: 0 0 0 5px rgba(201,169,110,0.07);
+      height: 100%;
+      font-family: var(--font-family);
+      background: var(--surface-deep);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    .opt-row {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
-      margin-top: 1.25rem;
-    }
-    @media (max-width: 540px) { .opt-row { grid-template-columns: 1fr; } }
-    input.opt-field {
-      width: 100%;
-      background: rgba(6,6,7,0.7);
-      border: 1px solid rgba(241,240,234,0.09);
-      border-radius: 10px;
-      padding: 0.9rem 1.25rem;
-      color: #F1F0EA;
-      font-family: 'Inter', sans-serif;
-      font-size: 0.9375rem;
-      outline: none;
-      transition: border-color 220ms;
-    }
-    input.opt-field::placeholder { color: rgba(241,240,234,0.2); }
-    input.opt-field:focus { border-color: rgba(201,169,110,0.35); }
-
-    /* Generate button */
-    #generateBtn {
-      display: flex; align-items: center; justify-content: center; gap: 0.8rem;
-      width: 100%; margin-top: 2rem;
-      padding: 1.3rem 2rem;
-      background: linear-gradient(135deg, #E8D5B7 0%, #C9A96E 48%, #A67B3D 100%);
-      color: #0A0908;
-      font-family: 'Inter', sans-serif;
-      font-size: 0.9375rem; font-weight: 800;
-      letter-spacing: 0.09em; text-transform: uppercase;
-      border: none; border-radius: 13px;
-      cursor: pointer;
-      transition: transform 240ms cubic-bezier(0.16,1,0.3,1), box-shadow 240ms, opacity 200ms;
-    }
-    #generateBtn:not(:disabled):hover {
-      transform: translateY(-2px);
-      box-shadow: 0 20px 50px rgba(201,169,110,0.3), 0 4px 12px rgba(0,0,0,0.4);
-    }
-    #generateBtn:active { transform: translateY(0); }
-    #generateBtn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-    .btn-spinner {
-      width: 17px; height: 17px;
-      border: 2.5px solid rgba(10,9,8,0.25);
-      border-top-color: #0A0908;
-      border-radius: 50%;
-      animation: spin 0.65s linear infinite;
-      display: none; flex-shrink: 0;
-    }
-    #generateBtn.is-running .btn-spinner { display: block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Status bar */
-    .status-bar {
-      display: flex; align-items: center; gap: 0.85rem;
-      margin-top: 1.5rem;
-      padding: 0.9rem 1.25rem;
-      background: rgba(6,6,7,0.55);
-      border: 1px solid rgba(241,240,234,0.07);
-      border-radius: 10px;
-      font-size: 0.8rem;
-      color: rgba(241,240,234,0.55);
-      min-height: 46px;
-    }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-      background: rgba(241,240,234,0.25);
-      transition: background 300ms;
-    }
-    .status-bar[data-state="running"] .status-dot { background: #C9A96E; animation: pulse 1.2s ease-in-out infinite; }
-    .status-bar[data-state="done"] .status-dot { background: #4ADE80; animation: none; }
-    .status-bar[data-state="error"] .status-dot { background: #F87171; animation: none; }
-    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
-
-    /* ── Review window ── */
-    .review {
-      width: 100%; max-width: 1480px;
-      margin: 4rem 0 0;
-      opacity: 0; transform: translateY(28px);
+    /* ============================================================
+       AMBIENT BACKGROUND LAYER
+       ============================================================ */
+    .ambient-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
       pointer-events: none;
-      transition: opacity 550ms cubic-bezier(0.16,1,0.3,1), transform 550ms cubic-bezier(0.16,1,0.3,1);
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 30%, rgba(90, 60, 180, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 70%, rgba(60, 140, 200, 0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 50% 50%, rgba(20, 20, 35, 0.80) 0%, transparent 100%);
+      animation: ambientDrift 20s ease-in-out infinite alternate;
     }
-    .review.is-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
-    .review-head {
-      display: flex; align-items: flex-end; justify-content: space-between;
-      gap: 1.5rem; padding-bottom: 1.75rem;
-      border-bottom: 1px solid rgba(241,240,234,0.06);
-      margin-bottom: 2rem; flex-wrap: wrap;
+    @keyframes ambientDrift {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-20px, 10px) scale(1.02); }
+      100% { transform: translate(10px, -15px) scale(1.01); }
     }
-    .review-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem; font-weight: 500; color: #F1F0EA;
-    }
-    .review-sub { font-size: 0.85rem; color: rgba(241,240,234,0.45); margin-top: 0.3rem; }
-    .review-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
-    .ghost-btn {
-      padding: 0.65rem 1.1rem;
-      background: rgba(201,169,110,0.07);
-      border: 1px solid rgba(201,169,110,0.2);
-      color: #C9A96E;
+    /* ============================================================
+       MAIN LAYOUT
+       ============================================================ */
+    .cockpit-shell {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    .cockpit-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(140%);
+      -webkit-backdrop-filter: blur(24px) saturate(140%);
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-emblem {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-primary), #818cf8);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    .brand-typography h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .brand-typography span {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .system-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 100px;
+      background: rgba(52, 211, 153, 0.10);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.20);
+    }
+
+    /* ============================================================
+       PRIMARY WORKSPACE
+       ============================================================ */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      grid-template-rows: 1fr;
+      gap: 0;
+      min-height: 0;
+    }
+
+    @media (max-width: 1200px) {
+      .workspace-grid {
+        grid-template-columns: 360px 1fr;
+      }
+    }
+
+    @media (max-width: 960px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+      }
+    }
+
+    /* ============================================================
+       LEFT PANEL: INPUT & CONTROLS
+       ============================================================ */
+    .control-atelier {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 32px;
+      border-right: 1px solid var(--glass-border);
+      background: linear-gradient(180deg, var(--glass-bg) 0%, rgba(10, 10, 16, 0.92) 100%);
+      backdrop-filter: blur(20px) saturate(120%);
+      -webkit-backdrop-filter: blur(20px) saturate(120%);
+      overflow-y: auto;
+    }
+
+    .panel-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-micro);
+      margin-bottom: 10px;
+    }
+
+    .prompt-chamber {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .prompt-textarea {
+      width: 100%;
+      min-height: 160px;
+      padding: 18px 20px;
+      font-family: var(--font-family);
+      font-size: 0.92rem;
+      font-weight: 400;
+      line-height: 1.55;
+      color: var(--text-primary);
+      background: var(--surface-raised);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .prompt-textarea::placeholder {
+      color: var(--text-micro);
+    }
+
+    .prompt-textarea:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .compile-cta {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 24px;
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #fff;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+      box-shadow: 0 4px 24px rgba(79, 70, 229, 0.35);
+    }
+
+    .compile-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px rgba(79, 70, 229, 0.45);
+    }
+
+    .compile-cta:active {
+      transform: translateY(0);
+    }
+
+    .compile-cta .cta-shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%);
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+    }
+
+    .compile-cta:hover .cta-shimmer {
+      transform: translateX(100%);
+    }
+
+    .compile-cta.compiling {
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    .compile-cta.compiling .cta-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ============================================================
+       DIAGNOSTIC READOUT PANEL
+       ============================================================ */
+    .diagnostic-readout {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .readout-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 16px 18px;
+      background: var(--surface-raised);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .readout-card:hover {
+      border-color: rgba(167, 139, 250, 0.25);
+      background: rgba(20, 20, 32, 0.95);
+    }
+
+    .readout-card .readout-key {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-micro);
+    }
+
+    .readout-card .readout-value {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .readout-card .readout-value.mono {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.02em;
+    }
+
+    .readout-card .readout-palette-strip {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .readout-card .palette-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+
+    .readout-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-micro);
+      transition: background var(--transition-fast);
+    }
+
+    .status-dot.active {
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
+    }
+
+    .status-dot.generating {
+      background: var(--warning);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ============================================================
+       VALIDATION WARNING SYSTEM
+       ============================================================ */
+    .validation-panel {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--danger);
+      margin-top: 4px;
+      transition: all var(--transition-fast);
+    }
+
+    .validation-panel--visible {
+      display: flex;
+      animation: validationReveal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .validation-panel--warning {
+      background: rgba(251, 191, 36, 0.08);
+      border-color: rgba(251, 191, 36, 0.3);
+      color: var(--warning);
+    }
+
+    .validation-panel--error {
+      background: rgba(248, 113, 113, 0.08);
+      border-color: rgba(248, 113, 113, 0.25);
+      color: var(--danger);
+    }
+
+    @keyframes validationReveal {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .validation-icon {
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .prompt-textarea--error {
+      border-color: var(--danger) !important;
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15) !important;
+    }
+
+    /* ============================================================
+       CINEMATIC SYSTEM LOADER OVERLAY
+       ============================================================ */
+    .system-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 5, 8, 0.88);
+      backdrop-filter: blur(24px) saturate(120%);
+      -webkit-backdrop-filter: blur(24px) saturate(120%);
+    }
+
+    .system-loader--visible {
+      display: flex;
+      animation: loaderFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes loaderFadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .loader-core {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      max-width: 480px;
+      padding: 0 32px;
+      text-align: center;
+    }
+
+    .loader-orbital {
+      width: 56px;
+      height: 56px;
+      border: 3px solid rgba(255,255,255,0.06);
+      border-top-color: var(--accent-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .loader-detail {
+      font-size: 0.78rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+      min-height: 1.2em;
+      transition: opacity 0.2s ease;
+    }
+
+    .loader-progress-track {
+      width: 240px;
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .loader-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-primary), var(--success));
+      border-radius: 2px;
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .loader-step-count {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-micro);
+    }
+
+    /* ============================================================
+       RIGHT PANEL: PREVIEW THEATER
+       ============================================================ */
+    .preview-theater {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: #050508;
+      overflow: hidden;
+    }
+
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--glass-border);
+      z-index: 2;
+    }
+
+    .preview-toolbar .toolbar-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .preview-toolbar .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .preview-toolbar .toolbar-btn {
+      padding: 6px 14px;
+      font-family: var(--font-family);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      background: transparent;
+      border: 1px solid var(--glass-border);
       border-radius: 8px;
-      font-family: 'Inter', sans-serif;
-      font-size: 0.78rem; font-weight: 700;
-      letter-spacing: 0.04em; text-transform: uppercase;
-      cursor: pointer; transition: background 180ms;
-    }
-    .ghost-btn:not(:disabled):hover { background: rgba(201,169,110,0.14); }
-    .ghost-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-    /* Metrics */
-    .metrics {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 1rem; margin-bottom: 2rem;
-    }
-    .metric {
-      background: rgba(20,20,21,0.75);
-      border: 1px solid rgba(241,240,234,0.06);
-      border-radius: 11px; padding: 1.25rem 1.5rem;
-    }
-    .metric-v {
-      display: block; font-family: 'Playfair Display', serif;
-      font-size: 1.85rem; font-weight: 500; color: #C9A96E; line-height: 1.1;
-    }
-    .metric-l {
-      display: block; margin-top: 0.4rem;
-      font-size: 0.65rem; font-weight: 700;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: rgba(241,240,234,0.4);
+      cursor: pointer;
+      transition: all var(--transition-fast);
     }
 
-    /* Route pills */
-    .route-strip {
-      display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem;
-    }
-    .route-pill {
-      display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem;
-      padding: 0.6rem 1rem;
-      background: rgba(18,18,19,0.8);
-      border: 1px solid rgba(241,240,234,0.07);
-      border-radius: 8px;
-      font-family: 'Inter', sans-serif;
-      color: rgba(241,240,234,0.65);
-      cursor: pointer; transition: all 180ms; text-align: left;
-    }
-    .route-pill:hover { border-color: rgba(201,169,110,0.3); color: #F1F0EA; }
-    .route-pill.is-on { background: rgba(201,169,110,0.1); border-color: rgba(201,169,110,0.4); color: #F1F0EA; }
-    .route-pill-label { font-size: 0.85rem; font-weight: 600; }
-    .route-pill-path { font-size: 0.68rem; color: #C9A96E; letter-spacing: 0.04em; }
-
-    /* Preview frame */
-    .frame-shell {
-      background: #0A0A0B;
-      border: 1px solid rgba(241,240,234,0.07);
-      border-radius: 16px; overflow: hidden;
-    }
-    .frame-chrome {
-      display: flex; align-items: center; gap: 0.65rem;
-      padding: 0.7rem 1.1rem;
-      background: rgba(18,18,19,0.7);
-      border-bottom: 1px solid rgba(241,240,234,0.05);
-    }
-    .f-dot { width: 11px; height: 11px; border-radius: 50%; }
-    .f-dot:nth-child(1){background:rgba(248,113,113,0.65)}
-    .f-dot:nth-child(2){background:rgba(251,191,36,0.65)}
-    .f-dot:nth-child(3){background:rgba(74,222,128,0.65)}
-    .frame-url {
-      margin-left: 1rem; font-family: 'Menlo', monospace;
-      font-size: 0.72rem; color: rgba(241,240,234,0.38);
-    }
-    iframe#preview {
-      width: 100%; height: 78vh; min-height: 580px;
-      border: none; background: #060607; display: block;
+    .preview-toolbar .toolbar-btn:hover {
+      color: var(--text-primary);
+      border-color: rgba(255,255,255,0.18);
+      background: var(--glass-highlight);
     }
 
-    /* Log */
-    .log-wrap {
-      width: 100%; max-width: 1480px;
-      margin: 2.5rem 0 6rem;
-      background: rgba(12,12,13,0.75);
-      border: 1px solid rgba(241,240,234,0.06);
-      border-radius: 14px; overflow: hidden;
+    .preview-viewport {
+      flex: 1;
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: 24px;
     }
-    .log-head {
-      padding: 0.9rem 1.5rem;
-      background: rgba(18,18,19,0.8);
-      border-bottom: 1px solid rgba(241,240,234,0.05);
-      font-size: 0.65rem; font-weight: 700;
-      letter-spacing: 0.12em; text-transform: uppercase;
-      color: rgba(241,240,234,0.45);
-    }
-    #log {
-      padding: 0.75rem 1.5rem;
-      max-height: 260px; overflow-y: auto;
-      font-family: 'Menlo', 'Monaco', monospace;
-    }
-    .log-row {
-      display: flex; gap: 1rem; padding: 0.45rem 0;
-      font-size: 0.76rem;
-      border-bottom: 1px solid rgba(241,240,234,0.04);
-    }
-    .log-row:last-child { border-bottom: none; }
-    .log-s {
-      flex-shrink: 0; width: 110px;
-      font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-      color: #C9A96E;
-    }
-    .log-m { color: rgba(241,240,234,0.65); }
-    .log-row[data-ok="done"] .log-s { color: #4ADE80; }
-    .log-row[data-ok="err"] .log-s { color: #F87171; }
-    .log-row[data-ok="err"] .log-m { color: #FCA5A5; }
 
-    ::-webkit-scrollbar{width:5px;height:5px}
-    ::-webkit-scrollbar-track{background:transparent}
-    ::-webkit-scrollbar-thumb{background:rgba(201,169,110,0.2);border-radius:3px}
+    .preview-iframe-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1280px;
+      height: 100%;
+      max-height: 800px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.04);
+      background: #000;
+    }
+
+    .preview-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    .preview-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: var(--text-micro);
+      pointer-events: none;
+    }
+
+    .preview-placeholder .ph-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: var(--surface-raised);
+      display: grid;
+      place-items: center;
+      font-size: 28px;
+    }
+
+    .preview-placeholder p {
+      font-size: 0.85rem;
+      font-weight: 400;
+      text-align: center;
+      max-width: 280px;
+      line-height: 1.5;
+    }
+
+    .preview-iframe-wrapper.has-content .preview-placeholder {
+      display: none;
+    }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    .cockpit-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-top: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      font-size: 0.72rem;
+      color: var(--text-micro);
+    }
+
+    .cockpit-footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+    }
+
+    .cockpit-footer a:hover {
+      color: var(--accent-primary);
+    }
+
+    /* ============================================================
+       SCROLLBAR STYLING
+       ============================================================ */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.12);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.22);
+    }
   </style>
 </head>
 <body>
-<div class="ambient"></div>
+  <div class="ambient-canvas"></div>
 
-<div class="shell">
-
-  <!-- ── Hero ── -->
-  <header class="hero">
-    <span class="hero-eyebrow">MDX Website System Generator</span>
-    <h1 class="hero-title">
-      One prompt.<br>
-      <em><span class="gold">Ultra-premium</span> multi-page site.</em>
-    </h1>
-    <p class="hero-sub">
-      Describe your business niche. The intelligence engine plans the full architecture, generates
-      studio-grade contextual image prompts for every asset, then compiles a 3D cinematic
-      Marcelo Design X site — all in your browser, zero API cost.
-    </p>
-    <div class="pipeline">
-      <span class="p-node">Intelligence</span><span class="p-arrow">→</span>
-      <span class="p-node">PageStitcher</span><span class="p-arrow">→</span>
-      <span class="p-node">AssetInversion</span><span class="p-arrow">→</span>
-      <span class="p-node">DocumentTransform</span><span class="p-arrow">→</span>
-      <span class="p-node">Emit</span>
-    </div>
-  </header>
-
-  <!-- ── Generator card ── -->
-  <section class="card">
-    <label class="field-label" for="nichePrompt">Describe your niche for a premium multi-page site</label>
-    <textarea id="nichePrompt" rows="5"
-      placeholder="A luxury leather goods atelier in Milan specializing in hand-stitched minimalist accessories for the modern gentleman…">A luxury leather goods atelier in Milan specializing in hand-stitched minimalist accessories for the modern gentleman</textarea>
-
-    <div class="opt-row">
-      <input class="opt-field" id="businessName" type="text" placeholder="Business name (optional)">
-      <input class="opt-field" id="authToken" type="password" placeholder="Auth token (for saving to dashboard)">
-    </div>
-
-    <button type="button" id="generateBtn">
-      <span class="btn-spinner"></span>
-      <span class="btn-label">Generate Marcelo Design X System</span>
-    </button>
-
-    <div class="status-bar" id="statusBar" data-state="idle">
-      <span class="status-dot"></span>
-      <span id="statusText">Ready — click <strong>Generate Marcelo Design X System</strong> to begin.</span>
-    </div>
-  </section>
-
-  <!-- ── Review window ── -->
-  <section class="review" id="review">
-    <div class="review-head">
-      <div>
-        <h2 class="review-title">Generated Site</h2>
-        <p class="review-sub" id="reviewSub">Switch pages using the route pills below.</p>
+  <div class="cockpit-shell">
+    <!-- HEADER -->
+    <header class="cockpit-header">
+      <div class="brand-lockup">
+        <div class="brand-emblem">3D</div>
+        <div class="brand-typography">
+          <h1>Ultra-Premium 3D System</h1>
+          <span>Procedural Intelligence Engine</span>
+        </div>
       </div>
-      <div class="review-actions">
-        <button type="button" class="ghost-btn" id="downloadBtn" disabled>Download Bundle</button>
-        <button type="button" class="ghost-btn" id="saveBtn" disabled>Save to Dashboard</button>
-      </div>
+      <div class="system-pill">v2.0 Live</div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="workspace-grid">
+      <!-- LEFT: CONTROLS -->
+      <aside class="control-atelier">
+        <div class="prompt-chamber">
+          <div class="panel-label">Mission Briefing</div>
+          <textarea
+            id="promptInput"
+            class="prompt-textarea"
+            placeholder="Describe your vision with extreme precision. Example: 'Design a luxury e-commerce experience for an Italian artisan shoe brand named Velasca, featuring rich obsidian textures, macro product photography, and editorial craft storytelling.'"
+          ></textarea>
+
+          <!-- Validation Warning Panel -->
+          <div id="validationPanel" class="validation-panel">
+            <span class="validation-icon">&#9888;</span>
+            <span id="validationText" class="validation-text">Validation message</span>
+          </div>
+
+          <button id="compileBtn" class="compile-cta">
+            <span class="cta-shimmer"></span>
+            <span class="cta-label">Compile Procedural Engine</span>
+            <span class="cta-spinner" style="display:none;"></span>
+          </button>
+        </div>
+
+        <div class="diagnostic-readout">
+          <div class="panel-label">Live Diagnostic Telemetry</div>
+
+          <div class="readout-card">
+            <span class="readout-key">Detected Category</span>
+            <span class="readout-value" id="diagCategory">Awaiting input...</span>
+            <div class="readout-status">
+              <span class="status-dot" id="dotCategory"></span>
+              <span id="statusCategory">Idle</span>
+            </div>
+          </div>
+
+          <div class="readout-card">
+            <span class="readout-key">Extracted Niche</span>
+            <span class="readout-value" id="diagNiche">—</span>
+            <div class="readout-status">
+              <span class="status-dot" id="dotNiche"></span>
+              <span id="statusNiche">Idle</span>
+            </div>
+          </div>
+
+          <div class="readout-card">
+            <span class="readout-key">Algorithmic Palette Coordinates</span>
+            <span class="readout-value mono" id="diagPalette">—</span>
+            <div class="readout-palette-strip" id="paletteStrip">
+              <!-- Swatches injected here -->
+            </div>
+            <div class="readout-status">
+              <span class="status-dot" id="dotPalette"></span>
+              <span id="statusPalette">Idle</span>
+            </div>
+          </div>
+
+          <div class="readout-card">
+            <span class="readout-key">Generated Component Stack Count</span>
+            <span class="readout-value mono" id="diagStackCount">—</span>
+            <div class="readout-status">
+              <span class="status-dot" id="dotStack"></span>
+              <span id="statusStack">Idle</span>
+            </div>
+          </div>
+
+          <div class="readout-card">
+            <span class="readout-key">Generation Signature</span>
+            <span class="readout-value mono" id="diagSignature">—</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT: PREVIEW -->
+      <section class="preview-theater">
+        <!-- Cinematic System Loader Overlay -->
+        <div id="systemLoader" class="system-loader">
+          <div class="loader-core">
+            <div class="loader-orbital"></div>
+            <div class="loader-title" id="loaderTitle">Compiling Procedural Engine</div>
+            <div class="loader-detail" id="loaderDetail">Initializing pipeline...</div>
+            <div class="loader-progress-track">
+              <div class="loader-progress-bar" id="loaderProgress"></div>
+            </div>
+            <div class="loader-step-count" id="loaderStepCount">0 / 20</div>
+          </div>
+        </div>
+
+        <div class="preview-toolbar">
+          <span class="toolbar-title">Live Preview Theater</span>
+          <div class="toolbar-actions">
+            <button class="toolbar-btn" id="btnRefreshPreview" title="Refresh Preview">Refresh</button>
+            <button class="toolbar-btn" id="btnOpenExternal" title="Open in New Window">Open</button>
+          </div>
+        </div>
+        <div class="preview-viewport">
+          <div class="preview-iframe-wrapper" id="previewWrapper">
+            <iframe
+              id="previewFrame"
+              class="preview-iframe"
+              sandbox="allow-scripts allow-same-origin"
+              title="Generated Preview"
+            ></iframe>
+            <div class="preview-placeholder">
+              <div class="ph-icon">&#x1F4BB;</div>
+              <p>Enter a mission briefing and compile the procedural engine to generate your unique 3D website preview.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <div class="metrics" id="metrics"></div>
-    <div class="route-strip" id="routeStrip"></div>
-
-    <div class="frame-shell">
-      <div class="frame-chrome">
-        <span class="f-dot"></span><span class="f-dot"></span><span class="f-dot"></span>
-        <span class="frame-url" id="frameUrl">mdx://preview</span>
-      </div>
-      <iframe id="preview" title="Generated site preview" sandbox="allow-scripts allow-same-origin"></iframe>
-    </div>
-  </section>
-
-  <!-- ── Pipeline log ── -->
-  <div class="log-wrap">
-    <div class="log-head">Pipeline Event Log</div>
-    <div id="log"></div>
+    <!-- FOOTER -->
+    <footer class="cockpit-footer">
+      <span>Ultra-Premium 3D Website System Generator &mdash; Procedural Intelligence Engine</span>
+      <span><a href="#" onclick="event.preventDefault();">Documentation</a> &middot; <a href="#" onclick="event.preventDefault();">System Status</a></span>
+    </footer>
   </div>
 
-</div><!-- .shell -->
-
-<!-- ONLY generation engine wired here — no old generator references -->
-<script type="module" src="/js/system-gateway.js"></script>
+  <!-- ============================================================
+       SCRIPTS
+       ============================================================ -->
+  <script src="js/intelligence-engine.js"></script>
+  <script src="js/virtual-router.js"></script>
+  <script src="js/layout-compiler.js"></script>
+  <script src="js/system-gateway.js"></script>
 </body>
 </html>
