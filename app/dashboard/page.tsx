@@ -141,13 +141,11 @@ function DashboardContent() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [status]);
-  // When the 3D generator engine redirects back with ?saved=1, refresh the
-  // website list so the freshly persisted site shows up immediately.
+  // The 3D engine now redirects straight to /editor/:id after save.
+  // Keep this handler as a fallback in case the engine ever redirects here.
   useEffect(() => {
     if (searchParams.get("saved") === "1") {
-      toast.success("Website saved to your account");
       fetchData();
-      // Strip the param so a refresh doesn't re-toast.
       router.replace("/dashboard");
     }
   }, [searchParams]);

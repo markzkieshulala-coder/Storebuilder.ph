@@ -499,9 +499,10 @@
         return;
       }
 
-      // Success — redirect to dashboard with a one-shot saved flag.
-      setSaveState('saving', 'Saved. Redirecting...');
-      window.location.href = '/dashboard?saved=1';
+      // Success — redirect to the editor so the user can fine-tune the site
+      // immediately, matching the original dashboard generate → editor flow.
+      setSaveState('saving', 'Saved. Opening editor...');
+      window.location.href = '/editor/' + data.website.id;
     } catch (err) {
       console.error('[SystemGateway] Save failure:', err);
       setSaveState('idle', 'Save to My Account');
