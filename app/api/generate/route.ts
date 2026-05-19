@@ -6,8 +6,31 @@ import { prisma } from "@/lib/prisma";
 import { generateSubdomain } from "@/lib/utils";
 import { Plan } from "@prisma/client";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
 
 export const maxDuration = 60;
+
+// Inline premium-core.css into the generated HTML so the page is self-contained.
+// The engine emits a relative <link href="css/premium-core.css"> which resolves
+// fine at /index.html but breaks in srcdoc iframes and published subdomains.
+let _premiumCssCache: string | null = null;
+function inlinePremiumCss(html: string): string {
+  try {
+    if (_premiumCssCache === null) {
+      const cssPath = path.join(process.cwd(), "public", "css", "premium-core.css");
+      _premiumCssCache = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, "utf8") : "";
+    }
+    if (!_premiumCssCache) return html;
+    const styleBlock = `<style data-premium-core="inline">\n${_premiumCssCache}\n</style>`;
+    const linked = html.replace(/<link[^>]+premium-core\.css[^>]*>/gi, styleBlock);
+    if (linked !== html) return linked;
+    // No link tag found — inject before </head>
+    return html.replace(/<\/head>/i, styleBlock + "\n</head>");
+  } catch {
+    return html;
+  }
+}
 
 // Map an industry/niche string to a valid Prisma WebsiteType enum value.
 function inferWebsiteType(niche: string): string {
@@ -84,8 +107,12 @@ export async function POST(req: NextRequest) {
       ? inferWebsiteType(industry)
       : inferWebsiteType(prompt);
 
+    // Inline premium-core.css so the saved HTML is fully self-contained and
+    // renders with all 3D styles in the editor srcdoc iframe, published pages, etc.
+    const finalHtml = inlinePremiumCss(precompiledHtml);
+
     const result = {
-      htmlContent: precompiledHtml,
+      htmlContent: finalHtml,
       name: siteName,
       type: websiteType,
       seoTitle: `${siteName}${industry ? " — " + industry : ""}`,

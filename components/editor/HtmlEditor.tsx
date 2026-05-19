@@ -161,6 +161,14 @@ const EDITOR_BRIDGE = `
     }
   });
 
+  // Immediately activate hidden-3d elements so the editor shows full content
+  // without requiring the user to scroll. The IntersectionObserver in the page
+  // handles the live /index.html preview; here we skip the scroll gating.
+  document.querySelectorAll('.hidden-3d').forEach(function(el) {
+    el.classList.add('active-3d');
+    el.classList.remove('hidden-3d');
+  });
+
   // Announce ready
   window.parent.postMessage({ type: 'SB_READY' }, '*');
 })();

@@ -31,6 +31,16 @@
       this._assetIndex = 0;
     }
 
+    // --- Picsum image helper -------------------------------------------------
+    // Returns a deterministic, unique image URL for an asset slot.
+    // Uses the asset's numeric seed so the same prompt always gives the same image.
+    _img(asset, cls) {
+      const w = 1200, h = 800;
+      const seed = asset.seed || (this._assetIndex * 31 + 1);
+      const url = `https://picsum.photos/seed/${seed}/${w}/${h}`;
+      return `<img class="asset-img${cls ? ' ' + cls : ''}" src="${url}" alt="${this.niche}" loading="lazy" decoding="async">`;
+    }
+
     // --- Asset Slot Rotator ------------------------------------------------
     _nextAsset() {
       const asset = this.assets[this._assetIndex % this.assets.length];
@@ -80,6 +90,69 @@
           --ambient-float-freq: ${this.spatial.ambientFloatFrequency || 0.4}s;
           --blur-backdrop: ${this.spatial.blurBackdrop || 16}px;
         }
+
+        /* === Asset Slot System — Procedural Image Containers === */
+        .asset-slot {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          min-height: 320px;
+          overflow: hidden;
+          border-radius: 16px;
+          background: ${p.surface};
+          border: 1px solid ${p.border};
+        }
+        .asset-slot .asset-img {
+          width: 100%;
+          height: 100%;
+          min-height: 320px;
+          object-fit: cover;
+          display: block;
+          border-radius: inherit;
+          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .asset-slot:hover .asset-img { transform: scale(1.04); }
+        .asset-slot--macro  { border-radius: 20px; }
+        .asset-slot--cinematic { border-radius: 0; min-height: 100%; }
+        .asset-slot--editorial { min-height: 280px; border-radius: 14px; }
+        .asset-slot--immersive { border-radius: 0; min-height: 100%; }
+        .asset-slot--3d { border-radius: 50%; min-height: 280px; }
+        .asset-slot .asset-label {
+          position: absolute;
+          bottom: 10px;
+          left: 12px;
+          font-size: 0.6rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.4);
+          pointer-events: none;
+          z-index: 2;
+        }
+        /* === Card & Grid Panels === */
+        .card-panel, .product-card, .showcase-card, .capability-card,
+        .feature-card, .team-card, .proof-card {
+          background: ${p.surface};
+          border: 1px solid ${p.border};
+          border-radius: 18px;
+          overflow: hidden;
+          transition: transform 0.35s cubic-bezier(0.16,1,0.3,1),
+                      box-shadow 0.35s ease;
+        }
+        .card-panel:hover, .product-card:hover, .showcase-card:hover,
+        .capability-card:hover, .feature-card:hover {
+          transform: translateY(-6px) translateZ(${this.spatial.hoverLiftZ || 40}px);
+          box-shadow: 0 24px 56px rgba(0,0,0,0.35);
+        }
+        .card-visual { width: 100%; aspect-ratio: 4/3; overflow: hidden; }
+        .card-visual .asset-img { width:100%; height:100%; object-fit:cover; display:block; }
+        .card-body { padding: 20px 22px; }
+        .card-title {
+          font-size: var(--font-h2);
+          font-weight: 700;
+          color: var(--color-text);
+          margin-bottom: 8px;
+        }
+        .card-desc { font-size: var(--font-body); color: var(--color-text-secondary); line-height: 1.5; }
       `;
     }
 
@@ -1549,14 +1622,36 @@
       `.replace(/<\/script>/g, '</script>');
     }
 
+    // --- Asset-slot image injector ------------------------------------------
+    // After HTML is assembled as a string, walk every <div class="asset-slot…">
+    // and inject a picsum <img> using the slot's sequential index as the seed.
+    // This is deterministic: same site compile → same images.
+    _injectImages(html) {
+      let idx = 0;
+      const brand = this.brand || this.niche || 'site';
+      return html.replace(
+        /(<div\s[^>]*class="[^"]*asset-slot[^"]*"[^>]*>)/g,
+        (match) => {
+          const seed = Math.abs(this._hashStr(brand + '-' + idx)) % 900000 + 100000;
+          const img = `<img class="asset-img" src="https://picsum.photos/seed/${seed}/1200/800" alt="${this.niche}" loading="lazy" decoding="async" style="width:100%;height:100%;min-height:320px;object-fit:cover;display:block;border-radius:inherit;">`;
+          idx++;
+          return match + img;
+        }
+      );
+    }
+
+    _hashStr(s) {
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return h >>> 0;
+    }
+
     // --- Page compilation ---------------------------------------------------
     compilePage(path) {
-      const isHome = path === '/home';
       const pageTitle = this.brand + ' — ' + this._routeLabel(path);
-
       const sectionsHTML = this.stack.map(comp => this._buildSection(comp)).join('\n');
 
-      const html = `<!DOCTYPE html>
+      let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1581,6 +1676,10 @@
   ${this._generateObserverScript()}
 </body>
 </html>`;
+
+      // Inject real picsum images into every asset-slot so the page renders
+      // with actual visuals rather than empty placeholder boxes.
+      html = this._injectImages(html);
 
       return html;
     }
