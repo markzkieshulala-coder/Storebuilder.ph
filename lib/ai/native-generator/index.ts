@@ -465,7 +465,7 @@ const NICHE_CONFIGS: Record<Niche, Omit<WebsiteConfig,
 
 function detectNiche(prompt: string): Niche {
   const p = prompt.toLowerCase();
-  if (/\bshop\b|\bstore\b|\bsell\b|\bproduct\b|\becommerce\b|\be-commerce\b|\bmerch\b/.test(p)) return "STORE";
+  if (/\bshop\b|\bstore\b|\bsell\b|\bproduct\b|\becommerce\b|\be-commerce\b|\bmerch\b|\bbasketball\b|\bsports?\b|\bsoccer\b|\bfootball\b|\btennis\b|\bfitness\b|\bgym\b|\bjersey\b|\bsneaker\b|\bshoe\b/.test(p)) return "STORE";
   if (/restaurant|cafe|coffee|food|menu|bistro|diner|eatery|\bbar\b|grill|kitchen/.test(p)) return "RESTAURANT";
   if (/salon|spa|barber|nail\b|beauty|hair\b|skincare|waxing|massage/.test(p)) return "SALON";
   if (/portfolio|freelance|designer|photographer|artist|creative|architect/.test(p)) return "PORTFOLIO";
@@ -480,6 +480,7 @@ function extractBusinessName(prompt: string): string {
     /(?:brand(?:\s+name)?\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/,
     /(?:store\s+name\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/,
     /(?:business\s+name\s*[:\-–]\s*)["']?([A-Z][A-Za-z0-9\s&'.]+?)["']?(?:\n|,|\.|$)/,
+    /(?:(?:for|called|named)\s+["']?)([A-Z][A-Za-z0-9\s&'.]*?'s)(?:\s|,|\.|$)/,
     /(?:called\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40})["']?/,
     /(?:named\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,40})["']?/,
     /(?:for\s+["']?)([A-Z][A-Za-z0-9\s&'.]{2,30})(?:["']?\s*,|\s+(?:website|store|shop|brand|salon|restaurant))/,
@@ -931,6 +932,35 @@ function compileWebsite(cfg: WebsiteConfig): string {
 })();
 </script>`;
 
+  const cinematicEngine = `
+<script>
+(function(){
+  var io=window.IntersectionObserver&&new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting)e.target.classList.add('is-visible');});
+  },{threshold:0.12,rootMargin:'0px 0px -60px 0px'});
+  if(io){
+    document.querySelectorAll('.feature-card,.philosophy-card,.cinematic-slide,.page-section__inner,.hero-canvas__content,.cinematic-showcase__header,.feature-grid__header').forEach(function(el){
+      el.classList.add('scroll-reveal');
+      io.observe(el);
+    });
+  }
+  var lerpOn=false,tY=0,cY=0;
+  function lerpStep(){
+    cY+=(tY-cY)*0.1;
+    var d=Math.abs(cY-tY);
+    window.scrollTo(0,Math.round(cY));
+    if(d>0.5)requestAnimationFrame(lerpStep);
+    else{window.scrollTo(0,tY);lerpOn=false;}
+  }
+  window.addEventListener('wheel',function(e){
+    e.preventDefault();
+    if(!lerpOn){cY=window.scrollY||0;tY=cY;}
+    tY=Math.max(0,Math.min(tY+e.deltaY*1.2,document.body.scrollHeight-window.innerHeight));
+    if(!lerpOn){lerpOn=true;requestAnimationFrame(lerpStep);}
+  },{passive:false});
+})();
+</script>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -940,13 +970,24 @@ function compileWebsite(cfg: WebsiteConfig): string {
   <meta name="description" content="${cfg.seoDesc}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/modules.css">
+  <style>
+    *{font-family:'Google Sans',system-ui,sans-serif!important}
+    body{overflow-x:hidden;perspective:1000px;perspective-origin:50% 50%;transform-style:preserve-3d}
+    .hero-canvas,.feature-grid,.cinematic-showcase,[id="testimonials"],[id="contact"],[id="footer"]{transform-style:preserve-3d;backface-visibility:hidden}
+    .scroll-reveal{opacity:0;transform:translateY(100px) translateZ(-150px) rotateX(15deg);filter:blur(10px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1),filter .9s cubic-bezier(.16,1,.3,1)}
+    .scroll-reveal.is-visible{opacity:1;transform:translateY(0) translateZ(0) rotateX(0deg);filter:blur(0)}
+    .feature-card{background:rgba(255,255,255,.03)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border:1px solid rgba(255,255,255,.08)!important;box-shadow:0 20px 50px rgba(0,0,0,.3)!important}
+    .philosophy-card{background:rgba(255,255,255,.03)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border:1px solid rgba(255,255,255,.08)!important;box-shadow:0 20px 50px rgba(0,0,0,.3)!important}
+    .cinematic-slide__text{background:rgba(255,255,255,.03)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border:1px solid rgba(255,255,255,.08)!important;box-shadow:0 20px 50px rgba(0,0,0,.3)!important}
+  </style>
 </head>
 <body>
 ${sections}
 ${virtualRouterJS}
+${cinematicEngine}
 </body>
 </html>`;
 }
