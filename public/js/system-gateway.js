@@ -561,9 +561,52 @@
 
   function init() {
     bindEvents();
-    // Seed demo prompt if empty
-    if (DOM.promptInput && !DOM.promptInput.value.trim()) {
+
+    // The dashboard hands off the user's brief via ?prompt=…&autorun=1.
+    // Honour those parameters before falling back to the demo seed so users
+    // who clicked "Generate Website" on the dashboard see their own prompt
+    // running immediately, not the Velasca placeholder.
+    var seededFromUrl = false;
+    var shouldAutorun = false;
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var urlPrompt = params.get('prompt');
+      if (urlPrompt && DOM.promptInput) {
+        DOM.promptInput.value = urlPrompt;
+        seededFromUrl = true;
+      }
+      shouldAutorun = params.get('autorun') === '1';
+      // Strip query string so a refresh doesn't re-trigger the autorun.
+      if (seededFromUrl || shouldAutorun) {
+        var clean = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, clean);
+      }
+    } catch (_) { /* URLSearchParams unavailable — fall through */ }
+
+    // Seed demo prompt if empty (and the URL didn't supply one)
+    if (!seededFromUrl && DOM.promptInput && !DOM.promptInput.value.trim()) {
       DOM.promptInput.value = 'Build a luxury e-commerce website for an Italian artisan shoe brand named Velasca, featuring rich obsidian textures, macro product photography, and editorial craft storytelling.';
+    }
+
+    // Auto-run when the dashboard requested it. Wait for the engine modules
+    // (intelligence-engine, layout-compiler, virtual-router) to be present
+    // since they may finish parsing after this script.
+    if (shouldAutorun && seededFromUrl) {
+      var attempts = 0;
+      var poll = setInterval(function() {
+        attempts++;
+        var ready = window.ProceduralIntelligenceEngine &&
+                    window.LayoutCompiler &&
+                    window.VirtualRouter;
+        if (ready) {
+          clearInterval(poll);
+          runPipeline();
+        } else if (attempts > 40) {
+          // ~4 s window — give up and let the user click manually.
+          clearInterval(poll);
+          showValidation('Engine modules failed to load. Click "Compile" to retry.', 'error');
+        }
+      }, 100);
     }
   }
 

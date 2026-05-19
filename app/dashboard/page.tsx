@@ -43,6 +43,14 @@ type Credits = {
   slots?: { used: number; limit: number; remaining: number };
 };
 
+const GENERATION_STEPS = [
+  "Booting Ultra-Premium 3D Generator…",
+  "Calibrating procedural intelligence engine…",
+  "Synthesizing layout matrices & viewport blocks…",
+  "Compiling premium HTML/CSS environments…",
+  "Mounting preview canvas…",
+];
+
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -51,6 +59,9 @@ function DashboardContent() {
   const [credits, setCredits] = useState<Credits | null>(null);
   const [loading, setLoading] = useState(true);
   const [resetIn, setResetIn] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [isLaunching, setIsLaunching] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -140,6 +151,33 @@ function DashboardContent() {
       router.replace("/dashboard");
     }
   }, [searchParams]);
+
+  // Cinematic step cycler while we hand off to the 3D engine.
+  useEffect(() => {
+    if (!isLaunching) return;
+    setGenerationStep(0);
+    const id = setInterval(() => {
+      setGenerationStep((s) => (s + 1) % GENERATION_STEPS.length);
+    }, 700);
+    return () => clearInterval(id);
+  }, [isLaunching]);
+
+  function handleGenerate() {
+    const trimmed = prompt.trim();
+    if (trimmed.length < 8) {
+      toast.error("Describe your website with at least 8 characters.");
+      return;
+    }
+    if (credits && !credits.canGenerate) {
+      toast.error(`No credits left today. Resets in ${resetIn}.`);
+      return;
+    }
+    setIsLaunching(true);
+    // Hand the prompt to the 3D Generator Engine. It will auto-run the
+    // pipeline and POST the compiled HTML back to /api/generate on save.
+    const url = `/index.html?prompt=${encodeURIComponent(trimmed)}&autorun=1`;
+    window.location.href = url;
+  }
   useEffect(() => {
     if (!credits?.resetAt) return;
     const t = setInterval(() => setResetIn(timeUntilReset(new Date(credits.resetAt))), 1000);
@@ -461,37 +499,70 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Generation launch card — sends the user to the standalone 3D
-              generator engine. Site management lives here on the dashboard;
-              generation happens in /index.html and POSTs back via the save
-              button there. */}
+          {/* Generation card — the user composes a brief here, then we hand
+              the prompt off to the Ultra-Premium 3D Generator Engine at
+              /index.html?prompt=…&autorun=1. The engine compiles the site
+              client-side and POSTs the finished HTML back to /api/generate
+              via its own "Save to My Account" button. */}
           <div className="bg-white rounded-2xl border border-[#E4E6EB] p-5 sm:p-7 mb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-3 mb-4">
               <div
-                className="w-14 h-14 rounded-2xl grid place-items-center text-white shrink-0"
-                style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", boxShadow: "0 8px 24px rgba(79,70,229,.28)" }}
+                className="w-10 h-10 rounded-xl grid place-items-center text-white shrink-0"
+                style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", boxShadow: "0 6px 18px rgba(79,70,229,.28)" }}
               >
-                <Zap size={24} />
+                <Zap size={18} />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-base sm:text-lg font-bold text-[#1C1E21]">Create a new website</h2>
-                <p className="text-sm text-[#65676B] mt-1">
-                  Launch the Ultra-Premium 3D Generator. Compose your brief, compile the procedural engine, then save the finished site straight back to your account.
+                <p className="text-xs text-[#65676B] mt-0.5">
+                  Describe your business — the Ultra-Premium 3D Generator builds the full site for you.
                 </p>
               </div>
-              <Link
-                href="/index.html"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:translate-y-[-1px] whitespace-nowrap shrink-0"
+            </div>
+
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleGenerate();
+              }}
+              disabled={isLaunching}
+              rows={4}
+              placeholder="e.g. A luxury Italian artisan shoe brand named Velasca with rich obsidian textures, macro product photography, and editorial craft storytelling."
+              className="w-full resize-none rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-colors disabled:opacity-60"
+              style={{ fontFamily: FONT }}
+            />
+
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-[11px] text-[#8A8D91]">
+                {isLaunching ? (
+                  <span className="inline-flex items-center gap-1.5 text-violet-700">
+                    <span className="w-3 h-3 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+                    {GENERATION_STEPS[generationStep]}
+                  </span>
+                ) : (
+                  <>Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-[10px] font-mono">⌘/Ctrl + Enter</kbd> to generate</>
+                )}
+              </div>
+              <button
+                onClick={handleGenerate}
+                disabled={isLaunching || !prompt.trim() || (credits ? !credits.canGenerate : false)}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:translate-y-[-1px] whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
                 style={{
                   background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
                   boxShadow: "0 4px 20px rgba(79,70,229,.32)",
                   fontFamily: FONT,
                 }}
               >
-                Open 3D Generator Engine
-                <ExternalLink size={14} />
-              </Link>
+                {isLaunching ? "Launching…" : (
+                  <>
+                    <Zap size={14} />
+                    Generate Website
+                  </>
+                )}
+              </button>
             </div>
+
             {credits && !isPro && credits.remaining === 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs text-amber-700">
                 <AlertCircle size={12} />
@@ -506,7 +577,7 @@ function DashboardContent() {
             <div className="text-center py-20 text-[#BCC0C4]">
               <Globe size={44} className="mx-auto mb-4 opacity-40" />
               <p className="text-base font-semibold text-[#8A8D91] mb-1">No websites yet</p>
-              <p className="text-sm">Open the 3D Generator Engine to create your first website</p>
+              <p className="text-sm">Describe your business above and click Generate Website</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
