@@ -8,7 +8,8 @@ const FONTS_URL = "https://fonts.cdnfonts.com/css/product-sans";
 
 type Sub = { id: string; status: string; plan: string; billingCycle: string; amount: number; currency: string; paymongoId: string | null; createdAt: string; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: string | null };
 type Site = { id: string; name: string; type: string; published: boolean; subdomain: string | null; customDomain: string | null; createdAt: string };
-type User = { id: string; name: string | null; email: string | null; emailVerified: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; pendingPlan: string | null; pendingPlanAt: string | null; _count: { websites: number }; subscriptions: Sub[]; websites: Site[] };
+type Generation = { month: string; used: number; limit: number; remaining: number };
+type User = { id: string; name: string | null; email: string | null; emailVerified: string | null; plan: string; role: string; image: string | null; createdAt: string; planExpiresAt: string | null; location: string | null; isInfluencer: boolean; pendingPlan: string | null; pendingPlanAt: string | null; _count: { websites: number }; subscriptions: Sub[]; websites: Site[]; generation?: Generation };
 type LoginEvent = { id: string; ip: string | null; userAgent: string | null; browser: string | null; os: string | null; device: string | null; location: string | null; provider: string | null; createdAt: string };
 
 const PLAN_BENEFITS: Record<string, { label: string; color: string; bg: string }[]> = {
@@ -138,6 +139,7 @@ export default function AdminUserDetailPage() {
   const [sendingVerify, setSendingVerify] = useState(false);
   const [removingPayment, setRemovingPayment] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [resettingCredits, setResettingCredits] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -245,6 +247,31 @@ export default function AdminUserDetailPage() {
         alert("Error: " + (data.error || "Unknown error"));
       }
     } finally { setDeletingUser(false); }
+  }
+
+  async function handleResetCredits(scope: "month" | "all") {
+    if (!user) return;
+    const label = scope === "all"
+      ? "ALL historical website-generation usage"
+      : `this month's website-generation usage (${user.generation?.used ?? 0} of ${user.generation?.limit ?? 0} used)`;
+    if (!confirm(`Reset ${label} for this user? They will be able to generate websites again up to their plan limit.`)) return;
+    setResettingCredits(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/reset-credits`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Website generation reset. ${data.deletedCount} usage record${data.deletedCount === 1 ? "" : "s"} cleared.`);
+        setUser((prev) => prev?.generation
+          ? { ...prev, generation: { ...prev.generation, used: 0, remaining: prev.generation.limit } }
+          : prev);
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    } finally { setResettingCredits(false); }
   }
 
   async function patch(fields: Record<string, unknown>): Promise<string | null> {
@@ -651,6 +678,34 @@ export default function AdminUserDetailPage() {
               >
                 {user.isInfluencer ? "★ INFLUENCER (ON)" : "MARK AS INFLUENCER"}
               </button>
+            </div>
+            <div style={ROW}>
+              <span style={KEY}>Generations This Month</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {user.generation ? (
+                  <span style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, background: user.generation.remaining === 0 ? "#FEE2E2" : "#EBF3FF", color: user.generation.remaining === 0 ? "#991B1B" : BLUE }}>
+                    {user.generation.used} / {user.generation.limit}
+                  </span>
+                ) : (
+                  <span style={VAL}>—</span>
+                )}
+                <button
+                  onClick={() => handleResetCredits("month")}
+                  disabled={resettingCredits || !user.generation || user.generation.used === 0}
+                  title="Clears the user's website-generation count for the current PH month. They regain access to their full monthly quota."
+                  style={{ padding: "5px 12px", background: resettingCredits ? "#E5E7EB" : "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", borderRadius: "6px", cursor: resettingCredits || !user.generation || user.generation.used === 0 ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap", opacity: !user.generation || user.generation.used === 0 ? 0.5 : 1 }}
+                >
+                  {resettingCredits ? "Resetting…" : "Reset This Month"}
+                </button>
+                <button
+                  onClick={() => handleResetCredits("all")}
+                  disabled={resettingCredits}
+                  title="Deletes every historical website-generation usage record for this user, across all months."
+                  style={{ padding: "5px 12px", background: resettingCredits ? "#E5E7EB" : "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", borderRadius: "6px", cursor: resettingCredits ? "not-allowed" : "pointer", fontSize: "11px", fontWeight: 600, fontFamily: FONT, whiteSpace: "nowrap" }}
+                >
+                  Reset All History
+                </button>
+              </div>
             </div>
             <div style={{ ...ROW, borderBottom: "none", flexDirection: "column", alignItems: "flex-start", gap: "8px", paddingTop: "10px" }}>
               <span style={KEY}>Plan Benefits</span>

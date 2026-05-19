@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureInfluencerColumn } from "@/lib/influencer-column";
 import { ensureSchemaMigrations } from "@/lib/db-migrations";
+import { getPhilippineMonth, planSlotLimit } from "@/lib/credits";
+import { Plan } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -82,8 +84,25 @@ export async function GET(
       location = locRows[0]?.location ?? null;
     } catch { /* column absent */ }
 
+    // Current-month website generation usage (the same counter that
+    // /api/generate consumes against). Surfaced so admins can see the
+    // user's quota state and reset it from the UI.
+    const month = getPhilippineMonth();
+    const usageRow = await prisma.creditUsage.findUnique({
+      where: { userId_date: { userId: params.id, date: month } },
+      select: { count: true },
+    });
+    const genUsed = usageRow?.count ?? 0;
+    const genLimit = planSlotLimit(user.plan as Plan);
+    const generation = {
+      month,
+      used: genUsed,
+      limit: genLimit,
+      remaining: Math.max(0, genLimit - genUsed),
+    };
+
     return NextResponse.json({
-      user: { ...user, isInfluencer, location, subscriptions, pendingPlan, pendingPlanAt },
+      user: { ...user, isInfluencer, location, subscriptions, pendingPlan, pendingPlanAt, generation },
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
