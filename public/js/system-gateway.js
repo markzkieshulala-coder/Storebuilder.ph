@@ -103,7 +103,56 @@
   let isSaving = false;
   let autosaveOnReady = false;
   let runningInIframe = false;
+  let premiumCoreCss = null;
+  let premiumCssPromise = null;
   const MIN_PROMPT_LENGTH = 8;
+
+  // ============================================================
+  //  PREMIUM CSS INLINER
+  //  The compiler emits <link href="css/premium-core.css"> — a relative URL
+  //  that breaks inside srcdoc iframes (editor) and on published subdomains.
+  //  Fetch the stylesheet once and inline it into every compiled page so the
+  //  saved HTML is fully self-contained and renders premium everywhere.
+  // ============================================================
+
+  function fetchPremiumCss() {
+    if (premiumCoreCss !== null) return Promise.resolve(premiumCoreCss);
+    if (premiumCssPromise) return premiumCssPromise;
+    premiumCssPromise = fetch('/css/premium-core.css', { credentials: 'same-origin' })
+      .then(function(r) { return r.ok ? r.text() : ''; })
+      .then(function(css) {
+        premiumCoreCss = css || '';
+        return premiumCoreCss;
+      })
+      .catch(function() {
+        premiumCoreCss = '';
+        return '';
+      });
+    return premiumCssPromise;
+  }
+
+  function inlinePremiumCssInto(html) {
+    if (!html || !premiumCoreCss) return html;
+    // Replace any <link …href="…premium-core.css"…> with a <style> block.
+    var linkRe = /<link[^>]+href=["']?[^"' >]*premium-core\.css["']?[^>]*>/gi;
+    var styleBlock = '<style data-premium-core="inline">\n' + premiumCoreCss + '\n</style>';
+    if (linkRe.test(html)) {
+      return html.replace(linkRe, styleBlock);
+    }
+    // No link tag matched — inject just before </head> so it still loads.
+    return html.replace(/<\/head>/i, styleBlock + '\n</head>');
+  }
+
+  function inlinePremiumCssInVfs(vfsPayload) {
+    if (!vfsPayload || !premiumCoreCss) return vfsPayload;
+    var out = {};
+    for (var key in vfsPayload) {
+      if (Object.prototype.hasOwnProperty.call(vfsPayload, key)) {
+        out[key] = inlinePremiumCssInto(vfsPayload[key]);
+      }
+    }
+    return out;
+  }
 
   // ============================================================
   // 4. UTILITY: Micro-delays for UI breathing
@@ -363,7 +412,12 @@
       // --- STEP 4: Compile HTML via LayoutCompiler ---
       await cycleLoaderPhrases(10, 16, 720);
       const compiler = new window.LayoutCompiler(blueprint);
-      const vfsPayload = compiler.compileAllPages();
+      const rawVfsPayload = compiler.compileAllPages();
+      // Ensure the premium core stylesheet is available, then inline it into
+      // every compiled page so the saved HTML renders premium everywhere
+      // (editor srcdoc, published subdomain, exported, etc.).
+      await fetchPremiumCss();
+      const vfsPayload = inlinePremiumCssInVfs(rawVfsPayload);
       lastVfsPayload = vfsPayload;
 
       // --- STEP 5: Register to Virtual Router Memory ---
@@ -594,6 +648,10 @@
 
     // Detect whether the dashboard is hosting us inside a hidden iframe.
     try { runningInIframe = window.self !== window.top; } catch (_) { runningInIframe = true; }
+
+    // Warm the premium-core.css fetch immediately so it is cached by the
+    // time the pipeline reaches the inlining step.
+    fetchPremiumCss();
 
     // The dashboard hands off the user's brief via ?prompt=…&autorun=1&autosave=1.
     // Honour those parameters before falling back to the demo seed so users
