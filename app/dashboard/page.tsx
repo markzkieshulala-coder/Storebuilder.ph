@@ -43,24 +43,12 @@ type Credits = {
   slots?: { used: number; limit: number; remaining: number };
 };
 
-const GENERATION_STEPS = [
-  "Analyzing your prompt...",
-  "Designing layout & sections...",
-  "Crafting color palette...",
-  "Writing content...",
-  "Adding Filipino touches...",
-  "Finalizing your website...",
-];
-
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [credits, setCredits] = useState<Credits | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStep, setGenerationStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [resetIn, setResetIn] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -142,20 +130,21 @@ function DashboardContent() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [status]);
+  // When the 3D generator engine redirects back with ?saved=1, refresh the
+  // website list so the freshly persisted site shows up immediately.
   useEffect(() => {
-    const url = searchParams.get("generate");
-    if (url && !isGenerating && credits?.canGenerate) { setPrompt(url); handleGenerate(url); }
-  }, [searchParams, credits]);
+    if (searchParams.get("saved") === "1") {
+      toast.success("Website saved to your account");
+      fetchData();
+      // Strip the param so a refresh doesn't re-toast.
+      router.replace("/dashboard");
+    }
+  }, [searchParams]);
   useEffect(() => {
     if (!credits?.resetAt) return;
     const t = setInterval(() => setResetIn(timeUntilReset(new Date(credits.resetAt))), 1000);
     return () => clearInterval(t);
   }, [credits?.resetAt]);
-  useEffect(() => {
-    if (!isGenerating) return;
-    const t = setInterval(() => setGenerationStep(s => (s + 1) % GENERATION_STEPS.length), 1800);
-    return () => clearInterval(t);
-  }, [isGenerating]);
   // Close card menu on outside click
   useEffect(() => {
     if (!openMenuId) return;
@@ -182,31 +171,6 @@ function DashboardContent() {
       setWebsites((await wsRes.json()).websites || []);
       setCredits(await crRes.json());
     } finally { setLoading(false); }
-  }
-
-  async function handleGenerate(overridePrompt?: string) {
-    const fp = overridePrompt || prompt;
-    if (!fp.trim()) { toast.error("Please enter a prompt"); return; }
-    if (!credits?.canGenerate && credits?.plan === "FREE") {
-      toast.error("You've used your free generations for today. Upgrade to Pro!");
-      return;
-    }
-    setIsGenerating(true);
-    setGenerationStep(0);
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: fp }),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Generation failed"); return; }
-      toast.success("Website generated!");
-      setPrompt("");
-      await fetchData();
-      router.push(`/editor/${data.website.id}`);
-    } catch { toast.error("Something went wrong. Please try again."); }
-    finally { setIsGenerating(false); }
   }
 
   async function handleDelete(id: string, name: string) {
@@ -497,54 +461,39 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Generation box */}
-          <div className="bg-white rounded-2xl border border-[#E4E6EB] p-4 sm:p-6 mb-6">
-            <h2 className="text-sm font-bold text-[#1C1E21] mb-4 flex items-center gap-2">
-              <Zap size={15} style={{ color: BLUE }} />
-              Create a new website
-            </h2>
-            {isGenerating ? (
-              <div className="py-8 text-center">
-                <div className="w-10 h-10 border-[3px] border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-sm font-semibold" style={{ color: BLUE }}>{GENERATION_STEPS[generationStep]}</p>
-                <p className="text-xs text-[#8A8D91] mt-1">This takes about 10–20 seconds</p>
+          {/* Generation launch card — sends the user to the standalone 3D
+              generator engine. Site management lives here on the dashboard;
+              generation happens in /index.html and POSTs back via the save
+              button there. */}
+          <div className="bg-white rounded-2xl border border-[#E4E6EB] p-5 sm:p-7 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+              <div
+                className="w-14 h-14 rounded-2xl grid place-items-center text-white shrink-0"
+                style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", boxShadow: "0 8px 24px rgba(79,70,229,.28)" }}
+              >
+                <Zap size={24} />
               </div>
-            ) : (
-              <div className="bg-[#F0F2F5] border border-[#E4E6EB] rounded-2xl overflow-hidden focus-within:border-blue-400 focus-within:bg-white transition-all">
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault();
-                      handleGenerate();
-                    }
-                  }}
-                  placeholder='Describe your business in detail. Mention your industry, location, target customers, services or products, brand tone, colors you like, and anything else that makes the business unique. The more context you give (500–1000 words is ideal), the more tailored your website.'
-                  disabled={!credits?.canGenerate && !isPro}
-                  rows={10}
-                  maxLength={8000}
-                  className="w-full bg-transparent px-4 py-3 text-sm text-[#1C1E21] outline-none transition-all disabled:opacity-50 resize-none min-h-[240px] leading-relaxed"
-                  style={{ fontFamily: FONT }}
-                />
-                <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-1 border-t border-[#E4E6EB]/60">
-                  <span className="text-xs text-[#8A8D91] px-2">
-                    {prompt.trim() ? `${prompt.trim().split(/\s+/).filter(Boolean).length} words` : "Tip: aim for 500–1000 words for the richest result"}
-                  </span>
-                  <button
-                    onClick={() => handleGenerate()}
-                    disabled={!credits?.canGenerate && !isPro}
-                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
-                    style={{ background: BLUE, fontFamily: FONT }}
-                  >
-                    <Zap size={15} />
-                    Generate
-                  </button>
-                </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-[#1C1E21]">Create a new website</h2>
+                <p className="text-sm text-[#65676B] mt-1">
+                  Launch the Ultra-Premium 3D Generator. Compose your brief, compile the procedural engine, then save the finished site straight back to your account.
+                </p>
               </div>
-            )}
-            {!isGenerating && credits && !isPro && credits.remaining === 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-amber-700">
+              <Link
+                href="/index.html"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:translate-y-[-1px] whitespace-nowrap shrink-0"
+                style={{
+                  background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                  boxShadow: "0 4px 20px rgba(79,70,229,.32)",
+                  fontFamily: FONT,
+                }}
+              >
+                Open 3D Generator Engine
+                <ExternalLink size={14} />
+              </Link>
+            </div>
+            {credits && !isPro && credits.remaining === 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs text-amber-700">
                 <AlertCircle size={12} />
                 No credits left today. Resets in {resetIn} ·{" "}
                 <Link href="/upgrade" className="underline" style={{ color: BLUE }}>Upgrade to Pro</Link>
@@ -557,7 +506,7 @@ function DashboardContent() {
             <div className="text-center py-20 text-[#BCC0C4]">
               <Globe size={44} className="mx-auto mb-4 opacity-40" />
               <p className="text-base font-semibold text-[#8A8D91] mb-1">No websites yet</p>
-              <p className="text-sm">Type a prompt above and click Generate</p>
+              <p className="text-sm">Open the 3D Generator Engine to create your first website</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

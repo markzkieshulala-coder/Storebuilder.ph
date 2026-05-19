@@ -292,6 +292,55 @@
     }
 
     /* ============================================================
+       SAVE TO ACCOUNT CTA (hidden until a successful compile)
+       ============================================================ */
+    .save-cta {
+      position: relative;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 22px;
+      font-family: var(--font-family);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #fff;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.30);
+    }
+    .save-cta.is-ready {
+      display: inline-flex;
+      animation: saveCtaReveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .save-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 26px rgba(16, 185, 129, 0.40);
+    }
+    .save-cta:active { transform: translateY(0); }
+    .save-cta.saving { opacity: 0.85; pointer-events: none; }
+    .save-spinner { display: none; }
+    .save-cta.saving .save-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes saveCtaReveal {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============================================================
        DIAGNOSTIC READOUT PANEL
        ============================================================ */
     .diagnostic-readout {
@@ -725,6 +774,12 @@
             <span class="cta-shimmer"></span>
             <span class="cta-label">Compile Procedural Engine</span>
             <span class="cta-spinner" style="display:none;"></span>
+          </button>
+
+          <!-- Save CTA — revealed by system-gateway.js after a successful compile. -->
+          <button id="saveBtn" class="save-cta" type="button" aria-hidden="true">
+            <span class="save-spinner"></span>
+            <span id="saveLabel" class="save-label">Save to My Account</span>
           </button>
         </div>
 

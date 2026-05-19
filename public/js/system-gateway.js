@@ -21,6 +21,10 @@
     ctaLabel:        $('#compileBtn .cta-label'),
     ctaSpinner:      $('#compileBtn .cta-spinner'),
 
+    // Save CTA (hidden until a successful compile)
+    saveBtn:         $('#saveBtn'),
+    saveLabel:       $('#saveLabel'),
+
     // Loading overlay
     systemLoader:    $('#systemLoader'),
     loaderTitle:     $('#loaderTitle'),
@@ -93,7 +97,10 @@
   // ============================================================
 
   let lastBlueprint = null;
+  let lastVfsPayload = null;
+  let lastPrompt = '';
   let isPipelineRunning = false;
+  let isSaving = false;
   const MIN_PROMPT_LENGTH = 8;
 
   // ============================================================
@@ -328,9 +335,11 @@
         return;
       }
       hideValidation();
+      lastPrompt = rawPrompt.trim();
 
       // --- STEP 1: Lock UI & show loader ---
       setCtaState('compiling');
+      hideSaveButton();
       showLoader();
       clearDiagnostics();
       await yieldUI();
@@ -353,6 +362,7 @@
       await cycleLoaderPhrases(10, 16, 720);
       const compiler = new window.LayoutCompiler(blueprint);
       const vfsPayload = compiler.compileAllPages();
+      lastVfsPayload = vfsPayload;
 
       // --- STEP 5: Register to Virtual Router Memory ---
       await cycleLoaderPhrases(16, 18, 320);
@@ -374,6 +384,9 @@
       hideLoader();
       setCtaState('idle');
 
+      // --- STEP 8: Reveal Save CTA so the user can persist this build ---
+      showSaveButton();
+
     } catch (err) {
       console.error('[SystemGateway] Pipeline failure:', err);
       updateLoaderProgress(100, 'Compilation failed. Check console for telemetry.');
@@ -387,12 +400,128 @@
   }
 
   // ============================================================
-  // 11. EVENT BINDING
+  // 11. SAVE CONTROLLER — Persist precompiled HTML to /api/generate
+  // ============================================================
+
+  function showSaveButton() {
+    if (!DOM.saveBtn) return;
+    DOM.saveBtn.classList.add('is-ready');
+    DOM.saveBtn.classList.remove('saving');
+    DOM.saveBtn.removeAttribute('aria-hidden');
+    if (DOM.saveLabel) DOM.saveLabel.textContent = 'Save to My Account';
+  }
+
+  function hideSaveButton() {
+    if (!DOM.saveBtn) return;
+    DOM.saveBtn.classList.remove('is-ready');
+    DOM.saveBtn.classList.remove('saving');
+    DOM.saveBtn.setAttribute('aria-hidden', 'true');
+  }
+
+  function setSaveState(state, labelOverride) {
+    if (!DOM.saveBtn) return;
+    if (state === 'saving') {
+      DOM.saveBtn.classList.add('saving');
+    } else {
+      DOM.saveBtn.classList.remove('saving');
+    }
+    if (DOM.saveLabel && labelOverride) DOM.saveLabel.textContent = labelOverride;
+  }
+
+  /**
+   * Extract the canonical compiled HTML from the most recent pipeline run.
+   * Order of preference:
+   *   1. The /home payload captured at compile time (most reliable)
+   *   2. The /home entry registered in window.VirtualFileSystem
+   *   3. The first compiled route, whichever exists
+   */
+  function extractCompiledHtml() {
+    if (lastVfsPayload && lastVfsPayload['/home']) return lastVfsPayload['/home'];
+    if (global.VirtualFileSystem && global.VirtualFileSystem['/home']) {
+      const e = global.VirtualFileSystem['/home'];
+      return typeof e === 'string' ? e : (e && e.html) || null;
+    }
+    if (lastVfsPayload) {
+      const firstKey = Object.keys(lastVfsPayload)[0];
+      if (firstKey) return lastVfsPayload[firstKey];
+    }
+    return null;
+  }
+
+  async function handleSave() {
+    if (isSaving) return;
+    if (!lastVfsPayload || !lastPrompt) {
+      showValidation('Nothing to save yet. Compile a build first.', 'warning');
+      return;
+    }
+    const html = extractCompiledHtml();
+    if (!html || html.length < 500) {
+      showValidation('Compiled HTML missing — recompile and try again.', 'error');
+      return;
+    }
+
+    isSaving = true;
+    setSaveState('saving', 'Saving to Database...');
+    hideValidation();
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          prompt: lastPrompt,
+          precompiledHtml: html,
+          businessName: (lastBlueprint && lastBlueprint.intent && lastBlueprint.intent.brandName) || undefined,
+          mdxGenerated: true,
+          siteSpec: lastBlueprint && lastBlueprint.intent ? {
+            siteName: lastBlueprint.intent.brandName,
+            industry: lastBlueprint.intent.primaryNiche
+          } : undefined,
+        }),
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch (_) { /* ignore parse error */ }
+
+      if (res.status === 401) {
+        setSaveState('idle', 'Sign in required');
+        showValidation('Please sign in to save websites to your account.', 'error');
+        // Redirect to sign-in after a beat so the user sees the message.
+        setTimeout(function() { window.location.href = '/auth/signin'; }, 1200);
+        return;
+      }
+
+      if (!res.ok) {
+        const msg = (data && data.error) ? data.error : ('Save failed (HTTP ' + res.status + ')');
+        setSaveState('idle', 'Save to My Account');
+        showValidation(msg, 'error');
+        return;
+      }
+
+      // Success — redirect to dashboard with a one-shot saved flag.
+      setSaveState('saving', 'Saved. Redirecting...');
+      window.location.href = '/dashboard?saved=1';
+    } catch (err) {
+      console.error('[SystemGateway] Save failure:', err);
+      setSaveState('idle', 'Save to My Account');
+      showValidation('Network error saving website: ' + (err && err.message ? err.message : 'unknown'), 'error');
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // ============================================================
+  // 12. EVENT BINDING
   // ============================================================
 
   function bindEvents() {
     if (DOM.compileBtn) {
       DOM.compileBtn.addEventListener('click', runPipeline);
+    }
+
+    if (DOM.saveBtn) {
+      DOM.saveBtn.addEventListener('click', handleSave);
     }
 
     if (DOM.btnRefresh) {
@@ -427,7 +556,7 @@
   }
 
   // ============================================================
-  // 12. BOOTSTRAP
+  // 13. BOOTSTRAP
   // ============================================================
 
   function init() {
@@ -445,13 +574,16 @@
   }
 
   // ============================================================
-  // 13. PUBLIC API
+  // 14. PUBLIC API
   // ============================================================
 
   global.SystemGateway = {
     run: runPipeline,
+    save: handleSave,
     getLastBlueprint: () => lastBlueprint,
+    getLastVfsPayload: () => lastVfsPayload,
     isRunning: () => isPipelineRunning,
+    isSaving: () => isSaving,
     showValidation: showValidation,
     hideValidation: hideValidation,
     setDiagnosticState: setDiagnosticState,
