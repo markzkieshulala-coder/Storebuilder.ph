@@ -588,15 +588,12 @@ function DashboardContent() {
             <div className="flex items-center gap-3 mb-4">
               <div
                 className="w-10 h-10 rounded-xl grid place-items-center text-white shrink-0"
-                style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", boxShadow: "0 6px 18px rgba(79,70,229,.28)" }}
+                style={{ background: BLUE, boxShadow: "0 6px 18px rgba(24,119,242,.22)" }}
               >
                 <Zap size={18} />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-base sm:text-lg font-bold text-[#1C1E21]">Create a new website</h2>
-                <p className="text-xs text-[#65676B] mt-0.5">
-                  Describe your business — the Ultra-Premium 3D Generator builds the full site for you.
-                </p>
               </div>
             </div>
 
@@ -609,15 +606,15 @@ function DashboardContent() {
               disabled={isLaunching}
               rows={4}
               placeholder="e.g. A luxury Italian artisan shoe brand named Velasca with rich obsidian textures, macro product photography, and editorial craft storytelling."
-              className="w-full resize-none rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-colors disabled:opacity-60"
+              className="w-full resize-none rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#1877F2] transition-colors disabled:opacity-60"
               style={{ fontFamily: FONT }}
             />
 
             <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-[11px] text-[#8A8D91]">
                 {isLaunching ? (
-                  <span className="inline-flex items-center gap-1.5 text-violet-700">
-                    <span className="w-3 h-3 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+                  <span className="inline-flex items-center gap-1.5 text-[#1877F2]">
+                    <span className="w-3 h-3 border-2 border-blue-100 border-t-[#1877F2] rounded-full animate-spin" />
                     {GENERATION_STEPS[generationStep]}
                   </span>
                 ) : (
@@ -627,10 +624,10 @@ function DashboardContent() {
               <button
                 onClick={handleGenerate}
                 disabled={isLaunching || !prompt.trim() || (credits ? !credits.canGenerate : false)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:translate-y-[-1px] whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                  boxShadow: "0 4px 20px rgba(79,70,229,.32)",
+                  background: BLUE,
+                  boxShadow: "0 4px 16px rgba(24,119,242,.28)",
                   fontFamily: FONT,
                 }}
               >

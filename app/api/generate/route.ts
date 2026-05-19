@@ -9,6 +9,17 @@ import { z } from "zod";
 
 export const maxDuration = 60;
 
+// Map an industry/niche string to a valid Prisma WebsiteType enum value.
+function inferWebsiteType(niche: string): string {
+  const n = (niche || "").toLowerCase();
+  if (/restaurant|cafe|coffee|food|bar|bakery|bistro/.test(n)) return "RESTAURANT";
+  if (/salon|spa|beauty|barber|nail|hair/.test(n)) return "SALON";
+  if (/portfolio|creative|design|photography|art/.test(n)) return "PORTFOLIO";
+  if (/store|shop|e.commerce|ecommerce|retail|product|sell|merchandise|jersey|shoe|apparel/.test(n)) return "STORE";
+  if (/landing|launch|coming.soon|waitlist/.test(n)) return "LANDING";
+  return "BUSINESS";
+}
+
 // The server-side Native Premium Generator was retired. All HTML is now
 // compiled in the browser by public/js/ (intelligence-engine →
 // layout-compiler → virtual-router → system-gateway). This route only
@@ -66,12 +77,18 @@ export async function POST(req: NextRequest) {
     }
 
     const siteName = businessName || (siteSpec as { siteName?: string })?.siteName || "Website";
-    const industry = (siteSpec as { industry?: string })?.industry || "Website";
+    const industry = (siteSpec as { industry?: string })?.industry || "";
+
+    // Prefer the industry label from siteSpec; fall back to scanning the prompt.
+    const websiteType = inferWebsiteType(industry) !== "BUSINESS"
+      ? inferWebsiteType(industry)
+      : inferWebsiteType(prompt);
+
     const result = {
       htmlContent: precompiledHtml,
       name: siteName,
-      type: "WEBSITE",
-      seoTitle: `${siteName} — ${industry}`,
+      type: websiteType,
+      seoTitle: `${siteName}${industry ? " — " + industry : ""}`,
       seoDesc: prompt.slice(0, 160),
     };
     const usage = { model: "ultra-premium-3d-engine", inputTokens: 0, outputTokens: 0, costUsd: 0, costPhp: 0 };
