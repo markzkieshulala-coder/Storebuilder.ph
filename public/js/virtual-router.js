@@ -300,7 +300,7 @@
           if (!p || typeof p !== 'string') return '/home';
           var s = p.trim();
           if (s.charAt(0) !== '/') s = '/' + s;
-          s = s.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+          s = s.replace(/\\/+/g, '/').replace(/\\/$/, '') || '/';
           return s;
         }
 

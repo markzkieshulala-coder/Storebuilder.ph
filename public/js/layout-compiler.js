@@ -1795,38 +1795,141 @@
     }
 
     // --- Asset-slot image injector ------------------------------------------
-    // Walks every <div class="asset-slot…"> and injects a Pollinations.ai
-    // background-image using the slot's title attribute as the AI prompt.
+    // Walks every <div class="asset-slot…"> and injects BOTH:
+    //   1. An <img> element with Pollinations.ai URL (always renders, even if slow)
+    //   2. A picsum fallback <img> behind it (always loads fast as immediate visual)
+    // This guarantees there is never an empty asset-slot box.
     _injectImages(html) {
       let idx = 0;
       const assets = this.assets;
       const brand = this.brand || this.niche || 'site';
+      const niche = this.niche || 'premium';
       return html.replace(
-        /(<div\s)(([^>]*class="[^"]*asset-slot[^"]*")[^>]*)(>)/g,
-        (match, open, attrs, _cls, close) => {
-          const titleMatch = attrs.match(/title="([^"]*)"/);
+        /(<div\s[^>]*class="[^"]*asset-slot[^"]*"[^>]*>)/g,
+        (match) => {
+          const titleMatch = match.match(/title="([^"]*)"/);
           const rawPrompt = titleMatch ? titleMatch[1].replace(/&quot;/g, '"') : '';
           const asset = assets[idx % Math.max(assets.length, 1)] || {};
-          const promptText = rawPrompt || asset.prompt || (brand + ' premium ' + this.niche + ' cinematic photography');
-          const encoded = encodeURIComponent(promptText + ', ultra quality, cinematic lighting, professional');
-          const imgUrl = 'https://image.pollinations.ai/prompt/' + encoded + '?width=1200&height=800&nologo=true';
-          const bgStyle = 'background-image:url(\'' + imgUrl + '\');background-size:cover;background-position:center;';
-          let newAttrs;
-          if (/\bstyle="/.test(attrs)) {
-            newAttrs = attrs.replace(/\bstyle="/, 'style="' + bgStyle);
-          } else {
-            newAttrs = attrs + ' style="' + bgStyle + '"';
-          }
+          const promptText = rawPrompt || asset.prompt || (brand + ' premium ' + niche + ' professional photography');
+          const aiEncoded = encodeURIComponent(promptText + ', ultra quality, cinematic lighting, professional photography, magazine editorial');
+          const aiUrl = 'https://image.pollinations.ai/prompt/' + aiEncoded + '?width=1200&height=800&nologo=true&model=flux';
+          // Picsum fallback uses a deterministic seed from prompt
+          const seed = Math.abs(this._hashStr(promptText + '-' + idx)) % 900000 + 100000;
+          const fallbackUrl = 'https://picsum.photos/seed/' + seed + '/1200/800';
+          // Build the injection. Picsum loads first as the immediate visual, then
+          // Pollinations.ai overlays once ready (the <img> with onload swaps visibility).
+          const safeAlt = (niche + ' ' + brand).replace(/"/g, '');
+          const inner = '' +
+            '<img class="asset-img asset-img--fallback" src="' + fallbackUrl + '" alt="' + safeAlt + '" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;min-height:320px;object-fit:cover;display:block;border-radius:inherit;z-index:1;">' +
+            '<img class="asset-img asset-img--ai" src="' + aiUrl + '" alt="' + safeAlt + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'" style="position:absolute;inset:0;width:100%;height:100%;min-height:320px;object-fit:cover;display:block;border-radius:inherit;z-index:2;opacity:0;transition:opacity .6s ease;" onload="this.style.opacity=1">';
           idx++;
-          return open + newAttrs + close;
+          return match + inner;
         }
       );
     }
 
     _hashStr(s) {
+      s = String(s || '');
       let h = 2166136261;
       for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
       return h >>> 0;
+    }
+
+    // --- Emoji purge: replace every unicode emoji/symbol in the FINAL HTML
+    // with a clean inline SVG. Catches emojis baked into the contentKit
+    // (niche-content-engine.js banks) without modifying those banks.
+    _purgeEmojis(html) {
+      if (!html) return html;
+      // Wrap star runs (★★★★★) into an inline group of SVG stars.
+      // Replace each ★ with a small inline SVG star.
+      const smallStar = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:inline-block;vertical-align:middle;margin:0 1px;color:var(--color-accent,#f5b94a)" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+      const inlineStar = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:middle;margin:0 1px;color:var(--color-text-secondary,#888)" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+      const check = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+      const zap = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+      const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      const box = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+      const arrowReturn = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+      const globe = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+      const leaf = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96a1 1 0 0 1 1.8.4c1 4 .5 8-1.8 11.4-2.2 3.3-5.5 5.2-9.2 5.2z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>';
+      const dumbbell = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M6.5 6.5h11M6.5 17.5h11"/><rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><rect x="5" y="10" width="14" height="4"/></svg>';
+      const trophy = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
+      const phone = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+      const tools = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+      const pill = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M10.5 20.5l10-10a4.95 4.95 0 1 1-7-7l-10 10a4.95 4.95 0 1 1 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>';
+      const book = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
+      const grad = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>';
+      const gear = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+      const bag = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>';
+      const camera = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+      const card = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>';
+      const calendar = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      const refresh = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+      const sparkle = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+      const diamond = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.7 2.71a2.41 2.41 0 0 0-3.41 0z"/></svg>';
+      const chef = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>';
+      const wine = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><path d="M8 22h8M12 17v5M5 2h14l-1.62 11.34a5 5 0 0 1-9.76 0Z"/></svg>';
+      const basketballSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07M2 12h20M12 2v20"/></svg>';
+
+      return html
+        // Star ratings — full
+        .replace(/★/g, smallStar)
+        .replace(/☆/g, inlineStar)
+        // Verified checks
+        .replace(/✓/g, check).replace(/✔/g, check).replace(/✅/g, check)
+        // Lightning / fast
+        .replace(/⚡/g, zap)
+        // Lock / secure
+        .replace(/🔒/g, lockSvg).replace(/🔐/g, lockSvg)
+        // Box / delivery
+        .replace(/📦/g, box)
+        // Return / arrow
+        .replace(/↩/g, arrowReturn).replace(/↪/g, arrowReturn)
+        // Globe / world
+        .replace(/🌍/g, globe).replace(/🌎/g, globe).replace(/🌐/g, globe)
+        // Leaf / organic / seasonal
+        .replace(/🌱/g, leaf).replace(/🌿/g, leaf).replace(/🍃/g, leaf)
+        // Strength / fitness
+        .replace(/💪/g, dumbbell).replace(/🏋/g, dumbbell)
+        // Trophy / awards
+        .replace(/🏆/g, trophy).replace(/🥇/g, trophy)
+        // Phone / contact
+        .replace(/📞/g, phone).replace(/📱/g, phone).replace(/☎/g, phone)
+        // Tools / maintenance
+        .replace(/🔧/g, tools).replace(/🛠/g, tools)
+        // Pill / supplement
+        .replace(/💊/g, pill)
+        // Book / docs / brew guides
+        .replace(/📚/g, book).replace(/📖/g, book).replace(/📘/g, book)
+        // Grad / school / classes
+        .replace(/🎓/g, grad)
+        // Gear / settings / dialing
+        .replace(/⚙/g, gear).replace(/🔩/g, gear)
+        // Bag / shop / retail
+        .replace(/🛍/g, bag).replace(/🛒/g, bag).replace(/👜/g, bag)
+        // Camera / photo
+        .replace(/📸/g, camera).replace(/📷/g, camera)
+        // Card / payment
+        .replace(/💳/g, card).replace(/💵/g, card).replace(/💰/g, card)
+        // Calendar / scheduling
+        .replace(/📅/g, calendar).replace(/📆/g, calendar).replace(/🗓/g, calendar)
+        // Refresh / seasonal / rotation
+        .replace(/🔄/g, refresh).replace(/♻/g, refresh)
+        // Celebration / events
+        .replace(/🎉/g, sparkle).replace(/✨/g, sparkle).replace(/🎊/g, sparkle).replace(/⭐/g, sparkle)
+        // Diamond / luxury
+        .replace(/💎/g, diamond)
+        // Cooking / chef
+        .replace(/👨‍🍳/g, chef).replace(/👩‍🍳/g, chef).replace(/🍳/g, chef)
+        // Wine / dining
+        .replace(/🍷/g, wine).replace(/🍸/g, wine).replace(/🥂/g, wine)
+        // Sports
+        .replace(/🏀/g, basketballSvg).replace(/⚽/g, basketballSvg).replace(/🎾/g, basketballSvg).replace(/🏈/g, basketballSvg)
+        // Geometric chars (legacy generic icons)
+        .replace(/◈/g, diamond).replace(/◉/g, sparkle).replace(/◆/g, diamond)
+        .replace(/◊/g, diamond).replace(/●/g, sparkle).replace(/◍/g, gear)
+        // Strip any other emoji-range chars defensively (broad ranges)
+        .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+        .replace(/[\u{2700}-\u{27BF}]/gu, '');
     }
 
     // --- Page compilation ---------------------------------------------------
@@ -1859,9 +1962,14 @@
 </body>
 </html>`;
 
-      // Inject real picsum images into every asset-slot so the page renders
-      // with actual visuals rather than empty placeholder boxes.
+      // Inject AI images (Pollinations.ai with picsum.photos fallback) into every
+      // asset-slot so the page renders with actual visuals rather than empty boxes.
       html = this._injectImages(html);
+
+      // Final pass: replace every remaining unicode emoji/symbol in the
+      // compiled HTML with a clean inline SVG. Catches emojis baked into
+      // contentKit data (testimonial ★ ratings, niche-content-engine icons).
+      html = this._purgeEmojis(html);
 
       return html;
     }
