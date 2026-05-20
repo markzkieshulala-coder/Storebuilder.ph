@@ -93,7 +93,21 @@
       'shop', 'store', 'boutique', 'retail', 'product', 'collection', 'catalog', 'commerce',
       'ecommerce', 'sneaker', 'shoe', 'fashion', 'watch', 'jewelry', 'apparel', 'luxury goods',
       'handbag', 'leather', 'furniture', 'interior', 'wine', 'perfume', 'cosmetic', 'skincare',
-      'marketplace', 'sell', 'purchase', 'cart', 'checkout', 'inventory', 'brand store'
+      'marketplace', 'sell', 'purchase', 'cart', 'checkout', 'inventory', 'brand store',
+      'basketball', 'soccer', 'sports', 'jersey', 'sneakers', 'shoes', 'kicks', 'nba',
+      'coffee', 'cafe', 'espresso', 'roastery', 'beans', 'tea', 'bakery',
+      'gym', 'fitness', 'supplement', 'workout', 'crossfit', 'pilates', 'yoga',
+      'salon', 'spa', 'barbershop', 'beauty', 'nails', 'hair',
+      'skincare', 'beauty', 'cosmetics', 'makeup', 'fragrance',
+      'restaurant', 'dining', 'eatery', 'bistro', 'cuisine', 'food', 'kitchen',
+      'flower', 'florist', 'plants', 'garden',
+      'bookstore', 'books', 'stationery',
+      'electronics', 'gadgets', 'phone', 'laptop', 'computer',
+      'pet', 'pets', 'pet shop', 'pet store', 'veterinary',
+      'toys', 'kids', 'baby', 'children',
+      'auto', 'automotive', 'car', 'motorcycle', 'bike',
+      'home decor', 'kitchen', 'bedding', 'mattress',
+      'art', 'crafts', 'handmade', 'artisan'
     ],
     PORTFOLIO: [
       'portfolio', 'creative', 'artist', 'photographer', 'videographer', 'filmmaker', 'editor',

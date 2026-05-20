@@ -17,7 +17,11 @@
     if (/fashion|apparel|clothing|boutique|outfit|dress|garment|wear.*brand/.test(raw)) return 'fashion';
     if (/jewelry|jewellery|engagement.*ring|necklace|bracelet|gold.*store|diamond/.test(raw)) return 'jewelry';
     if (/watch.*store|timepiece|horology|chronograph|luxury.*watch/.test(raw)) return 'watches';
-    if (/leather.*bag|handbag|purse|wallet.*store|luggage/.test(raw)) return 'leather';
+    if (/leather.*bag|leather.*goods|leather.*store|leather.*shop|handbag|purse|wallet.*store|luggage|bag.*store/.test(raw)) return 'leather';
+    if (/\bleather\b/.test(raw) && /\b(store|shop|brand|goods|product|sell|buy)\b/.test(raw)) return 'leather';
+    if (/electronics|gadgets|phone.*store|laptop.*store|tech.*store|computer.*store|gaming.*store/.test(raw)) return 'electronics';
+    if (/pet.*store|pet.*shop|dog.*store|cat.*store|animal.*store|pet.*supply|pet.*food/.test(raw)) return 'pets';
+    if (/\bpet(s)?\b/.test(raw) && /\b(store|shop|supply|food|care|product)\b/.test(raw)) return 'pets';
     if (/coffee|espresso|cafe|barista|latte|third.wave/.test(raw)) return 'coffee';
     if (/restaurant|dining|cuisine|eatery|bistro|grill.*food|food.*restaurant/.test(raw)) return 'restaurant';
     if (/bakery|pastry|bread|cake.*shop|dessert.*shop|patisserie/.test(raw)) return 'bakery';
@@ -1105,6 +1109,468 @@
       partnerNames: ["Y Combinator", "Techstars", "Sequoia", "Founders Fund", "Product Hunt", "Hacker News", "Stripe Atlas", "AWS Activate"],
       variantLabels: ["Founding Access", "Beta Tier", "Early Adopter", "Launch Special", "Annual Pre-Buy", "Team Plan", "Lifetime Deal", "Referral Bonus"],
       footerTagline: "Something important is being built. Be part of it from the very beginning."
+    },
+
+    fashion: {
+      taglines: [
+        "Wear Your Story — Curated Fashion for Every Occasion",
+        "Premium Apparel. Timeless Style. Delivered.",
+        "Fashion That Moves With You",
+        "Dress Like No One Else — Exclusive Collections"
+      ],
+      heroSubs: [
+        "Curated collections from emerging and established designers. Discover looks that define your personal style — delivered straight to your door.",
+        "Premium clothing, accessories, and footwear for the fashion-forward. New arrivals every week, sourced from top ateliers worldwide.",
+        "Your wardrobe, elevated. Shop exclusive seasonal collections, limited drops, and everyday essentials all in one place."
+      ],
+      products: [
+        { name: "Relaxed Linen Blazer", desc: "Italian-milled linen. Unstructured silhouette with a single-button closure. Available in sand, slate, and ivory.", price: "₱4,800", badge: "Bestseller" },
+        { name: "High-Rise Straight Denim", desc: "Japanese selvedge denim with a medium wash and subtle fading. Cut for a clean, modern silhouette.", price: "₱3,200" },
+        { name: "Silk Slip Dress", desc: "100% mulberry silk. A relaxed midi-length silhouette with adjustable straps. Perfect for day or evening.", price: "₱5,600", badge: "New" },
+        { name: "Merino Crew Sweater", desc: "Extra-fine merino wool. Ribbed cuffs and hem, clean minimal design. Naturally temperature-regulating.", price: "₱3,800" },
+        { name: "Oversized Cotton Trench", desc: "Heavyweight brushed cotton. Double-breasted with a self-belt. A modern riff on a wardrobe classic.", price: "₱6,200", badge: "Limited" },
+        { name: "Pleated Tailored Trousers", desc: "Wool-blend fabric with a relaxed pleated front. Cut slim at the knee, tapering to a clean ankle hem.", price: "₱3,500" },
+        { name: "Structured Tote Bag", desc: "Full-grain Italian leather with suede interior. Fits a 15\" laptop with room for daily essentials.", price: "₱7,800" },
+        { name: "Wide-Brim Sun Hat", desc: "Toquilla straw with a grosgrain ribbon band. Handwoven by artisans in Ecuador.", price: "₱2,400", badge: "Hot" }
+      ],
+      features: [
+        { icon: "✦", title: "Curated by Stylists", desc: "Every piece in our collection is hand-selected by our in-house styling team. No fast fashion, no fillers." },
+        { icon: "♻", title: "Sustainable Sourcing", desc: "We partner only with manufacturers who meet our environmental and fair-trade standards." },
+        { icon: "📦", title: "Free Returns — 30 Days", desc: "If the fit isn't right, return it free within 30 days. No questions asked." },
+        { icon: "✂", title: "Expert Fit Guidance", desc: "Our style concierge team is available via chat to help you find your perfect size and fit." },
+        { icon: "🔒", title: "Secure Checkout", desc: "GCash, Maya, credit card, and COD accepted. All payments are fully encrypted." },
+        { icon: "⚡", title: "Express Metro Delivery", desc: "Same-day delivery within Metro Manila for orders placed before 1PM." }
+      ],
+      testimonials: [
+        { name: "Isabella Cruz", role: "Fashion Blogger, Manila", text: "Their curation is genuinely unique. Every piece I've ordered fits perfectly and the quality is miles above what I expected at this price point.", rating: "★★★★★" },
+        { name: "Marco Reyes", role: "Creative Director, Makati", text: "Finally a local store that stocks elevated basics. The merino sweater is hands-down the best I've owned. Fast delivery, beautiful packaging.", rating: "★★★★★" },
+        { name: "Sophia Tan", role: "Stylist, BGC", text: "I source pieces for my clients here regularly. The quality-to-price ratio is exceptional and the team is always helpful with styling questions.", rating: "★★★★★" },
+        { name: "Luis Mendoza", role: "Brand Consultant, Cebu", text: "The linen blazer is exactly what I needed. Well-cut, comfortable in Manila heat, and it photographs beautifully. Repeat customer for sure.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "5,000+", label: "Pieces in Stock" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "200+", label: "Designer Partners" },
+        { val: "Free", label: "Returns — 30 Days" },
+        { val: "Same Day", label: "Metro Delivery" },
+        { val: "Sustainable", label: "Sourcing Standard" }
+      ],
+      cta: { primary: "Shop New Arrivals", secondary: "View Lookbook", newsletter: "Get Style Updates", getStarted: "Shop Now" },
+      sectionTitles: { products: "New Collection", services: "Style Services", about: "Our Curation Story", features: "Why Shop With Us", testimonials: "Styled & Loved", process: "How It Works", contact: "Style Concierge" },
+      pills: ["New Arrivals", "Women", "Men", "Accessories", "Sale", "Sustainable"],
+      teamRoles: ["Creative Director", "Head Buyer", "Stylist", "E-Commerce Manager", "Visual Merchandiser", "Customer Experience"],
+      processSteps: [
+        { num: "01", title: "Discover", desc: "Browse our curated collections by category, season, or style archetype." },
+        { num: "02", title: "Get Styled", desc: "Use our fit guide or chat with our styling concierge for personalized recommendations." },
+        { num: "03", title: "Order", desc: "Checkout securely with GCash, Maya, credit card, or COD." },
+        { num: "04", title: "Receive", desc: "Your order arrives in signature branded packaging, ready to wear." },
+        { num: "05", title: "Love It or Return It", desc: "30-day free returns. If it doesn't feel right, we'll fix it." }
+      ],
+      valuePropTriad: [
+        { title: "Curated, Not Mass-Produced", desc: "Every piece is chosen by our styling team. You'll never find fast fashion or filler items in our collection." },
+        { title: "Quality You Can Feel", desc: "We test every fabric, seam, and finish before it reaches you. Quality is non-negotiable at every price point." },
+        { title: "Style Made Easy", desc: "From lookbooks to personal styling sessions, we help you build a wardrobe that works — not just a closet full of clothes." }
+      ],
+      locationCity: "Manila",
+      partnerNames: ["ZARA", "COS", "& Other Stories", "Uniqlo", "Arket", "Massimo Dutti", "Mango", "Acne Studios"],
+      variantLabels: ["XS", "S", "M", "L", "XL", "Limited Drop", "Archive", "Exclusive"],
+      footerTagline: "Curated fashion for those who know what they want."
+    },
+
+    jewelry: {
+      taglines: [
+        "Fine Jewelry — Handcrafted to Last Forever",
+        "Every Piece Tells a Story",
+        "Certified Fine Jewelry — Diamonds, Gold & More",
+        "Jewelry That Marks Life's Most Important Moments"
+      ],
+      heroSubs: [
+        "Handcrafted fine jewelry using ethically sourced diamonds and precious metals. Each piece is certified, hallmarked, and made to be passed down.",
+        "From engagement rings to everyday essentials — our collection spans gold, silver, platinum, and certified diamonds. Free engraving on all orders.",
+        "Philippine-crafted fine jewelry. Diamonds, 18K gold, and sterling silver — all certified, all beautiful, all yours."
+      ],
+      products: [
+        { name: "Solitaire Diamond Ring 0.5ct", desc: "GIA-certified 0.50ct round brilliant diamond in 18K white gold 4-prong setting. F color, VS1 clarity.", price: "₱42,000", badge: "Bestseller" },
+        { name: "18K Gold Tennis Bracelet", desc: "18K yellow gold with 3.0ctw shared-prong set round diamonds. 18cm length, lobster clasp.", price: "₱85,000" },
+        { name: "Pearl Drop Earrings", desc: "Hanadama-grade Akoya pearls 8mm, 18K yellow gold settings with post backs. Brilliant lustre.", price: "₱12,800", badge: "New" },
+        { name: "Sapphire Halo Pendant", desc: "2.0ct Ceylon blue sapphire with 0.35ctw diamond halo. 18K white gold. GIA certificate included.", price: "₱55,000" },
+        { name: "Men's Signet Ring 18K", desc: "Solid 18K yellow gold with flat polished top. Customisable with initials or family crest.", price: "₱18,500", badge: "Popular" },
+        { name: "Diamond Stud Earrings 1ctw", desc: "0.50ct each, GIA-certified, E-F color, VS clarity. Set in 18K white gold push-back settings.", price: "₱36,000" },
+        { name: "Infinity Knot Necklace", desc: "18K rose gold with 0.20ctw pavé diamonds. 45cm chain with lobster clasp. Perfect gift.", price: "₱22,000" },
+        { name: "Engagement Ring — Cushion Cut", desc: "1.0ct cushion-cut diamond, GIA E/VS2, set in a platinum split-shank pavé band. Includes sizing.", price: "₱98,000", badge: "Custom" }
+      ],
+      features: [
+        { icon: "💎", title: "GIA-Certified Diamonds", desc: "Every diamond over 0.20ct comes with a GIA or equivalent grading certificate. Full transparency guaranteed." },
+        { icon: "🔨", title: "Handcrafted in the Philippines", desc: "Our master goldsmiths have over 20 years of experience crafting fine jewelry in Marikina and Valenzuela." },
+        { icon: "✦", title: "Lifetime Resizing & Polishing", desc: "All rings come with lifetime free resizing. Annual professional cleaning and polishing at no charge." },
+        { icon: "📦", title: "Signature Gift Packaging", desc: "Every piece ships in our signature jewelry box with a cleaning cloth, certificate wallet, and care card." },
+        { icon: "🔒", title: "Secure Checkout", desc: "All transactions are SSL-encrypted. GCash, Maya, credit card installments, and bank transfer accepted." },
+        { icon: "↩", title: "15-Day Returns", desc: "Non-customised pieces can be returned within 15 days in original unworn condition with all certificates." }
+      ],
+      testimonials: [
+        { name: "Andrea Lim", role: "Newly Engaged, Taguig", text: "My fiancé proposed with a ring from here and it is absolutely perfect. The diamond is stunning and the certificate gave us complete peace of mind.", rating: "★★★★★" },
+        { name: "Carlos Domingo", role: "Anniversary Gift Buyer", text: "I ordered the tennis bracelet for our 10th anniversary and my wife cried. Beautiful piece, fast delivery, came in gorgeous packaging.", rating: "★★★★★" },
+        { name: "Mia Santos", role: "Fine Jewelry Collector", text: "I've been buying from jewelers for 15 years and this is the best combination of price and quality I've found in the Philippines. The craftsmanship is exceptional.", rating: "★★★★★" },
+        { name: "Paolo Reyes", role: "Groom, Cebu", text: "Both our wedding bands came from here. The process was smooth, the sizing was perfect, and the bands are exactly as described. Worth every peso.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "15,000+", label: "Pieces Crafted" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "GIA", label: "Certified Diamonds" },
+        { val: "Lifetime", label: "Resizing & Polishing" },
+        { val: "20+ Years", label: "Master Craftsmen" },
+        { val: "100%", label: "Ethically Sourced" }
+      ],
+      cta: { primary: "Shop Collections", secondary: "Design Custom Piece", newsletter: "New Arrivals & Events", getStarted: "Explore Now" },
+      sectionTitles: { products: "Featured Collection", services: "Bespoke Services", about: "Our Craft & Heritage", features: "Why Choose Us", testimonials: "Moments We've Marked", process: "The Custom Process", contact: "Speak to a Gemologist" },
+      pills: ["Rings", "Necklaces", "Bracelets", "Earrings", "Bespoke", "Engagement"],
+      teamRoles: ["Master Goldsmith", "Gemologist", "Design Consultant", "Client Advisor", "Certification Specialist", "Logistics Manager"],
+      processSteps: [
+        { num: "01", title: "Browse or Book", desc: "Shop our ready collection or book a private consultation to design a custom piece." },
+        { num: "02", title: "Select Your Stone", desc: "Choose from our certified diamond and gemstone inventory with full grading reports." },
+        { num: "03", title: "Design & Craft", desc: "Our master goldsmiths handcraft your piece to exact specifications. 10–14 day turnaround." },
+        { num: "04", title: "Quality Check", desc: "Every finished piece is inspected, photographed, and certified before packaging." },
+        { num: "05", title: "Delivered Beautifully", desc: "Arrives in our signature box with certificate, care card, and complimentary cleaning kit." }
+      ],
+      valuePropTriad: [
+        { title: "Certified & Transparent", desc: "Every significant stone comes with a GIA or equivalent certificate. You always know exactly what you're buying." },
+        { title: "Handcrafted by Masters", desc: "Our goldsmiths bring over 20 years of expertise to each piece. No mass production, no shortcuts." },
+        { title: "Made to Last Generations", desc: "Fine jewelry should be an heirloom, not a trend. We craft pieces built to be passed down, not replaced." }
+      ],
+      locationCity: "Manila",
+      partnerNames: ["GIA", "Tiffany & Co.", "Cartier", "Bulgari", "Pandora", "Hearts On Fire", "Harry Winston", "Mikimoto"],
+      variantLabels: ["14K Gold", "18K Gold", "Platinum", "Rose Gold", "White Gold", "Sterling Silver", "Custom", "Bespoke"],
+      footerTagline: "Fine jewelry handcrafted in the Philippines — certified, beautiful, forever."
+    },
+
+    watches: {
+      taglines: [
+        "Precision Timepieces — Authentic & Certified",
+        "Luxury Watches for the Discerning Collector",
+        "Every Second Counts — Shop Certified Timepieces",
+        "The Watch You Want. Authenticated. Delivered."
+      ],
+      heroSubs: [
+        "From Rolex to Patek Philippe — every timepiece in our collection is authenticated, serviced, and backed by a written guarantee. No fakes, ever.",
+        "Philippine-based luxury watch retailer. Pre-owned and new timepieces from Rolex, Omega, AP, and more — fully authenticated with documented provenance.",
+        "Curated luxury watches for collectors and first-time buyers. Each piece passes a rigorous 40-point authentication process before listing."
+      ],
+      products: [
+        { name: "Rolex Submariner Date 116610LN", desc: "2021 full set. Black ceramic bezel, Oystersteel bracelet, box and papers included. Pristine condition.", price: "₱620,000", badge: "Certified" },
+        { name: "Omega Seamaster 300M Co-Axial", desc: "2023, 42mm, blue ceramic bezel, rubber and bracelet strap. Full set with warranty card.", price: "₱280,000" },
+        { name: "Rolex Datejust 41 White Dial", desc: "2022 full set. Silver stick dial, Jubilee bracelet, Oystersteel. Box and papers. Perfect unworn condition.", price: "₱440,000", badge: "Popular" },
+        { name: "Grand Seiko SBGA413 Snowflake", desc: "Spring Drive movement. Titanium case, 41mm. Textured snowflake dial. Full set with 3 years remaining warranty.", price: "₱380,000", badge: "New" },
+        { name: "Audemars Piguet Royal Oak Offshore", desc: "AP ROO 42mm, grey dial, rubber strap. 2020, complete set. One of the most iconic sports watches ever made.", price: "₱1,450,000" },
+        { name: "IWC Portugieser Chronograph", desc: "IW371615, 41mm, silver dial with blue numerals. 2022 full set. Portuguese leather strap.", price: "₱390,000" },
+        { name: "Tudor Black Bay 58 Navy Blue", desc: "39mm, navy blue dial, fabric NATO strap. 2023 full set. Excellent entry-level dive watch.", price: "₱175,000", badge: "Bestseller" },
+        { name: "Patek Philippe Calatrava 5296G", desc: "White gold, 38mm, silver opaline dial, alligator strap. 2019 full set. The quintessential dress watch.", price: "₱1,850,000", badge: "Collector" }
+      ],
+      features: [
+        { icon: "🔍", title: "40-Point Authentication", desc: "Every watch is examined by certified watchmakers and cross-referenced against manufacturer documentation." },
+        { icon: "📋", title: "Documented Provenance", desc: "All timepieces come with their documented service and ownership history where available." },
+        { icon: "🛡", title: "Written Authenticity Guarantee", desc: "If any watch fails to authenticate after purchase, we provide a full refund — no questions asked." },
+        { icon: "🔧", title: "In-House Service Centre", desc: "Full service and restoration capability for all major Swiss and Japanese brands." },
+        { icon: "📦", title: "Insured Nationwide Delivery", desc: "All watches ship fully insured with tracking. Metro Manila same-day available for orders before noon." },
+        { icon: "💳", title: "Flexible Payment Options", desc: "0% installment via credit card (up to 24 months), GCash, Maya, bank transfer, and cash accepted." }
+      ],
+      testimonials: [
+        { name: "Gabriel Torres", role: "Watch Collector, BGC", text: "Bought my Sub here and the authentication process was thorough and transparent. Papers matched, watch was exactly as described. Will buy again.", rating: "★★★★★" },
+        { name: "Kristine Ong", role: "First-Time Buyer, Cebu", text: "I was nervous buying a luxury watch online but their team walked me through the entire process. The Grand Seiko arrived perfectly packed and fully genuine.", rating: "★★★★★" },
+        { name: "Miguel Santos", role: "Horologist, Makati", text: "As a watchmaker myself, I'm extremely critical about authenticity. They passed my personal inspection with flying colours. The provenance documentation is excellent.", rating: "★★★★★" },
+        { name: "Ana Reyes", role: "Investment Buyer, Manila", text: "I've purchased four pieces here over three years. The team is knowledgeable, honest about condition grades, and pricing is always fair market.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "500+", label: "Authenticated Pieces" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "40-Point", label: "Authentication Check" },
+        { val: "100%", label: "Money-Back Guarantee" },
+        { val: "Insured", label: "Nationwide Shipping" },
+        { val: "24-Month", label: "0% Installment" }
+      ],
+      cta: { primary: "Browse Collection", secondary: "Sell Your Watch", newsletter: "New Arrivals & Alerts", getStarted: "View Inventory" },
+      sectionTitles: { products: "Available Timepieces", services: "Trade & Consignment", about: "Our Authentication Standard", features: "Why Buy From Us", testimonials: "Collector Reviews", process: "How Authentication Works", contact: "Speak to an Expert" },
+      pills: ["Rolex", "Omega", "AP", "Patek", "Grand Seiko", "Tudor", "IWC"],
+      teamRoles: ["Chief Authenticator", "Watch Specialist", "Client Advisor", "Service Watchmaker", "Logistics Manager", "Marketing Lead"],
+      processSteps: [
+        { num: "01", title: "Source", desc: "We acquire timepieces from verified sellers, estates, and authorised dealers worldwide." },
+        { num: "02", title: "Authenticate", desc: "Every piece undergoes our 40-point inspection by certified watchmakers with specialised tools." },
+        { num: "03", title: "Grade & Price", desc: "Condition is graded, documented, and priced transparently against current market data." },
+        { num: "04", title: "List & Sell", desc: "Your chosen piece is reserved, invoiced, and prepared for secure shipping." },
+        { num: "05", title: "Deliver", desc: "Fully insured delivery nationwide. White-glove handling, real-time tracking." }
+      ],
+      valuePropTriad: [
+        { title: "Authentication You Can Trust", desc: "Our 40-point check uses specialist tools and manufacturer databases. We reject anything we can't fully certify." },
+        { title: "Fair, Transparent Pricing", desc: "Our prices are benchmarked against Chrono24, Watchbox, and live auction data. No artificial markups." },
+        { title: "The Collector Community", desc: "Join 3,000+ collectors who rely on us for sourcing, selling, and valuation. Philippines' most trusted watch market." }
+      ],
+      locationCity: "Manila",
+      partnerNames: ["Rolex", "Omega", "Audemars Piguet", "Patek Philippe", "Grand Seiko", "IWC", "Tudor", "TAG Heuer"],
+      variantLabels: ["Mint", "Excellent", "Good", "Full Set", "Watch Only", "Serviced", "Unworn", "Investment Grade"],
+      footerTagline: "Philippines' most trusted source for authenticated luxury timepieces."
+    },
+
+    leather: {
+      taglines: [
+        "Full-Grain Leather Goods — Handcrafted to Outlast Trends",
+        "Bags, Wallets & Accessories — Crafted to Last a Lifetime",
+        "Premium Leather. Masterful Craft. Philippine Made.",
+        "Leather Goods That Improve With Age"
+      ],
+      heroSubs: [
+        "Full-grain vegetable-tanned leather goods handcrafted by Filipino artisans. Every bag, wallet, and accessory is built to last decades, not seasons.",
+        "We use only the finest full-grain and shell cordovan leathers, sourced from the world's best tanneries. No bonded leather, no shortcuts.",
+        "Philippine-crafted leather goods that age beautifully. Each piece is hand-stitched, individually numbered, and backed by a lifetime repair guarantee."
+      ],
+      products: [
+        { name: "Heritage Briefcase", desc: "English Bridle leather with brass hardware. 15\" laptop compartment, suede-lined interior, hand-stitched saddle seam.", price: "₱18,500", badge: "Bestseller" },
+        { name: "Slim Bifold Wallet", desc: "Shell cordovan leather. 4-card slots, cash compartment. Aged patina develops beautifully over years of use.", price: "₱4,200" },
+        { name: "Tote Bag — Natural Tan", desc: "Horween Chromexcel leather with solid brass rivets and open-top design. Interior zip pocket, key clip.", price: "₱12,800", badge: "New" },
+        { name: "Travel Document Holder", desc: "Full-grain leather with RFID blocking lining. Holds passport, cards, boarding pass, and pen.", price: "₱3,600" },
+        { name: "Weekend Duffel", desc: "English Bridle leather with waxed canvas base. Padded shoulder strap, shoe compartment, lifetime repair warranty.", price: "₱22,000", badge: "Limited" },
+        { name: "Card Holder — 6 Slots", desc: "Horween Dublin leather, slim profile, 6-card capacity with center cash slip. Excellent entry-level piece.", price: "₱2,200" },
+        { name: "Watch Roll — 3 Piece", desc: "Full-grain leather, suede-lined individual pods, brass snap closure. Travel in style.", price: "₱5,800" },
+        { name: "Belt — 35mm Dress", desc: "English Bridle leather, solid brass buckle, hand-beveled and burnished edges. Cut to your waist measurement.", price: "₱3,200", badge: "Custom" }
+      ],
+      features: [
+        { icon: "🐂", title: "Full-Grain Leather Only", desc: "We use only the top layer of the hide — the strongest, most durable grade. No bonded, split, or corrected leather." },
+        { icon: "🧵", title: "Hand-Stitched Construction", desc: "Saddle stitch by hand using waxed linen thread. A broken thread won't unravel the whole seam like machine stitching." },
+        { icon: "🔨", title: "Lifetime Repair Guarantee", desc: "Every piece we make can be repaired, resoled, or restored by our craftsmen. Forever." },
+        { icon: "🌿", title: "Vegetable-Tanned Leather", desc: "Our hides are tanned using traditional vegetable methods — better for the environment, and they develop a unique patina." },
+        { icon: "📦", title: "Individually Numbered", desc: "Each piece carries a serial number and the craftsman's initials. Your bag is truly one of a kind." },
+        { icon: "🇵🇭", title: "Philippine-Made", desc: "Designed and crafted entirely in our Marikina workshop by Filipino artisans with decades of experience." }
+      ],
+      testimonials: [
+        { name: "Anton Cruz", role: "Lawyer, Makati CBD", text: "The briefcase is the best professional bag I've ever owned. Five years in, it looks better than the day I bought it. The patina is stunning.", rating: "★★★★★" },
+        { name: "Elena Santos", role: "Creative Director, BGC", text: "I bought the tote two years ago and use it every single day. The leather has softened beautifully and it's held up without a single issue. Worth every peso.", rating: "★★★★★" },
+        { name: "Marco Villanueva", role: "Watch Collector, Manila", text: "The watch roll is perfectly crafted. Tight stitching, beautiful leather, and my watches are completely protected. Already ordered a 6-piece version.", rating: "★★★★★" },
+        { name: "Rina Dela Rosa", role: "Business Owner, Cebu", text: "I gifted my husband the weekend duffel for our anniversary. He uses it every weekend. The quality is immediately obvious — this is a gift that lasts.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "2,000+", label: "Pieces Crafted" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "Lifetime", label: "Repair Guarantee" },
+        { val: "Full-Grain", label: "Leather Standard" },
+        { val: "Hand-Stitched", label: "Construction" },
+        { val: "Marikina", label: "Made in the Philippines" }
+      ],
+      cta: { primary: "Shop Collection", secondary: "Custom Order", newsletter: "New Designs & Restocks", getStarted: "See All Bags" },
+      sectionTitles: { products: "The Collection", services: "Custom & Bespoke", about: "Our Craft & Workshop", features: "Built Different", testimonials: "Owned for Years", process: "Made to Order", contact: "Talk to a Craftsman" },
+      pills: ["Bags", "Wallets", "Belts", "Accessories", "Custom", "Gifts"],
+      teamRoles: ["Head Craftsman", "Pattern Maker", "Leather Sourcer", "Custom Specialist", "Customer Relations", "Dispatch Manager"],
+      processSteps: [
+        { num: "01", title: "Select", desc: "Choose your design, leather type, and hardware finish from our collection or custom options." },
+        { num: "02", title: "Cut", desc: "Your leather is hand-cut from a full hide, matching grain direction and character for the best result." },
+        { num: "03", title: "Stitch", desc: "Each piece is hand-stitched using the saddle stitch method — the strongest and most traditional technique." },
+        { num: "04", title: "Finish", desc: "Edges are hand-beveled, dyed, and burnished. Hardware is fitted and all stitching is inspected." },
+        { num: "05", title: "Number & Ship", desc: "Your piece is individually numbered, photographed, and shipped in our signature packaging." }
+      ],
+      valuePropTriad: [
+        { title: "Better With Every Year", desc: "Full-grain leather develops a patina unique to you — your bag looks better at 5 years than it did on day one." },
+        { title: "Crafted to Outlast You", desc: "Hand-stitching, solid hardware, and full-grain leather mean our pieces don't wear out — they wear in." },
+        { title: "Made in the Philippines", desc: "Every piece is crafted in our Marikina workshop by Filipino artisans. Local craft, world-class quality." }
+      ],
+      locationCity: "Marikina",
+      partnerNames: ["Horween", "Baker's Bridle", "Wickett & Craig", "Shinki Hikaku", "Tanner Goods", "WJ Baker", "English Bridle", "Vegetan"],
+      variantLabels: ["Natural Tan", "Dark Brown", "Black", "Cognac", "British Tan", "Havana", "Forest Green", "Burgundy"],
+      footerTagline: "Handcrafted leather goods made to last a lifetime — Philippine-made, world-class quality."
+    },
+
+    soccer: {
+      taglines: [
+        "Philippines' Premier Football Store — Certified Authentic",
+        "Every Jersey. Every Boot. All Legit.",
+        "Football Gear for Players, Fans & Collectors",
+        "Official Football Equipment — Delivered to Your Door"
+      ],
+      heroSubs: [
+        "From Premier League jerseys to Nike Phantom boots — every item is certified authentic, sourced directly from official club and Nike partners. Free metro delivery.",
+        "The Philippines' largest selection of genuine football gear. Jerseys, boots, balls, and training equipment — all 100% verified authentic.",
+        "For players and fans who demand the real thing. Shop official club kits, UEFA-grade footballs, and professional training gear."
+      ],
+      products: [
+        { name: "Nike Phantom GX 2 Elite FG", desc: "Flyknit upper with All Conditions Control texture. Full-length carbon fibre plate for explosive precision passing.", price: "₱9,800", badge: "Bestseller" },
+        { name: "Real Madrid Home Kit 2024/25", desc: "Adidas Authentic. Heat-pressed badge, Dri-AEROREADY mesh, official UEFA Champions League patch.", price: "₱3,600" },
+        { name: "FC Barcelona Away Jersey", desc: "Nike Dri-FIT ADV. Player-issue cut with authentic heat-pressed details and La Liga patch.", price: "₱3,800", badge: "Hot" },
+        { name: "Adidas Champions League Official Ball", desc: "FIFA Quality Pro certified. Thermally bonded panels, butyl bladder, official UCL tournament specification.", price: "₱8,500" },
+        { name: "Adidas Predator 24 Elite FG", desc: "Controlframe outsole with Zone Skin texture zones. Designed for total control and precision striking.", price: "₱10,200", badge: "New" },
+        { name: "England National Team Home Kit", desc: "Nike Authentic. Lionesses crest, heat-pressed details, official UEFA EURO specification.", price: "₱3,400" },
+        { name: "Nike Mercurial Superfly 10 FG", desc: "Vaporposite upper with Zoom Air unit in heel. The fastest boot Nike has ever made.", price: "₱11,500" },
+        { name: "Puma King Pro FG Classic", desc: "Full-grain leather upper with the original King stitch pattern. A timeless football boot reborn.", price: "₱7,800", badge: "Classic" }
+      ],
+      features: [
+        { icon: "✓", title: "100% Certified Authentic", desc: "Every jersey, boot, and ball carries official club and manufacturer authentication. No replicas, ever." },
+        { icon: "⚡", title: "Same-Day Metro Delivery", desc: "Order before 2PM and receive your gear the same day across Metro Manila and key provincial cities." },
+        { icon: "⚽", title: "Official Club Partner", desc: "Direct sourcing from Nike, Adidas, Puma, and official club merchandise distributors worldwide." },
+        { icon: "↩", title: "30-Day Returns", desc: "Unworn items with original tags can be returned free within 30 days. No hassle, no questions." },
+        { icon: "🔒", title: "Secure Payments", desc: "GCash, Maya, credit card, and COD accepted. All transactions are SSL-encrypted." },
+        { icon: "📦", title: "Professional Packaging", desc: "Every order packed with care in official packaging. Collector-grade presentation for every shipment." }
+      ],
+      testimonials: [
+        { name: "Jose Mendoza", role: "Liga Pilipinas Player", text: "Best football store in the country. Boots arrived in 24 hours, completely authentic with all tags intact. Already ordered a second pair.", rating: "★★★★★" },
+        { name: "Maria Santos", role: "Football Coach, BGC", text: "I equip my entire academy from here. Pricing is competitive, delivery is fast, and every boot passes our authenticity check. Highly recommended.", rating: "★★★★★" },
+        { name: "Ramon Cruz", role: "UCL Collector, Davao", desc: "text: Finally a local store that stocks rare away kits. My Barca collection is now complete thanks to them. Fast shipping, arrived in perfect condition.", rating: "★★★★★" },
+        { name: "Lena Reyes", role: "Sports Retailer, Cebu", text: "I wholesale from them regularly. Stock is reliable, pricing is fair, and every product is certified. The best football supplier in the Philippines.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "8,000+", label: "Products In Stock" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "30,000+", label: "Orders Shipped" },
+        { val: "100%", label: "Certified Authentic" },
+        { val: "Same Day", label: "Metro Delivery" },
+        { val: "30 Days", label: "Free Returns" }
+      ],
+      cta: { primary: "Shop Jerseys", secondary: "View Boots", newsletter: "Get Drop Alerts", getStarted: "Shop Now" },
+      sectionTitles: { products: "Top Football Gear", services: "Our Collections", about: "Your Game, Our Passion", features: "Why Players Choose Us", testimonials: "What Players Say", process: "How It Works", contact: "Get In Touch" },
+      pills: ["Jerseys", "Boots", "Balls", "Training Gear", "Accessories", "Collector"],
+      teamRoles: ["Head Buyer", "Store Manager", "Authentication Specialist", "Customer Relations", "Social Media", "Logistics Lead"],
+      processSteps: [
+        { num: "01", title: "Browse", desc: "Explore our full catalog of official jerseys, boots, balls, and training equipment." },
+        { num: "02", title: "Authenticate", desc: "Every item is verified by our authentication team before listing. Tags, holograms, and packaging all checked." },
+        { num: "03", title: "Order", desc: "Checkout with GCash, Maya, credit card, or COD. Orders confirmed within minutes." },
+        { num: "04", title: "Pack", desc: "Each item is carefully packed in official protective packaging and photographed before dispatch." },
+        { num: "05", title: "Deliver", desc: "Same-day metro delivery for orders before 2PM. Provincial tracking via SMS." }
+      ],
+      valuePropTriad: [
+        { title: "Guaranteed Authentic", desc: "Every jersey, boot, and ball is certified. We source directly from official club and manufacturer partners — no grey market." },
+        { title: "Fastest Delivery", desc: "Same-day dispatch across Metro Manila. Provincial orders arrive within 2–3 business days." },
+        { title: "The Footballer's Trust", desc: "Over 30,000 orders shipped with a 4.9-star rating. The go-to football store for Philippine players and fans." }
+      ],
+      locationCity: "Manila",
+      partnerNames: ["Nike", "Adidas", "Puma", "New Balance", "Umbro", "Hummel", "Under Armour", "Reusch"],
+      variantLabels: ["Home Kit", "Away Kit", "Third Kit", "Goalkeeper", "Player Issue", "Fan Version", "Authentic", "Collectors Edition"],
+      footerTagline: "Philippines' premier source for certified authentic football gear."
+    },
+
+    electronics: {
+      taglines: [
+        "Premium Electronics — Authentic & Warranty-Covered",
+        "The Latest Tech. Genuine. Delivered.",
+        "Gadgets, Phones & Laptops — All Certified",
+        "Tech That Performs. Prices That Don't Hurt."
+      ],
+      heroSubs: [
+        "From iPhones to gaming laptops — every device we sell is brand-new, warranty-covered, and authenticity-guaranteed. Free metro delivery on all orders.",
+        "Philippines' trusted tech retailer. Genuine Apple, Samsung, Sony, and more — all with full manufacturer warranty and expert after-sales support.",
+        "Certified electronics from the world's leading brands. Same-day metro delivery, 0% installment available, and a dedicated tech support team."
+      ],
+      products: [
+        { name: "iPhone 16 Pro 256GB", desc: "A18 Pro chip, 48MP camera system, titanium design. Natural Titanium. Sealed box with full Apple PH warranty.", price: "₱72,000", badge: "Bestseller" },
+        { name: "MacBook Air M3 13\"", desc: "Apple M3 chip, 8GB unified memory, 256GB SSD. Starlight. 1-year Apple warranty, sealed box.", price: "₱82,000" },
+        { name: "Samsung Galaxy S25 Ultra", desc: "Snapdragon 8 Elite, 12GB RAM, 256GB storage. Built-in S Pen, titanium frame, official Samsung PH warranty.", price: "₱68,000", badge: "New" },
+        { name: "Sony WH-1000XM6 Headphones", desc: "Industry-leading noise cancellation. 30-hour battery, Bluetooth 5.3, multipoint connection. Brand new sealed.", price: "₱21,000" },
+        { name: "ASUS ROG Zephyrus G16 RTX 4070", desc: "AMD Ryzen AI 9, 16GB DDR5, 1TB NVMe, 2.5K 240Hz display. Gaming and creative powerhouse.", price: "₱145,000", badge: "Hot" },
+        { name: "iPad Pro M4 11\"", desc: "Apple M4 chip, Ultra Retina XDR OLED, 256GB. Space Black. Sealed with full Apple PH warranty.", price: "₱68,000" },
+        { name: "GoPro HERO13 Black", desc: "5.3K60 video, HyperSmooth 6.0, 27MP photo. Waterproof to 10m. Full kit with accessories included.", price: "₱24,500", badge: "Popular" },
+        { name: "Dyson V15 Detect Absolute", desc: "Laser dust detection, 60-minute runtime, HEPA filtration. Full set with all attachments. Official Dyson PH warranty.", price: "₱36,000" }
+      ],
+      features: [
+        { icon: "✓", title: "100% Genuine — Sealed Box", desc: "Every device is brand-new, sealed, and sourced directly from official distributors. No refurbished or grey market." },
+        { icon: "🛡", title: "Full Manufacturer Warranty", desc: "All products carry the full manufacturer warranty — Apple, Samsung, Sony, ASUS, and more. Supported locally." },
+        { icon: "⚡", title: "Same-Day Metro Delivery", desc: "Order before 2PM and receive your device the same day. All deliveries are insured." },
+        { icon: "💳", title: "0% Installment — 12 Months", desc: "Available on all major credit cards. Split your purchase with zero interest for up to 12 months." },
+        { icon: "🔧", title: "Expert Tech Support", desc: "Post-purchase setup, troubleshooting, and warranty assistance from our dedicated tech support team." },
+        { icon: "↩", title: "7-Day Returns Policy", desc: "Sealed, brand-new items can be returned within 7 days if faulty. Replaced or fully refunded — your choice." }
+      ],
+      testimonials: [
+        { name: "Kevin Tan", role: "Software Engineer, BGC", text: "Bought my MacBook M3 here. Sealed box, arrived same day, and the price was the best I found in the Philippines. Will buy my next device here too.", rating: "★★★★★" },
+        { name: "Jasmine Reyes", role: "Content Creator, Manila", text: "The iPhone 16 Pro was available on launch day and delivered within 3 hours. 100% genuine Apple packaging. Amazing service.", rating: "★★★★★" },
+        { name: "Mark Santos", role: "Gamer & Streamer", text: "Got the ROG Zephyrus and it's a beast. Fast delivery, proper warranty setup assistance, and the price beat every other store I checked.", rating: "★★★★★" },
+        { name: "Claire Dela Cruz", role: "Business Owner, Cebu", text: "Ordered 5 iPads for our office. All arrived genuine, sealed, and set up with our MDM within the same day. Exceptional bulk order service.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "20,000+", label: "Products Available" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "100,000+", label: "Orders Fulfilled" },
+        { val: "100%", label: "Sealed & Genuine" },
+        { val: "Same Day", label: "Metro Delivery" },
+        { val: "0% Interest", label: "12-Month Installment" }
+      ],
+      cta: { primary: "Shop Latest Tech", secondary: "View All Brands", newsletter: "Get Deals & Launches", getStarted: "Shop Now" },
+      sectionTitles: { products: "Top Gadgets & Devices", services: "Our Tech Categories", about: "Why We're Trusted", features: "Why Buy From Us", testimonials: "Customer Reviews", process: "How It Works", contact: "Get Tech Support" },
+      pills: ["Apple", "Samsung", "Gaming", "Audio", "Laptops", "Accessories"],
+      teamRoles: ["Product Manager", "Tech Specialist", "Customer Support", "Logistics Manager", "Marketing Lead", "Warranty Coordinator"],
+      processSteps: [
+        { num: "01", title: "Browse", desc: "Search our full catalog by brand, category, or budget. Compare specs side by side." },
+        { num: "02", title: "Verify", desc: "Check product authenticity seals, warranty details, and stock availability in real time." },
+        { num: "03", title: "Order", desc: "Checkout with GCash, Maya, credit card installment, or COD. Instant order confirmation." },
+        { num: "04", title: "Pack & Check", desc: "Every device is double-checked, sealed, photographed, and packed before dispatch." },
+        { num: "05", title: "Deliver", desc: "Insured same-day delivery in Metro Manila. Provincial orders within 2–3 business days." }
+      ],
+      valuePropTriad: [
+        { title: "Genuinely Genuine", desc: "100% sealed, brand-new products sourced from official PH distributors. Not refurbished, not grey market, never." },
+        { title: "Support That Doesn't Stop", desc: "From setup to warranty claims, our tech support team is available 7 days a week. We're with you after the sale." },
+        { title: "Best Price Guarantee", desc: "Found it cheaper somewhere official? We'll match it. Our pricing is always competitive against authorized retailers." }
+      ],
+      locationCity: "Manila",
+      partnerNames: ["Apple", "Samsung", "Sony", "ASUS", "Lenovo", "Dyson", "GoPro", "Bose"],
+      variantLabels: ["128GB", "256GB", "512GB", "1TB", "Standard", "Pro", "Max", "Ultra"],
+      footerTagline: "Genuine electronics, full warranty, same-day delivery — Philippines' trusted tech store."
+    },
+
+    pets: {
+      taglines: [
+        "Premium Pet Care — Because They Deserve the Best",
+        "Everything Your Pet Needs — All In One Place",
+        "Pet Supplies, Food & Accessories — Delivered",
+        "Trusted by Philippine Pet Parents Since 2018"
+      ],
+      heroSubs: [
+        "Premium pet food, accessories, and care products for dogs, cats, and small animals. Vet-approved brands, free metro delivery, and same-day dispatch.",
+        "Your pet's happiness starts here. Shop Royal Canin, Hill's, Purina Pro Plan, and more — all authentic, all in stock, all delivered fast.",
+        "Trusted by over 20,000 Philippine pet parents. Premium pet supplies, grooming, and accessories — with expert advice from our in-house vet team."
+      ],
+      products: [
+        { name: "Royal Canin Maxi Adult 10kg", desc: "Complete dry food for large breed dogs over 15 months. Precise nutrition for healthy skin, joints, and vitality.", price: "₱2,800", badge: "Bestseller" },
+        { name: "Hill's Science Diet — Sensitive Stomach Cat", desc: "Easily digestible formula with prebiotic fibre. Supports a healthy microbiome and optimal nutrient absorption.", price: "₱1,850" },
+        { name: "Purina Pro Plan — Adult Dog Salmon 12kg", desc: "Real salmon as the first ingredient. Supports lean muscle mass, healthy coat, and immune system function.", price: "₱3,200", badge: "Popular" },
+        { name: "PetSafe Automatic Feeder 6-Meal", desc: "Programmes up to 6 meals per day. LCD display, voice recorder, BPA-free tray. For cats and small dogs.", price: "₱4,500", badge: "New" },
+        { name: "Kong Classic Dog Toy — Large", desc: "Natural rubber enrichment toy. Fill with treats or kibble. Virtually indestructible for power chewers.", price: "₱850" },
+        { name: "Cat Tree — 160cm Deluxe Tower", desc: "6-level activity centre with hammock, scratching posts, hideaway box, and plush perches.", price: "₱5,800" },
+        { name: "Frontline Plus Flea & Tick — 3 Pack Dog", desc: "Kills fleas, ticks, and lice within 24 hours. Waterproof. 1-month protection per application.", price: "₱1,200", badge: "Essential" },
+        { name: "Ruffwear Front Range Harness", desc: "Padded chest and belly panel, dual leash attachment points, ID pocket. Top-rated hiking and everyday harness.", price: "₱2,800" }
+      ],
+      features: [
+        { icon: "🐾", title: "Vet-Approved Brands Only", desc: "Every product in our store is reviewed by our in-house vet team. We only stock brands we'd use for our own pets." },
+        { icon: "⚡", title: "Same-Day Metro Delivery", desc: "Order before 2PM and your pet's supplies arrive the same day. Free delivery for orders above ₱1,500." },
+        { icon: "👩‍⚕️", title: "Free Vet Consultation", desc: "Chat with our in-house veterinarian for free. Nutrition advice, health questions, and product recommendations." },
+        { icon: "📦", title: "Subscription Auto-Delivery", desc: "Never run out of food again. Subscribe to auto-delivery and save 10% on every recurring order." },
+        { icon: "🔒", title: "Secure Checkout", desc: "GCash, Maya, credit card, and COD accepted. All transactions are SSL-encrypted and protected." },
+        { icon: "↩", title: "30-Day Satisfaction Guarantee", desc: "If your pet doesn't love a product, return it within 30 days for a full exchange or refund." }
+      ],
+      testimonials: [
+        { name: "Patricia Dela Rosa", role: "Dog Mom of 2, Quezon City", text: "The Royal Canin is always available and arrives the same day. The free vet chat is genuinely helpful — recommended the perfect food for my senior dog.", rating: "★★★★★" },
+        { name: "Andrei Lim", role: "Cat Dad, Makati", text: "I switched my cats to Hill's Science Diet based on the vet team's recommendation and the difference in 6 weeks was remarkable. Fast delivery, always fresh stock.", rating: "★★★★★" },
+        { name: "Joy Santos", role: "Pet Groomer, BGC", text: "I source all my grooming supplies here. Pricing is competitive, stock is consistent, and the delivery is always on time. My go-to supplier.", rating: "★★★★★" },
+        { name: "Marco Reyes", role: "Multi-Pet Household, Paranaque", text: "5 dogs, 2 cats. I order every two weeks and they never disappoint. The subscription delivery saves me 10% and I never run out of food.", rating: "★★★★★" }
+      ],
+      metrics: [
+        { val: "20,000+", label: "Pet Parents Served" },
+        { val: "4.9★", label: "Customer Rating" },
+        { val: "500+", label: "Products In Stock" },
+        { val: "Free Vet", label: "Consultation" },
+        { val: "Same Day", label: "Metro Delivery" },
+        { val: "10%", label: "Subscription Savings" }
+      ],
+      cta: { primary: "Shop Pet Supplies", secondary: "Free Vet Chat", newsletter: "Pet Care Tips & Deals", getStarted: "Shop Now" },
+      sectionTitles: { products: "Top Pet Products", services: "Our Pet Care Range", about: "For Pet Parents, By Pet Parents", features: "Why Pet Owners Trust Us", testimonials: "Happy Pets, Happy Parents", process: "How It Works", contact: "Talk to Our Vet Team" },
+      pills: ["Dog Food", "Cat Food", "Treats", "Toys", "Grooming", "Health"],
+      teamRoles: ["Chief Veterinarian", "Nutrition Specialist", "Customer Relations", "Product Buyer", "Delivery Manager", "Social Media"],
+      processSteps: [
+        { num: "01", title: "Browse", desc: "Shop by pet type, brand, or health need. Use our filter to find exactly what your pet requires." },
+        { num: "02", title: "Get Advice", desc: "Chat with our vet team for free nutrition and product recommendations tailored to your pet." },
+        { num: "03", title: "Order", desc: "Checkout with GCash, Maya, credit card, COD, or set up a subscription for recurring delivery." },
+        { num: "04", title: "Pack Fresh", desc: "All food products are date-checked before packing. Every order is handled with care." },
+        { num: "05", title: "Deliver", desc: "Same-day metro delivery for orders before 2PM. Track your order via SMS in real time." }
+      ],
+      valuePropTriad: [
+        { title: "Vet-Recommended Every Time", desc: "Our in-house vet team reviews every product we stock and is available free to guide your pet's nutrition and care." },
+        { title: "Never Run Out", desc: "Subscribe to auto-delivery and your pet's essentials arrive on schedule, with a 10% discount every time." },
+        { title: "Fast, Fresh, Reliable", desc: "Over 20,000 pet parents trust us for same-day delivery of fresh, authentic pet food and supplies." }
+      ],
+      locationCity: "Manila",
+      partnerNames: ["Royal Canin", "Hill's Science Diet", "Purina Pro Plan", "Kong", "Frontline", "Ruffwear", "PetSafe", "Orijen"],
+      variantLabels: ["Puppy", "Adult", "Senior", "Small Breed", "Large Breed", "Grain-Free", "Sensitive", "Prescription"],
+      footerTagline: "Premium pet care for Filipino pet parents — vet-approved, fast delivery, always in stock."
     }
   };
 
@@ -1112,17 +1578,39 @@
   function buildFallbackBank(intent) {
     const n = intent.primaryNiche || 'products';
     const b = intent.brandName || n;
-    const cat = (intent.siteCategory || 'BUSINESS').toUpperCase();
-    if (BANKS['business_generic']) {
-      const base = Object.assign({}, BANKS['business_generic']);
-      // Patch in the actual niche/brand
-      base.taglines = [`Premium ${n} — World-Class Quality`, `${b} — Excellence Redefined`, `The Future of ${n}`, `${b} — Crafted for the Best`];
-      base.heroSubs = [`${b} delivers premium ${n} with uncompromising quality and a commitment to excellence.`, `Experience the finest ${n} selection, curated for those who demand the best.`, `Trusted by thousands for ${n}. Discover why customers keep coming back.`];
-      base.footerTagline = `Premium ${n} by ${b} — quality you can trust.`;
-      base.sectionTitles = Object.assign({}, base.sectionTitles, { products: `${n} Collection`, about: `The ${b} Story` });
-      return base;
-    }
-    return BANKS['ecommerce_generic'];
+    const VARIANT_NAMES = ['Essential', 'Premium', 'Signature', 'Elite', 'Reserve', 'Classic', 'Limited', 'Exclusive'];
+    const base = Object.assign({}, BANKS['ecommerce_generic']);
+    base.products = VARIANT_NAMES.map(function(v, i) {
+      return {
+        name: b + ' ' + v,
+        desc: 'Premium ' + n + ' — ' + v.toLowerCase() + ' grade quality, curated for discerning customers.',
+        price: '₱' + [1500, 2800, 4200, 5600, 7500, 3200, 9800, 12000][i].toLocaleString()
+      };
+    });
+    base.taglines = ['Premium ' + n, b + ' — Excellence', 'The ' + n + ' Standard', b + ' — Best in Class'];
+    base.heroSubs = [
+      b + ' delivers premium ' + n + ' with uncompromising quality.',
+      'Experience the finest ' + n + ', curated for those who demand excellence.',
+      'Trusted by thousands for ' + n + '.'
+    ];
+    base.footerTagline = 'Premium ' + n + ' — curated for excellence by ' + b + '.';
+    base.sectionTitles = Object.assign({}, base.sectionTitles, { products: n + ' Collection', about: 'The ' + b + ' Story' });
+    base.testimonials = [
+      { name: 'Maria Santos', role: 'Customer, Manila', text: 'Absolutely love the quality. ' + b + ' exceeded my expectations — fast delivery and great customer service.', rating: '★★★★★' },
+      { name: 'Roberto Cruz', role: 'Regular Customer', text: 'Been buying from ' + b + ' for over a year. Consistent quality and always on time. Highly recommended.', rating: '★★★★★' },
+      { name: 'Ana Reyes', role: 'Happy Buyer, Cebu', text: 'The ' + n + ' I ordered was exactly as described. Premium quality at a fair price. Will order again.', rating: '★★★★★' },
+      { name: 'Jose Villanueva', role: 'Satisfied Customer', text: 'Great experience from start to finish. ' + b + ' knows their ' + n + ' and the packaging was impressive.', rating: '★★★★★' }
+    ];
+    base.features = [
+      { icon: '✓', title: 'Premium Quality ' + n, desc: 'Every ' + n + ' product is carefully selected and quality-checked before it reaches you.' },
+      { icon: '⚡', title: 'Fast Metro Delivery', desc: 'Same-day delivery across Metro Manila for orders placed before 2PM.' },
+      { icon: '↩', title: '30-Day Returns', desc: 'Not satisfied? Return within 30 days for a full refund or exchange.' },
+      { icon: '🔒', title: 'Secure Checkout', desc: 'GCash, Maya, credit card, and COD accepted. All transactions encrypted.' },
+      { icon: '📦', title: 'Premium Packaging', desc: 'Every order is carefully packed to ensure it arrives in perfect condition.' },
+      { icon: '★', title: '5-Star Rated', desc: 'Thousands of happy customers and a consistent 4.9-star rating across all platforms.' }
+    ];
+    base.cta = { primary: 'Shop ' + n, secondary: 'View Collection', newsletter: 'Get Updates & Deals', getStarted: 'Shop Now' };
+    return base;
   }
 
   // ─── Main generate function ────────────────────────────────────────────────

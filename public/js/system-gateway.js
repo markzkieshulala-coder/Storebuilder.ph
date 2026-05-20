@@ -155,6 +155,127 @@
   }
 
   // ============================================================
+  // ============================================================
+  // STACK NORMALIZER: Make every generation render its contentKit
+  // ============================================================
+  // The intelligence engine chooses body sections per category. Some
+  // categories (SAAS, BUSINESS, LANDING, AGENCY) never pick a product
+  // grid, which means even though the contentKit holds real product data
+  // it's never rendered. This normalizer guarantees that any site whose
+  // contentKit has products renders a product grid, and any site with
+  // testimonials renders a testimonial section — regardless of category.
+  function normalizeStackForContent(blueprint) {
+    if (!blueprint || !blueprint.componentStack || !blueprint.contentKit) return;
+    const stack = blueprint.componentStack;
+    const kit = blueprint.contentKit;
+
+    function cloneSeed() {
+      // Pull animation + alignment defaults from an existing body comp so the
+      // injected section blends with the surrounding choreography.
+      const seed = stack.find(c => c.role === 'body') || stack[0];
+      return {
+        alignment: seed && seed.alignment
+          ? Object.assign({}, seed.alignment)
+          : { horizontal: 'center', vertical: 'center', padX: '7%', padY: '12vh', zIndex: 5 },
+        animationProfile: seed && seed.animationProfile
+          ? Object.assign({}, seed.animationProfile)
+          : { entryDuration: '0.9s', entryEasing: 'cubic-bezier(0.16,1,0.3,1)', staggerDelay: '0.12s', parallaxDepth: '0.35' }
+      };
+    }
+
+    function insertBeforeFooter(comp) {
+      const footerIdx = stack.findIndex(c => c.role === 'footer');
+      const insertAt = footerIdx >= 0 ? footerIdx : stack.length;
+      stack.splice(insertAt, 0, comp);
+    }
+
+    // 1) Products → ensure a product grid section is present
+    const PRODUCT_SECTIONS = [
+      'GRID_ASYMMETRIC_MASONRY', 'SHOWCASE_ASYMMETRIC_MASONRY', 'EDITORIAL_LOOKBOOK',
+      'FEATURE_SNEAK_PEEK', 'SERVICE_EXPERTISE_GRID'
+    ];
+    const hasProductSection = stack.some(c => PRODUCT_SECTIONS.indexOf(c.id) >= 0);
+    if (!hasProductSection && kit.products && kit.products.length > 0) {
+      const seed = cloneSeed();
+      insertBeforeFooter(Object.assign({
+        id: 'GRID_ASYMMETRIC_MASONRY',
+        label: (kit.sectionTitles && kit.sectionTitles.products) || 'Featured Products',
+        minH: 'auto',
+        layout: 'masonry',
+        role: 'body',
+        index: stack.length
+      }, seed));
+    }
+
+    // 2) Testimonials → ensure a testimonial section is present
+    const TESTI_SECTIONS = [
+      'TESTIMONIAL_CAROUSEL', 'TESTIMONIAL_METRICS', 'TESTIMONIAL_CREDIBILITY', 'SOCIAL_PROOF_WALL'
+    ];
+    const hasTestiSection = stack.some(c => TESTI_SECTIONS.indexOf(c.id) >= 0);
+    if (!hasTestiSection && kit.testimonials && kit.testimonials.length >= 2) {
+      const seed = cloneSeed();
+      insertBeforeFooter(Object.assign({
+        id: 'TESTIMONIAL_CAROUSEL',
+        label: (kit.sectionTitles && kit.sectionTitles.testimonials) || 'What Customers Say',
+        minH: '60vh',
+        layout: 'slider',
+        role: 'body',
+        index: stack.length
+      }, seed));
+    }
+
+    // 3) Features → ensure a feature/benefit section is present
+    const FEATURE_SECTIONS = [
+      'FEATURE_ISOMETRIC_GRID', 'VALUE_PROP_TRIAD', 'CAPABILITY_MATRIX', 'PROCESS_MATRIX'
+    ];
+    const hasFeatureSection = stack.some(c => FEATURE_SECTIONS.indexOf(c.id) >= 0);
+    if (!hasFeatureSection && kit.features && kit.features.length >= 3) {
+      const seed = cloneSeed();
+      insertBeforeFooter(Object.assign({
+        id: 'FEATURE_ISOMETRIC_GRID',
+        label: (kit.sectionTitles && kit.sectionTitles.features) || 'Why Choose Us',
+        minH: 'auto',
+        layout: 'masonry',
+        role: 'body',
+        index: stack.length
+      }, seed));
+    }
+
+    // 4) Metrics → ensure a proof/metrics section is present
+    const METRIC_SECTIONS = ['CLIENT_PROOF_GRID', 'METRICS_PROOF_WALL', 'TESTIMONIAL_METRICS'];
+    const hasMetricSection = stack.some(c => METRIC_SECTIONS.indexOf(c.id) >= 0);
+    if (!hasMetricSection && kit.metrics && kit.metrics.length >= 3) {
+      const seed = cloneSeed();
+      insertBeforeFooter(Object.assign({
+        id: 'CLIENT_PROOF_GRID',
+        label: 'Our Track Record',
+        minH: '60vh',
+        layout: 'grid',
+        role: 'body',
+        index: stack.length
+      }, seed));
+    }
+
+    // 5) Process steps → ensure a how-it-works/timeline section is present
+    const PROCESS_SECTIONS = [
+      'CRAFT_NARRATIVE', 'PROCESS_NARRATIVE', 'PROCESS_MATRIX', 'PROJECT_TIMELINE',
+      'DEPLOYMENT_TIMELINE', 'HISTORY_TIMELINE'
+    ];
+    const hasProcessSection = stack.some(c => PROCESS_SECTIONS.indexOf(c.id) >= 0);
+    if (!hasProcessSection && kit.processSteps && kit.processSteps.length >= 3) {
+      const seed = cloneSeed();
+      insertBeforeFooter(Object.assign({
+        id: 'CRAFT_NARRATIVE',
+        label: (kit.sectionTitles && kit.sectionTitles.process) || 'How It Works',
+        minH: '90vh',
+        layout: 'timeline',
+        role: 'body',
+        index: stack.length
+      }, seed));
+    }
+  }
+
+  // ============================================================
   // 4. UTILITY: Micro-delays for UI breathing
   // ============================================================
 
@@ -407,6 +528,7 @@
       // --- Inject niche-specific content kit ---
       if (typeof window.NicheContentEngine !== 'undefined' && blueprint.intent) {
         blueprint.contentKit = window.NicheContentEngine.generate(blueprint.intent);
+        normalizeStackForContent(blueprint);
       }
 
       // --- STEP 3: Sync diagnostics to dashboard ---

@@ -1672,14 +1672,27 @@
     // --- Dispatch map -------------------------------------------------------
     _buildSection(comp) {
       const id = comp.id;
-      const methodName = id.replace(/^([A-Z]+)_/, (_, prefix) => {
-        const role = prefix.toLowerCase();
-        return role + '_';
-      });
-      const method = this['_' + methodName];
+      // Determine role from comp.role (canonical) or fall back to ID prefix
+      // for HERO_/FOOTER_ ids. Body components have IDs without a HERO_/FOOTER_
+      // prefix and must be routed to _body_<ID> methods.
+      const role = (comp.role || '').startsWith('hero')
+        ? 'hero'
+        : (comp.role === 'footer' || /^FOOTER_/.test(id))
+          ? 'footer'
+          : /^HERO_/.test(id)
+            ? 'hero'
+            : 'body';
+
+      // Strip a HERO_ or FOOTER_ prefix (heroes/footers carry their role in the id).
+      // For body components the id has no prefix to strip (e.g. TESTIMONIAL_CAROUSEL).
+      const idSuffix = id.replace(/^(HERO|FOOTER)_/, '');
+      const methodName = '_' + role + '_' + idSuffix;
+      const method = this[methodName];
+
       if (typeof method === 'function') {
         return method.call(this, comp);
       }
+
       // Fallback: generic section
       return `
         <section class="section-body hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
