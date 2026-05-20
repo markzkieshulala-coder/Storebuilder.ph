@@ -22,6 +22,16 @@
     if (/electronics|gadgets|phone.*store|laptop.*store|tech.*store|computer.*store|gaming.*store/.test(raw)) return 'electronics';
     if (/pet.*store|pet.*shop|dog.*store|cat.*store|animal.*store|pet.*supply|pet.*food/.test(raw)) return 'pets';
     if (/\bpet(s)?\b/.test(raw) && /\b(store|shop|supply|food|care|product)\b/.test(raw)) return 'pets';
+    if (/bookstore|book.*shop|book.*store|\bbooks\b/.test(raw)) return 'bookstore';
+    if (/florist|flower.*shop|flower.*store|bouquet|wedding.*flower/.test(raw)) return 'florist';
+    if (/plant.*nursery|plant.*shop|indoor.*plant|plant.*store|garden.*center|seedling/.test(raw)) return 'plants';
+    if (/auto.*parts|car.*parts|motorcycle.*parts|automotive.*store|car.*accessor/.test(raw)) return 'auto';
+    if (/stationery|planner.*store|notebook.*store|pen.*shop/.test(raw)) return 'stationery';
+    if (/art.*suppl|paint.*store|brush.*store|craft.*suppl/.test(raw)) return 'art_supplies';
+    if (/vinyl.*record|record.*store|vintage.*record|turntable/.test(raw)) return 'vinyl';
+    if (/merchandise|merch.*store|band.*merch|tour.*merch/.test(raw)) return 'merch';
+    if (/toy.*store|kids.*toy|children.*toy/.test(raw)) return 'toys';
+    if (/home.*decor|home.*goods|furniture.*store|interior.*shop/.test(raw)) return 'home_decor';
     if (/coffee|espresso|cafe|barista|latte|third.wave/.test(raw)) return 'coffee';
     if (/restaurant|dining|cuisine|eatery|bistro|grill.*food|food.*restaurant/.test(raw)) return 'restaurant';
     if (/bakery|pastry|bread|cake.*shop|dessert.*shop|patisserie/.test(raw)) return 'bakery';
@@ -1574,16 +1584,38 @@
     }
   };
 
+  // ─── Niche key-noun extractor ─────────────────────────────────────────────
+  // Reduces a verbose primaryNiche like
+  //   "Bookstore Specializing In Filipino Literature"
+  // down to a clean product noun like "Bookstore" — and Title-cases it.
+  function extractKeyNoun(text) {
+    if (!text) return 'Product';
+    const STOP = /^(a|an|and|the|for|with|to|of|on|in|by|that|which|who|whom|whose|store|shop|specializing|selling|featuring|business|company|brand|website|page|premium|luxury|quality|professional|service|services|products|product|custom|bespoke|handmade|handcrafted)$/i;
+    const tokens = String(text).trim().split(/\s+/).filter(function (t) {
+      return t && !STOP.test(t);
+    });
+    const noun = (tokens[0] || text.split(/\s+/)[0] || 'Product').replace(/[^a-zA-Z0-9-]/g, '');
+    return noun.charAt(0).toUpperCase() + noun.slice(1).toLowerCase();
+  }
+
+  function shortPhrase(text, maxWords) {
+    if (!text) return 'products';
+    const words = String(text).trim().split(/\s+/).slice(0, maxWords || 4);
+    return words.join(' ').toLowerCase();
+  }
+
   // ─── Fallback bank builder ─────────────────────────────────────────────────
   function buildFallbackBank(intent) {
-    const n = intent.primaryNiche || 'products';
-    const b = intent.brandName || n;
-    const VARIANT_NAMES = ['Essential', 'Premium', 'Signature', 'Elite', 'Reserve', 'Classic', 'Limited', 'Exclusive'];
+    const rawNiche = intent.primaryNiche || 'products';
+    const n = shortPhrase(rawNiche, 4);
+    const keyNoun = extractKeyNoun(rawNiche);
+    const b = intent.brandName || keyNoun;
+    const VARIANT_NAMES = ['Signature', 'Premium', 'Reserve', 'Limited Edition', 'Studio Pick', 'Bestseller', 'Collector', 'Classic'];
     const base = Object.assign({}, BANKS['ecommerce_generic']);
     base.products = VARIANT_NAMES.map(function(v, i) {
       return {
-        name: b + ' ' + v,
-        desc: 'Premium ' + n + ' — ' + v.toLowerCase() + ' grade quality, curated for discerning customers.',
+        name: keyNoun + ' — ' + v,
+        desc: 'Hand-selected ' + n + ' — ' + v.toLowerCase() + ' grade quality, curated for discerning customers.',
         price: '₱' + [1500, 2800, 4200, 5600, 7500, 3200, 9800, 12000][i].toLocaleString()
       };
     });
@@ -1614,9 +1646,30 @@
   }
 
   // ─── Main generate function ────────────────────────────────────────────────
+  // Generic banks ('ecommerce_generic', 'business_generic', etc.) are used only
+  // when the user's prompt has no real niche signal (intent.primaryNiche is
+  // empty or boilerplate). When the user typed something like "vintage records
+  // store" or "art supplies shop", primaryNiche carries that and we generate
+  // niche-branded content via buildFallbackBank — never falling back to the
+  // generic placeholder products.
+  const GENERIC_BANKS = ['ecommerce_generic', 'business_generic', 'portfolio_generic', 'saas_generic', 'landing_generic'];
+
+  function hasUsableNiche(intent) {
+    const niche = (intent && intent.primaryNiche ? String(intent.primaryNiche) : '').trim();
+    if (!niche) return false;
+    if (niche.length < 3) return false;
+    if (/^(website|site|business|company|brand|store|shop|page)$/i.test(niche)) return false;
+    return true;
+  }
+
   function generate(intent) {
     const subNiche = detectSubNiche(intent);
-    const bank = BANKS[subNiche] || buildFallbackBank(intent);
+    let bank;
+    if (BANKS[subNiche] && GENERIC_BANKS.indexOf(subNiche) >= 0 && hasUsableNiche(intent)) {
+      bank = buildFallbackBank(intent);
+    } else {
+      bank = BANKS[subNiche] || buildFallbackBank(intent);
+    }
     return Object.assign({ subNiche: subNiche }, bank);
   }
 
