@@ -29,6 +29,76 @@
       this.niche = this.intent.primaryNiche;
       this.category = this.intent.siteCategory;
       this._assetIndex = 0;
+      this.content = blueprint.contentKit || this._buildGenericContent();
+    }
+
+    _c(key, idx) {
+      const arr = this.content && this.content[key];
+      if (!arr || !arr.length) return null;
+      const i = ((idx || 0) % arr.length + arr.length) % arr.length;
+      return arr[i];
+    }
+
+    _buildGenericContent() {
+      const n = this.niche, b = this.brand;
+      return {
+        taglines: [`Premium ${n}`, `${b} — Excellence`, `The ${n} Standard`, `${b} — Best in Class`],
+        heroSubs: [
+          `${b} delivers premium ${n} with uncompromising quality.`,
+          `Experience the finest ${n}, curated for those who demand excellence.`,
+          `Trusted by thousands for ${n}.`
+        ],
+        products: Array.from({length: 8}, (_, i) => ({
+          name: `${b} ${['Essential','Premium','Signature','Elite','Reserve','Classic','Limited','Exclusive'][i]}`,
+          desc: `Premium ${n} product, crafted with precision.`,
+          price: ''
+        })),
+        features: [
+          {icon:'◈', title:'Premium Quality', desc:`Every ${n} product meets our rigorous quality standards.`},
+          {icon:'◉', title:'Expert Curation', desc:`Our team personally selects each item to meet the ${b} standard.`},
+          {icon:'◆', title:'Fast Delivery', desc:'Same-day and next-day delivery available across major cities.'},
+          {icon:'◊', title:'Customer First', desc:'30-day returns, live support, and a satisfaction guarantee on every order.'},
+          {icon:'●', title:'Trusted Brand', desc:`${b} has served thousands of customers with a 4.9-star rating.`},
+          {icon:'◍', title:'Secure Payments', desc:'All transactions are encrypted and protected.'}
+        ],
+        testimonials: [
+          {name:'Ana Reyes', role:'Verified Customer', text:`Absolutely impressed with ${b}. Exceptional quality and fast delivery.`, rating:'★★★★★'},
+          {name:'Marco Santos', role:'Regular Customer', text:`I've ordered from ${b} for over a year. Consistently excellent.`, rating:'★★★★★'},
+          {name:'Sofia Cruz', role:'First-Time Buyer', text:`${b} completely exceeded my expectations.`, rating:'★★★★★'},
+          {name:'James Lim', role:'Loyal Customer', text:`${b} is the only store I trust for ${n}.`, rating:'★★★★★'}
+        ],
+        metrics: [
+          {val:'10,000+', label:'Happy Customers'},
+          {val:'4.9★', label:'Rating'},
+          {val:'500+', label:'Products'},
+          {val:'99%', label:'Satisfaction'},
+          {val:'24/7', label:'Support'},
+          {val:'<24h', label:'Delivery'}
+        ],
+        cta: {primary:`Explore ${n}`, secondary:'View Collection', newsletter:'Get Updates', getStarted:'Get Started'},
+        sectionTitles: {
+          products:`${n} Collection`, services:'Our Services', about:`The ${b} Story`,
+          features:'Why Choose Us', testimonials:'What Customers Say', process:'How It Works', contact:'Get In Touch'
+        },
+        pills: [n, 'Featured', 'New Arrivals', 'Best Sellers', 'Sale'],
+        teamRoles: ['Founder & CEO','Head of Operations','Creative Director','Customer Success','Marketing Lead','Product Manager'],
+        processSteps: [
+          {num:'01', title:'Browse', desc:`Explore our curated ${n} catalog.`},
+          {num:'02', title:'Select', desc:'Add to cart. Multiple payment options available.'},
+          {num:'03', title:'Order', desc:'Secure checkout in under 2 minutes.'},
+          {num:'04', title:'Pack', desc:`Each ${n} item carefully inspected and prepared.`},
+          {num:'05', title:'Deliver', desc:'Fast trackable delivery. Free returns within 30 days.'}
+        ],
+        valuePropTriad: [
+          {title:'Curated Quality', desc:`Only the finest ${n} makes our catalog.`},
+          {title:'Effortless Experience', desc:'From discovery to delivery, smooth and enjoyable.'},
+          {title:'Total Confidence', desc:'Every purchase backed by our satisfaction guarantee.'}
+        ],
+        locationCity: 'Manila',
+        partnerNames: ['Partner A','Partner B','Partner C','Partner D','Partner E','Partner F','Partner G','Partner H'],
+        variantLabels: ['Essential','Premium','Signature','Elite','Reserve','Classic','Limited','Exclusive'],
+        footerTagline: `Premium ${n} — curated for excellence by ${b}.`
+      };
     }
 
     // --- Picsum image helper -------------------------------------------------
@@ -188,6 +258,7 @@
     }
 
     _ctaLabel() {
+      if (this.content && this.content.cta && this.content.cta.primary) return this.content.cta.primary;
       const map = {
         E_COMMERCE: 'Shop Now',
         PORTFOLIO: 'Hire Me',
@@ -227,10 +298,10 @@
           <div class="section-inner" style="align-items:${justify};text-align:${textAlign};padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.category.replace(/_/g, ' ')}</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">An ultra-premium ${this.niche} experience engineered by procedural intelligence. Every surface, shadow, and motion is algorithmically unique.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 0) || `${this.brand} — premium ${this.niche} for those who demand the best.`}</p>
             <div class="cta-row hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">
-              <a href="/shop" class="btn-premium" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Explore Collection</span></a>
-              <a href="/process" class="btn-ghost" data-vr-link>View Craft</a>
+              <a href="/shop" class="btn-premium" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">${(this.content && this.content.cta && this.content.cta.primary) || 'Explore Collection'}</span></a>
+              <a href="/process" class="btn-ghost" data-vr-link>${(this.content && this.content.cta && this.content.cta.secondary) || 'Learn More'}</a>
             </div>
           </div>
         </section>
@@ -250,7 +321,7 @@
           <div class="split-panel split-panel--content" style="padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.niche}</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">Editorial split-screen reveal. Dual-plane composition with premium asset blueprinting for ${this.niche}.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 1) || `Premium ${this.niche} — crafted with precision and delivered with care.`}</p>
             <div class="asset-slot asset-slot--editorial hidden-3d" style="margin-top:24px;transition-delay:calc(var(--stagger) * 3)" title="${a2.prompt.replace(/"/g, '&quot;')}">
               <span class="asset-label">${a2.cfgKey.replace(/_/g, ' ').toUpperCase()}</span>
             </div>
@@ -270,7 +341,7 @@
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <h1 class="hero-text hero-text--monument hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</h1>
-            <p class="hero-sub hero-sub--monument hidden-3d" style="transition-delay:calc(var(--stagger) * 1);max-width:38ch;">${this.niche} — Monumental typography hero. Pure kinetic scale, zero distraction.</p>
+            <p class="hero-sub hero-sub--monument hidden-3d" style="transition-delay:calc(var(--stagger) * 1);max-width:38ch;">${this._c('heroSubs', 0) || `Premium ${this.niche}, built for those who demand excellence.`}</p>
             <a href="/work" class="btn-ghost hidden-3d" style="transition-delay:calc(var(--stagger) * 2);margin-top:32px;" data-vr-link>Enter Experience</a>
           </div>
         </section>
@@ -291,9 +362,9 @@
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">3D Product Stage</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">Orbital perspective viewport. ${this.niche} presented in a spatial zero-gravity environment.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 2) || `${this.brand} — trusted by thousands for premium ${this.niche}.`}</p>
             <div class="cta-row hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">
-              <a href="/collection" class="btn-premium" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Orbit Collection</span></a>
+              <a href="/collection" class="btn-premium" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">${(this.content && this.content.cta && this.content.cta.primary) || 'Explore Collection'}</span></a>
             </div>
           </div>
         </section>
@@ -313,7 +384,7 @@
           <div class="section-inner" style="align-items:flex-start;text-align:left;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Creative Studio</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);mix-blend-mode:difference;">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:36ch;">${this.niche} portfolio — Dark kinetic canvas with immersive video/showcase slots.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:36ch;">${this._c('heroSubs', 0) || `${this.brand} — the premier destination for ${this.niche}.`}</p>
             <a href="/work" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 3)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">View Showreel</span></a>
           </div>
         </section>
@@ -327,9 +398,13 @@
             <h1 class="hero-text hero-text--type-monument hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</h1>
             <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1);max-width:34ch;">${this.niche} — Typography Monument. Maximum contrast, absolute hierarchy.</p>
             <div class="type-metrics hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">
-              <div class="metric"><span class="metric-value">12+</span><span class="metric-label">Years Active</span></div>
-              <div class="metric"><span class="metric-value">84</span><span class="metric-label">Projects Delivered</span></div>
-              <div class="metric"><span class="metric-value">14</span><span class="metric-label">Awards Won</span></div>
+              ${(() => {
+                const m = this.content && this.content.metrics;
+                if (m && m.length >= 3) {
+                  return m.slice(0,3).map(x => `<div class="metric"><span class="metric-value">${x.val}</span><span class="metric-label">${x.label}</span></div>`).join('');
+                }
+                return `<div class="metric"><span class="metric-value">10,000+</span><span class="metric-label">Happy Customers</span></div><div class="metric"><span class="metric-value">4.9★</span><span class="metric-label">Rating</span></div><div class="metric"><span class="metric-value">500+</span><span class="metric-label">Products</span></div>`;
+              })()}
             </div>
           </div>
         </section>
@@ -352,7 +427,7 @@
               <div class="play-icon">&#9654;</div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this.niche} — Video Immersion Portal. Cinematic depth-of-field viewport.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 1) || `Explore ${this.brand} — premium ${this.niche} for every need.`}</p>
           </div>
         </section>
       `;
@@ -365,7 +440,7 @@
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.niche}</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:40ch;">Dashboard UI reveal hero. Glass-morphic tech terminal with live data abstraction.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:40ch;">${this._c('heroSubs', 1) || `${this.brand} — premium ${this.niche} for discerning customers.`}</p>
             <div class="dashboard-mockup glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * 3);margin-top:40px;">
               <div class="dash-header">
                 <span class="dash-dot"></span><span class="dash-dot"></span><span class="dash-dot"></span>
@@ -397,7 +472,7 @@
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <h1 class="hero-text hero-text--vortex hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1);max-width:36ch;">Data Vortex Typography Hero. Electric luminescence in ultra-deep navy spatial void.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1);max-width:36ch;">${this._c('heroSubs', 2) || `${this.brand} — premium ${this.niche} at its finest.`}</p>
             <div class="cta-row hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">
               <a href="/services" class="btn-premium" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Launch Platform</span></a>
             </div>
@@ -421,7 +496,7 @@
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};margin-top:28px;">
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this.niche} — Interactive live demo hero. Embedded functional preview.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 0) || `Experience ${this.brand} — premium ${this.niche}.`}</p>
           </div>
         </section>
       `;
@@ -438,7 +513,7 @@
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">Creative Burst Hero — ${this.niche}. Maximum chromatic energy with controlled typographic discipline.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this._c('heroSubs', 1) || `${this.brand} — premium ${this.niche} with unmatched variety.`}</p>
             <a href="/work" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 2)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">See Work</span></a>
           </div>
         </section>
@@ -455,7 +530,7 @@
               <div class="manifesto-line hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">deserves</div>
               <div class="manifesto-line hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">radical clarity.</div>
             </div>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 4);max-width:36ch;margin-top:28px;">Manifesto Typography Wall. Agency positioning through pure typographic architecture.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 4);max-width:36ch;margin-top:28px;">${this._c('heroSubs', 2) || `${this.brand} — where quality meets passion for ${this.niche}.`}</p>
           </div>
         </section>
       `;
@@ -475,7 +550,7 @@
               <div class="gateway-play">&#9654;</div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">Showreel Gateway — ${this.niche}. One click to full cinematic immersion.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 0) || `${this.brand} — premium ${this.niche}.`}</p>
           </div>
         </section>
       `;
@@ -492,7 +567,7 @@
               <div class="countdown-unit"><span class="countdown-val">09</span><span class="countdown-label">Seconds</span></div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);margin-top:24px;">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this.niche} — Countdown Singularity. Scarcity-engineered landing momentum.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 1) || `Limited time — shop ${this.brand} premium ${this.niche} now.`}</p>
             <a href="/contact" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 3);margin-top:20px;" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Reserve Access</span></a>
           </div>
         </section>
@@ -512,7 +587,7 @@
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Introducing</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this.niche} — Product Reveal Hero. Shroud-lift cinematic unboxing.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 2) || `The newest ${this.niche} from ${this.brand} — now available.`}</p>
             <a href="/shop" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 3)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Pre-Order Now</span></a>
           </div>
         </section>
@@ -532,7 +607,7 @@
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="teaser-badge hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Cinematic Teaser</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this.niche} — Cinematic Video Teaser Hero. Grain, glow, and narrative anticipation.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 0) || `${this.brand} — the finest ${this.niche}, delivered to you.`}</p>
           </div>
         </section>
       `;
@@ -547,12 +622,9 @@
               <div class="seal-star">&#10022;</div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:38ch;">Trust Statement Hero — ${this.niche}. Authority, credibility, and institutional confidence.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:38ch;">${this._c('heroSubs', 1) || `${this.brand} — trusted by thousands for premium ${this.niche}.`}</p>
             <div class="trust-logos hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">
-              <div class="trust-logo">Partner A</div>
-              <div class="trust-logo">Partner B</div>
-              <div class="trust-logo">Partner C</div>
-              <div class="trust-logo">Partner D</div>
+              ${(this.content && this.content.partnerNames || ['Partner A','Partner B','Partner C','Partner D']).slice(0, 4).map(p => `<div class="trust-logo">${p}</div>`).join('')}
             </div>
           </div>
         </section>
@@ -571,9 +643,9 @@
           <div class="section-inner" style="align-items:flex-start;text-align:left;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Services</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:36ch;">Service Showcase Hero — ${this.niche}. Business-class spatial presentation with executive clarity.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:36ch;">${this._c('heroSubs', 0) || `${this.brand} — premium ${this.niche} services you can trust.`}</p>
             <div class="service-pills hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">
-              <span class="pill">Strategy</span><span class="pill">Design</span><span class="pill">Development</span><span class="pill">Growth</span>
+              ${(this.content && this.content.pills || ['Featured','New Arrivals','Best Sellers','Sale']).slice(0, 4).map(p => `<span class="pill">${p}</span>`).join('')}
             </div>
           </div>
         </section>
@@ -592,7 +664,7 @@
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this.niche} — Building Exterior Panorama. Corporate scale and physical presence.</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this._c('heroSubs', 2) || `${this.brand} — your trusted ${this.niche} destination.`}</p>
           </div>
         </section>
       `;
@@ -601,7 +673,14 @@
     // --- BODY BUILDERS -----------------------------------------------------
     _body_GRID_ASYMMETRIC_MASONRY(comp) {
       const assets = this._nextAssets(6);
-      const cards = assets.map((a, i) => `
+      const products = (this.content && this.content.products) || [];
+      const sectionTitle = (this.content && this.content.sectionTitles && this.content.sectionTitles.products) || `${this.niche} Collection`;
+      const cards = assets.map((a, i) => {
+        const prod = products[i % products.length];
+        const title = prod ? prod.name : `${this.niche} — ${this._variantLabel(i)}`;
+        const desc = prod ? prod.desc : a.prompt.slice(0, 110);
+        const price = prod && prod.price ? `<span class="card-price">${prod.price}</span>` : '';
+        return `
         <div class="masonry-card glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});--card-z:${i * 20}px;" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.05).toFixed(2)}">
           <div class="card-visual">
             <div class="asset-slot" title="${a.prompt.replace(/"/g, '&quot;')}">
@@ -610,17 +689,19 @@
           </div>
           <div class="card-meta">
             <span class="card-index">0${i + 1}</span>
-            <h3 class="card-title">${this.niche} — ${this._variantLabel(i)}</h3>
-            <p class="card-desc">${a.prompt.slice(0, 110)}...</p>
+            <h3 class="card-title">${title}</h3>
+            <p class="card-desc">${desc}</p>
+            ${price}
           </div>
         </div>
-      `).join('');
+        `;
+      }).join('');
       return `
         <section class="section-body section-body--masonry hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Curated ${this.niche} Selection</h2>
+              <h2 class="section-title">${sectionTitle}</h2>
             </div>
             <div class="masonry-grid">${cards}</div>
           </div>
@@ -653,11 +734,20 @@
                 </div>
               </div>
               <div class="spec-sheet glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
-                <div class="spec-row"><span class="spec-key">Category</span><span class="spec-val">${this.niche}</span></div>
-                <div class="spec-row"><span class="spec-key">Origin</span><span class="spec-val">Procedurally Generated</span></div>
-                <div class="spec-row"><span class="spec-key">Palette</span><span class="spec-val">${this.palette.semanticLabel}</span></div>
-                <div class="spec-row"><span class="spec-key">Signature</span><span class="spec-val">${this.blueprint.generationSignature}</span></div>
-                <div class="spec-row"><span class="spec-key">Spatial Depth</span><span class="spec-val">${this.spatial.scenePerspective}px</span></div>
+                ${(() => {
+                  const prod = this._c('products', 0);
+                  const m0 = this._c('metrics', 0);
+                  const m1 = this._c('metrics', 1);
+                  const m2 = this._c('metrics', 2);
+                  return `
+                    <div class="spec-row"><span class="spec-key">Category</span><span class="spec-val">${this.niche}</span></div>
+                    <div class="spec-row"><span class="spec-key">Brand</span><span class="spec-val">${this.brand}</span></div>
+                    ${prod ? `<div class="spec-row"><span class="spec-key">Featured</span><span class="spec-val">${prod.name}</span></div>` : ''}
+                    ${m0 ? `<div class="spec-row"><span class="spec-key">${m0.label}</span><span class="spec-val">${m0.val}</span></div>` : ''}
+                    ${m1 ? `<div class="spec-row"><span class="spec-key">${m1.label}</span><span class="spec-val">${m1.val}</span></div>` : ''}
+                    ${m2 ? `<div class="spec-row"><span class="spec-key">${m2.label}</span><span class="spec-val">${m2.val}</span></div>` : ''}
+                  `;
+                })()}
               </div>
             </div>
           </div>
@@ -667,7 +757,13 @@
 
     _body_EDITORIAL_LOOKBOOK(comp) {
       const assets = this._nextAssets(4);
-      const slides = assets.map((a, i) => `
+      const products = (this.content && this.content.products) || [];
+      const slides = assets.map((a, i) => {
+        const prod = products[i % products.length];
+        const title = prod ? prod.name : this._variantLabel(i);
+        const desc = prod ? prod.desc : a.prompt.slice(0, 140);
+        const price = prod && prod.price ? ` — ${prod.price}` : '';
+        return `
         <div class="lookbook-slide hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});--slide-index:${i};" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.08).toFixed(2)}">
           <div class="lookbook-visual">
             <div class="asset-slot asset-slot--editorial" title="${a.prompt.replace(/"/g, '&quot;')}">
@@ -675,12 +771,13 @@
             </div>
           </div>
           <div class="lookbook-caption">
-            <span class="lookbook-chapter">Chapter 0${i + 1}</span>
-            <h3 class="lookbook-title">${this._variantLabel(i)}</h3>
-            <p class="lookbook-desc">${a.prompt.slice(0, 140)}...</p>
+            <span class="lookbook-chapter">Chapter 0${i + 1}${price}</span>
+            <h3 class="lookbook-title">${title}</h3>
+            <p class="lookbook-desc">${desc}</p>
           </div>
         </div>
-      `).join('');
+        `;
+      }).join('');
       return `
         <section class="section-body section-body--lookbook hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="section-inner">
@@ -743,13 +840,16 @@
     }
 
     _body_TESTIMONIAL_CAROUSEL(comp) {
-      const testimonials = [
-        { name: 'Elena Rossi', role: 'Creative Director', text: `Working with ${this.brand} redefined our entire approach to ${this.niche}. The procedural precision is unmatched.` },
-        { name: 'Marcus Chen', role: 'CEO, Vantage', text: `A quantum leap in ${this.niche} presentation. Every interaction feels intentional and deeply considered.` },
-        { name: 'Sofia Bergmann', role: 'Design Lead', text: `The spatial depth and chromatic intelligence behind ${this.brand} is unlike anything in the market today.` }
+      const src = (this.content && this.content.testimonials) || [];
+      const testimonials = src.length >= 3 ? src.slice(0, 4) : [
+        {name:'Ana Reyes', role:'Verified Customer', text:`Absolutely love ${this.brand}. Exceptional quality!`, rating:'★★★★★'},
+        {name:'Marco Santos', role:'Regular Customer', text:`Best ${this.niche} store I've found. Always reliable.`, rating:'★★★★★'},
+        {name:'Sofia Cruz', role:'Happy Customer', text:`${this.brand} exceeded my expectations every single time.`, rating:'★★★★★'}
       ];
+      const sectionTitle = (this.content && this.content.sectionTitles && this.content.sectionTitles.testimonials) || 'What Customers Say';
       const cards = testimonials.map((t, i) => `
         <div class="testimonial-card glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.05).toFixed(2)}">
+          ${t.rating ? `<div class="testimonial-rating">${t.rating}</div>` : ''}
           <p class="testimonial-text">&ldquo;${t.text}&rdquo;</p>
           <div class="testimonial-author">
             <div class="author-avatar"><span>${t.name.charAt(0)}</span></div>
@@ -765,7 +865,7 @@
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Curated Testimonials</h2>
+              <h2 class="section-title">${sectionTitle}</h2>
             </div>
             <div class="testimonial-grid">${cards}</div>
           </div>
@@ -774,13 +874,15 @@
     }
 
     _body_CRAFT_NARRATIVE(comp) {
-      const steps = [
-        { num: '01', title: 'Discovery', desc: `We map the semantic terrain of ${this.niche} to establish the creative coordinate system.` },
-        { num: '02', title: 'Material Study', desc: `Procedural asset blueprints are generated with macro texture fidelity and cinematic composition.` },
-        { num: '03', title: 'Spatial Engineering', desc: `3D perspective viewports are calibrated with unique translateZ and rotateX animation profiles.` },
-        { num: '04', title: 'Chromatic Calibration', desc: `Algorithmic color systems derive from semantic keyword spaces — never from static templates.` },
-        { num: '05', title: 'Assembly', desc: `Components are shuffled, sliced, and configured with asymmetrical alignments generated on the fly.` }
+      const src = (this.content && this.content.processSteps) || [];
+      const steps = src.length >= 3 ? src : [
+        {num:'01', title:'Browse', desc:`Explore our curated ${this.niche} catalog.`},
+        {num:'02', title:'Select', desc:'Choose your products. Multiple payment options available.'},
+        {num:'03', title:'Order', desc:'Secure checkout in under 2 minutes.'},
+        {num:'04', title:'Pack', desc:`Every ${this.niche} item is carefully inspected before shipping.`},
+        {num:'05', title:'Deliver', desc:'Fast trackable delivery. Free returns within 30 days.'}
       ];
+      const sectionTitle = (this.content && this.content.sectionTitles && this.content.sectionTitles.process) || 'How It Works';
       const items = steps.map((s, i) => `
         <div class="timeline-node hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.05).toFixed(2)}">
           <div class="node-marker"><span class="node-num">${s.num}</span></div>
@@ -795,7 +897,7 @@
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Craft Narrative Timeline</h2>
+              <h2 class="section-title">${sectionTitle}</h2>
             </div>
             <div class="timeline-track">${items}</div>
           </div>
@@ -873,11 +975,12 @@
     }
 
     _body_CLIENT_PROOF_GRID(comp) {
-      const metrics = [
-        { val: '98%', label: 'Client Retention' },
-        { val: '4.9', label: 'Average Rating' },
-        { val: '340+', label: 'Projects' },
-        { val: '12', label: 'Industry Awards' }
+      const src = (this.content && this.content.metrics) || [];
+      const metrics = src.length >= 4 ? src.slice(0, 6) : [
+        {val:'10,000+', label:'Happy Customers'},
+        {val:'4.9★', label:'Rating'},
+        {val:'500+', label:'Products'},
+        {val:'99%', label:'Satisfaction'}
       ];
       const cards = metrics.map((m, i) => `
         <div class="proof-card glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.05).toFixed(2)}">
@@ -890,7 +993,7 @@
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Proof & Metrics</h2>
+              <h2 class="section-title">Our Track Record</h2>
             </div>
             <div class="proof-grid">${cards}</div>
           </div>
@@ -927,17 +1030,19 @@
     }
 
     _body_FEATURE_ISOMETRIC_GRID(comp) {
-      const features = [
-        { title: 'Real-time Analytics', desc: 'Live data pipelines with glass-morphic terminal aesthetics.' },
-        { title: 'Spatial Workspaces', desc: '3D-perspective project rooms with natural scroll physics.' },
-        { title: 'Auto-Scaling', desc: 'Algorithmic infrastructure that adapts to demand curves.' },
-        { title: 'Procedural Security', desc: 'Entropy-derived encryption layers with zero-knowledge architecture.' },
-        { title: 'Team Orchestration', desc: 'Role-based spatial dashboards for distributed studios.' },
-        { title: 'API Mesh', desc: 'Unified graph endpoints with schema-first procedural typing.' }
+      const src = (this.content && this.content.features) || [];
+      const features = src.length >= 4 ? src.slice(0, 6) : [
+        {icon:'◈', title:`${this.niche} Quality`, desc:`Every product meets the highest standards of ${this.niche} excellence.`},
+        {icon:'◉', title:'Expert Selection', desc:`Hand-picked by ${this.niche} specialists with decades of experience.`},
+        {icon:'◆', title:'Fast Delivery', desc:'Same-day and next-day delivery available nationwide.'},
+        {icon:'◊', title:'Customer First', desc:'30-day returns, live support, and a satisfaction guarantee.'},
+        {icon:'●', title:'Trusted Brand', desc:`Thousands of satisfied ${this.niche} customers and growing.`},
+        {icon:'◍', title:'Secure Checkout', desc:'All transactions are encrypted and protected.'}
       ];
+      const sectionTitle = (this.content && this.content.sectionTitles && this.content.sectionTitles.features) || 'Why Choose Us';
       const cards = features.map((f, i) => `
         <div class="iso-card glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.05).toFixed(2)}">
-          <div class="iso-icon">${String.fromCharCode(9702 + i)}</div>
+          <div class="iso-icon">${f.icon || String.fromCharCode(9702 + i)}</div>
           <h3 class="iso-title">${f.title}</h3>
           <p class="iso-desc">${f.desc}</p>
         </div>
@@ -947,7 +1052,7 @@
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Isometric Feature Grid</h2>
+              <h2 class="section-title">${sectionTitle}</h2>
             </div>
             <div class="iso-grid">${cards}</div>
           </div>
@@ -1134,7 +1239,8 @@
     }
 
     _body_TEAM_PORTRAIT_GRID(comp) {
-      const members = ['Creative Director', 'Lead Developer', '3D Spatial Engineer', 'Brand Strategist', 'Procedural Artist', 'UX Architect'];
+      const src = (this.content && this.content.teamRoles) || [];
+      const members = src.length >= 4 ? src : ['Founder & CEO','Head of Operations','Creative Director','Customer Success','Marketing Lead','Product Manager'];
       const portraits = members.map((m, i) => {
         const a = this._nextAsset();
         return `
@@ -1173,7 +1279,8 @@
     }
 
     _body_PARTNER_ECOSYSTEM(comp) {
-      const partners = Array.from({length: 8}, (_, i) => `Partner ${String.fromCharCode(65 + i)}`);
+      const src = (this.content && this.content.partnerNames) || [];
+      const partners = src.length >= 4 ? src : Array.from({length: 8}, (_, i) => `Partner ${String.fromCharCode(65 + i)}`);
       const orbs = partners.map((p, i) => `
         <div class="partner-orb hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.04).toFixed(2)}">
           <span class="orb-letter">${p.charAt(p.length - 1)}</span>
@@ -1194,10 +1301,11 @@
     }
 
     _body_VALUE_PROP_TRIAD(comp) {
-      const props = [
-        { title: 'Precision', desc: `Every ${this.niche} pixel is procedurally generated with semantic relevance.` },
-        { title: 'Velocity', desc: 'From prompt to production-ready site in a single compilation cycle.' },
-        { title: 'Uniqueness', desc: 'No two generations share the same palette, layout, or spatial profile.' }
+      const src = (this.content && this.content.valuePropTriad) || [];
+      const props = src.length >= 3 ? src : [
+        {title:'Curated Quality', desc:`Only the finest ${this.niche} products make our catalog.`},
+        {title:'Effortless Experience', desc:'From discovery to delivery — smooth and enjoyable every time.'},
+        {title:'Total Confidence', desc:'Every purchase backed by our satisfaction guarantee.'}
       ];
       const cards = props.map((p, i) => `
         <div class="triad-card glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.06).toFixed(2)}">
@@ -1338,7 +1446,7 @@
           <div class="footer-inner">
             <div class="footer-brand hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="footer-name">${this.brand}</span>
-              <p class="footer-tagline">Ultra-premium ${this.niche} experiences, procedurally generated.</p>
+              <p class="footer-tagline">${(this.content && this.content.footerTagline) || `Premium ${this.niche} by ${this.brand}.`}</p>
             </div>
             <div class="footer-newsletter hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
               <span class="micro">Newsletter</span>
@@ -1354,7 +1462,7 @@
               </div>
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1364,12 +1472,12 @@
         <footer class="site-footer site-footer--temple hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="footer-inner" style="align-items:center;text-align:center;">
             <h2 class="footer-temple-text hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</h2>
-            <p class="footer-temple-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">Brand Temple Footer — ${this.niche}. Monumental closure with spiritual typographic scale.</p>
+            <p class="footer-temple-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${(this.content && this.content.footerTagline) || `Premium ${this.niche} — curated for excellence by ${this.brand}.`}</p>
             <div class="footer-temple-links hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">
               ${this.routes.slice(0, 5).map(r => `<a href="${r}" data-vr-link>${this._routeLabel(r)}</a>`).join('')}
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1380,7 +1488,7 @@
           <div class="footer-inner">
             <div class="footer-brand hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="footer-name">${this.brand}</span>
-              <p class="footer-tagline">Contact Atelier — ${this.niche}</p>
+              <p class="footer-tagline">${(this.content && this.content.footerTagline) || `Premium ${this.niche} by ${this.brand}.`}</p>
             </div>
             <div class="footer-contact hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
               <span class="micro">Contact</span>
@@ -1394,7 +1502,7 @@
               </div>
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1404,7 +1512,7 @@
         <footer class="site-footer site-footer--minimal hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="footer-inner" style="align-items:center;text-align:center;">
             <span class="footer-sig hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.brand}</span>
-            <p class="footer-credit hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">Minimal Signature Footer — ${this.niche} — Signature ${this.blueprint.generationSignature}</p>
+            <p class="footer-tagline hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${(this.content && this.content.footerTagline) || `Premium ${this.niche} by ${this.brand}.`}</p>
           </div>
         </footer>
       `;
@@ -1415,10 +1523,10 @@
         <footer class="site-footer hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="footer-inner" style="align-items:center;text-align:center;">
             <h2 class="footer-cta-title hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Ready to scale ${this.niche}?</h2>
-            <p class="footer-cta-desc hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">Enterprise CTA Footer — Book a custom demo with our spatial engineering team.</p>
+            <p class="footer-cta-desc hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this._c('heroSubs', 2) || `Get in touch with the ${this.brand} team today.`}</p>
             <a href="/contact" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 2)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Book Demo</span></a>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1429,7 +1537,7 @@
           <div class="footer-inner">
             <div class="footer-brand hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="footer-name">${this.brand}</span>
-              <p class="footer-tagline">Developer Docs Hub — ${this.niche}</p>
+              <p class="footer-tagline">${(this.content && this.content.footerTagline) || `${this.brand} — your ${this.niche} partner.`}</p>
             </div>
             <div class="footer-docs hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
               <span class="micro">Resources</span>
@@ -1441,7 +1549,7 @@
               </div>
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1451,10 +1559,10 @@
         <footer class="site-footer site-footer--altar hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="footer-inner" style="align-items:center;text-align:center;">
             <h2 class="footer-altar-title hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Start a Project</h2>
-            <p class="footer-altar-desc hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">New Business Altar — ${this.niche}. High-intent conversion footer with sacramental typographic weight.</p>
+            <p class="footer-altar-desc hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this._c('heroSubs', 0) || `${this.brand} — let's build something great together.`}</p>
             <a href="/contact" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 2)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">Inquire</span></a>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1465,7 +1573,7 @@
           <div class="footer-inner">
             <div class="footer-brand hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="footer-name">${this.brand}</span>
-              <p class="footer-tagline">Culture Hub — ${this.niche}</p>
+              <p class="footer-tagline">${(this.content && this.content.footerTagline) || `${this.brand} — premium ${this.niche}.`}</p>
             </div>
             <div class="footer-culture hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
               <span class="micro">Culture</span>
@@ -1477,7 +1585,7 @@
               </div>
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1487,13 +1595,13 @@
         <footer class="site-footer hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="footer-inner" style="align-items:center;text-align:center;">
             <h2 class="footer-wait-title hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Join the Waitlist</h2>
-            <p class="footer-wait-desc hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">Waitlist Form Footer — ${this.niche}. Scarcity-positioned email capture with ritual form design.</p>
+            <p class="footer-wait-desc hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this._c('heroSubs', 1) || `Be first to access exclusive ${this.brand} ${this.niche} offers.`}</p>
             <form class="footer-form hidden-3d" style="transition-delay:calc(var(--stagger) * 2)" onsubmit="event.preventDefault();">
               <input type="email" class="footer-input" placeholder="your@email.com" />
               <button type="submit" class="btn-premium"><span class="btn-shimmer"></span><span class="btn-label">Notify Me</span></button>
             </form>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1509,7 +1617,7 @@
               <a href="/cookies" data-vr-link>Cookies</a>
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1520,7 +1628,7 @@
           <div class="footer-inner">
             <div class="footer-brand hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="footer-name">${this.brand}</span>
-              <p class="footer-tagline">Contact Form Footer — ${this.niche}</p>
+              <p class="footer-tagline">${(this.content && this.content.footerTagline) || `${this.brand} — get in touch.`}</p>
             </div>
             <form class="footer-contact-form glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * 1)" onsubmit="event.preventDefault();">
               <div class="form-row">
@@ -1531,7 +1639,7 @@
               <button type="submit" class="btn-premium"><span class="btn-shimmer"></span><span class="btn-label">Send Message</span></button>
             </form>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
@@ -1542,7 +1650,7 @@
           <div class="footer-inner">
             <div class="footer-brand hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="footer-name">${this.brand}</span>
-              <p class="footer-tagline">Corporate Map Footer — ${this.niche}</p>
+              <p class="footer-tagline">${(this.content && this.content.footerTagline) || `${this.brand} — serving ${this.niche} customers everywhere.`}</p>
             </div>
             <div class="footer-map hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
               <div class="map-grid">
@@ -1551,15 +1659,14 @@
               </div>
             </div>
           </div>
-          <p class="footer-credit">Generated by Ultra-Premium 3D System — Signature ${this.blueprint.generationSignature}</p>
+          <p class="footer-legal">&copy; ${new Date().getFullYear()} ${this.brand}. All rights reserved.</p>
         </footer>
       `;
     }
 
     // --- Utility: variant label generator -----------------------------------
     _variantLabel(index) {
-      const labels = ['Origin', 'Heritage', 'Apex', 'Vanguard', 'Solstice', 'Zenith', 'Eclipse', 'Nebula'];
-      return labels[index % labels.length];
+      return this._c('variantLabels', index) || ['Origin','Heritage','Apex','Vanguard','Solstice','Zenith','Eclipse','Nebula'][index % 8];
     }
 
     // --- Dispatch map -------------------------------------------------------

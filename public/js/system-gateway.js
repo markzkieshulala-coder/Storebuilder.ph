@@ -404,6 +404,11 @@
       }
       lastBlueprint = blueprint;
 
+      // --- Inject niche-specific content kit ---
+      if (typeof window.NicheContentEngine !== 'undefined' && blueprint.intent) {
+        blueprint.contentKit = window.NicheContentEngine.generate(blueprint.intent);
+      }
+
       // --- STEP 3: Sync diagnostics to dashboard ---
       await cycleLoaderPhrases(6, 10, 400);
       populateDiagnostics(blueprint);
