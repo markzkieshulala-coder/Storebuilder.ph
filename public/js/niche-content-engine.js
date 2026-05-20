@@ -25,8 +25,8 @@
     if (/coffee|espresso|cafe|barista|latte|third.wave/.test(raw)) return 'coffee';
     if (/restaurant|dining|cuisine|eatery|bistro|grill.*food|food.*restaurant/.test(raw)) return 'restaurant';
     if (/bakery|pastry|bread|cake.*shop|dessert.*shop|patisserie/.test(raw)) return 'bakery';
-    if (/bar|cocktail|spirits|wine.*bar|brewery|craft.*beer/.test(raw)) return 'bar';
-    if (/hair.*salon|salon|barber|haircut|barbershop/.test(raw)) return 'salon';
+    if (/hair.*salon|\bsalon\b|\bbarber\b|haircut|barbershop/.test(raw)) return 'salon';
+    if (/\bbar\b|cocktail|spirits|wine.*bar|brewery|craft.*beer/.test(raw)) return 'bar';
     if (/spa|massage.*center|wellness.*spa|relaxation/.test(raw)) return 'spa';
     if (/skincare|beauty.*brand|cosmetic|makeup.*brand|serum.*brand/.test(raw)) return 'skincare';
     if (/nail.*salon|manicure|pedicure|nail.*art/.test(raw)) return 'nail';
