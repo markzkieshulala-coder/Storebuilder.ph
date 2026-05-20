@@ -793,23 +793,39 @@
 
     _body_MATERIAL_PALETTE(comp) {
       const assets = this._nextAssets(5);
-      const swatches = assets.map((a, i) => `
+      // Prefer real niche labels from the contentKit (variants, pills, or
+      // partner names) so swatches feel curated to the niche rather than
+      // generic "Material A/B/C".
+      const labelSource =
+        (this.content && this.content.variantLabels && this.content.variantLabels.length >= 5 && this.content.variantLabels) ||
+        (this.content && this.content.pills && this.content.pills.length >= 5 && this.content.pills) ||
+        (this.content && this.content.partnerNames && this.content.partnerNames.length >= 5 && this.content.partnerNames) ||
+        null;
+      const sectionTitle = (this.content && this.content.sectionTitles && this.content.sectionTitles.materials)
+        || `Crafted from the ${this.niche} Standard`;
+      const swatches = assets.map((a, i) => {
+        const label = labelSource ? labelSource[i] : `Material ${String.fromCharCode(65 + i)}`;
+        const desc = labelSource
+          ? `${label} — engineered for ${this.niche} that lasts.`
+          : `${a.prompt.slice(0, 60)}...`;
+        return `
         <div class="material-swatch hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});--swatch-index:${i};" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.06).toFixed(2)}">
           <div class="swatch-visual">
             <div class="asset-slot asset-slot--macro" title="${a.prompt.replace(/"/g, '&quot;')}">
               <span class="asset-label">${a.cfgKey.replace(/_/g, ' ').toUpperCase()}</span>
             </div>
           </div>
-          <span class="swatch-name">Material ${String.fromCharCode(65 + i)}</span>
-          <span class="swatch-desc">${a.prompt.slice(0, 60)}...</span>
+          <span class="swatch-name">${label}</span>
+          <span class="swatch-desc">${desc}</span>
         </div>
-      `).join('');
+      `;
+      }).join('');
       return `
         <section class="section-body section-body--material hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Material & Texture Palette</h2>
+              <h2 class="section-title">${sectionTitle}</h2>
             </div>
             <div class="material-grid">${swatches}</div>
           </div>
@@ -819,6 +835,12 @@
 
     _body_IMMERSIVE_ATELIER(comp) {
       const a = this._nextAsset();
+      // Pull a niche-specific tagline from the contentKit so the immersive
+      // quote feels written for this business, not for "the atelier".
+      const tagline = this._c('taglines', 0)
+        || this._c('heroSubs', 2)
+        || `The atelier is where ${this.niche} becomes artifact.`;
+      const ctaLabel = (this.content && this.content.cta && this.content.cta.secondary) || 'Enter Atelier';
       return `
         <section class="section-body section-body--atelier hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="atelier-bg" aria-hidden="true">
@@ -830,10 +852,10 @@
           <div class="section-inner" style="align-items:center;text-align:center;">
             <div class="atelier-quote hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <span class="quote-mark">&ldquo;</span>
-              <p class="quote-text">The atelier is where ${this.niche} becomes artifact.</p>
+              <p class="quote-text">${tagline}</p>
               <span class="quote-mark">&rdquo;</span>
             </div>
-            <a href="/process" class="btn-ghost hidden-3d" style="transition-delay:calc(var(--stagger) * 1);margin-top:24px;" data-vr-link>Enter Atelier</a>
+            <a href="/process" class="btn-ghost hidden-3d" style="transition-delay:calc(var(--stagger) * 1);margin-top:24px;" data-vr-link>${ctaLabel}</a>
           </div>
         </section>
       `;
