@@ -8,6 +8,29 @@
 (function (global) {
   'use strict';
 
+  // Lucide-style inline SVG icon set — NO unicode emojis anywhere in generated HTML
+  var _ICONS = {
+    play:     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21"/></svg>',
+    star:     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    lock:     '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    doc:      '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    zap:      '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+    diamond:  '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.7 2.71a2.41 2.41 0 0 0-3.41 0z"/></svg>',
+    sparkle:  '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    arrow:    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    heart:    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    shield:   '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    check:    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    layers:   '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+    compass:  '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
+    globe:    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    warning:  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    laptop:   '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="20" x2="22" y2="20"/></svg>'
+  };
+
+  // Ordered icon list for cycling through (no emojis)
+  var _ICON_CYCLE = [_ICONS.diamond, _ICONS.sparkle, _ICONS.arrow, _ICONS.heart, _ICONS.shield, _ICONS.zap, _ICONS.layers, _ICONS.compass];
+
   // ============================================================
   // LAYOUT COMPILER CLASS
   // ============================================================
@@ -30,6 +53,7 @@
       this.category = this.intent.siteCategory;
       this._assetIndex = 0;
       this.content = blueprint.contentKit || this._buildGenericContent();
+      this.copy = blueprint.copy || {};
     }
 
     _c(key, idx) {
@@ -54,12 +78,12 @@
           price: ''
         })),
         features: [
-          {icon:'◈', title:'Premium Quality', desc:`Every ${n} product meets our rigorous quality standards.`},
-          {icon:'◉', title:'Expert Curation', desc:`Our team personally selects each item to meet the ${b} standard.`},
-          {icon:'◆', title:'Fast Delivery', desc:'Same-day and next-day delivery available across major cities.'},
-          {icon:'◊', title:'Customer First', desc:'30-day returns, live support, and a satisfaction guarantee on every order.'},
-          {icon:'●', title:'Trusted Brand', desc:`${b} has served thousands of customers with a 4.9-star rating.`},
-          {icon:'◍', title:'Secure Payments', desc:'All transactions are encrypted and protected.'}
+          {icon:_ICONS.diamond, title:'Premium Quality', desc:`Every ${n} product meets our rigorous quality standards.`},
+          {icon:_ICONS.sparkle, title:'Expert Curation', desc:`Our team personally selects each item to meet the ${b} standard.`},
+          {icon:_ICONS.arrow, title:'Fast Delivery', desc:'Same-day and next-day delivery available across major cities.'},
+          {icon:_ICONS.heart, title:'Customer First', desc:'30-day returns, live support, and a satisfaction guarantee on every order.'},
+          {icon:_ICONS.shield, title:'Trusted Brand', desc:`${b} has served thousands of customers with a 4.9-star rating.`},
+          {icon:_ICONS.lock, title:'Secure Payments', desc:'All transactions are encrypted and protected.'}
         ],
         testimonials: [
           {name:'Ana Reyes', role:'Verified Customer', text:`Absolutely impressed with ${b}. Exceptional quality and fast delivery.`, rating:'★★★★★'},
@@ -101,14 +125,13 @@
       };
     }
 
-    // --- Picsum image helper -------------------------------------------------
-    // Returns a deterministic, unique image URL for an asset slot.
-    // Uses the asset's numeric seed so the same prompt always gives the same image.
+    // --- Pollinations.ai image helper ----------------------------------------
+    // Returns an AI-generated background-image style string for a given prompt.
     _img(asset, cls) {
-      const w = 1200, h = 800;
-      const seed = asset.seed || (this._assetIndex * 31 + 1);
-      const url = `https://picsum.photos/seed/${seed}/${w}/${h}`;
-      return `<img class="asset-img${cls ? ' ' + cls : ''}" src="${url}" alt="${this.niche}" loading="lazy" decoding="async">`;
+      const prompt = (asset && asset.prompt) ? asset.prompt : `${this.brand} premium ${this.niche} cinematic photography`;
+      const encoded = encodeURIComponent(prompt + ', ultra quality, cinematic lighting');
+      const url = `https://image.pollinations.ai/prompt/${encoded}?width=1200&height=800&nologo=true`;
+      return `<img class="asset-img${cls ? ' ' + cls : ''}" src="${url}" alt="${this.niche}" loading="lazy" decoding="async" style="width:100%;height:100%;min-height:320px;object-fit:cover;display:block;border-radius:inherit;">`;
     }
 
     // --- Asset Slot Rotator ------------------------------------------------
@@ -360,9 +383,9 @@
             </div>
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
-            <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">3D Product Stage</div>
+            <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.copy.tagline || this.niche}</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 2) || `${this.brand} — trusted by thousands for premium ${this.niche}.`}</p>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 2) || this.copy.subheadline || `${this.brand} — trusted by thousands for premium ${this.niche}.`}</p>
             <div class="cta-row hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">
               <a href="/collection" class="btn-premium" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">${(this.content && this.content.cta && this.content.cta.primary) || 'Explore Collection'}</span></a>
             </div>
@@ -382,10 +405,10 @@
             </div>
           </div>
           <div class="section-inner" style="align-items:flex-start;text-align:left;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
-            <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">Creative Studio</div>
+            <div class="micro hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">${this.copy.tagline || this.niche}</div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);mix-blend-mode:difference;">${this.brand}</h1>
-            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:36ch;">${this._c('heroSubs', 0) || `${this.brand} — the premier destination for ${this.niche}.`}</p>
-            <a href="/work" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 3)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">View Showreel</span></a>
+            <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:36ch;">${this._c('heroSubs', 0) || this.copy.subheadline || `${this.brand} — the premier destination for ${this.niche}.`}</p>
+            <a href="/work" class="btn-premium hidden-3d" style="transition-delay:calc(var(--stagger) * 3)" data-vr-link><span class="btn-shimmer"></span><span class="btn-label">${(this.content && this.content.cta && this.content.cta.primary) || 'View Work'}</span></a>
           </div>
         </section>
       `;
@@ -424,7 +447,7 @@
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="play-trigger hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <div class="play-ring"></div>
-              <div class="play-icon">&#9654;</div>
+              <div class="play-icon">${_ICONS.play}</div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
             <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 1) || `Explore ${this.brand} — premium ${this.niche} for every need.`}</p>
@@ -525,10 +548,10 @@
         <section class="section-hero section-hero--manifesto hidden-3d" style="min-height:${comp.minH};--entry-duration:${comp.animationProfile.entryDuration};--entry-easing:${comp.animationProfile.entryEasing};--stagger:${comp.animationProfile.staggerDelay};" data-3d-depth="${comp.animationProfile.parallaxDepth}">
           <div class="section-inner" style="align-items:flex-start;text-align:left;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="manifesto-lines">
-              <div class="manifesto-line hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">We believe</div>
-              <div class="manifesto-line hidden-3d manifesto-line--accent" style="transition-delay:calc(var(--stagger) * 1)">${this.niche}</div>
-              <div class="manifesto-line hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">deserves</div>
-              <div class="manifesto-line hidden-3d" style="transition-delay:calc(var(--stagger) * 3)">radical clarity.</div>
+              ${(() => {
+                const ml = (this.copy && this.copy.manifesto) || ['We believe', this.niche, 'deserves', 'radical clarity.'];
+                return ml.map((line, i) => `<div class="manifesto-line hidden-3d${i === 1 ? ' manifesto-line--accent' : ''}" style="transition-delay:calc(var(--stagger) * ${i})">${line}</div>`).join('');
+              })()}
             </div>
             <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 4);max-width:36ch;margin-top:28px;">${this._c('heroSubs', 2) || `${this.brand} — where quality meets passion for ${this.niche}.`}</p>
           </div>
@@ -547,7 +570,7 @@
           </div>
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="gateway-ring hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
-              <div class="gateway-play">&#9654;</div>
+              <div class="gateway-play">${_ICONS.play}</div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
             <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">${this._c('heroSubs', 0) || `${this.brand} — premium ${this.niche}.`}</p>
@@ -619,7 +642,7 @@
           <div class="section-inner" style="align-items:center;text-align:center;padding-left:${comp.alignment.padX};padding-right:${comp.alignment.padX};">
             <div class="trust-seal hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
               <div class="seal-ring"></div>
-              <div class="seal-star">&#10022;</div>
+              <div class="seal-star">${_ICONS.sparkle}</div>
             </div>
             <h1 class="hero-text hidden-3d" style="transition-delay:calc(var(--stagger) * 1);font-size:var(--font-h1);">${this.brand}</h1>
             <p class="hero-sub hidden-3d" style="transition-delay:calc(var(--stagger) * 2);max-width:38ch;">${this._c('heroSubs', 1) || `${this.brand} — trusted by thousands for premium ${this.niche}.`}</p>
@@ -939,9 +962,9 @@
             </div>
             <div class="split-content hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title" style="font-size:var(--font-h2);">Split-Screen Presentation</h2>
-              <p class="section-lead">Dual-plane editorial composition for ${this.niche}. Asymmetric tension between visual and verbal hierarchy.</p>
-              <a href="/work" class="btn-ghost" data-vr-link>Explore Project</a>
+              <h2 class="section-title" style="font-size:var(--font-h2);">${(this.content && this.content.sectionTitles && this.content.sectionTitles.about) || 'The ' + this.brand + ' Story'}</h2>
+              <p class="section-lead">${(this.copy && this.copy.sectionAbout) || this._c('heroSubs', 1) || `Premium ${this.niche} — crafted with precision and delivered with care.`}</p>
+              <a href="/work" class="btn-ghost" data-vr-link>${(this.content && this.content.cta && this.content.cta.secondary) || 'Learn More'}</a>
             </div>
           </div>
         </section>
@@ -949,11 +972,15 @@
     }
 
     _body_PROCESS_MATRIX(comp) {
-      const cells = [
-        { icon: '◈', title: 'Research', desc: `Semantic terrain mapping for ${this.niche}` },
-        { icon: '◉', title: 'Prototype', desc: 'Rapid 3D spatial prototyping with live palette injection' },
-        { icon: '◆', title: 'Produce', desc: 'Asset blueprint generation with photographic modifier binding' },
-        { icon: '◊', title: 'Polish', desc: 'IntersectionObserver-calibrated entrance choreography' }
+      const copyFeatures = (this.copy && this.copy.featureHighlights) || [];
+      const matrixIcons = [_ICONS.compass, _ICONS.layers, _ICONS.zap, _ICONS.check];
+      const cells = copyFeatures.length >= 4 ? copyFeatures.slice(0, 4).map(function(f, i) {
+        return { icon: matrixIcons[i], title: f.title, desc: f.desc };
+      }) : [
+        { icon: _ICONS.compass, title: 'Discover', desc: `Understanding your ${this.niche} audience, positioning, and competitive landscape.` },
+        { icon: _ICONS.layers, title: 'Design', desc: `Crafting the visual and structural experience that sets ${this.brand} apart.` },
+        { icon: _ICONS.zap, title: 'Build', desc: `Rapid development with quality assurance at every step of the ${this.niche} process.` },
+        { icon: _ICONS.check, title: 'Deliver', desc: `On-time, on-brief delivery with ongoing support for ${this.brand}.` }
       ];
       const grid = cells.map((c, i) => `
         <div class="matrix-cell glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.06).toFixed(2)}">
@@ -967,7 +994,7 @@
           <div class="section-inner">
             <div class="section-header hidden-3d" style="transition-delay:0s">
               <span class="micro">${comp.label}</span>
-              <h2 class="section-title">Process Matrix</h2>
+              <h2 class="section-title">${(this.content && this.content.sectionTitles && this.content.sectionTitles.features) || 'Why ' + this.brand}</h2>
             </div>
             <div class="matrix-grid">${grid}</div>
           </div>
@@ -988,8 +1015,8 @@
               <span class="asset-label">${a.cfgKey.replace(/_/g, ' ').toUpperCase()}</span>
             </div>
             <div class="showreel-overlay">
-              <div class="showreel-play">&#9654;</div>
-              <span class="showreel-label">Immersive Showreel — ${this.niche}</span>
+              <div class="showreel-play">${_ICONS.play}</div>
+              <span class="showreel-label">${this.brand} — ${this.niche}</span>
             </div>
           </div>
         </section>
@@ -1035,7 +1062,7 @@
           <span class="award-year">${aw.year}</span>
           <span class="award-title">${aw.title}</span>
           <span class="award-cat">${aw.cat}</span>
-          <span class="award-badge">&#10022;</span>
+          <span class="award-badge">${_ICONS.star}</span>
         </div>
       `).join('');
       return `
@@ -1053,18 +1080,21 @@
 
     _body_FEATURE_ISOMETRIC_GRID(comp) {
       const src = (this.content && this.content.features) || [];
-      const features = src.length >= 4 ? src.slice(0, 6) : [
-        {icon:'◈', title:`${this.niche} Quality`, desc:`Every product meets the highest standards of ${this.niche} excellence.`},
-        {icon:'◉', title:'Expert Selection', desc:`Hand-picked by ${this.niche} specialists with decades of experience.`},
-        {icon:'◆', title:'Fast Delivery', desc:'Same-day and next-day delivery available nationwide.'},
-        {icon:'◊', title:'Customer First', desc:'30-day returns, live support, and a satisfaction guarantee.'},
-        {icon:'●', title:'Trusted Brand', desc:`Thousands of satisfied ${this.niche} customers and growing.`},
-        {icon:'◍', title:'Secure Checkout', desc:'All transactions are encrypted and protected.'}
+      const copyFeats = (this.copy && this.copy.featureHighlights) || [];
+      const features = src.length >= 4 ? src.slice(0, 6) : copyFeats.length >= 4 ? copyFeats.slice(0, 6).map(function(f, i) {
+        return { icon: _ICON_CYCLE[i % _ICON_CYCLE.length], title: f.title, desc: f.desc };
+      }) : [
+        {icon:_ICONS.diamond, title:`${this.niche} Quality`, desc:`Every product meets the highest standards of ${this.niche} excellence.`},
+        {icon:_ICONS.sparkle, title:'Expert Selection', desc:`Hand-picked by ${this.niche} specialists with decades of experience.`},
+        {icon:_ICONS.arrow, title:'Fast Delivery', desc:'Same-day and next-day delivery available nationwide.'},
+        {icon:_ICONS.heart, title:'Customer First', desc:'30-day returns, live support, and a satisfaction guarantee.'},
+        {icon:_ICONS.shield, title:'Trusted Brand', desc:`Thousands of satisfied ${this.niche} customers and growing.`},
+        {icon:_ICONS.lock, title:'Secure Checkout', desc:'All transactions are encrypted and protected.'}
       ];
       const sectionTitle = (this.content && this.content.sectionTitles && this.content.sectionTitles.features) || 'Why Choose Us';
       const cards = features.map((f, i) => `
         <div class="iso-card glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * ${i});" data-3d-depth="${(parseFloat(comp.animationProfile.parallaxDepth) + i * 0.05).toFixed(2)}">
-          <div class="iso-icon">${f.icon || String.fromCharCode(9702 + i)}</div>
+          <div class="iso-icon">${f.icon || _ICON_CYCLE[i % _ICON_CYCLE.length]}</div>
           <h3 class="iso-title">${f.title}</h3>
           <p class="iso-desc">${f.desc}</p>
         </div>
@@ -1188,17 +1218,17 @@
             </div>
             <div class="vault-grid">
               <div class="vault-cell glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * 0)">
-                <div class="vault-icon">&#128274;</div>
+                <div class="vault-icon">${_ICONS.lock}</div>
                 <h3 class="vault-title">SOC 2 Type II</h3>
                 <p class="vault-desc">Certified controls with continuous monitoring and automated evidence collection.</p>
               </div>
               <div class="vault-cell glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * 1)">
-                <div class="vault-icon">&#128209;</div>
+                <div class="vault-icon">${_ICONS.doc}</div>
                 <h3 class="vault-title">GDPR Compliant</h3>
                 <p class="vault-desc">Data residency controls, right-to-erasure workflows, and audit-ready logs.</p>
               </div>
               <div class="vault-cell glass-panel hidden-3d" style="transition-delay:calc(var(--stagger) * 2)">
-                <div class="vault-icon">&#9889;</div>
+                <div class="vault-icon">${_ICONS.zap}</div>
                 <h3 class="vault-title">Zero-Knowledge</h3>
                 <p class="vault-desc">Client-side encryption with procedural entropy-derived key rotation.</p>
               </div>
@@ -1765,19 +1795,30 @@
     }
 
     // --- Asset-slot image injector ------------------------------------------
-    // After HTML is assembled as a string, walk every <div class="asset-slot…">
-    // and inject a picsum <img> using the slot's sequential index as the seed.
-    // This is deterministic: same site compile → same images.
+    // Walks every <div class="asset-slot…"> and injects a Pollinations.ai
+    // background-image using the slot's title attribute as the AI prompt.
     _injectImages(html) {
       let idx = 0;
+      const assets = this.assets;
       const brand = this.brand || this.niche || 'site';
       return html.replace(
-        /(<div\s[^>]*class="[^"]*asset-slot[^"]*"[^>]*>)/g,
-        (match) => {
-          const seed = Math.abs(this._hashStr(brand + '-' + idx)) % 900000 + 100000;
-          const img = `<img class="asset-img" src="https://picsum.photos/seed/${seed}/1200/800" alt="${this.niche}" loading="lazy" decoding="async" style="width:100%;height:100%;min-height:320px;object-fit:cover;display:block;border-radius:inherit;">`;
+        /(<div\s)(([^>]*class="[^"]*asset-slot[^"]*")[^>]*)(>)/g,
+        (match, open, attrs, _cls, close) => {
+          const titleMatch = attrs.match(/title="([^"]*)"/);
+          const rawPrompt = titleMatch ? titleMatch[1].replace(/&quot;/g, '"') : '';
+          const asset = assets[idx % Math.max(assets.length, 1)] || {};
+          const promptText = rawPrompt || asset.prompt || (brand + ' premium ' + this.niche + ' cinematic photography');
+          const encoded = encodeURIComponent(promptText + ', ultra quality, cinematic lighting, professional');
+          const imgUrl = 'https://image.pollinations.ai/prompt/' + encoded + '?width=1200&height=800&nologo=true';
+          const bgStyle = 'background-image:url(\'' + imgUrl + '\');background-size:cover;background-position:center;';
+          let newAttrs;
+          if (/\bstyle="/.test(attrs)) {
+            newAttrs = attrs.replace(/\bstyle="/, 'style="' + bgStyle);
+          } else {
+            newAttrs = attrs + ' style="' + bgStyle + '"';
+          }
           idx++;
-          return match + img;
+          return open + newAttrs + close;
         }
       );
     }
@@ -1802,7 +1843,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/premium-core.css">
   <style>
     ${this._generateCSSVariables()}
   </style>

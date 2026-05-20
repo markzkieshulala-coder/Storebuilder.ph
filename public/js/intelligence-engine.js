@@ -219,6 +219,362 @@
   }
 
   // ============================================================
+  // 3B. DYNAMIC COPY MATRIX — Niche-specific copy generation
+  // ============================================================
+
+  function generateNicheCopy(intent) {
+    const n = (intent.primaryNiche || '').toLowerCase();
+    const b = intent.brandName || 'Brand';
+    const raw = (intent.rawPrompt || '').toLowerCase();
+    const cat = intent.siteCategory || 'BUSINESS';
+    function _has() {
+      var keys = Array.prototype.slice.call(arguments);
+      return keys.some(function(k) { return raw.indexOf(k) >= 0 || n.indexOf(k) >= 0; });
+    }
+    var isBasketball = _has('basketball', 'nba', 'hoops', 'court');
+    var isSoccer = _has('soccer', 'football', 'futbol', 'pitch') && !isBasketball;
+    var isSneakers = _has('sneaker', 'kicks') && !isBasketball && !isSoccer;
+    var isCoffee = _has('coffee', 'cafe', 'espresso', 'roaster', 'barista', 'beans');
+    var isRestaurant = _has('restaurant', 'dining', 'cuisine', 'bistro', 'eatery') && !isCoffee;
+    var isFitness = _has('gym', 'fitness', 'workout', 'training', 'supplement', 'crossfit');
+    var isSalon = _has('salon', 'barbershop', 'barber', 'spa', 'haircut');
+    var isJewelry = _has('jewel', 'jewelry', 'ring', 'necklace', 'diamond');
+    var isWatch = _has('watch', 'timepiece', 'horology');
+    var isLeather = _has('leather goods', 'leather bag', 'leathercraft', 'leather wallet', 'leather store');
+    var isFashion = _has('fashion', 'apparel', 'clothing', 'streetwear', 'couture') && !isLeather;
+    var isSkincare = _has('skincare', 'skin care', 'cosmetic', 'serum', 'moisturizer');
+    var isElectronics = _has('electronics', 'gadget', 'smartphone', 'laptop', 'devices');
+    var isPets = _has('pet store', 'pet shop', 'dog', 'veterinary', 'animal shelter');
+    var isPhotography = _has('photographer', 'photography', 'photo studio', 'portrait');
+    var isVideo = _has('video editor', 'filmmaker', 'videographer', 'film production', 'motion design');
+    var isSaas = cat === 'SAAS';
+    var isAgency = cat === 'AGENCY';
+    var isPortfolio = cat === 'PORTFOLIO';
+    var isLanding = cat === 'LANDING';
+
+    if (isBasketball) return {
+      tagline: 'Basketball Culture',
+      headline: b,
+      subheadline: 'Elite gear, authentic jerseys, and court-ready equipment for players who play to win.',
+      manifesto: ['We outfit', 'champions', 'on every', 'court.'],
+      sectionAbout: b + ' was built for the culture. From practice courts to championship arenas, our gear is worn by those who play at the highest level.',
+      featureHighlights: [
+        {title:'Court-Grade Gear', desc:'Every product is tested under game conditions — durable, performance-driven, built to last.'},
+        {title:'Authentic Jerseys', desc:'Official-replica and custom NBA-style jerseys with premium stitching and breathable fabric.'},
+        {title:'Fast Nationwide Delivery', desc:'Orders ship same-day. Reach any court in 24 hours across major cities.'},
+        {title:'Player First', desc:'From point guards to centers, our catalog serves every position and every play style.'},
+        {title:'Trusted by Athletes', desc:'Over 5,000 players trust ' + b + ' for their game-day gear and training equipment.'},
+        {title:'Secure Checkout', desc:'GCash, credit card, and installment — all secured with bank-level encryption.'}
+      ]
+    };
+    if (isSoccer) return {
+      tagline: 'Football Culture',
+      headline: b,
+      subheadline: 'Premium football kits, boots, and training gear. Where the beautiful game begins.',
+      manifesto: ['We play', 'the beautiful', 'game with', 'precision.'],
+      sectionAbout: b + ' equips football players from grassroots to elite — authentic kits, pro boots, and essential training equipment.',
+      featureHighlights: [
+        {title:'Match-Ready Kits', desc:'Every jersey uses breathable, sweat-wicking fabric built for 90+ minutes of play.'},
+        {title:'Pro Boots', desc:'Performance football boots engineered for traction, control, and acceleration on any surface.'},
+        {title:'Fast Shipping', desc:'Same-day dispatch. Your kit arrives before your next training session.'},
+        {title:'Club & Player', desc:b + ' supplies individual players, local clubs, and national academies alike.'},
+        {title:'Community Trusted', desc:b + ' has outfitted thousands of players across dozens of leagues nationwide.'},
+        {title:'Secure Orders', desc:'Shop with confidence — all payments secured with bank-level encryption.'}
+      ]
+    };
+    if (isCoffee) return {
+      tagline: 'Specialty Coffee',
+      headline: b,
+      subheadline: 'Single-origin roasts, precision espresso, and coffee culture at its finest. From bean to cup.',
+      manifesto: ['Every cup', 'begins with', 'intentional', 'craft.'],
+      sectionAbout: b + ' sources the world\'s finest green coffee, roasts to order, and delivers an exceptional cup every single time.',
+      featureHighlights: [
+        {title:'Single-Origin Sourcing', desc:b + ' partners directly with farms in Ethiopia, Colombia, and beyond for traceable, premium beans.'},
+        {title:'Small-Batch Roasting', desc:'Roasted in small batches, weekly — so you always receive peak freshness in every bag.'},
+        {title:'Same-Day Dispatch', desc:'Roasted-to-order and shipped within 24 hours of your purchase.'},
+        {title:'Barista Grade', desc:'Our roast profiles are developed with professional baristas to achieve perfect extraction.'},
+        {title:'Subscription Ready', desc:b + ' subscribers receive rotating seasonal selections curated by our head roaster.'},
+        {title:'Eco-Conscious', desc:'All packaging is compostable. We offset 100% of our roasting carbon emissions.'}
+      ]
+    };
+    if (isRestaurant) return {
+      tagline: 'Fine Dining',
+      headline: b,
+      subheadline: 'An exceptional dining experience crafted from the finest seasonal ingredients. Where every meal is a memory.',
+      manifesto: ['Great food', 'begins with', 'uncompromising', 'ingredients.'],
+      sectionAbout: b + ' is a celebration of culinary craft. Our chefs source seasonal ingredients and transform them into dishes that linger long after the last bite.',
+      featureHighlights: [
+        {title:'Seasonal Menu', desc:'Our chefs craft the menu around the finest seasonal produce available each week.'},
+        {title:'Curated Wine List', desc:'Over 80 labels — natural, organic, and biodynamic — curated to complement every dish.'},
+        {title:'Private Dining', desc:'Bespoke experiences for celebrations, corporate events, and intimate gatherings.'},
+        {title:'Farm-to-Table', desc:b + ' partners with local farms to bring the freshest produce from field to plate.'},
+        {title:'Renowned Kitchen', desc:'Our kitchen has served thousands of guests with a 4.9-star average across all platforms.'},
+        {title:'Easy Reservations', desc:'Book your table online in seconds. Same-day and advance bookings always available.'}
+      ]
+    };
+    if (isFitness) return {
+      tagline: 'Performance Training',
+      headline: b,
+      subheadline: 'Premium fitness equipment and supplements engineered for serious athletes. Train harder.',
+      manifesto: ['Strength is', 'built through', 'intentional', 'effort.'],
+      sectionAbout: b + ' exists for those who take training seriously — premium equipment, scientifically-backed supplements, and programs that produce real results.',
+      featureHighlights: [
+        {title:'Science-Backed Supplements', desc:'Every ' + b + ' supplement is third-party tested — no fillers, no compromise on purity.'},
+        {title:'Pro-Grade Equipment', desc:'Commercial-grade bars, plates, and rigs built for gym and home installations.'},
+        {title:'Fast Delivery', desc:'Same-day dispatch on all in-stock items. Your gear arrives ready to use.'},
+        {title:'Expert Programs', desc:b + ' training programs are designed by certified coaches with proven, documented results.'},
+        {title:'Athlete Community', desc:'Join thousands of ' + b + ' athletes sharing progress, PRs, and nutrition advice.'},
+        {title:'Secure Payments', desc:'Multi-payment support including GCash, card, COD, and installment plans.'}
+      ]
+    };
+    if (isSalon) return {
+      tagline: 'Premium Beauty',
+      headline: b,
+      subheadline: 'Expert stylists, luxury products, and an atmosphere designed for total transformation. Your sanctuary.',
+      manifesto: ['Beauty begins', 'with care', 'and the right', 'hands.'],
+      sectionAbout: b + ' is a premium beauty destination — skilled stylists, curated products, and a welcoming environment that creates your best self.',
+      featureHighlights: [
+        {title:'Master Stylists', desc:'Every ' + b + ' stylist is trained at premium academies with years of hands-on expertise.'},
+        {title:'Luxury Products', desc:'We use only professional-grade, cruelty-free brands — L\'Oréal Pro, Wella, Olaplex, and more.'},
+        {title:'Easy Booking', desc:'Book your appointment online in seconds. Same-day slots often available.'},
+        {title:'Full-Service Menu', desc:'Haircuts, color, nail art, facials — ' + b + ' is your complete beauty destination.'},
+        {title:'Private Atmosphere', desc:'Curated playlists, premium décor, and attentive service make every visit memorable.'},
+        {title:'Trusted Results', desc:b + ' has styled thousands of clients with a 4.9-star reputation across platforms.'}
+      ]
+    };
+    if (isJewelry) return {
+      tagline: 'Fine Jewelry',
+      headline: b,
+      subheadline: 'Handcrafted fine jewelry that celebrates life\'s most significant moments. Worn by those who notice the difference.',
+      manifesto: ['Every piece', 'carries the', 'weight of', 'intention.'],
+      sectionAbout: b + ' crafts jewelry from conflict-free diamonds and ethically sourced metals. Each piece is a permanent statement of quality and love.',
+      featureHighlights: [
+        {title:'Conflict-Free Stones', desc:'Every ' + b + ' diamond and gemstone is responsibly sourced and GIA-certified.'},
+        {title:'Handcrafted Settings', desc:'Each piece is made by hand using traditional goldsmithing techniques refined over generations.'},
+        {title:'Bespoke Service', desc:'Design a custom engagement ring, pendant, or bracelet — we make your vision tangible.'},
+        {title:'Complimentary Engraving', desc:b + ' offers free engraving on all pieces — personalize with a message or date.'},
+        {title:'Lifetime Warranty', desc:'All jewelry is backed by our lifetime craftsmanship warranty and complimentary resizing.'},
+        {title:'Insured Delivery', desc:'Every order ships in tamper-proof packaging with full insurance coverage.'}
+      ]
+    };
+    if (isWatch) return {
+      tagline: 'Fine Timepieces',
+      headline: b,
+      subheadline: 'Precision-engineered timepieces that transcend the ordinary. Time, mastered.',
+      manifesto: ['Time deserves', 'an instrument', 'worthy of', 'your wrist.'],
+      sectionAbout: b + ' curates and distributes some of the world\'s most respected mechanical and quartz timepieces — from dress watches to professional divers.',
+      featureHighlights: [
+        {title:'Swiss Movement', desc:'Every ' + b + ' timepiece houses a certified Swiss or Japanese movement for precision you can feel.'},
+        {title:'Sapphire Crystal', desc:'Anti-scratch sapphire crystal display glass on all premium-tier pieces.'},
+        {title:'Authenticated Pre-Owned', desc:'Our certified pre-owned program gives you access to rare references at honest prices.'},
+        {title:'White Glove Service', desc:b + ' offers strap changes, battery replacement, and movement servicing in-house.'},
+        {title:'Authorized Dealer', desc:'Verified inventory and documentation on every piece in our collection.'},
+        {title:'Insured Delivery', desc:'Every timepiece ships in a branded box with full insurance and signature confirmation.'}
+      ]
+    };
+    if (isLeather) return {
+      tagline: 'Leather Craft',
+      headline: b,
+      subheadline: 'Hand-stitched leather goods built to age beautifully and outlast trends. Heritage in every grain.',
+      manifesto: ['Craftsmanship', 'takes time.', 'We believe', "it's worth it."],
+      sectionAbout: b + ' produces leather goods using full-grain hides and traditional hand-stitching. Our bags and accessories only get better with age.',
+      featureHighlights: [
+        {title:'Full-Grain Leather', desc:b + ' uses only the top layer of the hide — the most durable, richest part of the leather.'},
+        {title:'Hand-Stitched', desc:'Each piece is saddle-stitched by hand — a method that outlasts machine stitching by decades.'},
+        {title:'Heritage Tanning', desc:'Vegetable-tanned using traditional Italian methods that produce a rich, developing patina.'},
+        {title:'Made to Order', desc:'Many ' + b + ' pieces are made-to-order. Custom initials, dimensions, and hardware available.'},
+        {title:'Lifetime Repair', desc:'We repair or replace any piece showing craft defects — unconditionally, for life.'},
+        {title:'Responsible Hides', desc:'All leather is sourced from tanneries certified under Leather Working Group standards.'}
+      ]
+    };
+    if (isFashion) return {
+      tagline: 'Contemporary Fashion',
+      headline: b,
+      subheadline: 'Modern silhouettes, quality fabrics, and a distinct point of view. Wear your perspective.',
+      manifesto: ['Fashion is', 'a language.', b + ' helps', 'you speak it.'],
+      sectionAbout: b + ' is an independent fashion label built on intention. Every collection is a conversation between material, form, and the person wearing it.',
+      featureHighlights: [
+        {title:'Quality Fabrics', desc:b + ' uses GOTS-certified organic cotton, premium linen, and responsible blends across all collections.'},
+        {title:'Seasonal Collections', desc:'New collections release quarterly, designed around a single narrative concept.'},
+        {title:'Inclusive Sizing', desc:b + ' offers XS through 3XL in all styles — fashion for every body.'},
+        {title:'Ethical Production', desc:'Made in ethical factories with fair wages and independently audited working conditions.'},
+        {title:'Easy Returns', desc:'30-day no-questions returns with free prepaid labels on every order.'},
+        {title:'Style Concierge', desc:'Our personal styling team helps you build a wardrobe around your lifestyle and budget.'}
+      ]
+    };
+    if (isSkincare) return {
+      tagline: 'Skincare Science',
+      headline: b,
+      subheadline: 'Clinically validated formulas and clean ingredients for transformative skin results. Science you can feel.',
+      manifesto: ['Your skin', 'deserves', 'ingredients that', 'actually work.'],
+      sectionAbout: b + ' is a clinical skincare brand built on peer-reviewed science. No filler ingredients, no false promises — formulas that deliver visible results.',
+      featureHighlights: [
+        {title:'Clinically Tested', desc:'Every ' + b + ' formula undergoes independent clinical trials before reaching your skin.'},
+        {title:'Clean Ingredients', desc:'Zero parabens, zero sulfates, zero synthetic fragrance — just effective actives.'},
+        {title:'Dermatologist Approved', desc:b + ' works with board-certified dermatologists to develop each formulation.'},
+        {title:'Sustainable Packaging', desc:'Refillable glass bottles and compostable outer packaging — beauty with conscience.'},
+        {title:'Personalized Routine', desc:'Answer 5 questions and receive a routine built specifically for your skin type.'},
+        {title:'Results Guarantee', desc:'60-day results guarantee — if your skin doesn\'t improve, we refund in full.'}
+      ]
+    };
+    if (isElectronics) return {
+      tagline: 'Tech & Devices',
+      headline: b,
+      subheadline: 'Premium gadgets, authentic devices, and accessories that keep you connected. Technology with purpose.',
+      manifesto: ['The right', 'device changes', 'how you', 'experience life.'],
+      sectionAbout: b + ' stocks authenticated electronics from the world\'s leading manufacturers. Every device is genuine, every purchase backed by full warranty.',
+      featureHighlights: [
+        {title:'Authentic Products', desc:'Every ' + b + ' device comes with official documentation, authentic warranty, and purchase receipt.'},
+        {title:'Wide Selection', desc:'Smartphones, laptops, audio, wearables, and smart home devices — all under one roof.'},
+        {title:'Same-Day Delivery', desc:b + ' offers same-day delivery in Metro Manila and major cities nationwide.'},
+        {title:'Expert Advice', desc:'Our product specialists help you find the right device for your needs and budget.'},
+        {title:'Extended Warranty', desc:'Add up to 2 years of extended warranty coverage to any device at checkout.'},
+        {title:'Secure Checkout', desc:'Pay with GCash, credit card, or installment — all with bank-level security.'}
+      ]
+    };
+    if (isPets) return {
+      tagline: 'Pet Care',
+      headline: b,
+      subheadline: 'Everything your pets need to thrive — premium nutrition, accessories, and expert care. For the family members who love unconditionally.',
+      manifesto: ['Every pet', 'deserves a life', 'full of', 'care and joy.'],
+      sectionAbout: b + ' is the trusted pet care destination for thousands of pet owners — vet-approved products, premium food, and everything in between.',
+      featureHighlights: [
+        {title:'Vet-Approved Nutrition', desc:'All ' + b + ' pet food and supplements are selected with input from licensed veterinarians.'},
+        {title:'Premium Accessories', desc:'Beds, crates, collars, and toys curated for safety, durability, and pet happiness.'},
+        {title:'Same-Day Delivery', desc:b + ' ships same-day so your pet never runs out of the essentials.'},
+        {title:'Grooming Services', desc:'Professional pet grooming, dental cleaning, and nail trims at our flagship locations.'},
+        {title:'Vet Consultations', desc:'Book online vet consultations through the ' + b + ' platform — fast and affordable.'},
+        {title:'Trusted by Owners', desc:'Over 10,000 pet owners trust ' + b + ' for their furry family members\' daily care.'}
+      ]
+    };
+    if (isPhotography) return {
+      tagline: 'Photography',
+      headline: b,
+      subheadline: 'Visual storytelling through the lens — capturing moments that outlast memory. The image behind the image.',
+      manifesto: ['A great', 'photograph', 'tells a story', 'without words.'],
+      sectionAbout: b + ' is a professional photography studio specializing in portraits, editorial, commercial, and documentary work. Every frame is intentional.',
+      featureHighlights: [
+        {title:'Commercial Photography', desc:b + ' produces campaign-ready imagery for brands, agencies, and product launches.'},
+        {title:'Portrait Sessions', desc:'Individual, couple, and family sessions with full retouching and print rights included.'},
+        {title:'Event Coverage', desc:'Weddings, corporate events, and private celebrations — full-day and half-day packages.'},
+        {title:'Fast Turnaround', desc:b + ' delivers fully edited galleries within 5 business days. Rush delivery available.'},
+        {title:'Full Rights', desc:'All commercial and personal use rights included with every package. No licensing fees.'},
+        {title:'Award-Winning Work', desc:b + ' has been recognized across regional and international photography competitions.'}
+      ]
+    };
+    if (isVideo) return {
+      tagline: 'Video Production',
+      headline: b,
+      subheadline: 'Cinematic storytelling — from brand films to social-first reels. Motion that moves people.',
+      manifesto: ['Motion that', 'moves people', 'begins with', 'a single frame.'],
+      sectionAbout: b + ' is a full-service video production studio. We concept, shoot, and deliver brand films, documentary content, and social media reels.',
+      featureHighlights: [
+        {title:'Brand Films', desc:b + ' produces narrative-driven brand films that define identity and build genuine audience connection.'},
+        {title:'Social-First Content', desc:'Vertical, horizontal, and square formats optimized for Instagram, TikTok, and YouTube.'},
+        {title:'Documentary Style', desc:'Long-form documentary content for NGOs, companies, and cultural institutions.'},
+        {title:'Fast Edit Cycles', desc:b + ' delivers first cuts within 3 business days. Revisions turned around in 24 hours.'},
+        {title:'Full Post-Production', desc:'Color grading, sound design, motion graphics, and VFX all handled in-house.'},
+        {title:'Client Portal', desc:'Review and approve edits through a dedicated portal with time-coded comments.'}
+      ]
+    };
+    if (isSaas) return {
+      tagline: b + ' Platform',
+      headline: b,
+      subheadline: 'The platform that scales with your team. Built for the way you actually work.',
+      manifesto: ['Software', 'should work', 'for people,', 'not against them.'],
+      sectionAbout: b + ' is a modern platform designed to eliminate friction, automate workflows, and give your team the clarity they need to move fast.',
+      featureHighlights: [
+        {title:'Real-Time Analytics', desc:b + ' surfaces the metrics that matter — live dashboards, custom reports, automated alerts.'},
+        {title:'Team Collaboration', desc:'Shared workspaces, role-based access, and async-first communication tools built in.'},
+        {title:'API-First Architecture', desc:b + ' connects to your existing stack — Slack, Notion, Zapier, and 100+ integrations.'},
+        {title:'Enterprise Security', desc:'SOC 2 Type II certified. SSO, 2FA, audit logs, and data residency controls standard.'},
+        {title:'Instant Onboarding', desc:'From signup to first value in under 5 minutes. No setup fees, no sales call required.'},
+        {title:'24/7 SLA Support', desc:'Dedicated customer success manager and 99.99% uptime SLA on all paid plans.'}
+      ]
+    };
+    if (isAgency) return {
+      tagline: 'Creative Agency',
+      headline: b,
+      subheadline: 'Strategy, design, and technology — united. We build the brands that define categories.',
+      manifesto: ['Great brands', 'aren\'t built', 'by accident.', 'They\'re designed.'],
+      sectionAbout: b + ' is an independent creative agency specializing in brand identity, digital campaigns, and spatial web experiences. We work with visionary founders and global companies.',
+      featureHighlights: [
+        {title:'Brand Strategy', desc:b + ' develops naming, positioning, and messaging architecture that gives brands a defensible identity.'},
+        {title:'Visual Identity', desc:'Logo systems, color palettes, typography, and art direction — built to scale across all touchpoints.'},
+        {title:'Digital Campaigns', desc:'Performance creative, social campaigns, and paid media strategy that drives measurable results.'},
+        {title:'Spatial Web Design', desc:b + ' builds 3D web experiences that stop the scroll and start conversations.'},
+        {title:'Film & Content', desc:'Brand films, explainer videos, and documentary content produced in-house at studio quality.'},
+        {title:'Transparent Process', desc:'Weekly check-ins, shared project portals, and clear milestones — you\'re always in control.'}
+      ]
+    };
+    if (isPortfolio) return {
+      tagline: 'Selected Work',
+      headline: b,
+      subheadline: 'A curated collection of work at the intersection of design, technology, and storytelling. Making things that matter.',
+      manifesto: ['Design', 'without intent', 'is just', 'decoration.'],
+      sectionAbout: b + ' is an independent creative practitioner — working with brands, agencies, and cultural institutions to produce work worth remembering.',
+      featureHighlights: [
+        {title:'Brand Identity', desc:b + ' creates visual identities that distill complex ideas into systems that scale.'},
+        {title:'UI/UX Design', desc:'Interface design with deep attention to accessibility, hierarchy, and interaction logic.'},
+        {title:'Motion & 3D', desc:'Kinetic design, motion graphics, and spatial web experiences with cinematic craft.'},
+        {title:'Art Direction', desc:b + ' directs photoshoots, campaigns, and editorial content for print and digital media.'},
+        {title:'Strategy', desc:'Design thinking-driven strategy workshops and positioning exercises for growing brands.'},
+        {title:'Available Now', desc:'Open for freelance, studio collaboration, or full-time creative leadership opportunities.'}
+      ]
+    };
+    if (isLanding) return {
+      tagline: 'Coming Soon',
+      headline: b,
+      subheadline: 'Something exceptional is coming. Join the waitlist and be first to experience it.',
+      manifesto: ['We\'re building', 'something', 'the world', 'hasn\'t seen.'],
+      sectionAbout: b + ' is in private beta. We\'re accepting early access requests from founding members who want to shape what comes next.',
+      featureHighlights: [
+        {title:'Founding Access', desc:'Founding members get lifetime pricing, priority support, and direct input into the ' + b + ' roadmap.'},
+        {title:'Exclusive Features', desc:'Early access users unlock features months before public release.'},
+        {title:'Founding Pricing', desc:b + ' founding pricing is locked for life — never pay more, even as we scale.'},
+        {title:'Community First', desc:'Join a private community of early adopters who share feedback and shape the product.'},
+        {title:'No Credit Card', desc:'Reserve your spot today — no payment required until launch day.'},
+        {title:'Launch Alert', desc:'We\'ll notify you the moment ' + b + ' goes live. Be first in line.'}
+      ]
+    };
+    // E_COMMERCE fallback
+    var nicheLabel = n.split(' ').slice(0, 3).map(function(w) {
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ') || 'Premium Store';
+    if (cat === 'E_COMMERCE') return {
+      tagline: nicheLabel,
+      headline: b,
+      subheadline: 'Premium ' + n + ' curated with precision for those who demand the best.',
+      manifesto: ['Premium', n, 'deserves a', 'premium home.'],
+      sectionAbout: b + ' is your trusted destination for the finest ' + n + '. Every product is hand-selected, every order handled with care and precision.',
+      featureHighlights: [
+        {title:'Premium Selection', desc:'Every ' + n + ' at ' + b + ' is hand-selected against rigorous quality standards.'},
+        {title:'Expert Curation', desc:'Our specialists review thousands of products to bring you only the best ' + n + ' available.'},
+        {title:'Fast Delivery', desc:b + ' ships same-day and next-day to major cities nationwide.'},
+        {title:'Customer Promise', desc:'30-day hassle-free returns, live chat support, and a satisfaction guarantee on every order.'},
+        {title:'Authentic Products', desc:'Every item at ' + b + ' is verified authentic — no counterfeits, ever.'},
+        {title:'Secure Payments', desc:'GCash, credit card, and installment — all secured with bank-level encryption.'}
+      ]
+    };
+    // General fallback
+    return {
+      tagline: nicheLabel || 'Premium Service',
+      headline: b,
+      subheadline: b + ' — delivering exceptional ' + (n || 'service') + ' with uncompromising quality and trusted expertise.',
+      manifesto: ['Excellence', 'is not an', 'accident.', "It's a choice."],
+      sectionAbout: b + ' has built a reputation for quality, reliability, and results. We serve our customers with genuine care and expert execution.',
+      featureHighlights: [
+        {title:'Premium Quality', desc:'Everything at ' + b + ' meets our rigorous quality standards before reaching our customers.'},
+        {title:'Expert Team', desc:'Our team brings years of ' + (n || 'industry') + ' expertise to every engagement.'},
+        {title:'Fast Turnaround', desc:b + ' delivers on time, every time — no excuses, no delays.'},
+        {title:'Client First', desc:'We build every solution around your specific goals, timeline, and budget.'},
+        {title:'Proven Track Record', desc:'Thousands of satisfied clients trust ' + b + ' year after year.'},
+        {title:'Secure & Reliable', desc:'Industry-standard security, privacy-compliant processes, and 24/7 support.'}
+      ]
+    };
+  }
+
+  // ============================================================
   // 4. PROCEDURAL AESTHETIC GENERATOR
   // ============================================================
 
@@ -691,6 +1047,7 @@
       spatialProfile: spatialProfile,
       routes: routes,
       typeScale: typeScale,
+      copy: generateNicheCopy(intent),
       timestamp: new Date().toISOString(),
       generationSignature: 'UP3D-' + intent.masterSeed.slice(0, 8)
     };
