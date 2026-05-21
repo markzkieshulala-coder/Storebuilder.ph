@@ -480,6 +480,7 @@ const _default: React.FC<SectionRendererProps> = ({ section }) => (
 );
 
 // ── REGISTRY EXPORT ─────────────────────────────────────────────────────────
+export type ComponentFactory = React.FC<SectionRendererProps>;
 export const componentRegistry: Record<string, React.FC<SectionRendererProps>> = {
   CinematicHero,
   BentoMasonry,
@@ -503,3 +504,6 @@ export const componentRegistry: Record<string, React.FC<SectionRendererProps>> =
   VelocityMarquee,
   _default,
 };
+
+export const COMPONENT_REGISTRY = componentRegistry;
+export const COMPONENT_MAP = componentRegistry;

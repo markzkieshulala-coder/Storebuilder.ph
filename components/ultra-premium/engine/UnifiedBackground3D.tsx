@@ -1,3 +1,2 @@
 "use client";
-/** Re-export from the real component implementation. */
-export { UnifiedBackground3D } from "../UnifiedBackground3D";
+export { UnifiedBackground3D } from "../components/UnifiedBackground3D";

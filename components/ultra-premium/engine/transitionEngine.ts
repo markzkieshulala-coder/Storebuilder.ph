@@ -1,3 +1,4 @@
+"use client";
 import gsap from "gsap";
 import type { TransitionType } from "../types/routing";
 

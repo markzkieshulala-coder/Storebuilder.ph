@@ -635,7 +635,7 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
 const NICHE_KEYWORDS: Array<[RegExp, string]> = [
   [/\b(basketball|nba|jersey|sneaker|hoops?|jordan|lakers|bulls|curry|lebron)\b/i, "basketball"],
   [/\b(watch(es|making|maker)?|timepiece|horolog(y|er|ist)|chronograph|tourbillon|geneva|swiss\s*made)\b/i, "watchmaking"],
-  [/\b(cyber|security|infosec|saas|threat|defen[cs]e|encryption|firewall|endpoint)\b/i, "cybersecurity"],
+  [/\b(cyber\w*|security|infosec|saas|threat|defen[cs]e|encryption|firewall|endpoint|pentest|penetration\s*test|soc|siem|edr|xdr|mfa|zero[-\s]?trust)\b/i, "cybersecurity"],
   [/\b(restaurant|cafe|caf[eé]|bakery|food|dining|kitchen|menu|chef|bistro|tasting)\b/i, "food"],
   [/\b(salon|spa|beauty|hair|barber|nail|makeup|skincare|stylist)\b/i, "salon"],
   [/\b(portfolio|designer|artist|photographer|creative|illustration|studio)\b/i, "portfolio"],

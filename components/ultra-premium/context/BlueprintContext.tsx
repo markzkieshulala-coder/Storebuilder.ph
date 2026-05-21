@@ -17,7 +17,7 @@ interface BlueprintContextValue {
   pagePaths: string[];
 }
 
-const BlueprintContext = createContext<BlueprintContextValue | null>(null);
+export const BlueprintContext = createContext<BlueprintContextValue | null>(null);
 
 interface BlueprintProviderProps {
   children: ReactNode;

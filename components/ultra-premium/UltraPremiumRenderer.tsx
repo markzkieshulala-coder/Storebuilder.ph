@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 import type { SiteBlueprint } from "./types/blueprint";
 
 const UltraPremiumApp = dynamic(
-  () => import("./UltraPremiumApp").then((m) => ({ default: m.UltraPremiumApp })),
+  () => import("./components/UltraPremiumApp").then((m) => ({ default: m.UltraPremiumApp })),
   { ssr: false, loading: () => <UltraPremiumSkeleton /> }
 );
 

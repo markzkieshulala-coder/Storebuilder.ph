@@ -3,6 +3,19 @@
  * ============================================================================
  * AnimationContext — Global Animation & Route State Provider
  * ============================================================================
+ * Provides:
+ *   - current route (tracked reactively)
+ *   - transition state (phase, type, progress)
+ *   - navigate() with kinetic transition triggers
+ *   - prefersReducedMotion flag
+ *   - transition engine singleton
+ *
+ * Architecture:
+ *   - Wraps the entire app inside <UltraPremiumApp>.
+ *   - Route changes are intercepted by navigate(), which delegates to
+ *     KineticTransitionEngine to run exit/enter animations before updating state.
+ *   - 3D background receives route changes imperatively and updates its
+ *     geometry speed/rotation without remounting.
  */
 
 import React, {
@@ -15,23 +28,13 @@ import React, {
   type ReactNode,
 } from "react";
 import { KineticTransitionEngine } from "../engine/KineticTransitionEngine";
-import type { NavigateOptions } from "../types/routing";
-
-// Local simplified types that match what this context actually provides
-export interface TransitionState {
-  phase: "idle" | "exiting" | "entering" | "complete";
-  type: string;
-  progress: number;
-}
-
-export interface AnimationContextValue {
-  route: string;
-  transition: TransitionState;
-  navigate: (path: string, options?: NavigateOptions) => Promise<void>;
-  prefersReducedMotion: boolean;
-  engine: KineticTransitionEngine;
-}
-
+import type {
+  Route,
+  TransitionState,
+  AnimationContextValue,
+  NavigateOptions,
+  TransitionType,
+} from "../types/routing";
 
 export const AnimationContext = createContext<AnimationContextValue | null>(null);
 
@@ -40,17 +43,26 @@ interface AnimationProviderProps {
   initialRoute?: string;
 }
 
+const defaultRoute: Route = {
+  id: "home",
+  path: "/",
+  label: "Home",
+  meta: { title: "Home" },
+  sections: [],
+};
+
 export function AnimationProvider({
   children,
   initialRoute = "/",
 }: AnimationProviderProps) {
-  const [route, setRoute] = useState<string>(initialRoute);
+  const [route, setRoute] = useState<Route["path"]>(initialRoute);
   const [transition, setTransition] = useState<TransitionState>({
     phase: "idle",
     type: "none",
     progress: 0,
   });
 
+  // Reduced motion detection
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -60,6 +72,7 @@ export function AnimationProvider({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // Transition engine singleton
   const engineRef = useRef(
     new KineticTransitionEngine({
       onPhaseChange: (phase) =>
@@ -71,30 +84,65 @@ export function AnimationProvider({
       onComplete: () => {
         setTransition((prev) => ({ ...prev, phase: "idle", progress: 1 }));
       },
-      prefersReducedMotion: false,
+      prefersReducedMotion: false, // updated imperatively
     })
   );
 
+  // Sync reduced motion flag with engine
   useEffect(() => {
     engineRef.current.setReducedMotion(prefersReducedMotion);
   }, [prefersReducedMotion]);
 
+  /**
+   * Intercepted navigate — triggers kinetic transition before route update.
+   *
+   * Flow:
+   *   1. Determine transition type from current → target page blueprint config.
+   *   2. Run EXIT animation on current content (downward fade / slide).
+   *   3. Update React route state.
+   *   4. Run ENTER animation on new content (cascade from bottom / fadeInUp).
+   *   5. Update transition.phase to "idle".
+   */
   const navigate = useCallback(
     async (to: string, opts?: NavigateOptions) => {
       if (to === route) return;
-      const transitionType: string =
-        (opts?.transition as string) ?? "fade";
 
-      setTransition({ phase: "exiting", type: transitionType, progress: 0 });
+      // Derive transition type from opts or default to "fade"
+      const transitionType: TransitionType =
+        (opts?.transition as TransitionType) ?? "fade";
+
+      // Update transition state to "exiting"
+      setTransition({
+        phase: "exiting",
+        type: transitionType,
+        progress: 0,
+      });
 
       try {
-        await engineRef.current.exitCurrentContent(transitionType as any);
+        // Phase 1: Exit animation
+        await engineRef.current.exitCurrentContent(transitionType);
+
+        // Phase 2: Update route (React state change)
         setRoute(to);
-        setTransition((prev) => ({ ...prev, phase: "entering", progress: 0.5 }));
-        await engineRef.current.enterNewContent(transitionType as any);
-        setTransition({ phase: "idle", type: "none", progress: 1 });
+
+        // Phase 3: Enter animation
+        setTransition((prev) => ({
+          ...prev,
+          phase: "entering",
+          progress: 0.5,
+        }));
+
+        await engineRef.current.enterNewContent(transitionType);
+
+        // Phase 4: Idle
+        setTransition({
+          phase: "idle",
+          type: "none",
+          progress: 1,
+        });
       } catch (err) {
         console.error("[AnimationProvider] Transition failed:", err);
+        // Fallback: instant switch
         setRoute(to);
         setTransition({ phase: "idle", type: "none", progress: 1 });
       }
@@ -102,15 +150,19 @@ export function AnimationProvider({
     [route]
   );
 
+  // Browser back/forward handling
   useEffect(() => {
     const onPop = () => {
       const path = window.location.pathname;
-      if (path !== route) setRoute(path);
+      if (path !== route) {
+        setRoute(path);
+      }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [route]);
 
+  // Sync URL with route (no reload)
   useEffect(() => {
     if (window.location.pathname !== route) {
       window.history.pushState({}, "", route);

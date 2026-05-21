@@ -10,8 +10,8 @@
 
 import React, { memo, useMemo } from "react";
 import { InterceptLink } from "./InterceptLink";
-import { useBlueprint } from "./context/BlueprintContext";
-import { useAnimationContext } from "./hooks/useAnimationContext";
+import { useBlueprint } from "../context/BlueprintContext";
+import { useAnimationContext } from "../hooks/useAnimationContext";
 
 export const Navigation = memo(() => {
   const { blueprint } = useBlueprint();
@@ -67,7 +67,7 @@ export const Navigation = memo(() => {
               <InterceptLink
                 key={item.path}
                 href={item.path}
-                variant={item.isCta || isLast ? "cta" : "default"}
+                variant={item.isCta || isLast ? "cta" : "text"}
                 className={`
                   ${isActive ? "text-white" : ""}
                   ${isSidebar ? "text-sm" : ""}

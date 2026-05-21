@@ -19,9 +19,9 @@
 
 import React, { memo, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useAnimationContext } from "./hooks/useAnimationContext";
-import { useBlueprint } from "./context/BlueprintContext";
-import type { ThreeDParams, ShaderParams, BackgroundLayer } from "./types/blueprint";
+import { useAnimationContext } from "../hooks/useAnimationContext";
+import { useBlueprint } from "../context/BlueprintContext";
+import type { ThreeDParams, ShaderParams, BackgroundLayer } from "../types/blueprint";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // DYNAMIC BACKGROUND CONTROLLER

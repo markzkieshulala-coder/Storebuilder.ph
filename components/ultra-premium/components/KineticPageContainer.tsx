@@ -14,10 +14,10 @@
 
 import React, { memo, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAnimationContext } from "./hooks/useAnimationContext";
-import { useBlueprint } from "./context/BlueprintContext";
+import { useAnimationContext } from "../hooks/useAnimationContext";
+import { useBlueprint } from "../context/BlueprintContext";
 import { SectionRenderer } from "./SectionRenderer";
-import type { Page } from "./types/blueprint";
+import type { Page } from "../types/blueprint";
 
 interface KineticPageContainerProps {
   page?: Page;
@@ -69,19 +69,20 @@ const sectionChildVariants = {
 };
 
 export const KineticPageContainer = memo<KineticPageContainerProps>(({ page: pageProp }) => {
-  const { route, transition } = useAnimationContext();
+  const { transition, route } = useAnimationContext();
   const { blueprint } = useBlueprint();
-  const page: Page = pageProp ??
-    blueprint.pages.find((p) => p.path === route) ??
-    blueprint.pages[0];
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const page = pageProp ?? blueprint.pages.find((p) => p.path === route) ?? blueprint.pages[0];
 
   // Auto-scroll to top on route change
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTo({ top: 0, behavior: "auto" });
     }
-  }, [page.id]);
+  }, [page?.id]);
+
+  if (!page) return null;
 
   return (
     <AnimatePresence mode="wait">

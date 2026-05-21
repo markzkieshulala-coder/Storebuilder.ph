@@ -13,12 +13,12 @@
  */
 
 import React, { memo } from "react";
-import { AnimationProvider } from "./context/AnimationContext";
-import { BlueprintProvider } from "./context/BlueprintContext";
+import { AnimationProvider } from "../context/AnimationContext";
+import { BlueprintProvider } from "../context/BlueprintContext";
 import { UnifiedBackground3D } from "./UnifiedBackground3D";
 import { Navigation } from "./Navigation";
 import { KineticPageContainer } from "./KineticPageContainer";
-import type { SiteBlueprint } from "./types/blueprint";
+import type { SiteBlueprint } from "../types/blueprint";
 
 interface UltraPremiumAppProps {
   blueprint: SiteBlueprint;

@@ -8,8 +8,7 @@
 
 import { useContext } from "react";
 import { AnimationContext } from "../context/AnimationContext";
-import type { AnimationContextValue } from "../context/AnimationContext";
-import type { NavigateOptions } from "../types/routing";
+import type { AnimationContextValue, NavigateOptions } from "../types/routing";
 
 export function useAnimationContext(): AnimationContextValue {
   const ctx = useContext(AnimationContext);

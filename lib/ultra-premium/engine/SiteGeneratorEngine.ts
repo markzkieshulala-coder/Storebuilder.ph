@@ -663,6 +663,17 @@ function generatePropsFromSchema(
       const price = priceMin > 0
         ? `${preset.currency}${Math.round((priceMin + (priceMax - priceMin) * (0.2 + (i * 0.13) % 0.8))).toLocaleString()}`
         : "";
+
+      // Generate a default niche-themed image immediately so items always have
+      // a real image even if COMPONENT_ASSET_SLOTS doesn't write into them.
+      const seed = `${parsed.niche}-${entry.name}-${i}-${name.slice(0,8)}`;
+      const promptText = [preset.imageKeyword, name].join(", ");
+      const encoded = encodeURIComponent(promptText).slice(0, 280);
+      const numericSeed = Math.abs(
+        Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+      );
+      const image = `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`;
+
       items.push({
         title: name,
         name,
@@ -673,7 +684,7 @@ function generatePropsFromSchema(
         body: desc,
         price,
         cta: vocab.buttons[i % vocab.buttons.length],
-        image: "", // populated by AssetHydrator
+        image, // niche-themed default; may be overridden by AssetHydrator
         slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       });
     }
@@ -691,6 +702,14 @@ function generatePropsFromSchema(
           props[key] = vocab.buttons[0];
         } else if (/badge|label/i.test(key)) {
           props[key] = vocab.labels[0];
+        } else if (/image|media|texture|background|src|url|thumb/i.test(key)) {
+          const seed = `${parsed.niche}-${entry.name}-${key}`;
+          const promptText = [preset.imageKeyword, preset.productNames[0]].join(", ");
+          const encoded = encodeURIComponent(promptText).slice(0, 280);
+          const numericSeed = Math.abs(
+            Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+          );
+          props[key] = `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1280&height=720&nologo=true&model=flux`;
         } else {
           props[key] = "";
         }
@@ -704,9 +723,30 @@ function generatePropsFromSchema(
         props[key] = /enable|show|visible/i.test(key);
         break;
       case "array":
-        if (/items|products|cards|blocks|events|images/i.test(key)) {
+        if (/items|products|cards|blocks|events/i.test(key)) {
           const slotCount = entry.assetSlots?.length ?? 4;
           props[key] = buildItemPool(Math.max(slotCount, 4));
+        } else if (/images|photos|media|thumbs/i.test(key)) {
+          // Flat image URL list — no metadata, just hi-res niche URLs
+          const count = Math.max(entry.assetSlots?.length ?? 4, 4);
+          const imgList: any[] = [];
+          for (let i = 0; i < count; i++) {
+            const name = preset.productNames[i % preset.productNames.length];
+            const seed = `${parsed.niche}-${entry.name}-imgs-${i}`;
+            const promptText = [preset.imageKeyword, name].join(", ");
+            const encoded = encodeURIComponent(promptText).slice(0, 280);
+            const numericSeed = Math.abs(
+              Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+            );
+            imgList.push({
+              url: `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`,
+              src: `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`,
+              image: `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`,
+              alt: name,
+              caption: name,
+            });
+          }
+          props[key] = imgList;
         } else if (/links/i.test(key)) {
           props[key] = vocab.footerLinks.slice(0, 6);
         } else if (/tags|labels/i.test(key)) {
@@ -1053,6 +1093,15 @@ function ensureItemArraysForSlots(
       const price = priceMin > 0
         ? `${preset.currency}${Math.round(priceMin + (priceMax - priceMin) * (0.2 + (i * 0.13) % 0.8)).toLocaleString()}`
         : "";
+
+      const seed = `${parsed.niche}-${key}-${i}-${name.slice(0,8)}`;
+      const promptText = [preset.imageKeyword, name].join(", ");
+      const encoded = encodeURIComponent(promptText).slice(0, 280);
+      const numericSeed = Math.abs(
+        Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+      );
+      const image = `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`;
+
       baseProps[key].push({
         title: name,
         name,
@@ -1063,7 +1112,7 @@ function ensureItemArraysForSlots(
         body: desc,
         price,
         cta: vocab.buttons[i % vocab.buttons.length],
-        image: "",
+        image,
         slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       });
     }

@@ -2,7 +2,7 @@
  * ============================================================================
  * ULTRA-PREMIUM WEBSITE GENERATOR — SYSTEM ENTRY POINT
  * ============================================================================
- * Exports the complete public API for generating SiteBlueprint JSON objects.
+ * Exports the public API for generating SiteBlueprint JSON objects.
  */
 
 // ── Type Exports ────────────────────────────────────────────────────────────
@@ -47,13 +47,7 @@ export type {
 } from "./registry/ComponentRegistry";
 
 // ── Engine Exports ────────────────────────────────────────────────────────────
-export {
-  generateSite,
-} from "./engine/SiteGeneratorEngine";
-
-export type {
-  GeneratorResult,
-} from "./engine/SiteGeneratorEngine";
+export { generateSite } from "./engine/SiteGeneratorEngine";
 
 export {
   assembleSite,
@@ -79,6 +73,14 @@ export type {
   NicheVocabulary,
 } from "./engine/NicheVocabularyEngine";
 
+// ── Niche Presets ────────────────────────────────────────────────────────────
+export {
+  detectNiche,
+  getPreset,
+  extractBrandName,
+  buildGlobalBackground,
+} from "./engine/NichePresets";
+
 // ── Asset Pipeline Exports ────────────────────────────────────────────────────
 export {
   generateUniqueImageURL,
@@ -100,5 +102,4 @@ export {
 export type {
   ImagePromptContext,
   GeneratedImagePrompt,
-  AssetSlot as PromptAssetSlot,
 } from "./pipeline/PromptMutationEngine";

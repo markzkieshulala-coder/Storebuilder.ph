@@ -10,9 +10,9 @@
 import React, { memo, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useAnimationContext } from "./hooks/useAnimationContext";
+import { useAnimationContext } from "../hooks/useAnimationContext";
 import { componentRegistry } from "./componentRegistry";
-import type { Section } from "./types/blueprint";
+import type { Section } from "../types/blueprint";
 
 gsap.registerPlugin(ScrollTrigger);
 

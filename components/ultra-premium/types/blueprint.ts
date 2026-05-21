@@ -70,12 +70,6 @@ export interface ComponentConfig {
   background?: BackgroundLayer | null;
 }
 
-export interface ShaderParams {
-  shaderName: string;
-  uniforms: Record<string, { type: "float" | "vec2" | "vec3" | "vec4"; value: number | number[] }>;
-  blendMode: "normal" | "add" | "multiply" | "overlay" | "screen";
-}
-
 export interface BackgroundLayer {
   type: string;
   zIndex: number;
@@ -107,6 +101,15 @@ export interface ThreeDParams {
   };
 }
 
+export interface ShaderParams {
+  fragmentShader?: string;
+  vertexShader?: string;
+  uniforms?: Record<string, any>;
+  intensity?: number;
+  speed?: number;
+  [key: string]: any;
+}
+
 export interface Section {
   id: string;
   name: string;
@@ -124,7 +127,7 @@ export interface Section {
 
 export interface PageMeta {
   title: string;
-  description: string;
+  description?: string;
   ogImage?: string;
   canonical?: string;
   noIndex?: boolean;

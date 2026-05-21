@@ -1,3 +1,4 @@
+"use client";
 /**
  * ============================================================================
  * Kinetic Transition Engine — GSAP-Based Page Transition Orchestrator

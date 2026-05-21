@@ -1,3 +1,4 @@
+"use client";
 /**
  * ============================================================================
  * UltraPremiumRouter — Lightweight Imperative Router

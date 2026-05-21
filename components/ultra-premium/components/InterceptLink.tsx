@@ -12,8 +12,8 @@
  */
 
 import React, { type ReactNode, type MouseEvent } from "react";
-import { useNavigate } from "./hooks/useAnimationContext";
-import type { NavigateOptions } from "./types/routing";
+import { useNavigate } from "../hooks/useAnimationContext";
+import type { NavigateOptions } from "../types/routing";
 
 interface InterceptLinkProps {
   /** Target route path (e.g., "/roster") */
@@ -21,7 +21,7 @@ interface InterceptLinkProps {
   /** Child content (niche-specific text) */
   children: ReactNode;
   /** Visual variant */
-  variant?: "text" | "pill" | "cta" | "icon" | "dropdown" | "default";
+  variant?: "text" | "pill" | "cta" | "icon" | "dropdown";
   /** Optional transition override */
   transition?: NavigateOptions["transition"];
   /** Optional scroll-to-anchor target */

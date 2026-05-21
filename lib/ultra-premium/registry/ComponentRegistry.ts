@@ -2,10 +2,15 @@
  * ============================================================================
  * COMPONENT REGISTRY — INFINITE VARIATION MATRIX
  * ============================================================================
+ * This registry defines 25 ultra-premium structural components. Each component
+ * exposes N layout variants so the structural choreographer never repeats.
+ *
+ * RULE: When assembling a site, the choreographer MUST pick a unique
+ * combination of components and variants per page, per generation.
  */
 
 import type { ComponentName, ScrollBehavior } from "../types/SiteBlueprint";
-export type { ComponentName };
+export type { ComponentName, ScrollBehavior };
 
 export type ComponentVariant = {
   id: number;

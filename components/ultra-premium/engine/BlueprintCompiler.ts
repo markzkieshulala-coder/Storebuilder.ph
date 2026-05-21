@@ -1,115 +1,95 @@
 /**
  * ============================================================================
- * Blueprint Compiler — Pass-Through Stubs
+ * BLUEPRINT COMPILER — Pass-through stubs
  * ============================================================================
- * Full implementation lives in the generation pipeline (lib/ultra-premium).
- * These stubs satisfy the public index.tsx export contract so TypeScript
- * resolves cleanly while the pseudo-code phases are being implemented.
+ * The engine package ships these as empty placeholders. We provide typed
+ * pass-through implementations so the index.tsx re-exports resolve.
  */
 
-import type { SiteBlueprint, Page, Section } from "../types/blueprint";
+import type {
+  SiteBlueprint,
+  Page,
+  Section,
+  PageTransition,
+  AnimationEntrance,
+  ThreeDParams,
+  ShaderParams,
+  BackgroundLayer,
+} from "../types/blueprint";
+import type { CompiledPage, CompiledSection } from "../types/routing";
 
 export interface TransitionProfile {
-  type: string;
+  type: PageTransition;
   duration: number;
   easing: string;
 }
 
 export interface EntranceAnimation {
-  type: string;
+  type: AnimationEntrance;
   duration: number;
   staggerDelay: number;
 }
 
-export interface CompiledPage {
-  id: string;
-  path: string;
-  sections: Section[];
-  transition: TransitionProfile;
-}
-
-export interface CompiledSection {
-  id: string;
-  name: string;
-  order: number;
-  entrance: EntranceAnimation;
-}
-
-/** Compile a blueprint to a runtime representation (no-op pass-through). */
 export function compileBlueprint(blueprint: SiteBlueprint): SiteBlueprint {
   return blueprint;
 }
 
-/** Compile a single page to a runtime page (no-op pass-through). */
 export function compilePage(page: Page): CompiledPage {
   return {
     id: page.id,
     path: page.path,
     sections: page.sections,
-    transition: resolveTransitionProfile(page.transition),
+    transition: {
+      type: typeof page.transition === "string" ? page.transition : "fade",
+      duration: 600,
+      easing: "ease",
+    },
   };
 }
 
-/** Compile a single section to a runtime section (no-op pass-through). */
-export function compileSection(section: Section): CompiledSection {
+export function compileSection(section: Section, order = 0): CompiledSection {
   return {
     id: section.id,
     name: section.name,
-    order: section.order,
-    entrance: resolveEntranceAnimation(section.component.entrance),
+    order,
+    entrance: {
+      type: section.component.entrance ?? "fadeUp",
+      duration: section.component.duration ?? 800,
+      staggerDelay: section.component.staggerDelay ?? 100,
+    },
   };
 }
 
-export function resolveTransitionProfile(
-  transitionType: string
-): TransitionProfile {
-  const durationMap: Record<string, number> = {
-    fade: 600,
-    slide: 700,
-    morph: 900,
-    zoom: 750,
-    pageTurn: 1000,
-    none: 0,
-  };
+export function resolveTransitionProfile(page: Page): TransitionProfile {
   return {
-    type: transitionType,
-    duration: durationMap[transitionType] ?? 600,
-    easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+    type: (typeof page.transition === "string" ? page.transition : "fade") as PageTransition,
+    duration: 600,
+    easing: "ease",
   };
 }
 
-export function resolveEntranceAnimation(entrance: string): EntranceAnimation {
-  const durationMap: Record<string, number> = {
-    fadeUp: 700,
-    clipReveal: 800,
-    scaleIn: 600,
-    slideFromLeft: 700,
-    slideFromRight: 700,
-    rotateIn: 800,
-    blurIn: 600,
-    charStagger: 1200,
-    lineDraw: 1000,
-    morphShape: 900,
-    liquidMerge: 1000,
-    particleReform: 1200,
-  };
+export function resolveEntranceAnimation(section: Section): EntranceAnimation {
   return {
-    type: entrance,
-    duration: durationMap[entrance] ?? 700,
-    staggerDelay: 80,
+    type: section.component.entrance ?? "fadeUp",
+    duration: section.component.duration ?? 800,
+    staggerDelay: section.component.staggerDelay ?? 100,
   };
 }
 
-export function extractBackground3DConfig(
-  blueprint: SiteBlueprint
-): Record<string, unknown> {
-  return (blueprint.theme.globalBackground as unknown as Record<string, unknown>) ?? {};
+export function extractBackground3DConfig(blueprint: SiteBlueprint): {
+  threeD?: ThreeDParams;
+  shader?: ShaderParams;
+  layers?: BackgroundLayer[];
+} {
+  const bg: any = blueprint.theme?.globalBackground;
+  if (!bg) return {};
+  return {
+    threeD: bg.params?.threeD ?? bg.threeD,
+    shader: bg.params?.shader ?? bg.shader,
+    layers: bg.params?.layers ?? bg.layers ?? [bg],
+  };
 }
 
-/** Match a URL path against blueprint pages; returns matching page or null. */
-export function matchRoute(
-  path: string,
-  pages: Page[]
-): Page | null {
-  return pages.find((p) => p.path === path) ?? pages[0] ?? null;
+export function matchRoute(blueprint: SiteBlueprint, path: string): Page | null {
+  return blueprint.pages.find((p) => p.path === path) ?? null;
 }
