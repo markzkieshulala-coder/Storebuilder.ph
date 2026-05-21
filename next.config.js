@@ -1,6 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["three", "gsap"],
+  transpilePackages: ["three", "gsap", "@react-three/fiber", "@react-three/drei"],
+  // Prevent Three.js from being bundled server-side (it's canvas-only)
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = [
+        ...(Array.isArray(config.externals) ? config.externals : [config.externals]),
+        "three",
+        "@react-three/fiber",
+        "@react-three/drei",
+      ];
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.unsplash.com' },

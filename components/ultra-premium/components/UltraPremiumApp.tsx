@@ -3,22 +3,21 @@
  * ============================================================================
  * ULTRA-PREMIUM APP — Root Application Shell
  * ============================================================================
- * Mounts the AnimationProvider, BlueprintProvider, UnifiedBackground3D,
- * Navigation, and KineticPageContainer. This is the single entry point
- * for the entire front-end runtime.
- *
- * Usage:
- *   import { UltraPremiumApp } from "@ultra-premium/frontend";
- *   <UltraPremiumApp blueprint={siteBlueprint} />
  */
 
 import React, { memo } from "react";
+import dynamic from "next/dynamic";
 import { AnimationProvider } from "../context/AnimationContext";
 import { BlueprintProvider } from "../context/BlueprintContext";
-import { UnifiedBackground3D } from "./UnifiedBackground3D";
 import { Navigation } from "./Navigation";
 import { KineticPageContainer } from "./KineticPageContainer";
 import type { SiteBlueprint } from "../types/blueprint";
+
+// Three.js Canvas is lazy-loaded so it never blocks the initial JS bundle compile
+const UnifiedBackground3D = dynamic(
+  () => import("./UnifiedBackground3D").then((m) => ({ default: m.UnifiedBackground3D })),
+  { ssr: false, loading: () => null }
+);
 
 interface UltraPremiumAppProps {
   blueprint: SiteBlueprint;
@@ -29,7 +28,7 @@ export const UltraPremiumApp = memo<UltraPremiumAppProps>(({ blueprint }) => {
     <BlueprintProvider blueprint={blueprint}>
       <AnimationProvider initialRoute={blueprint.pages[0]?.path ?? "/"}>
         <div className="relative min-h-screen bg-black text-white overflow-x-hidden">
-          {/* Fixed global 3D background — persists across ALL route changes */}
+          {/* Fixed global 3D background — lazy loaded, never blocks initial render */}
           <UnifiedBackground3D />
 
           {/* Fixed global navigation */}
