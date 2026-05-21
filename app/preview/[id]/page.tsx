@@ -17,14 +17,7 @@ export default async function PreviewPage({ params }: { params: { id: string } }
   const website = await prisma.website.findUnique({ where: { id: params.id } });
   if (!website) notFound();
 
-  // v6 blueprint-based sites
-  const json = website.jsonContent as Record<string, unknown> | null;
-  const blueprint = json?.blueprint as SiteBlueprint | undefined;
-  if (blueprint) {
-    return <UltraPremiumRenderer blueprint={blueprint} />;
-  }
-
-  // Legacy: htmlContent iframe
+  // Use htmlContent first — this is what the editor shows, so preview must match
   if (website.htmlContent) {
     return (
       <iframe
@@ -34,6 +27,13 @@ export default async function PreviewPage({ params }: { params: { id: string } }
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
     );
+  }
+
+  // Fallback: blueprint-based rendering for sites without htmlContent
+  const json = website.jsonContent as Record<string, unknown> | null;
+  const blueprint = json?.blueprint as SiteBlueprint | undefined;
+  if (blueprint) {
+    return <UltraPremiumRenderer blueprint={blueprint} />;
   }
 
   return (

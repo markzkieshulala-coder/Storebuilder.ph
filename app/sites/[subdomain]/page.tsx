@@ -32,20 +32,7 @@ export default async function SubdomainPage({ params }: Props) {
 
   if (!website) notFound();
 
-  const json = website.jsonContent as Record<string, unknown> | null;
-  const blueprint = json?.blueprint as SiteBlueprint | undefined;
-
-  // v6: blueprint-based rendering
-  if (blueprint) {
-    return (
-      <>
-        <VisitTracker subdomain={website.subdomain!} path="/" />
-        <UltraPremiumRenderer blueprint={blueprint} />
-      </>
-    );
-  }
-
-  // Legacy: htmlContent iframe
+  // Use htmlContent first — this matches what the editor shows
   if (website.htmlContent) {
     return (
       <>
@@ -56,6 +43,18 @@ export default async function SubdomainPage({ params }: Props) {
           title={website.name}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />
+      </>
+    );
+  }
+
+  // Fallback: blueprint-based rendering for sites without htmlContent
+  const json = website.jsonContent as Record<string, unknown> | null;
+  const blueprint = json?.blueprint as SiteBlueprint | undefined;
+  if (blueprint) {
+    return (
+      <>
+        <VisitTracker subdomain={website.subdomain!} path="/" />
+        <UltraPremiumRenderer blueprint={blueprint} />
       </>
     );
   }
