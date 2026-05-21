@@ -162,7 +162,7 @@ function DashboardContent() {
 
   const [generatorIframeSrc, setGeneratorIframeSrc] = useState<string | null>(null);
 
-  function handleGenerate() {
+  async function handleGenerate() {
     const trimmed = prompt.trim();
     if (trimmed.length < 8) {
       toast.error("Describe your website with at least 8 characters.");
@@ -173,16 +173,36 @@ function DashboardContent() {
       return;
     }
     setIsLaunching(true);
-    // Mount the Ultra-Premium 3D Engine in a HIDDEN iframe so the user
-    // never sees the dark cinematic UI — they only see the dashboard's
-    // Facebook-blue loading overlay. The engine auto-runs the pipeline,
-    // auto-saves the result, and navigates the top window to /editor/:id
-    // on success. Engine errors come back via postMessage.
-    const url = `/index.html?prompt=${encodeURIComponent(trimmed)}&autorun=1&autosave=1`;
-    setGeneratorIframeSrc(url);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || `Generation failed (${res.status})`);
+        setIsLaunching(false);
+        return;
+      }
+      // Server-side generator returned a blueprint and a saved website row.
+      // Navigate to the preview for the new site (the editor still expects
+      // legacy htmlContent; blueprint sites are rendered by /preview/[id]).
+      if (data?.website?.id) {
+        router.push(`/preview/${data.website.id}`);
+      } else {
+        toast.error("Generation succeeded but no website id was returned.");
+        setIsLaunching(false);
+      }
+    } catch (err: any) {
+      console.error("[generate]", err);
+      toast.error(err?.message || "Network error — please try again.");
+      setIsLaunching(false);
+    }
   }
 
-  // Listen for status messages from the hidden engine iframe.
+  // Legacy iframe message handler — no longer used by handleGenerate, but
+  // kept for any in-flight iframe instances that might still post errors.
   useEffect(() => {
     if (!isLaunching) return;
     function onMessage(e: MessageEvent) {
@@ -196,8 +216,6 @@ function DashboardContent() {
         setIsLaunching(false);
         setGeneratorIframeSrc(null);
       }
-      // engine:saved is informational — the iframe will navigate the top
-      // window to /editor/:id itself, so we don't need to do anything here.
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
