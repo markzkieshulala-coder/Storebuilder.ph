@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["three", "gsap"],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.unsplash.com' },
@@ -7,6 +8,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
       { protocol: 'https', hostname: '**.googleusercontent.com' },
+      { protocol: 'https', hostname: 'image.pollinations.ai' },
     ],
   },
   async rewrites() {
