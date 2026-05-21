@@ -7,6 +7,7 @@ import { generateSubdomain } from "@/lib/utils";
 import { Plan } from "@prisma/client";
 import { z } from "zod";
 import { generateSite } from "@/lib/ultra-premium/engine/SiteGeneratorEngine";
+import { renderBlueprintToHtml } from "@/lib/ultra-premium/render/htmlRenderer";
 
 export const maxDuration = 60;
 
@@ -74,6 +75,9 @@ export async function POST(req: NextRequest) {
     const generatorResult = generateSite(prompt, session.user.id);
     const blueprint = generatorResult.blueprint;
 
+    // ── Render blueprint to editor-compatible HTML ─────────────────────────────
+    const htmlContent = renderBlueprintToHtml(blueprint);
+
     const siteName =
       businessName ||
       (siteSpec as { siteName?: string })?.siteName ||
@@ -119,8 +123,9 @@ export async function POST(req: NextRequest) {
           passedValidation: generatorResult.passedValidation,
           validationErrors: generatorResult.validationErrors ?? [],
         })),
-        // No htmlContent — the blueprint is rendered client-side by UltraPremiumApp
-        htmlContent: null,
+        // Render the blueprint into HTML so the existing editor + preview +
+        // published-site pipeline (which all read htmlContent) keep working.
+        htmlContent,
         subdomain,
         seoTitle,
         seoDesc,

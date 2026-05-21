@@ -185,11 +185,10 @@ function DashboardContent() {
         setIsLaunching(false);
         return;
       }
-      // Server-side generator returned a blueprint and a saved website row.
-      // Navigate to the preview for the new site (the editor still expects
-      // legacy htmlContent; blueprint sites are rendered by /preview/[id]).
+      // Server-side generator returned a blueprint AND htmlContent.
+      // Open the editor so the user can customise → preview → publish.
       if (data?.website?.id) {
-        router.push(`/preview/${data.website.id}`);
+        router.push(`/editor/${data.website.id}`);
       } else {
         toast.error("Generation succeeded but no website id was returned.");
         setIsLaunching(false);
