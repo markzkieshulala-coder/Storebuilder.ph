@@ -730,15 +730,15 @@ export function getPreset(niche: string): NichePreset {
 
 /** Extract a brand/site name heuristic from the user prompt */
 export function extractBrandName(prompt: string): string {
-  // Look for "called X", "named X", "for X", first quoted phrase
-  const quoted = prompt.match(/['"]([^'"]+)['"]/);
+  // 1. Quoted text is the most explicit brand declaration
+  const quoted = prompt.match(/['""]([^'""]{2,60})['"'"]/);
   if (quoted) return quoted[1].trim();
-  const named = prompt.match(/\b(?:called|named)\s+([A-Z][\w'\-&\s]{1,40})/i);
-  if (named) return named[1].trim();
-  // Otherwise: use the prompt's significant nouns (first 2-3 capitalized words)
-  const caps = prompt.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}\b/g);
-  if (caps && caps[0]) return caps[0];
-  // Fallback: niche-specific default in caller
+  // 2. "called X" / "named X" / "brand name is X"
+  const named = prompt.match(/\b(?:called|named|brand(?:\s+name)?(?:\s+is)?)\s*[:–—]?\s*([A-Z][\w''\-&\s]{1,60})/i);
+  if (named) return named[1].trim().replace(/[.,!?]+$/, "");
+  // 3. Consecutive TitleCase words — includes apostrophes so "Item's" is kept whole
+  const caps = prompt.match(/\b[A-Z][a-z']+(?:\s+[A-Z][a-z']+){0,4}/g);
+  if (caps?.length) return caps[0];
   return "";
 }
 

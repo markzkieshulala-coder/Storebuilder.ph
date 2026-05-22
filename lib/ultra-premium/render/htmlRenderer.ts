@@ -64,24 +64,79 @@ function clean(s?: string | null): string {
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
 
+/** Niche → Unsplash keyword mapping for context-relevant real photography. */
+const NICHE_IMG_KW: Record<string, string> = {
+  basketball: "basketball,nba,sports,shoes",
+  barber:     "barbershop,haircut,grooming,men",
+  barbershop: "barbershop,haircut,grooming,men",
+  salon:      "beauty,salon,hair,luxury",
+  restaurant: "restaurant,food,dining,gourmet",
+  food:       "food,gourmet,culinary,plate",
+  coffee:     "coffee,cafe,espresso,barista",
+  fashion:    "fashion,clothing,runway,luxury",
+  fitness:    "fitness,gym,workout,athlete",
+  watchmaking:"watch,luxury,timepiece,horology",
+  jewelry:    "jewelry,luxury,gems,accessories",
+  portfolio:  "design,creative,architecture,studio",
+  creative:   "art,creative,studio,design",
+  cybersecurity:"technology,cybersecurity,code,servers",
+  saas:       "technology,software,app,digital",
+  security:   "security,professional,protection",
+  store:      "retail,shopping,products,boutique",
+  ecommerce:  "ecommerce,products,shopping,storefront",
+};
+
 /**
- * Lorem Picsum — real, high-quality photographs from Unsplash.
- * Loads instantly, deterministic per seed, never renders text artifacts.
+ * Returns a niche-specific photo from Unsplash Source.
+ * The `sig` parameter makes each unique seed always return the same photo
+ * (deterministic), while still selecting from the keyword-filtered pool.
+ * Falls back to Picsum in imgWrap onerror if Unsplash is unavailable.
+ */
+function nicheImageUrl(niche: string, seed: number, w = 800, h = 800): string {
+  const kw = NICHE_IMG_KW[niche.toLowerCase()] || encodeURIComponent(niche);
+  const sig = Math.abs(seed) % 9_999_997;
+  return `https://source.unsplash.com/featured/${w}x${h}/?${kw}&sig=${sig}`;
+}
+
+/**
+ * Picsum — instant-loading fallback photos for onerror handlers.
  */
 function picsumUrl(seed: number, w = 800, h = 800): string {
   const s = Math.abs(seed) % 9_999_997;
   return `https://picsum.photos/seed/sb${s}/${w}/${h}`;
 }
 
-function pollinationsUrl(prompt: string, seed: number, w = 800, h = 800): string {
-  const enc = encodeURIComponent(prompt).slice(0, 300);
-  const s   = Math.abs(seed) % 9_999_997;
-  return `https://image.pollinations.ai/prompt/${enc}?seed=${s}&model=flux&width=${w}&height=${h}&nologo=true`;
+// Keep pollinationsUrl compiled but unused (replaced by nicheImageUrl/picsumUrl)
+function pollinationsUrl(_prompt: string, _seed: number, _w = 800, _h = 800): string {
+  return "";
 }
+void pollinationsUrl;
 
 function bpSeed(bp: SiteBlueprint): number {
   const raw = (bp.seed || "a1b2c3d4").replace(/[^0-9a-f]/gi, "").slice(0, 8) || "1a2b3c4d";
   return parseInt(raw, 16) % 9_999_997;
+}
+
+/**
+ * Extract the actual brand/business name from the blueprint.
+ * Priority: footer copyright → prompt quoted phrase → prompt capitalized sequence.
+ */
+function brandFromBlueprint(bp: SiteBlueprint): string {
+  // 1. Footer copyright: "© 2025 BrandName. All rights reserved."
+  const copy = bp.copy?.footer?.copyright ?? "";
+  const cpMatch = copy.match(/©\s*\d{4}\s+(.+?)\.\s*(?:All rights|Rights)/i);
+  if (cpMatch?.[1]) return cpMatch[1].trim();
+  // 2. Quoted text in prompt
+  const p = bp.prompt ?? "";
+  const quoted = p.match(/['""]([^'""]+)['"'"]/);
+  if (quoted?.[1]) return quoted[1].trim();
+  // 3. "called / named / for X"
+  const named = p.match(/\b(?:called|named|for)\s+([A-Z][\w''\-&\s]{1,50})/i);
+  if (named?.[1]) return named[1].trim().replace(/[.!?,]+$/, "");
+  // 4. Consecutive TitleCase words (business name pattern)
+  const caps = p.match(/\b[A-Z][a-z']+(?:\s+[A-Z][a-z']+){0,4}/g);
+  if (caps?.length) return caps[0];
+  return "";
 }
 
 function getProps(s: Section): Record<string, any> {
@@ -97,11 +152,7 @@ function isAiImage(u: string): boolean {
   return /image\.pollinations\.ai|stable-?diffusion|deepai|leonardo/i.test(u);
 }
 
-/** Scan every string prop for a URL — handles any prop name the engine might use.
- *  AI-generator URLs are intentionally skipped: they often bake the prompt as
- *  visible text into the image, which is not premium. We replace them with
- *  Lorem Picsum (real photography) in the getter functions below.
- */
+/** Scan every string prop for a usable real-photo URL. */
 function extractUrl(obj: Record<string, any>): string {
   const known = ["image","imageSrc","imageUrl","thumbnail","photo","src","cover","poster","artwork","productImage","img","heroImageSrc","heroMediaSrc","mediaSrc","backgroundMedia","backgroundTexture","foregroundProduct","glitchTexture","marqueeTexture","transitionTexture","glassBackground","leftMediaSrc","rightMediaSrc","featuredImage"];
   for (const k of known) {
@@ -117,20 +168,20 @@ function extractUrl(obj: Record<string, any>): string {
 function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
   const found = extractUrl(item);
   if (found) return found;
-  return picsumUrl(bpSeed(bp) + idx * 137, 800, 800);
+  return nicheImageUrl(bp.niche, bpSeed(bp) + idx * 137, 800, 800);
 }
 
-function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): string {
+function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, _hint = ""): string {
   const p = getProps(s);
   const found = extractUrl(p);
   if (found) return found;
-  const slot = (assetUrls(s).find((u) => !isAiImage(u)));
+  const slot = assetUrls(s).find((u) => !isAiImage(u));
   if (slot) return slot;
-  return picsumUrl(bpSeed(bp) + idx * 239, 1600, 900);
+  return nicheImageUrl(bp.niche, bpSeed(bp) + idx * 239, 1600, 900);
 }
 
 function getPageBg(bp: SiteBlueprint, _context: string, offset: number): string {
-  return picsumUrl(bpSeed(bp) + offset, 1920, 1080);
+  return nicheImageUrl(bp.niche, bpSeed(bp) + offset, 1920, 1080);
 }
 
 function getItems(s: Section): any[] {
@@ -612,7 +663,7 @@ function renderAboutPage(bp: SiteBlueprint): string {
   const bf   = bp.theme.typography.bodyFont;
 
   const bgImg     = getPageBg(bp, "brand story heritage lifestyle documentary", 800);
-  const brand     = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche;
+  const brand     = brandFromBlueprint(bp) || bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche;
   const subhead   = clean(bp.copy?.hero?.subheadline) || `Premium ${bp.niche} experience.`;
 
   // Pull body copy from feature/split sections
@@ -792,7 +843,7 @@ function renderContactPage(bp: SiteBlueprint): string {
   const bf   = bp.theme.typography.bodyFont;
 
   const bgImg = getPageBg(bp, "luxury interior premium ambiance contact", 1200);
-  const brand = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche;
+  const brand = brandFromBlueprint(bp) || bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche;
 
   // Niche-appropriate hours
   const hoursMap: Record<string, string> = {
@@ -933,7 +984,7 @@ function renderNav(bp: SiteBlueprint, pages: PageDef[]): string {
   const BG   = hex(c.background, "#0a0a0a");
   const PRI  = hex(c.primary, "#ff4d00");
   const hf   = bp.theme.typography.headingFont;
-  const brand = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
+  const brand = brandFromBlueprint(bp) || bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
 
   const links = pages.map(pg =>
     pg.isCta
@@ -975,7 +1026,7 @@ function renderFooter(bp: SiteBlueprint, pages: PageDef[]): string {
   const ACC   = hex(c.accent || c.primary, PRI);
   const hf    = bp.theme.typography.headingFont;
   const bf    = bp.theme.typography.bodyFont;
-  const brand = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
+  const brand = brandFromBlueprint(bp) || bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
   const copy  = bp.copy?.footer?.copyright || `© ${new Date().getFullYear()} ${brand.toUpperCase()}`;
   const tag   = bp.copy?.footer?.tagline || "";
   const sub   = clean(bp.copy?.hero?.subheadline) || "";
@@ -1142,8 +1193,8 @@ export function renderBlueprintToHtml(bp: SiteBlueprint): string {
   if (!page) return `<!doctype html><html><body style="background:${BG};color:${TEXT};font-family:sans-serif;padding:40px;"><p>Empty blueprint.</p></body></html>`;
 
   const pages    = detectPages(bp);
-  const brand    = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
-  const title    = page.meta?.title || brand;
+  const brand    = brandFromBlueprint(bp) || bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
+  const title    = brand || page.meta?.title || bp.niche;
   const desc     = page.meta?.description || clean(bp.copy?.hero?.subheadline) || "";
 
   return `<!doctype html>

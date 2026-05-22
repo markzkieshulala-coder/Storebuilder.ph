@@ -534,20 +534,21 @@ export default function HtmlEditor({
 
         {/* Center — iframe canvas */}
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-200">
-          <div className="flex-1 overflow-auto flex items-start justify-center p-4">
+          <div className="flex-1 overflow-hidden flex items-start justify-center p-4">
             <div
               className="relative bg-white shadow-2xl transition-[width] duration-200"
               style={{
                 width: VIEW_WIDTHS[viewMode],
-                minHeight: "100%",
+                height: "calc(100vh - 48px - 32px)",
                 borderRadius: viewMode === "desktop" ? 0 : 8,
                 overflow: "hidden",
+                flexShrink: 0,
               }}
             >
               <iframe
                 ref={iframeRef}
                 srcDoc={iframeSrc}
-                style={{ width: "100%", minHeight: "800px", border: "none", display: "block" }}
+                style={{ width: "100%", height: "100%", border: "none", display: "block" }}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 title={siteName}
               />
