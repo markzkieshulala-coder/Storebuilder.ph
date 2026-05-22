@@ -174,7 +174,9 @@ input,textarea,select{font:inherit}
 
 /* Image shimmer placeholder */
 .img-wrap{background:linear-gradient(135deg,${isLight(BG) ? darken(BG, 10) : lighten(BG, 20)},${isLight(BG) ? darken(BG, 4) : lighten(BG, 8)});overflow:hidden;position:relative}
-.img-wrap img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s ease}
+.img-wrap::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,${isLight(BG) ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.07)"} 50%,transparent 100%);background-size:200% 100%;animation:shimmer 1.6s infinite linear;z-index:1;pointer-events:none}
+.img-wrap.img-loaded::before{display:none}
+.img-wrap img{width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .4s ease;position:relative;z-index:2}
 .img-wrap img.loaded{opacity:1}
 
 /* Buttons */
@@ -247,10 +249,11 @@ function badge(s: Section, fb: string, ACC: string): string {
 
 function imgWrap(src: string, alt: string, style = "", cls = ""): string {
   return `<div class="img-wrap ${cls}" style="${style}">
-    <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async"
-      onload="this.classList.add('loaded')"
-      onerror="this.style.display='none'"
+    <img src="${esc(src)}" alt="${esc(alt)}" loading="eager" decoding="async"
+      onload="this.classList.add('loaded');this.parentElement.classList.add('img-loaded')"
+      onerror="this.src='https://placehold.co/800x800/1a1a2e/888888?text=${encodeURIComponent(alt || "Image")}';var p=this.parentElement;if(p)p.classList.add('img-loaded')"
       class="card-img"
+      style="min-height:100%;min-width:100%"
     />
   </div>`;
 }
@@ -326,7 +329,12 @@ function productCard(item: any, bp: SiteBlueprint, idx: number, c: SiteBlueprint
   return `
 <article class="card-3d" data-editable="container" data-rc data-reveal-delay="${idx * 70}"
   style="background:${SURF};border:1px solid ${BORDER};border-radius:20px;overflow:hidden;cursor:pointer;position:relative;${isLight(BG) ? "box-shadow:0 4px 20px rgba(0,0,0,.05);" : ""}">
-  ${imgWrap(img, name, "aspect-ratio:1/1;", "")}
+  <div style="position:relative;aspect-ratio:1/1;overflow:hidden;">
+    ${imgWrap(img, name, "position:absolute;inset:0;width:100%;height:100%;", "")}
+    <div style="position:absolute;bottom:0;left:0;right:0;z-index:3;padding:14px 16px;background:linear-gradient(0deg,${alpha(BG,"ee")} 0%,transparent 100%);pointer-events:none;">
+      <span style="font-family:${fonts(hf)};font-size:13px;font-weight:700;color:${TEXT};letter-spacing:.04em;text-shadow:0 1px 4px rgba(0,0,0,.7);">${name}</span>
+    </div>
+  </div>
   <div style="padding:22px 24px;">
     ${tag ? `<span data-editable="text" style="display:inline-block;font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:${ACC};margin-bottom:10px;border:1px solid ${alpha(ACC,"44")};padding:3px 10px;border-radius:99px;">${tag}</span>` : ""}
     <h3 data-editable="text" style="font-family:${fonts(hf)};font-size:17px;font-weight:700;color:${TEXT};margin:0 0 8px;line-height:1.2;">${name}</h3>
