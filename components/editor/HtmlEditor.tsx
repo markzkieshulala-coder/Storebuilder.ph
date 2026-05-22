@@ -181,12 +181,6 @@ function injectBridge(html: string): string {
   return html + script;
 }
 
-const VIEW_WIDTHS: Record<ViewMode, string> = {
-  desktop: "100%",
-  tablet: "768px",
-  mobile: "390px",
-};
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function HtmlEditor({
@@ -400,6 +394,38 @@ export default function HtmlEditor({
 
   const iframeSrc = iframeDoc;
 
+  // Scale the iframe so it renders at a full desktop width (1440px) but
+  // visually fits the editor's available space. This guarantees the editor
+  // shows the exact same desktop layout as the preview window, regardless
+  // of the user's screen size.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [viewportH, setViewportH] = useState(900);
+  const DESKTOP_BASE = 1440;
+  const TABLET_BASE = 768;
+  const MOBILE_BASE = 390;
+
+  useEffect(() => {
+    function recompute() {
+      const node = canvasRef.current;
+      if (!node) return;
+      const availW = node.clientWidth - 32;
+      const base = viewMode === "desktop" ? DESKTOP_BASE
+        : viewMode === "tablet" ? TABLET_BASE
+        : MOBILE_BASE;
+      setPreviewScale(availW >= base ? 1 : availW / base);
+      setViewportH(window.innerHeight);
+    }
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, [viewMode, sidebarOpen, rightOpen]);
+
+  const baseWidth = viewMode === "desktop" ? DESKTOP_BASE
+    : viewMode === "tablet" ? TABLET_BASE
+    : MOBILE_BASE;
+  const baseHeight = Math.max(800, viewportH - 48 - 32);
+
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
       {/* ── Top bar ── */}
@@ -534,24 +560,44 @@ export default function HtmlEditor({
 
         {/* Center — iframe canvas */}
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-200">
-          <div className="flex-1 overflow-hidden flex items-start justify-center p-4">
+          <div ref={canvasRef} className="flex-1 overflow-hidden flex items-start justify-center p-4">
+            {/* Outer wrapper has the *scaled* dimensions so layout is correct */}
             <div
-              className="relative bg-white shadow-2xl transition-[width] duration-200"
+              className="bg-white shadow-2xl"
               style={{
-                width: VIEW_WIDTHS[viewMode],
-                height: "calc(100vh - 48px - 32px)",
+                width: `${baseWidth * previewScale}px`,
+                height: `${baseHeight * previewScale}px`,
                 borderRadius: viewMode === "desktop" ? 0 : 8,
                 overflow: "hidden",
                 flexShrink: 0,
+                transition: "width 0.2s, height 0.2s",
               }}
             >
-              <iframe
-                ref={iframeRef}
-                srcDoc={iframeSrc}
-                style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                title={siteName}
-              />
+              {/* Inner wrapper renders at the true desktop/tablet/mobile width
+                  and is visually shrunk via CSS transform. The iframe inside
+                  therefore always sees a width >720px in desktop mode, so it
+                  renders the same desktop layout as the preview window. */}
+              <div
+                style={{
+                  width: `${baseWidth}px`,
+                  height: `${baseHeight}px`,
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: "top left",
+                }}
+              >
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={iframeSrc}
+                  style={{
+                    width: `${baseWidth}px`,
+                    height: `${baseHeight}px`,
+                    border: "none",
+                    display: "block",
+                  }}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  title={siteName}
+                />
+              </div>
             </div>
           </div>
         </div>

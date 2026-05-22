@@ -8,6 +8,7 @@ import { Plan } from "@prisma/client";
 import { z } from "zod";
 import { generateSite } from "@/lib/ultra-premium/engine/SiteGeneratorEngine";
 import { renderBlueprintToHtml } from "@/lib/ultra-premium/render/htmlRenderer";
+import { extractBrandName } from "@/lib/ultra-premium/engine/NichePresets";
 
 export const maxDuration = 60;
 
@@ -78,9 +79,16 @@ export async function POST(req: NextRequest) {
     // ── Render blueprint to editor-compatible HTML ─────────────────────────────
     const htmlContent = renderBlueprintToHtml(blueprint);
 
+    // Preserve the user's explicit brand name. Priority:
+    //   1. businessName form field (if dashboard ever adds one)
+    //   2. siteSpec.siteName
+    //   3. Brand name extracted from the prompt (e.g. "Best Basketball Item's")
+    //   4. Niche fallback ("basketball")
+    const extractedBrand = extractBrandName(prompt);
     const siteName =
       businessName ||
       (siteSpec as { siteName?: string })?.siteName ||
+      extractedBrand ||
       blueprint.niche ||
       "Website";
 

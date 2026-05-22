@@ -87,15 +87,15 @@ const NICHE_IMG_KW: Record<string, string> = {
 };
 
 /**
- * Returns a niche-specific photo from Unsplash Source.
- * The `sig` parameter makes each unique seed always return the same photo
- * (deterministic), while still selecting from the keyword-filtered pool.
- * Falls back to Picsum in imgWrap onerror if Unsplash is unavailable.
+ * Returns a niche-specific real photograph.
+ * Uses LoremFlickr — pulls real Flickr photos by keyword, lock parameter makes
+ * each seed return the same photo. Active since 2011, no API key required,
+ * no AI text artifacts, niche-relevant images.
  */
 function nicheImageUrl(niche: string, seed: number, w = 800, h = 800): string {
-  const kw = NICHE_IMG_KW[niche.toLowerCase()] || encodeURIComponent(niche);
-  const sig = Math.abs(seed) % 9_999_997;
-  return `https://source.unsplash.com/featured/${w}x${h}/?${kw}&sig=${sig}`;
+  const kw = NICHE_IMG_KW[niche.toLowerCase()] || niche.toLowerCase().replace(/\s+/g, ",");
+  const lock = Math.abs(seed) % 9_999_997;
+  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(kw)}?lock=${lock}`;
 }
 
 /**
@@ -262,7 +262,7 @@ a:not(.btn-pri):not(.btn-sec)[data-editable="link"]:hover{color:${PRI} !importan
 .blob-b{animation:blob-b 17s ease-in-out infinite alternate}
 
 /* Mobile */
-@media(max-width:900px){
+@media(max-width:720px){
   .grid-2{grid-template-columns:1fr !important}
   .grid-3{grid-template-columns:1fr !important}
   .hide-mobile{display:none !important}
