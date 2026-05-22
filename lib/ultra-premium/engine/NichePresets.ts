@@ -733,11 +733,15 @@ export function extractBrandName(prompt: string): string {
   // 1. Quoted text is the most explicit brand declaration
   const quoted = prompt.match(/['""]([^'""]{2,60})['"'"]/);
   if (quoted) return quoted[1].trim();
-  // 2. "called X" / "named X" / "brand name is X"
-  const named = prompt.match(/\b(?:called|named|brand(?:\s+name)?(?:\s+is)?)\s*[:–—]?\s*([A-Z][\w''\-&\s]{1,60})/i);
+  // 2. "called X" / "named X" / "brand name is X" — only TitleCase words so we
+  //    don't accidentally grab lowercase filler like "and", "of", "the"
+  const named = prompt.match(
+    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?)\s*[:–—]?\s*([A-Z][a-z']+(?:\s+(?:[A-Z][a-z']+|&)){0,5})/i
+  );
   if (named) return named[1].trim().replace(/[.,!?]+$/, "");
-  // 3. Consecutive TitleCase words — includes apostrophes so "Item's" is kept whole
-  const caps = prompt.match(/\b[A-Z][a-z']+(?:\s+[A-Z][a-z']+){0,4}/g);
+  // 3. Two-or-more consecutive TitleCase words — requiring ≥2 words avoids
+  //    single-word sentence starters like "Build", "Create", "I"
+  const caps = prompt.match(/\b[A-Z][a-z']{1,}(?:\s+[A-Z][a-z']+){1,4}/g);
   if (caps?.length) return caps[0];
   return "";
 }

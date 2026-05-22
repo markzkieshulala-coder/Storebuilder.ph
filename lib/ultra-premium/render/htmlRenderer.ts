@@ -119,23 +119,19 @@ function bpSeed(bp: SiteBlueprint): number {
 
 /**
  * Extract the actual brand/business name from the blueprint.
- * Priority: footer copyright → prompt quoted phrase → prompt capitalized sequence.
+ * Priority: explicit brandName field → footer copyright → prompt quoted phrase.
  */
 function brandFromBlueprint(bp: SiteBlueprint): string {
-  // 1. Footer copyright: "© 2025 BrandName. All rights reserved."
+  // 1. Explicit field set by the engine — most reliable source
+  if (bp.brandName) return bp.brandName;
+  // 2. Footer copyright: "© 2025 BrandName. All rights reserved."
   const copy = bp.copy?.footer?.copyright ?? "";
   const cpMatch = copy.match(/©\s*\d{4}\s+(.+?)\.\s*(?:All rights|Rights)/i);
   if (cpMatch?.[1]) return cpMatch[1].trim();
-  // 2. Quoted text in prompt
+  // 3. Quoted text in prompt
   const p = bp.prompt ?? "";
   const quoted = p.match(/['""]([^'""]+)['"'"]/);
   if (quoted?.[1]) return quoted[1].trim();
-  // 3. "called / named / for X"
-  const named = p.match(/\b(?:called|named|for)\s+([A-Z][\w''\-&\s]{1,50})/i);
-  if (named?.[1]) return named[1].trim().replace(/[.!?,]+$/, "");
-  // 4. Consecutive TitleCase words (business name pattern)
-  const caps = p.match(/\b[A-Z][a-z']+(?:\s+[A-Z][a-z']+){0,4}/g);
-  if (caps?.length) return caps[0];
   return "";
 }
 
@@ -147,9 +143,9 @@ function assetUrls(s: Section): string[] {
   return ((s.component?.assetSlots ?? []) as any[]).map((sl: any) => sl?.generatedUrl).filter(Boolean);
 }
 
-/** True if a URL points at an AI generator that may render text artifacts. */
+/** True if a URL is a generic placeholder that should be skipped in favour of niche-specific images. */
 function isAiImage(u: string): boolean {
-  return /image\.pollinations\.ai|stable-?diffusion|deepai|leonardo/i.test(u);
+  return /image\.pollinations\.ai|stable-?diffusion|deepai|leonardo|picsum\.photos/i.test(u);
 }
 
 /** Scan every string prop for a usable real-photo URL. */

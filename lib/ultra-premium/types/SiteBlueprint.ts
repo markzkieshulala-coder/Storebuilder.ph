@@ -269,6 +269,7 @@ export interface SiteBlueprint {
   seed: string;                   // generation seed for reproducibility
   niche: string;
   prompt: string;
+  brandName?: string;             // explicit brand/business name extracted from the prompt
   theme: {
     typography: TypographySpec;
     colors: ColorPalette;

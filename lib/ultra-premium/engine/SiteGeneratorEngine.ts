@@ -636,12 +636,15 @@ function assembleSiteBlueprint(
     };
   });
 
+  const resolvedBrandName = extractBrandName(parsed.raw) || getPreset(parsed.niche).brandFormat("");
+
   return {
     version: "2.0.0-ultra-premium",
     generatedAt: new Date().toISOString(),
     seed: structure.plan.seed,
     niche: parsed.niche,
     prompt: parsed.raw,
+    brandName: resolvedBrandName,
     theme: {
       typography: theme.typography,
       colors: theme.colors,
