@@ -710,15 +710,13 @@ function generatePropsFromSchema(
         ? `${preset.currency}${Math.round((priceMin + (priceMax - priceMin) * (0.2 + (i * 0.13) % 0.8))).toLocaleString()}`
         : "";
 
-      // Generate a default niche-themed image immediately so items always have
-      // a real image even if COMPONENT_ASSET_SLOTS doesn't write into them.
+      // Real photography via Lorem Picsum — instant load, no text artifacts,
+      // deterministic per seed.
       const seed = `${parsed.niche}-${entry.name}-${i}-${name.slice(0,8)}`;
-      const promptText = [preset.imageKeyword, name].join(", ");
-      const encoded = encodeURIComponent(promptText).slice(0, 280);
       const numericSeed = Math.abs(
         Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
-      );
-      const image = `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`;
+      ) % 9_999_991;
+      const image = `https://picsum.photos/seed/sb${numericSeed}/1024/1024`;
 
       items.push({
         title: name,
@@ -750,12 +748,10 @@ function generatePropsFromSchema(
           props[key] = vocab.labels[0];
         } else if (/image|media|texture|background|src|url|thumb/i.test(key)) {
           const seed = `${parsed.niche}-${entry.name}-${key}`;
-          const promptText = [preset.imageKeyword, preset.productNames[0]].join(", ");
-          const encoded = encodeURIComponent(promptText).slice(0, 280);
           const numericSeed = Math.abs(
             Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
-          );
-          props[key] = `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1280&height=720&nologo=true&model=flux`;
+          ) % 9_999_991;
+          props[key] = `https://picsum.photos/seed/sb${numericSeed}/1280/720`;
         } else {
           props[key] = "";
         }
@@ -779,15 +775,14 @@ function generatePropsFromSchema(
           for (let i = 0; i < count; i++) {
             const name = preset.productNames[i % preset.productNames.length];
             const seed = `${parsed.niche}-${entry.name}-imgs-${i}`;
-            const promptText = [preset.imageKeyword, name].join(", ");
-            const encoded = encodeURIComponent(promptText).slice(0, 280);
             const numericSeed = Math.abs(
               Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
-            );
+            ) % 9_999_991;
+            const picsum = `https://picsum.photos/seed/sb${numericSeed}/1024/1024`;
             imgList.push({
-              url: `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`,
-              src: `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`,
-              image: `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`,
+              url: picsum,
+              src: picsum,
+              image: picsum,
               alt: name,
               caption: name,
             });
@@ -1141,12 +1136,10 @@ function ensureItemArraysForSlots(
         : "";
 
       const seed = `${parsed.niche}-${key}-${i}-${name.slice(0,8)}`;
-      const promptText = [preset.imageKeyword, name].join(", ");
-      const encoded = encodeURIComponent(promptText).slice(0, 280);
       const numericSeed = Math.abs(
         Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
-      );
-      const image = `https://image.pollinations.ai/prompt/${encoded}?seed=${numericSeed}&width=1024&height=1024&nologo=true&model=flux`;
+      ) % 9_999_991;
+      const image = `https://picsum.photos/seed/sb${numericSeed}/1024/1024`;
 
       baseProps[key].push({
         title: name,

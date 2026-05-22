@@ -64,6 +64,15 @@ function clean(s?: string | null): string {
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
 
+/**
+ * Lorem Picsum — real, high-quality photographs from Unsplash.
+ * Loads instantly, deterministic per seed, never renders text artifacts.
+ */
+function picsumUrl(seed: number, w = 800, h = 800): string {
+  const s = Math.abs(seed) % 9_999_997;
+  return `https://picsum.photos/seed/sb${s}/${w}/${h}`;
+}
+
 function pollinationsUrl(prompt: string, seed: number, w = 800, h = 800): string {
   const enc = encodeURIComponent(prompt).slice(0, 300);
   const s   = Math.abs(seed) % 9_999_997;
@@ -83,15 +92,24 @@ function assetUrls(s: Section): string[] {
   return ((s.component?.assetSlots ?? []) as any[]).map((sl: any) => sl?.generatedUrl).filter(Boolean);
 }
 
-/** Scan every string prop for a URL — handles any prop name the engine might use. */
+/** True if a URL points at an AI generator that may render text artifacts. */
+function isAiImage(u: string): boolean {
+  return /image\.pollinations\.ai|stable-?diffusion|deepai|leonardo/i.test(u);
+}
+
+/** Scan every string prop for a URL — handles any prop name the engine might use.
+ *  AI-generator URLs are intentionally skipped: they often bake the prompt as
+ *  visible text into the image, which is not premium. We replace them with
+ *  Lorem Picsum (real photography) in the getter functions below.
+ */
 function extractUrl(obj: Record<string, any>): string {
   const known = ["image","imageSrc","imageUrl","thumbnail","photo","src","cover","poster","artwork","productImage","img","heroImageSrc","heroMediaSrc","mediaSrc","backgroundMedia","backgroundTexture","foregroundProduct","glitchTexture","marqueeTexture","transitionTexture","glassBackground","leftMediaSrc","rightMediaSrc","featuredImage"];
   for (const k of known) {
-    if (typeof obj[k] === "string" && obj[k].startsWith("http")) return obj[k];
+    const v = obj[k];
+    if (typeof v === "string" && v.startsWith("http") && !isAiImage(v)) return v;
   }
   for (const v of Object.values(obj)) {
-    if (typeof v === "string" && v.startsWith("https://image.pollinations.ai")) return v;
-    if (typeof v === "string" && /^https?:\/\/.+\.(jpg|jpeg|png|webp|avif)/i.test(v)) return v;
+    if (typeof v === "string" && !isAiImage(v) && /^https?:\/\/.+\.(jpg|jpeg|png|webp|avif)/i.test(v)) return v;
   }
   return "";
 }
@@ -99,31 +117,20 @@ function extractUrl(obj: Record<string, any>): string {
 function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
   const found = extractUrl(item);
   if (found) return found;
-  return pollinationsUrl(
-    `${bp.niche} ${item.title || item.name || "product"} premium product photography cinematic lighting 4k studio`,
-    bpSeed(bp) + idx * 137
-  );
+  return picsumUrl(bpSeed(bp) + idx * 137, 800, 800);
 }
 
 function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): string {
   const p = getProps(s);
   const found = extractUrl(p);
   if (found) return found;
-  const slot = assetUrls(s)[0];
+  const slot = (assetUrls(s).find((u) => !isAiImage(u)));
   if (slot) return slot;
-  return pollinationsUrl(
-    `${bp.niche} ${hint || clean(s.copy?.heading) || "premium"} cinematic photography dramatic moody 4k ultra-high quality`,
-    bpSeed(bp) + idx * 239,
-    1400, 800
-  );
+  return picsumUrl(bpSeed(bp) + idx * 239, 1600, 900);
 }
 
-function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
-  return pollinationsUrl(
-    `${bp.niche} ${context} atmospheric cinematic premium photography moody dark 4k`,
-    bpSeed(bp) + offset,
-    1600, 900
-  );
+function getPageBg(bp: SiteBlueprint, _context: string, offset: number): string {
+  return picsumUrl(bpSeed(bp) + offset, 1920, 1080);
 }
 
 function getItems(s: Section): any[] {
@@ -247,11 +254,13 @@ function badge(s: Section, fb: string, ACC: string): string {
 
 // ─── Image wrapper ────────────────────────────────────────────────────────────
 
+let _fbCtr = 0;
 function imgWrap(src: string, alt: string, style = "", cls = ""): string {
+  const fb = `https://picsum.photos/seed/sbfb${(++_fbCtr) * 7919 % 9_999_991}/800/800`;
   return `<div class="img-wrap ${cls}" style="${style}">
     <img src="${esc(src)}" alt="${esc(alt)}" loading="eager" decoding="async"
-      onload="this.classList.add('loaded');this.parentElement.classList.add('img-loaded')"
-      onerror="this.src='https://placehold.co/800x800/1a1a2e/888888?text=${encodeURIComponent(alt || "Image")}';var p=this.parentElement;if(p)p.classList.add('img-loaded')"
+      onload="this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
+      onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='${fb}';}else{var p=this.parentElement;if(p)p.classList.add('img-loaded');this.style.display='none';}"
       class="card-img"
       style="min-height:100%;min-width:100%"
     />

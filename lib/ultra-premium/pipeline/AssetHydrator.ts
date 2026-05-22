@@ -152,12 +152,14 @@ export function generateUniqueImageURL(
   }
   numericSeed = Math.abs(numericSeed);
 
-  // ── Step 3: Build the unique URL with cache-busting ──────────────────────────
-  const url = buildPollinationsUrl(
-    generated.prompt,
-    numericSeed,
-    aspectRatio
-  );
+  // ── Step 3: Build the URL.
+  // Switched from Pollinations.ai (which often bakes the prompt text into the
+  // image as a visible watermark/word-collage) to Lorem Picsum, which serves
+  // real, high-quality photographs from Unsplash, loads instantly, never
+  // renders text artifacts, and is fully deterministic per seed.
+  const dims = ASPECT_RATIOS[aspectRatio ?? "16:9"] ?? ASPECT_RATIOS["16:9"];
+  const url = `https://picsum.photos/seed/sb${numericSeed % 9_999_991}/${dims.width}/${dims.height}`;
+  void buildPollinationsUrl;
 
   return {
     url,
