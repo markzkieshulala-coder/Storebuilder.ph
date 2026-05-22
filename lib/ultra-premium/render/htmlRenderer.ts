@@ -1,953 +1,1107 @@
 /**
- * ============================================================================
- * BLUEPRINT -> HTML RENDERER  (ultra-premium edition)
- * ============================================================================
- * Converts a SiteBlueprint into a complete, self-contained HTML document with:
- *  • Canvas particle-field background on hero
- *  • CSS animated aurora / gradient-mesh on every section
- *  • IntersectionObserver scroll-reveal + parallax
- *  • CSS-perspective 3D card hover tilt
- *  • All nav/button links mapped to in-page #anchor IDs
- *  • Placeholder text ("SECTION N", "Generated body content") suppressed
- *  • data-editable attributes for HtmlEditor.tsx
+ * Ultra-Premium HTML Renderer — Multi-Page SPA Edition
+ *
+ * Renders a SiteBlueprint into a fully self-contained HTML document with:
+ *  - Hash-based SPA routing (Home / Products / About / Contact)
+ *  - Pollinations.ai fallback images for every item and section
+ *  - Canvas particle field, animated gradient blobs, CSS 3D card tilt
+ *  - IntersectionObserver scroll-reveal with per-child stagger
+ *  - Nav links that open distinct pages, not just scroll to anchors
  */
 
 import type { SiteBlueprint, Page, Section } from "../types/SiteBlueprint";
 
-// ── String utilities ──────────────────────────────────────────────────────────
+// ─── String utilities ─────────────────────────────────────────────────────────
 
 function esc(s: unknown): string {
-  if (s === null || s === undefined) return "";
+  if (s == null) return "";
   return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-
-function fontStack(f: string): string {
-  return `'${f}', 'Inter', 'Helvetica Neue', Arial, sans-serif`;
-}
-
-/** Expand #RGB → #RRGGBB. */
-function hex(c: string | undefined, fb = "#ffffff"): string {
+function fonts(f: string) { return `'${f}','Inter','Helvetica Neue',Arial,sans-serif`; }
+function hex(c?: string, fb = "#ffffff"): string {
   if (!c) return fb;
   const v = c.trim();
-  if (/^#[0-9a-fA-F]{3}$/.test(v))
-    return "#" + v.slice(1).split("").map((x) => x + x).join("");
-  return v;
+  return /^#[0-9a-fA-F]{3}$/.test(v)
+    ? "#" + v.slice(1).split("").map(x => x + x).join("")
+    : v;
 }
-
-/** hex + 2-char alpha suffix. */
-function alpha(c: string | undefined, a: string, fb = "#ffffff"): string {
-  return hex(c, fb) + a;
-}
-
-/** Lighten a hex by `n` per channel so secondary ≠ background. */
-function lighten(c: string | undefined, n = 16, fb = "#0a0a0a"): string {
+function alpha(c?: string, a = "ff", fb = "#ffffff") { return hex(c, fb) + a; }
+function lighten(c?: string, n = 16, fb = "#0d0d0d"): string {
   const h = hex(c, fb);
   if (h.length !== 7) return h;
-  const ch = (s: string) =>
-    Math.max(0, Math.min(255, parseInt(s, 16) + n)).toString(16).padStart(2, "0");
-  return `#${ch(h.slice(1, 3))}${ch(h.slice(3, 5))}${ch(h.slice(5, 7))}`;
+  const ch = (s: string) => Math.min(255, parseInt(s, 16) + n).toString(16).padStart(2, "0");
+  return `#${ch(h.slice(1,3))}${ch(h.slice(3,5))}${ch(h.slice(5,7))}`;
 }
-
-/** Return null/undefined as empty string; filter engine placeholder strings. */
-function clean(s: string | undefined | null): string {
+/** Strip engine placeholder text. */
+function clean(s?: string | null): string {
   if (!s) return "";
-  // Engine fallbacks we never want rendered
-  if (/section\s+\d+/i.test(s)) return "";
-  if (/generated body content/i.test(s)) return "";
+  if (/section\s+\d+/i.test(s) || /generated body content/i.test(s)) return "";
   return s.trim();
 }
 
-// ── Blueprint accessors ───────────────────────────────────────────────────────
+// ─── Image utilities ──────────────────────────────────────────────────────────
+
+function pollinationsUrl(prompt: string, seed: number, w = 800, h = 800): string {
+  const enc = encodeURIComponent(prompt).slice(0, 300);
+  const s   = Math.abs(seed) % 9_999_997;
+  return `https://image.pollinations.ai/prompt/${enc}?seed=${s}&model=flux&width=${w}&height=${h}&nologo=true`;
+}
+
+function bpSeed(bp: SiteBlueprint): number {
+  const raw = (bp.seed || "a1b2c3d4").replace(/[^0-9a-f]/gi, "").slice(0, 8) || "1a2b3c4d";
+  return parseInt(raw, 16) % 9_999_997;
+}
 
 function getProps(s: Section): Record<string, any> {
   return (s.component?.props ?? {}) as Record<string, any>;
 }
 
-function getItems(s: Section): any[] {
-  const p = getProps(s);
-  const arr = p.items || p.products || p.cards || p.blocks || p.events || p.secondaryItems;
-  if (Array.isArray(arr) && arr.length > 0) return arr;
-  if (p.featuredItem && typeof p.featuredItem === "object") return [p.featuredItem];
-  return [];
+function assetUrls(s: Section): string[] {
+  return ((s.component?.assetSlots ?? []) as any[]).map((sl: any) => sl?.generatedUrl).filter(Boolean);
 }
 
-function getAssetUrls(s: Section): string[] {
-  return ((s.component?.assetSlots ?? []) as any[])
-    .map((sl: any) => sl?.generatedUrl)
-    .filter(Boolean);
+/** Scan every string prop for a URL — handles any prop name the engine might use. */
+function extractUrl(obj: Record<string, any>): string {
+  const known = ["image","imageSrc","imageUrl","thumbnail","photo","src","cover","poster","artwork","productImage","img","heroImageSrc","heroMediaSrc","mediaSrc","backgroundMedia","backgroundTexture","foregroundProduct","glitchTexture","marqueeTexture","transitionTexture","glassBackground","leftMediaSrc","rightMediaSrc","featuredImage"];
+  for (const k of known) {
+    if (typeof obj[k] === "string" && obj[k].startsWith("http")) return obj[k];
+  }
+  for (const v of Object.values(obj)) {
+    if (typeof v === "string" && v.startsWith("https://image.pollinations.ai")) return v;
+    if (typeof v === "string" && /^https?:\/\/.+\.(jpg|jpeg|png|webp|avif)/i.test(v)) return v;
+  }
+  return "";
 }
 
-function getHeroImage(s: Section): string {
-  const p = getProps(s);
-  return (
-    p.heroImageSrc || p.heroMediaSrc || p.mediaSrc ||
-    p.backgroundMedia || p.backgroundTexture ||
-    p.foregroundProduct || p.glitchTexture ||
-    p.marqueeTexture || p.transitionTexture || p.glassBackground ||
-    p.leftMediaSrc || p.rightMediaSrc ||
-    p.featuredItem?.image || p.featuredImage || p.image ||
-    getAssetUrls(s)[0] || ""
+function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
+  const found = extractUrl(item);
+  if (found) return found;
+  return pollinationsUrl(
+    `${bp.niche} ${item.title || item.name || "product"} premium product photography cinematic lighting 4k studio`,
+    bpSeed(bp) + idx * 137
   );
 }
 
-function getSplitImages(s: Section): { left: string; right: string } | null {
+function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): string {
   const p = getProps(s);
-  if (p.leftMediaSrc && p.rightMediaSrc) return { left: p.leftMediaSrc, right: p.rightMediaSrc };
-  const slots = getAssetUrls(s);
-  if (slots.length >= 2) return { left: slots[0], right: slots[1] };
-  return null;
+  const found = extractUrl(p);
+  if (found) return found;
+  const slot = assetUrls(s)[0];
+  if (slot) return slot;
+  return pollinationsUrl(
+    `${bp.niche} ${hint || clean(s.copy?.heading) || "premium"} cinematic photography dramatic moody 4k ultra-high quality`,
+    bpSeed(bp) + idx * 239,
+    1400, 800
+  );
 }
 
-function getMarqueeImages(s: Section): string[] {
+function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
+  return pollinationsUrl(
+    `${bp.niche} ${context} atmospheric cinematic premium photography moody dark 4k`,
+    bpSeed(bp) + offset,
+    1600, 900
+  );
+}
+
+function getItems(s: Section): any[] {
   const p = getProps(s);
-  for (const k of ["images", "photos", "media"]) {
-    if (Array.isArray(p[k]) && p[k].length > 0) return p[k].filter(Boolean);
+  const arr = p.items || p.products || p.cards || p.blocks || p.events || p.secondaryItems;
+  if (Array.isArray(arr) && arr.length) return arr;
+  if (p.featuredItem && typeof p.featuredItem === "object") return [p.featuredItem];
+  // Check flat image arrays
+  for (const k of ["images","photos","media"]) {
+    if (Array.isArray(p[k]) && p[k].length) return p[k];
   }
-  const fromItems = getItems(s).map((i: any) => i?.image).filter(Boolean);
-  if (fromItems.length > 0) return fromItems;
-  return getAssetUrls(s);
+  return [];
 }
 
-function badgeFor(s: Section, fb: string): string {
-  const m = s.copy?.microCopy;
-  if (Array.isArray(m) && m[0]) return m[0];
-  return fb;
+function allItems(bp: SiteBlueprint): any[] {
+  const items: any[] = [];
+  for (const s of bp.pages[0]?.sections ?? []) {
+    for (const it of getItems(s)) items.push(it);
+  }
+  return items;
 }
 
-// ── Section type detection ────────────────────────────────────────────────────
+// ─── Shared CSS + keyframes ───────────────────────────────────────────────────
 
-const isHero     = (s: Section) => /Hero|Header|GlitchHeader/i.test(s.name);
-const isFooter   = (s: Section) => /Footer/i.test(s.name);
-const isMarquee  = (s: Section) => /Marquee|Velocity/i.test(s.name);
-const isSplit    = (s: Section) => /OverlappingSplit|SplitReveal|SplitText/i.test(s.name);
-const isCta      = (s: Section) => /Holographic|CTA|LiquidGlass|GlassPanel/i.test(s.name);
-const isTimeline = (s: Section) => /Timeline|Parallax|RhythmStack|HorizonLine/i.test(s.name);
-const hasItems   = (s: Section) => getItems(s).length > 0;
-
-/** Stable #id for each section so nav anchors work. */
-function sectionId(s: Section, idx: number): string {
-  if (isHero(s))     return "hero";
-  if (isFooter(s))   return "footer";
-  if (isMarquee(s))  return "gallery";
-  if (isSplit(s))    return "story";
-  if (isCta(s))      return "cta";
-  if (isTimeline(s)) return "process";
-  if (hasItems(s))   return "products";
-  return `section-${idx}`;
-}
-
-/**
- * Map a nav path like "/products" or "/about" to the closest #anchor on the page.
- * Falls back to "#" so nothing 404s.
- */
-function navAnchor(path: string, label: string, sections: Section[]): string {
-  const p = (path || "").toLowerCase();
-  const l = (label || "").toLowerCase();
-
-  const match = (patterns: RegExp) =>
-    sections.find((s, i) => {
-      const id = sectionId(s, i);
-      return patterns.test(id) || patterns.test(s.name.toLowerCase());
-    });
-
-  if (/product|shop|store|collection|menu|item|order/i.test(p + l))
-    return "#products";
-  if (/about|story|brand|who|us|heritage|craft/i.test(p + l))
-    return "#story";
-  if (/gallery|work|portfolio|look|photo|image/i.test(p + l))
-    return "#gallery";
-  if (/process|how|step|service|offer|work/i.test(p + l))
-    return "#process";
-  if (/contact|book|reserv|inquir|reach|touch|appointment/i.test(p + l))
-    return "#contact";
-  if (/cta|start|join|sign|get/i.test(p + l))
-    return "#cta";
-
-  // Fall back to the first non-hero non-footer section
-  const fallback = sections.find((s, i) => !isHero(s) && !isFooter(s));
-  if (fallback) return `#${sectionId(fallback, sections.indexOf(fallback))}`;
-  return "#";
-}
-
-// ── Shared CSS decorations ────────────────────────────────────────────────────
-
-/** Animated gradient-blob pair — used as section accent lighting. */
-function blobs(PRIMARY: string, ACCENT: string, top = true): string {
-  const y1 = top ? "-30%" : "80%";
-  const y2 = top ? "60%"  : "-20%";
+function sharedCss(TEXT: string, BG: string, PRI: string, ACC: string, hf: string, bf: string): string {
   return `
-  <div aria-hidden="true" style="position:absolute;top:${y1};left:-20%;width:700px;height:700px;border-radius:50%;
-    background:radial-gradient(circle, ${alpha(PRIMARY, "1e")} 0%, transparent 65%);
-    filter:blur(60px);pointer-events:none;animation:sb-blob-a 12s ease-in-out infinite alternate;"></div>
-  <div aria-hidden="true" style="position:absolute;top:${y2};right:-15%;width:500px;height:500px;border-radius:50%;
-    background:radial-gradient(circle, ${alpha(ACCENT, "18")} 0%, transparent 65%);
-    filter:blur(60px);pointer-events:none;animation:sb-blob-b 16s ease-in-out infinite alternate;"></div>`;
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;padding:0;background:${BG};color:${TEXT};font-family:${fonts(bf)};-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+input,textarea,select{font:inherit}
+
+/* Page transitions */
+[data-page]{display:none;opacity:0;transition:opacity .45s ease}
+[data-page].page-active{display:block;opacity:1}
+
+/* Reveal */
+[data-reveal] [data-rc],[data-rc]{opacity:0;transform:translateY(44px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1)}
+[data-reveal].vis [data-rc],[data-rc].vis{opacity:1;transform:translateY(0)}
+[data-reveal="hero"] [data-rc]{transform:translateY(72px)}
+[data-reveal="hero"].vis [data-rc]{transform:translateY(0)}
+
+/* Card 3D tilt */
+.card-3d{transform-style:preserve-3d;transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease,border-color .4s ease}
+.card-3d:hover{transform:perspective(800px) rotateX(4deg) rotateY(-4deg) translateY(-10px) !important;box-shadow:0 40px 90px ${alpha(BG,"dd")},0 0 0 1px ${alpha(PRI,"44")} !important}
+.card-3d:hover img.card-img{transform:scale(1.07)}
+
+/* Image shimmer placeholder */
+.img-wrap{background:linear-gradient(135deg,${lighten(BG,20)},${lighten(BG,8)});overflow:hidden;position:relative}
+.img-wrap img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s ease}
+.img-wrap img.loaded{opacity:1}
+
+/* Buttons */
+.btn-pri{display:inline-flex;align-items:center;gap:10px;padding:16px 40px;background:${PRI};color:${BG};font-family:${fonts(hf)};font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;border-radius:99px;border:none;cursor:pointer;box-shadow:0 14px 44px ${alpha(PRI,"55")};transition:transform .25s,box-shadow .25s,filter .25s}
+.btn-pri:hover{transform:translateY(-3px);box-shadow:0 22px 60px ${alpha(PRI,"66")};filter:brightness(1.07)}
+.btn-sec{display:inline-flex;align-items:center;padding:16px 36px;background:transparent;color:${TEXT};font-family:${fonts(hf)};font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;border-radius:99px;border:1px solid ${alpha(TEXT,"44")};cursor:pointer;backdrop-filter:blur(8px);transition:all .25s}
+.btn-sec:hover{border-color:${alpha(PRI,"aa")};color:${PRI}}
+
+/* Form */
+.form-field{width:100%;padding:14px 18px;background:${lighten(BG,14)};border:1px solid ${alpha(TEXT,"22")};border-radius:12px;color:${TEXT};font-size:15px;transition:border-color .25s}
+.form-field:focus{outline:none;border-color:${PRI}}
+.form-field::placeholder{color:${alpha(TEXT,"55")}}
+label.form-label{display:block;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:${ACC};margin-bottom:8px;font-weight:600}
+
+/* Nav active state */
+nav a.nav-active{color:${PRI} !important}
+nav.scrolled{padding:12px 32px !important;background:${alpha(BG,"f0")} !important;border-bottom-color:${alpha(PRI,"55")} !important}
+
+/* Hover on non-button links */
+a:not(.btn-pri):not(.btn-sec)[data-editable="link"]:hover{color:${PRI} !important}
+
+/* Blobs */
+.blob{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none}
+.blob-a{animation:blob-a 13s ease-in-out infinite alternate}
+.blob-b{animation:blob-b 17s ease-in-out infinite alternate}
+
+/* Mobile */
+@media(max-width:900px){
+  .grid-2{grid-template-columns:1fr !important}
+  .grid-3{grid-template-columns:1fr !important}
+  .hide-mobile{display:none !important}
+  nav .nav-links{display:none !important}
 }
 
-// ── Section renderers ─────────────────────────────────────────────────────────
+/* Reduced motion */
+@media(prefers-reduced-motion:reduce){
+  [data-rc],[data-reveal] [data-rc]{opacity:1 !important;transform:none !important;transition:none !important}
+  .blob,[data-marquee],#sb-canvas{animation:none !important;transform:none !important}
+}
 
-function renderHero(s: Section, bp: SiteBlueprint, idx: number): string {
-  const c      = bp.theme.colors;
+/* Keyframes */
+@keyframes blob-a{0%{transform:translate(0,0) scale(1)}100%{transform:translate(44px,-32px) scale(1.14)}}
+@keyframes blob-b{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-32px,24px) scale(.9)}}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-33.333%)}}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes page-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+`;
+}
+
+// ─── Blobs decoration ────────────────────────────────────────────────────────
+
+function blobs(PRI: string, ACC: string, flip = false): string {
+  const [y1, y2] = flip ? ["60%","-20%"] : ["-25%","65%"];
+  return `
+  <div class="blob blob-a" style="top:${y1};left:-18%;width:600px;height:600px;background:radial-gradient(circle,${alpha(PRI,"1e")} 0%,transparent 65%);"></div>
+  <div class="blob blob-b" style="top:${y2};right:-14%;width:420px;height:420px;background:radial-gradient(circle,${alpha(ACC,"18")} 0%,transparent 65%);"></div>`;
+}
+
+// ─── Section badge ────────────────────────────────────────────────────────────
+
+function badge(s: Section, fb: string, ACC: string): string {
+  const label = (s.copy?.microCopy?.[0]) || fb;
+  return `<span data-editable="text" style="display:inline-flex;align-items:center;gap:7px;padding:7px 18px;border:1px solid ${alpha(ACC,"55")};color:${ACC};font-size:10px;letter-spacing:.32em;text-transform:uppercase;border-radius:99px;background:${alpha(ACC,"0e")};backdrop-filter:blur(8px);">
+    <span style="width:5px;height:5px;border-radius:50%;background:${ACC};flex-shrink:0;"></span>${esc(label)}</span>`;
+}
+
+// ─── Image wrapper ────────────────────────────────────────────────────────────
+
+function imgWrap(src: string, alt: string, style = "", cls = ""): string {
+  return `<div class="img-wrap ${cls}" style="${style}">
+    <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async"
+      onload="this.classList.add('loaded')"
+      onerror="this.style.display='none'"
+      class="card-img"
+    />
+  </div>`;
+}
+
+// ─── Particle canvas script ───────────────────────────────────────────────────
+
+function particleScript(PRI: string): string {
+  return `<script>
+(function(){
+  var cv=document.getElementById('sb-canvas');
+  if(!cv)return;
+  var ctx=cv.getContext('2d'),W,H,pts,ani;
+  function resize(){
+    W=cv.width=cv.offsetWidth;H=cv.height=cv.offsetHeight;init();
+  }
+  function rand(a,b){return a+Math.random()*(b-a)}
+  function init(){
+    var n=Math.min(100,Math.floor(W*H/10000));
+    pts=[];
+    for(var i=0;i<n;i++) pts.push({x:rand(0,W),y:rand(0,H),vx:rand(-.3,.3),vy:rand(-.3,.3),r:rand(1.2,2.8)});
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<pts.length;i++){
+      var p=pts[i];
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.5)';ctx.fill();
+      for(var j=i+1;j<pts.length;j++){
+        var q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<130){
+          ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+          ctx.strokeStyle='rgba(255,255,255,'+(0.12*(1-d/130)).toFixed(3)+')';
+          ctx.lineWidth=.7;ctx.stroke();
+        }
+      }
+    }
+    ani=requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',resize);
+  resize();draw();
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){cancelAnimationFrame(ani);}else{draw();}
+  });
+})();
+</script>`;
+}
+
+// ─── Product card ─────────────────────────────────────────────────────────────
+
+function productCard(item: any, bp: SiteBlueprint, idx: number, c: SiteBlueprint["theme"]["colors"]): string {
   const TEXT   = hex(c.textPrimary);
   const BG     = hex(c.background, "#0a0a0a");
-  const PRI    = hex(c.primary,    "#ff4d00");
+  const PRI    = hex(c.primary, "#ff4d00");
   const ACC    = hex(c.accent || c.primary, PRI);
-  const SEC    = lighten(c.secondary || c.background);
-  const heading  = clean(s.copy?.heading) || clean(bp.copy.hero?.headline) || bp.niche;
-  const body     = clean(s.copy?.body)    || clean(bp.copy.hero?.subheadline) || "";
-  const cta1     = clean(s.copy?.cta)     || clean(bp.copy.hero?.ctaPrimary)  || "Explore";
-  const cta2     = clean(bp.copy.hero?.ctaSecondary);
-  const badge    = badgeFor(s, clean(bp.copy.hero?.badgeLabel) || "Ultra Premium");
-  const heroImg  = getHeroImage(s);
-  const sections = bp.pages[0]?.sections ?? [];
+  const SURF   = lighten(c.secondary || c.background, 18);
+  const hf     = bp.theme.typography.headingFont;
+  const bf     = bp.theme.typography.bodyFont;
+  const img    = getItemImage(item, bp, idx);
+  const name   = esc(item.title || item.name || "Product");
+  const desc   = esc(clean(item.description || item.body));
+  const price  = item.price ? esc(item.price) : "";
+  const tag    = item.tag ? esc(item.tag) : "";
+  const cta    = esc(item.cta || "View Details");
 
   return `
-<section id="hero" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal="hero"
-  style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:${BG};">
-  <!-- particle canvas -->
-  <canvas id="sb-particles" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:0.55;"></canvas>
-  <!-- hero image -->
-  ${heroImg ? `<img src="${esc(heroImg)}" alt="${esc(heading)}" data-editable="image" data-parallax="0.28"
-    style="position:absolute;inset:-8% -4%;width:108%;height:116%;object-fit:cover;object-position:center;
-      opacity:0.52;filter:saturate(1.12) contrast(1.06);will-change:transform;z-index:2;"/>` : ""}
-  <!-- cinematic gradient veil -->
-  <div aria-hidden="true" style="position:absolute;inset:0;z-index:3;
-    background:linear-gradient(160deg, ${alpha(BG,"cc")} 0%, ${alpha(BG,"55")} 45%, ${alpha(BG,"aa")} 100%);"></div>
-  <!-- nav shadow -->
-  <div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:220px;z-index:4;
-    background:linear-gradient(180deg, ${alpha(BG,"ee")} 0%, transparent 100%);pointer-events:none;"></div>
-  <!-- accent blobs -->
-  ${blobs(PRI, ACC)}
-  <!-- content -->
-  <div style="position:relative;z-index:10;text-align:center;max-width:1120px;padding:100px 28px 0;">
-    <div data-reveal-child data-reveal-delay="0" style="margin-bottom:28px;">
-      <span data-editable="text"
-        style="display:inline-flex;align-items:center;gap:8px;padding:8px 20px;
-          border:1px solid ${alpha(ACC,"66")};color:${ACC};
-          font-size:10.5px;letter-spacing:0.32em;text-transform:uppercase;border-radius:99px;
-          background:${alpha(ACC,"12")};backdrop-filter:blur(12px);">
-        <span style="width:6px;height:6px;border-radius:50%;background:${ACC};display:inline-block;"></span>
-        ${esc(badge)}
-      </span>
-    </div>
-    <h1 data-editable="text" data-reveal-child data-reveal-delay="80"
-      style="font-family:${fontStack(bp.theme.typography.headingFont)};
-        font-size:clamp(42px, 8.5vw, 108px);font-weight:900;line-height:0.92;
-        letter-spacing:-0.03em;margin:0 0 28px;color:${TEXT};text-transform:uppercase;
-        text-shadow:0 2px 60px ${alpha(BG,"99")};">
-      ${esc(heading)}
-    </h1>
-    ${body ? `<p data-editable="text" data-reveal-child data-reveal-delay="160"
-      style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-        font-size:clamp(16px, 1.45vw, 22px);line-height:1.7;max-width:660px;
-        margin:0 auto 44px;color:${alpha(TEXT,"cc")};">
-      ${esc(body)}
-    </p>` : `<div style="height:44px;"></div>`}
-    <div data-reveal-child data-reveal-delay="240" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
-      <a href="${navAnchor("/products","shop",sections)}" data-editable="button"
-        style="display:inline-flex;align-items:center;gap:10px;padding:18px 44px;
-          background:${PRI};color:${BG};
-          font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:12.5px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
-          text-decoration:none;border-radius:99px;
-          box-shadow:0 16px 56px ${alpha(PRI,"66")};transition:transform .25s ease,box-shadow .25s ease;">
-        ${esc(cta1)}
-        <span style="width:18px;height:18px;border-radius:50%;background:${alpha(BG,"33")};
-          display:flex;align-items:center;justify-content:center;font-size:10px;">→</span>
-      </a>
-      ${cta2 ? `<a href="${navAnchor("/about","about",sections)}" data-editable="button"
-        style="display:inline-flex;align-items:center;padding:18px 36px;
-          background:transparent;color:${TEXT};
-          font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:12.5px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
-          text-decoration:none;border-radius:99px;border:1px solid ${alpha(TEXT,"44")};
-          backdrop-filter:blur(8px);transition:all .25s ease;">
-        ${esc(cta2)}
-      </a>` : ""}
+<article class="card-3d" data-editable="container" data-rc data-reveal-delay="${idx * 70}"
+  style="background:${SURF};border:1px solid ${alpha(TEXT,"12")};border-radius:20px;overflow:hidden;cursor:pointer;position:relative;">
+  ${imgWrap(img, name, "aspect-ratio:1/1;", "")}
+  <div style="padding:22px 24px;">
+    ${tag ? `<span data-editable="text" style="display:inline-block;font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:${ACC};margin-bottom:10px;border:1px solid ${alpha(ACC,"44")};padding:3px 10px;border-radius:99px;">${tag}</span>` : ""}
+    <h3 data-editable="text" style="font-family:${fonts(hf)};font-size:17px;font-weight:700;color:${TEXT};margin:0 0 8px;line-height:1.2;">${name}</h3>
+    ${desc ? `<p data-editable="text" style="font-family:${fonts(bf)};font-size:13px;color:${alpha(TEXT,"88")};margin:0 0 18px;line-height:1.55;">${desc}</p>` : ""}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;">
+      ${price ? `<span data-editable="text" style="font-family:${fonts(hf)};font-size:20px;font-weight:800;color:${PRI};">${price}</span>` : "<span></span>"}
+      <a href="#" class="btn-pri" data-editable="button" style="padding:10px 20px;font-size:10px;">${cta}</a>
     </div>
   </div>
-  <!-- scroll cue -->
-  <div aria-hidden="true"
-    style="position:absolute;bottom:36px;left:50%;transform:translateX(-50%);z-index:10;
-      display:flex;flex-direction:column;align-items:center;gap:10px;
-      color:${alpha(TEXT,"55")};font-size:9.5px;letter-spacing:0.36em;text-transform:uppercase;
-      animation:sb-bob 2.6s ease-in-out infinite;">
-    <span>Scroll</span>
-    <span style="width:1px;height:44px;background:linear-gradient(180deg, ${alpha(TEXT,"66")}, transparent);"></span>
-  </div>
-</section>`;
+</article>`;
 }
 
-function renderProductGrid(s: Section, bp: SiteBlueprint, idx: number): string {
+// ═══════════════════════════════════════════════════════════════════
+// PAGE RENDERERS
+// ═══════════════════════════════════════════════════════════════════
+
+// ─── HOME PAGE ────────────────────────────────────────────────────
+
+function renderHomePage(bp: SiteBlueprint): string {
+  const c    = bp.theme.colors;
+  const TEXT = hex(c.textPrimary);
+  const BG   = hex(c.background, "#0a0a0a");
+  const PRI  = hex(c.primary, "#ff4d00");
+  const ACC  = hex(c.accent || c.primary, PRI);
+  const SURF = lighten(c.secondary || c.background, 14);
+  const hf   = bp.theme.typography.headingFont;
+  const bf   = bp.theme.typography.bodyFont;
+
+  const heroSection  = bp.pages[0]?.sections.find(s => /Hero|Header|GlitchHeader/i.test(s.name));
+  const heroImg      = heroSection ? getSectionBg(heroSection, bp, 0, "hero cinematic scene") : getPageBg(bp, "hero cinematic scene", 0);
+  const heading      = clean(heroSection?.copy?.heading) || clean(bp.copy.hero?.headline) || bp.niche;
+  const subheadline  = clean(heroSection?.copy?.body)    || clean(bp.copy.hero?.subheadline) || "";
+  const cta1         = clean(heroSection?.copy?.cta)     || clean(bp.copy.hero?.ctaPrimary)  || "Explore";
+  const cta2         = clean(bp.copy.hero?.ctaSecondary);
+  const badgeText    = heroSection?.copy?.microCopy?.[0] || clean(bp.copy.hero?.badgeLabel) || "Ultra Premium";
+
+  // featured items (up to 4)
+  const featuredItems = allItems(bp).slice(0, 4);
+
+  // about snippet from first feature-band section
+  const aboutSection = bp.pages[0]?.sections.find(s =>
+    !/Hero|Header|Footer|Marquee|Velocity/i.test(s.name) &&
+    !/CTA|Holographic|Glass/i.test(s.name) &&
+    getItems(s).length === 0
+  );
+  const aboutImg     = aboutSection ? getSectionBg(aboutSection, bp, 5, "brand story lifestyle") : getPageBg(bp, "brand story lifestyle", 400);
+  const aboutHead    = clean(aboutSection?.copy?.heading) || `About ${bp.niche}`;
+  const aboutBody    = clean(aboutSection?.copy?.body) || `Premium ${bp.niche} experience crafted with uncompromising quality and attention to detail.`;
+
+  // stats row from microCopy
+  const stats = (aboutSection?.copy?.microCopy ?? []).slice(0, 4);
+
+  // CTA section
+  const ctaSection   = bp.pages[0]?.sections.find(s => /CTA|Holographic|Glass/i.test(s.name));
+  const ctaHead      = clean(ctaSection?.copy?.heading) || "Ready to Experience It?";
+  const ctaBody      = clean(ctaSection?.copy?.body)    || `Discover our full range of premium ${bp.niche} offerings.`;
+  const ctaCta       = clean(ctaSection?.copy?.cta)     || clean(bp.copy.hero?.ctaPrimary) || "Get Started";
+  const ctaImg       = ctaSection ? getSectionBg(ctaSection, bp, 8, "call to action") : "";
+
+  return `
+<!-- ═══ HOME PAGE ═══ -->
+<div id="page-home" data-page class="page-active">
+
+  <!-- HERO -->
+  <section data-editable="section" data-reveal="hero"
+    style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:${BG};">
+    <canvas id="sb-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:.5;"></canvas>
+    ${imgWrap(heroImg, heading, "position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:.48;filter:saturate(1.12) contrast(1.07);", "")}
+    <div style="position:absolute;inset:0;z-index:3;background:linear-gradient(160deg,${alpha(BG,"cc")} 0%,${alpha(BG,"55")} 50%,${alpha(BG,"bb")} 100%);"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:220px;z-index:4;background:linear-gradient(180deg,${alpha(BG,"ee")} 0%,transparent 100%);pointer-events:none;"></div>
+    ${blobs(PRI, ACC)}
+    <div style="position:relative;z-index:10;text-align:center;max-width:1120px;padding:120px 28px 60px;">
+      <div data-rc data-reveal-delay="0">${badge(heroSection || {} as any, badgeText, ACC)}</div>
+      <h1 data-editable="text" data-rc data-reveal-delay="80"
+        style="font-family:${fonts(hf)};font-size:clamp(44px,9vw,112px);font-weight:900;
+          line-height:.92;letter-spacing:-.03em;margin:24px 0;color:${TEXT};text-transform:uppercase;
+          text-shadow:0 2px 60px ${alpha(BG,"99")};">
+        ${esc(heading)}
+      </h1>
+      ${subheadline ? `<p data-editable="text" data-rc data-reveal-delay="160"
+        style="font-family:${fonts(bf)};font-size:clamp(16px,1.5vw,22px);line-height:1.7;
+          max-width:640px;margin:0 auto 44px;color:${alpha(TEXT,"cc")};">
+        ${esc(subheadline)}
+      </p>` : `<div style="height:44px;"></div>`}
+      <div data-rc data-reveal-delay="240" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+        <a href="#" onclick="navigate('products');return false;" class="btn-pri" data-editable="button">${esc(cta1)}<span style="font-size:13px;">→</span></a>
+        ${cta2 ? `<a href="#" onclick="navigate('about');return false;" class="btn-sec" data-editable="button">${esc(cta2)}</a>` : ""}
+      </div>
+    </div>
+    <div style="position:absolute;bottom:36px;left:50%;z-index:10;display:flex;flex-direction:column;
+      align-items:center;gap:10px;color:${alpha(TEXT,"55")};font-size:9.5px;letter-spacing:.36em;
+      text-transform:uppercase;animation:bob 2.6s ease-in-out infinite;">
+      <span>Scroll</span>
+      <span style="width:1px;height:44px;background:linear-gradient(180deg,${alpha(TEXT,"66")},transparent);"></span>
+    </div>
+  </section>
+
+  <!-- FEATURED COLLECTION -->
+  ${featuredItems.length ? `
+  <section data-editable="section" data-reveal style="padding:130px 28px;background:${BG};position:relative;overflow:hidden;">
+    ${blobs(PRI, ACC, true)}
+    <div style="max-width:1300px;margin:0 auto;position:relative;">
+      <div style="text-align:center;margin-bottom:72px;">
+        <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:14px;">Featured</span>
+        <h2 data-editable="text" data-rc data-reveal-delay="60"
+          style="font-family:${fonts(hf)};font-size:clamp(32px,5vw,60px);font-weight:900;
+            color:${TEXT};margin:0;text-transform:uppercase;letter-spacing:-.015em;">
+          The Collection
+        </h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:24px;" class="grid-2">
+        ${featuredItems.map((item, i) => productCard(item, bp, i, c)).join("")}
+      </div>
+      <div style="text-align:center;margin-top:56px;" data-rc data-reveal-delay="200">
+        <a href="#" onclick="navigate('products');return false;" class="btn-sec" data-editable="button">View Full Collection →</a>
+      </div>
+    </div>
+  </section>` : ""}
+
+  <!-- ABOUT TEASER -->
+  <section data-editable="section" data-reveal
+    style="padding:0;background:${SURF};overflow:hidden;position:relative;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;min-height:70vh;" class="grid-2">
+      <div data-rc style="position:relative;overflow:hidden;min-height:400px;">
+        ${imgWrap(aboutImg, aboutHead, "position:absolute;inset:-5%;width:110%;height:110%;", "")}
+        <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 50%,${alpha(SURF,"99")} 100%);pointer-events:none;"></div>
+      </div>
+      <div data-rc data-reveal-delay="120"
+        style="display:flex;align-items:center;padding:80px 64px;position:relative;">
+        ${blobs(PRI, ACC)}
+        <div style="position:relative;z-index:2;max-width:480px;">
+          <span style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:20px;">Our Story</span>
+          <h2 data-editable="text"
+            style="font-family:${fonts(hf)};font-size:clamp(28px,4vw,50px);font-weight:900;
+              color:${TEXT};margin:0 0 24px;line-height:1.0;text-transform:uppercase;letter-spacing:-.02em;">
+            ${esc(aboutHead)}
+          </h2>
+          <p data-editable="text"
+            style="font-family:${fonts(bf)};font-size:17px;line-height:1.7;color:${alpha(TEXT,"cc")};margin:0 0 36px;">
+            ${esc(aboutBody)}
+          </p>
+          <a href="#" onclick="navigate('about');return false;" class="btn-pri" data-editable="button">Our Story →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS BAR -->
+  ${stats.length >= 2 ? `
+  <section data-reveal style="padding:60px 28px;background:${BG};border-top:1px solid ${alpha(PRI,"22")};border-bottom:1px solid ${alpha(PRI,"22")};">
+    <div style="max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-around;gap:32px;text-align:center;">
+      ${stats.map((s: string, i: number) => `
+      <div data-rc data-reveal-delay="${i * 80}" style="padding:0 24px;">
+        <div style="font-family:${fonts(hf)};font-size:clamp(36px,5vw,64px);font-weight:900;color:${PRI};line-height:1;">
+          ${i === 0 ? "100+" : i === 1 ? "50K+" : i === 2 ? "#1" : "5★"}
+        </div>
+        <div style="font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:${alpha(TEXT,"88")};margin-top:10px;">${esc(s)}</div>
+      </div>`).join("")}
+    </div>
+  </section>` : ""}
+
+  <!-- CTA BANNER -->
+  <section data-editable="section" data-reveal
+    style="padding:150px 28px;position:relative;overflow:hidden;text-align:center;
+      background:linear-gradient(135deg,${PRI} 0%,${ACC} 100%);color:${BG};">
+    ${ctaImg ? `${imgWrap(ctaImg, "", "position:absolute;inset:0;width:100%;height:100%;opacity:.12;mix-blend-mode:overlay;", "")}` : ""}
+    <div style="position:absolute;inset:0;background-image:linear-gradient(${alpha(BG,"08")} 1px,transparent 1px),linear-gradient(90deg,${alpha(BG,"08")} 1px,transparent 1px);background-size:48px 48px;pointer-events:none;"></div>
+    ${blobs(BG, BG)}
+    <div style="position:relative;z-index:2;max-width:860px;margin:0 auto;">
+      <h2 data-editable="text" data-rc
+        style="font-family:${fonts(hf)};font-size:clamp(36px,6.5vw,76px);font-weight:900;
+          margin:0 0 24px;line-height:.96;text-transform:uppercase;letter-spacing:-.025em;">
+        ${esc(ctaHead)}
+      </h2>
+      <p data-editable="text" data-rc data-reveal-delay="80"
+        style="font-family:${fonts(bf)};font-size:19px;opacity:.9;line-height:1.6;margin:0 0 44px;">
+        ${esc(ctaBody)}
+      </p>
+      <a href="#" onclick="navigate('products');return false;" class="btn-pri" data-editable="button" data-rc data-reveal-delay="160"
+        style="background:${BG};color:${PRI};box-shadow:0 20px 60px ${alpha(BG,"55")};">
+        ${esc(ctaCta)} →
+      </a>
+    </div>
+  </section>
+
+</div>`;
+}
+
+// ─── PRODUCTS PAGE ───────────────────────────────────────────────
+
+function renderProductsPage(bp: SiteBlueprint): string {
+  const c    = bp.theme.colors;
+  const TEXT = hex(c.textPrimary);
+  const BG   = hex(c.background, "#0a0a0a");
+  const PRI  = hex(c.primary, "#ff4d00");
+  const ACC  = hex(c.accent || c.primary, PRI);
+  const hf   = bp.theme.typography.headingFont;
+  const bf   = bp.theme.typography.bodyFont;
+
+  const items  = allItems(bp);
+  const bgImg  = getPageBg(bp, "product showcase collection", 500);
+  const tags   = [...new Set(items.map((it: any) => it.tag).filter(Boolean))].slice(0, 6);
+
+  // Get any product-section heading
+  const prodSection = bp.pages[0]?.sections.find(s => getItems(s).length > 0 && !/Hero|Footer/i.test(s.name));
+  const pageHead    = clean(prodSection?.copy?.heading) || "The Collection";
+  const pageSub     = clean(prodSection?.copy?.body) || `Explore our full range of premium ${bp.niche} offerings.`;
+
+  return `
+<!-- ═══ PRODUCTS PAGE ═══ -->
+<div id="page-products" data-page>
+
+  <!-- PAGE HERO -->
+  <section data-editable="section" style="position:relative;min-height:44vh;display:flex;align-items:flex-end;overflow:hidden;background:${BG};padding-top:96px;">
+    ${imgWrap(bgImg, pageHead, "position:absolute;inset:0;width:100%;height:100%;opacity:.4;filter:saturate(1.1);", "")}
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,${alpha(BG,"44")} 0%,${alpha(BG,"ee")} 100%);"></div>
+    ${blobs(PRI, ACC)}
+    <div style="position:relative;z-index:2;max-width:1300px;margin:0 auto;padding:60px 28px;width:100%;">
+      <span style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:16px;">Catalog</span>
+      <h1 style="font-family:${fonts(hf)};font-size:clamp(40px,7vw,88px);font-weight:900;color:${TEXT};margin:0 0 16px;text-transform:uppercase;letter-spacing:-.02em;">${esc(pageHead)}</h1>
+      <p style="font-family:${fonts(bf)};font-size:17px;color:${alpha(TEXT,"aa")};max-width:560px;line-height:1.6;">${esc(pageSub)}</p>
+    </div>
+  </section>
+
+  <!-- FILTER BAR -->
+  ${tags.length ? `
+  <section style="padding:28px;background:${BG};border-bottom:1px solid ${alpha(TEXT,"0e")};position:sticky;top:72px;z-index:40;backdrop-filter:blur(20px);">
+    <div style="max-width:1300px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:${alpha(TEXT,"55")};margin-right:8px;">Filter:</span>
+      <button onclick="filterCards('all',this)" style="padding:7px 18px;border-radius:99px;border:1px solid ${alpha(PRI,"88")};background:${PRI};color:${BG};font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;cursor:pointer;" data-filter="all">All</button>
+      ${tags.map((t: string) => `<button onclick="filterCards('${esc(t)}',this)" style="padding:7px 18px;border-radius:99px;border:1px solid ${alpha(TEXT,"33")};background:transparent;color:${alpha(TEXT,"aa")};font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;" data-filter="${esc(t)}">${esc(t)}</button>`).join("")}
+    </div>
+  </section>` : ""}
+
+  <!-- PRODUCT GRID -->
+  <section data-editable="section" data-reveal style="padding:80px 28px 130px;background:${BG};position:relative;overflow:hidden;">
+    ${blobs(PRI, ACC, true)}
+    <div style="max-width:1300px;margin:0 auto;position:relative;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;" class="grid-2" id="product-grid">
+        ${items.length
+          ? items.map((item: any, i: number) => {
+              const tag = item.tag || "";
+              return productCard(item, bp, i, c).replace("<article", `<article data-tag="${esc(tag)}"`);
+            }).join("")
+          : `<div style="grid-column:1/-1;text-align:center;padding:80px 0;color:${alpha(TEXT,"55")};">
+              <p style="font-size:17px;">Products are being generated. Regenerate to see them.</p>
+            </div>`
+        }
+      </div>
+    </div>
+  </section>
+
+</div>`;
+}
+
+// ─── ABOUT PAGE ──────────────────────────────────────────────────
+
+function renderAboutPage(bp: SiteBlueprint): string {
+  const c    = bp.theme.colors;
+  const TEXT = hex(c.textPrimary);
+  const BG   = hex(c.background, "#0a0a0a");
+  const PRI  = hex(c.primary, "#ff4d00");
+  const ACC  = hex(c.accent || c.primary, PRI);
+  const SURF = lighten(c.secondary || c.background, 14);
+  const hf   = bp.theme.typography.headingFont;
+  const bf   = bp.theme.typography.bodyFont;
+
+  const bgImg     = getPageBg(bp, "brand story heritage lifestyle documentary", 800);
+  const brand     = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche;
+  const subhead   = clean(bp.copy?.hero?.subheadline) || `Premium ${bp.niche} experience.`;
+
+  // Pull body copy from feature/split sections
+  const storySections = (bp.pages[0]?.sections ?? []).filter(s =>
+    !/Hero|Header|Footer|Marquee|Velocity/i.test(s.name) && getItems(s).length === 0
+  ).slice(0, 3);
+
+  // Values from microCopy
+  const allMicro: string[] = [];
+  for (const s of bp.pages[0]?.sections ?? []) {
+    for (const m of (s.copy?.microCopy ?? [])) {
+      if (!allMicro.includes(m)) allMicro.push(m);
+    }
+  }
+  const valueCards = allMicro.slice(0, 3);
+
+  // Timeline items from any timeline section
+  const tlSection = (bp.pages[0]?.sections ?? []).find(s => /Timeline|Parallax|RhythmStack|Horizon/i.test(s.name));
+  const tlItems   = tlSection ? getItems(tlSection).slice(0, 4) : [];
+
+  const valIcons = ["◈", "◉", "◇"];
+
+  return `
+<!-- ═══ ABOUT PAGE ═══ -->
+<div id="page-about" data-page>
+
+  <!-- CINEMATIC HEADER -->
+  <section data-editable="section" data-reveal="hero"
+    style="position:relative;min-height:80vh;display:flex;align-items:center;overflow:hidden;background:${BG};padding-top:88px;">
+    ${imgWrap(bgImg, brand, "position:absolute;inset:0;width:100%;height:100%;opacity:.5;filter:saturate(1.1);", "")}
+    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${alpha(BG,"dd")} 0%,${alpha(BG,"66")} 60%,${alpha(BG,"cc")} 100%);"></div>
+    ${blobs(PRI, ACC)}
+    <div style="position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:80px 28px;">
+      <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:${ACC};margin-bottom:24px;">About Us</span>
+      <h1 data-editable="text" data-rc data-reveal-delay="80"
+        style="font-family:${fonts(hf)};font-size:clamp(48px,9vw,110px);font-weight:900;
+          color:${TEXT};margin:0 0 28px;line-height:.92;text-transform:uppercase;letter-spacing:-.03em;">
+        Our<br/>Story
+      </h1>
+      <p data-editable="text" data-rc data-reveal-delay="160"
+        style="font-family:${fonts(bf)};font-size:clamp(17px,1.5vw,22px);line-height:1.7;
+          max-width:600px;color:${alpha(TEXT,"cc")};">
+        ${esc(subhead)}
+      </p>
+    </div>
+  </section>
+
+  <!-- STORY SECTIONS -->
+  ${storySections.map((s, i) => {
+    const head  = clean(s.copy?.heading);
+    const body  = clean(s.copy?.body);
+    if (!head && !body) return "";
+    const sImg  = getSectionBg(s, bp, i + 10, "brand lifestyle");
+    const isOdd = i % 2 === 0;
+    return `
+  <section data-editable="section" data-reveal
+    style="padding:0;background:${i % 2 ? SURF : BG};overflow:hidden;position:relative;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;min-height:60vh;" class="grid-2">
+      ${isOdd ? `
+      <div data-rc style="position:relative;overflow:hidden;min-height:360px;">
+        ${imgWrap(sImg, head, "position:absolute;inset:-5%;width:110%;height:110%;", "")}
+        <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 50%,${alpha(i % 2 ? SURF : BG,"99")} 100%);pointer-events:none;"></div>
+      </div>
+      <div data-rc data-reveal-delay="120" style="display:flex;align-items:center;padding:80px 64px;position:relative;">
+      ` : `
+      <div data-rc data-reveal-delay="120" style="display:flex;align-items:center;padding:80px 64px;position:relative;">
+      `}
+        ${blobs(PRI, ACC, isOdd)}
+        <div style="position:relative;z-index:2;max-width:480px;">
+          <span style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:20px;">${esc(s.copy?.microCopy?.[0] || "Our Journey")}</span>
+          <h2 data-editable="text"
+            style="font-family:${fonts(hf)};font-size:clamp(28px,4vw,48px);font-weight:900;
+              color:${TEXT};margin:0 0 24px;line-height:1.0;text-transform:uppercase;letter-spacing:-.02em;">
+            ${esc(head)}
+          </h2>
+          <p data-editable="text"
+            style="font-family:${fonts(bf)};font-size:16px;line-height:1.75;color:${alpha(TEXT,"cc")};margin:0 0 32px;">
+            ${esc(body)}
+          </p>
+          ${s.copy?.cta ? `<a href="#" onclick="navigate('contact');return false;" class="btn-pri" data-editable="button">${esc(s.copy.cta)}</a>` : ""}
+        </div>
+      </div>
+      ${!isOdd ? `
+      <div data-rc style="position:relative;overflow:hidden;min-height:360px;">
+        ${imgWrap(sImg, head, "position:absolute;inset:-5%;width:110%;height:110%;", "")}
+        <div style="position:absolute;inset:0;background:linear-gradient(270deg,transparent 50%,${alpha(i % 2 ? SURF : BG,"99")} 100%);pointer-events:none;"></div>
+      </div>` : ""}
+    </div>
+  </section>`;
+  }).join("")}
+
+  <!-- VALUES PILLARS -->
+  ${valueCards.length ? `
+  <section data-reveal style="padding:120px 28px;background:${BG};position:relative;overflow:hidden;">
+    ${blobs(PRI, ACC, true)}
+    <div style="max-width:1100px;margin:0 auto;position:relative;">
+      <div style="text-align:center;margin-bottom:72px;">
+        <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:14px;">What We Stand For</span>
+        <h2 data-rc data-reveal-delay="60"
+          style="font-family:${fonts(hf)};font-size:clamp(30px,5vw,56px);font-weight:900;
+            color:${TEXT};margin:0;text-transform:uppercase;letter-spacing:-.015em;">
+          Our Values
+        </h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:28px;" class="grid-3">
+        ${valueCards.map((v: string, i: number) => `
+        <div data-rc data-reveal-delay="${i * 100}"
+          style="background:${lighten(c.secondary || c.background, 18)};border:1px solid ${alpha(TEXT,"12")};
+            border-radius:20px;padding:40px 32px;text-align:center;position:relative;overflow:hidden;">
+          <div style="width:64px;height:64px;border-radius:50%;background:${PRI};
+            display:flex;align-items:center;justify-content:center;
+            font-size:28px;color:${BG};margin:0 auto 24px;
+            box-shadow:0 12px 36px ${alpha(PRI,"55")};">
+            ${valIcons[i] || "◈"}
+          </div>
+          <h3 style="font-family:${fonts(hf)};font-size:18px;font-weight:700;color:${TEXT};
+            margin:0 0 12px;text-transform:uppercase;letter-spacing:-.01em;">
+            ${esc(v)}
+          </h3>
+          <p style="font-family:${fonts(bp.theme.typography.bodyFont)};font-size:14px;
+            color:${alpha(TEXT,"77")};line-height:1.6;margin:0;">
+            Premium quality and uncompromising standards in every detail.
+          </p>
+        </div>`).join("")}
+      </div>
+    </div>
+  </section>` : ""}
+
+  <!-- PROCESS / TIMELINE -->
+  ${tlItems.length ? `
+  <section data-reveal style="padding:120px 28px;background:${SURF};position:relative;overflow:hidden;">
+    ${blobs(PRI, ACC)}
+    <div style="max-width:900px;margin:0 auto;position:relative;">
+      <div style="text-align:center;margin-bottom:60px;">
+        <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:14px;">${esc(tlSection?.copy?.microCopy?.[0] || "How We Work")}</span>
+        <h2 data-rc data-reveal-delay="60"
+          style="font-family:${fonts(hf)};font-size:clamp(28px,5vw,52px);font-weight:900;
+            color:${TEXT};margin:0;text-transform:uppercase;letter-spacing:-.015em;">
+          ${esc(clean(tlSection?.copy?.heading) || "Our Process")}
+        </h2>
+      </div>
+      ${tlItems.map((item: any, i: number) => `
+      <div data-rc data-reveal-delay="${i * 110}"
+        style="display:flex;gap:28px;padding:36px 0;border-bottom:1px solid ${alpha(TEXT,"14")};align-items:flex-start;">
+        <div style="flex-shrink:0;width:60px;height:60px;border-radius:50%;background:${PRI};
+          display:flex;align-items:center;justify-content:center;color:${BG};
+          font-family:${fonts(hf)};font-size:22px;font-weight:900;
+          box-shadow:0 10px 32px ${alpha(PRI,"55")};">
+          ${String(i + 1).padStart(2, "0")}
+        </div>
+        ${imgWrap(getItemImage(item, bp, i + 40), "", "width:120px;height:80px;border-radius:12px;flex-shrink:0;", "")}
+        <div style="flex:1;padding-top:4px;">
+          <h3 style="font-family:${fonts(hf)};font-size:20px;font-weight:700;color:${TEXT};margin:0 0 8px;text-transform:uppercase;">
+            ${esc(item.title || item.name || `Step ${i + 1}`)}
+          </h3>
+          <p style="font-family:${fonts(bp.theme.typography.bodyFont)};font-size:14px;color:${alpha(TEXT,"88")};margin:0;line-height:1.65;">
+            ${esc(clean(item.description || item.body))}
+          </p>
+        </div>
+      </div>`).join("")}
+    </div>
+  </section>` : ""}
+
+</div>`;
+}
+
+// ─── CONTACT PAGE ───────────────────────────────────────────────
+
+function renderContactPage(bp: SiteBlueprint): string {
+  const c    = bp.theme.colors;
+  const TEXT = hex(c.textPrimary);
+  const BG   = hex(c.background, "#0a0a0a");
+  const PRI  = hex(c.primary, "#ff4d00");
+  const ACC  = hex(c.accent || c.primary, PRI);
+  const SURF = lighten(c.secondary || c.background, 14);
+  const hf   = bp.theme.typography.headingFont;
+  const bf   = bp.theme.typography.bodyFont;
+
+  const bgImg = getPageBg(bp, "luxury interior premium ambiance contact", 1200);
+  const brand = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche;
+
+  // Niche-appropriate hours
+  const hoursMap: Record<string, string> = {
+    restaurant: "Mon–Thu 5pm–10pm · Fri–Sat 5pm–11pm · Sun 4pm–9pm",
+    salon: "Tue–Fri 9am–7pm · Sat 9am–6pm · Sun 10am–4pm · Mon Closed",
+    store: "Mon–Sat 10am–8pm · Sun 11am–6pm",
+    basketball: "Mon–Fri 9am–9pm · Sat–Sun 10am–7pm",
+    cybersecurity: "Mon–Fri 8am–6pm · Emergency line 24/7",
+    portfolio: "Available by appointment · Response within 24 hours",
+  };
+  const niche = bp.niche.toLowerCase();
+  const hours = Object.entries(hoursMap).find(([k]) => niche.includes(k))?.[1]
+    ?? "Mon–Fri 9am–6pm · Sat 10am–4pm · Sun Closed";
+
+  return `
+<!-- ═══ CONTACT PAGE ═══ -->
+<div id="page-contact" data-page>
+
+  <!-- HEADER -->
+  <section data-editable="section" data-reveal="hero"
+    style="position:relative;min-height:50vh;display:flex;align-items:center;overflow:hidden;background:${BG};padding-top:88px;">
+    ${imgWrap(bgImg, "Contact", "position:absolute;inset:0;width:100%;height:100%;opacity:.44;filter:saturate(1.1);", "")}
+    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${alpha(BG,"ee")} 0%,${alpha(BG,"77")} 60%,${alpha(BG,"cc")} 100%);"></div>
+    ${blobs(PRI, ACC)}
+    <div style="position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:80px 28px;">
+      <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:${ACC};margin-bottom:20px;">Get In Touch</span>
+      <h1 data-editable="text" data-rc data-reveal-delay="80"
+        style="font-family:${fonts(hf)};font-size:clamp(44px,8vw,100px);font-weight:900;
+          color:${TEXT};margin:0;line-height:.92;text-transform:uppercase;letter-spacing:-.03em;">
+        Let's<br/>Connect
+      </h1>
+    </div>
+  </section>
+
+  <!-- FORM + INFO -->
+  <section data-reveal style="padding:100px 28px 130px;background:${BG};position:relative;overflow:hidden;">
+    ${blobs(PRI, ACC, true)}
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.1fr .9fr;gap:64px;position:relative;" class="grid-2">
+
+      <!-- FORM -->
+      <div data-rc>
+        <h2 style="font-family:${fonts(hf)};font-size:clamp(24px,3.5vw,42px);font-weight:900;color:${TEXT};margin:0 0 36px;text-transform:uppercase;letter-spacing:-.015em;">Send a Message</h2>
+        <form onsubmit="handleContactForm(event)" style="display:flex;flex-direction:column;gap:22px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;" class="grid-2">
+            <div>
+              <label class="form-label">First Name</label>
+              <input type="text" class="form-field" placeholder="John" required/>
+            </div>
+            <div>
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-field" placeholder="Doe"/>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-field" placeholder="john@example.com" required/>
+          </div>
+          <div>
+            <label class="form-label">Subject</label>
+            <input type="text" class="form-field" placeholder="How can we help?"/>
+          </div>
+          <div>
+            <label class="form-label">Message</label>
+            <textarea class="form-field" rows="5" placeholder="Tell us about your inquiry..." style="resize:vertical;"></textarea>
+          </div>
+          <button type="submit" class="btn-pri" style="align-self:flex-start;margin-top:8px;">
+            Send Message →
+          </button>
+          <div id="form-success" style="display:none;padding:16px 20px;background:${alpha(ACC,"22")};border:1px solid ${ACC};border-radius:12px;color:${ACC};font-size:14px;font-weight:600;">
+            ✓ Message sent! We'll get back to you shortly.
+          </div>
+        </form>
+      </div>
+
+      <!-- INFO PANEL -->
+      <div data-rc data-reveal-delay="120" style="display:flex;flex-direction:column;gap:28px;padding-top:80px;">
+        ${[
+          { icon: "✦", label: "Brand", value: esc(brand) },
+          { icon: "◎", label: "Hours", value: esc(hours) },
+          { icon: "→", label: "Location", value: `Premium ${esc(bp.niche)} District` },
+        ].map(info => `
+        <div style="display:flex;gap:20px;align-items:flex-start;">
+          <div style="flex-shrink:0;width:48px;height:48px;border-radius:50%;background:${alpha(PRI,"22")};
+            border:1px solid ${alpha(PRI,"44")};display:flex;align-items:center;justify-content:center;
+            color:${PRI};font-size:18px;margin-top:4px;">
+            ${info.icon}
+          </div>
+          <div>
+            <div style="font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:${ACC};margin-bottom:6px;">${info.label}</div>
+            <div style="font-family:${fonts(hf)};font-size:17px;font-weight:700;color:${TEXT};line-height:1.4;">${info.value}</div>
+          </div>
+        </div>`).join("")}
+
+        <!-- LOCATION VISUAL -->
+        <div style="margin-top:16px;border-radius:20px;overflow:hidden;aspect-ratio:16/9;border:1px solid ${alpha(TEXT,"14")};">
+          ${imgWrap(getPageBg(bp, "luxury location exterior premium", 1400), "Location", "width:100%;height:100%;", "")}
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>`;
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────
+
+type PageDef = { id: string; label: string; isCta?: boolean };
+
+function detectPages(bp: SiteBlueprint): PageDef[] {
+  const nav   = bp.navigation?.items ?? [];
+  const pages: PageDef[] = [];
+  const added = new Set<string>();
+
+  function add(id: string, label: string, isCta = false) {
+    if (!added.has(id)) { pages.push({ id, label, isCta }); added.add(id); }
+  }
+
+  add("home", "Home");
+
+  for (const item of nav) {
+    const l = (item.label + " " + item.path).toLowerCase();
+    if (/product|shop|store|collection|menu|catalog|item|order/i.test(l))  add("products",  item.label, item.isCta);
+    else if (/about|story|brand|heritage|us\b|who/i.test(l))               add("about",     item.label, item.isCta);
+    else if (/contact|book|reserv|touch|appointment|inquir/i.test(l))      add("contact",   item.label, item.isCta);
+    else if (!/home/i.test(l))                                              add(item.isCta ? "products" : "about", item.label, item.isCta);
+  }
+
+  if (!added.has("products")) add("products", "Shop");
+  if (!added.has("about"))    add("about",    "About");
+  if (!added.has("contact"))  add("contact",  "Contact");
+
+  return pages;
+}
+
+function renderNav(bp: SiteBlueprint, pages: PageDef[]): string {
+  const c    = bp.theme.colors;
+  const TEXT = hex(c.textPrimary);
+  const BG   = hex(c.background, "#0a0a0a");
+  const PRI  = hex(c.primary, "#ff4d00");
+  const hf   = bp.theme.typography.headingFont;
+  const brand = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
+
+  const links = pages.map(pg =>
+    pg.isCta
+      ? `<a href="#" onclick="navigate('${pg.id}');return false;" class="btn-pri" data-editable="button" data-nav-page="${pg.id}" style="padding:10px 24px;font-size:11px;">${esc(pg.label)}</a>`
+      : `<a href="#" onclick="navigate('${pg.id}');return false;" data-editable="link" data-nav-page="${pg.id}"
+          style="color:${alpha(TEXT,"cc")};font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+            font-weight:600;transition:color .25s ease;white-space:nowrap;padding:4px 0;"
+          class="${pg.id === 'home' ? 'nav-active' : ''}">
+          ${esc(pg.label)}
+        </a>`
+  ).join("");
+
+  return `
+<nav id="sb-nav"
+  style="position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;
+    justify-content:space-between;padding:20px 32px;
+    background:${alpha(BG,"bb")};backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+    border-bottom:1px solid ${alpha(TEXT,"0d")};
+    transition:padding .3s ease,background .3s ease,border-color .3s ease;animation:fade-in .7s ease both;">
+  <a href="#" onclick="navigate('home');return false;" data-editable="link"
+    style="font-family:${fonts(hf)};font-size:15px;font-weight:900;letter-spacing:.12em;
+      text-transform:uppercase;color:${TEXT};transition:color .25s ease;">
+    ${esc(brand)}
+  </a>
+  <div class="nav-links" style="display:flex;align-items:center;gap:28px;flex-wrap:nowrap;">
+    ${links}
+  </div>
+</nav>`;
+}
+
+// ─── Footer ──────────────────────────────────────────────────────
+
+function renderFooter(bp: SiteBlueprint, pages: PageDef[]): string {
   const c     = bp.theme.colors;
   const TEXT  = hex(c.textPrimary);
   const BG    = hex(c.background, "#0a0a0a");
-  const PRI   = hex(c.primary,    "#ff4d00");
+  const SURF  = lighten(c.secondary || c.background, 10);
+  const PRI   = hex(c.primary, "#ff4d00");
   const ACC   = hex(c.accent || c.primary, PRI);
-  const SURF  = lighten(c.secondary || c.background, 18);
-  const items = getItems(s);
-  const heading = clean(s.copy?.heading) || "The Collection";
-  const body    = clean(s.copy?.body);
+  const hf    = bp.theme.typography.headingFont;
+  const bf    = bp.theme.typography.bodyFont;
+  const brand = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
+  const copy  = bp.copy?.footer?.copyright || `© ${new Date().getFullYear()} ${brand.toUpperCase()}`;
+  const tag   = bp.copy?.footer?.tagline || "";
+  const sub   = clean(bp.copy?.hero?.subheadline) || "";
 
-  const cards = items.slice(0, 8).map((item: any, i: number) => `
-    <article data-editable="container" data-reveal-child data-reveal-delay="${i * 70}"
-      data-tilt
-      style="background:${SURF};border:1px solid ${alpha(TEXT,"12")};border-radius:20px;
-        overflow:hidden;cursor:pointer;
-        transform-style:preserve-3d;transform:perspective(800px) rotateX(0deg) rotateY(0deg);
-        transition:transform .4s cubic-bezier(0.16,1,0.3,1),border-color .4s ease,box-shadow .4s ease;
-        position:relative;will-change:transform;">
-      ${item.image ? `
-      <div style="aspect-ratio:1/1;overflow:hidden;background:${BG};position:relative;">
-        <img src="${esc(item.image)}" alt="${esc(item.title || item.name || "")}"
-          data-editable="image"
-          style="width:100%;height:100%;object-fit:cover;display:block;
-            transition:transform .7s cubic-bezier(0.16,1,0.3,1);"/>
-        <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,${alpha(BG,"88")} 100%);pointer-events:none;"></div>
-      </div>` : `<div style="aspect-ratio:1/1;background:linear-gradient(135deg,${alpha(PRI,"22")},${alpha(ACC,"11")});"></div>`}
-      <div style="padding:22px 24px;">
-        ${item.tag ? `<span data-editable="text"
-          style="display:inline-block;font-size:9.5px;letter-spacing:0.26em;
-            text-transform:uppercase;color:${ACC};margin-bottom:10px;
-            border:1px solid ${alpha(ACC,"44")};padding:3px 10px;border-radius:99px;">
-          ${esc(item.tag)}</span>` : ""}
-        <h3 data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.headingFont)};
-            font-size:17px;font-weight:700;color:${TEXT};margin:0 0 8px;line-height:1.2;">
-          ${esc(item.title || item.name || "Product")}
-        </h3>
-        <p data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-            font-size:13px;color:${alpha(TEXT,"88")};margin:0 0 18px;line-height:1.55;">
-          ${esc(clean(item.description || item.body))}
-        </p>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          ${item.price ? `<span data-editable="text"
-            style="font-family:${fontStack(bp.theme.typography.headingFont)};
-              font-size:21px;font-weight:800;color:${PRI};">
-            ${esc(item.price)}</span>` : "<span></span>"}
-          <a href="#" data-editable="button"
-            style="font-size:10.5px;letter-spacing:0.2em;text-transform:uppercase;
-              color:${BG};font-weight:700;text-decoration:none;
-              padding:10px 20px;background:${PRI};border-radius:99px;
-              transition:all .25s ease;box-shadow:0 6px 20px ${alpha(PRI,"44")};">
-            ${esc(item.cta || "View")}
-          </a>
-        </div>
-      </div>
-    </article>`).join("");
-
-  return `
-<section id="products" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal
-  style="padding:130px 28px;background:${BG};position:relative;overflow:hidden;">
-  ${blobs(PRI, ACC, false)}
-  <div style="max-width:1300px;margin:0 auto;position:relative;">
-    <div style="text-align:center;margin-bottom:72px;">
-      <span data-editable="text" data-reveal-child
-        style="display:inline-block;font-size:10.5px;letter-spacing:0.3em;
-          text-transform:uppercase;color:${ACC};margin-bottom:16px;">
-        ${esc(badgeFor(s, "Our Collection"))}
-      </span>
-      <h2 data-editable="text" data-reveal-child data-reveal-delay="60"
-        style="font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:clamp(32px, 5vw, 60px);font-weight:900;color:${TEXT};
-          margin:0 0 18px;text-transform:uppercase;letter-spacing:-0.015em;">
-        ${esc(heading)}
-      </h2>
-      ${body ? `<p data-editable="text" data-reveal-child data-reveal-delay="120"
-        style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-          font-size:17px;color:${alpha(TEXT,"88")};max-width:620px;
-          margin:0 auto;line-height:1.65;">
-        ${esc(body)}
-      </p>` : ""}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:24px;">
-      ${cards}
-    </div>
-  </div>
-</section>`;
-}
-
-function renderFeatureBand(s: Section, bp: SiteBlueprint, idx: number): string {
-  const c      = bp.theme.colors;
-  const TEXT   = hex(c.textPrimary);
-  const BG     = hex(c.background, "#0a0a0a");
-  const PRI    = hex(c.primary,    "#ff4d00");
-  const ACC    = hex(c.accent || c.primary, PRI);
-  const SURF   = lighten(c.secondary || c.background, 12);
-  const heading = clean(s.copy?.heading);
-  const body    = clean(s.copy?.body);
-  const cta     = clean(s.copy?.cta);
-  const heroImg = getHeroImage(s);
-  const badge   = badgeFor(s, "Signature");
-  const secId   = sectionId(s, idx);
-
-  if (!heading && !body) return ""; // skip empty sections entirely
-
-  return `
-<section id="${secId}" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal
-  style="padding:130px 28px;background:${SURF};position:relative;overflow:hidden;">
-  ${blobs(PRI, ACC)}
-  <!-- corner geometry accent -->
-  <div aria-hidden="true" style="position:absolute;bottom:-120px;right:-80px;
-    width:360px;height:360px;border:1px solid ${alpha(PRI,"22")};border-radius:50%;pointer-events:none;"></div>
-  <div aria-hidden="true" style="position:absolute;bottom:-60px;right:-40px;
-    width:200px;height:200px;border:1px solid ${alpha(ACC,"33")};border-radius:50%;pointer-events:none;"></div>
-  <div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;position:relative;">
-    <div data-reveal-child>
-      <span data-editable="text"
-        style="display:inline-block;padding:8px 18px;
-          border:1px solid ${alpha(ACC,"55")};color:${ACC};
-          font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;
-          border-radius:99px;margin-bottom:26px;background:${alpha(ACC,"10")};">
-        ${esc(badge)}
-      </span>
-      <h2 data-editable="text"
-        style="font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:clamp(30px, 4.5vw, 54px);font-weight:900;color:${TEXT};
-          margin:0 0 24px;line-height:1.0;text-transform:uppercase;letter-spacing:-0.02em;">
-        ${esc(heading)}
-      </h2>
-      <p data-editable="text"
-        style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-          font-size:17px;line-height:1.7;color:${alpha(TEXT,"cc")};margin:0 0 36px;">
-        ${esc(body)}
-      </p>
-      ${cta ? `<a href="#products" data-editable="button"
-        style="display:inline-flex;align-items:center;gap:10px;
-          padding:16px 38px;background:${PRI};color:${BG};
-          font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
-          text-decoration:none;border-radius:99px;
-          box-shadow:0 12px 36px ${alpha(PRI,"55")};">
-        ${esc(cta)}
-      </a>` : ""}
-    </div>
-    <div data-reveal-child data-reveal-delay="140"
-      style="position:relative;border-radius:28px;overflow:hidden;aspect-ratio:4/5;
-        background:${BG};box-shadow:0 40px 100px ${alpha(BG,"cc")};
-        transform:perspective(900px) rotateY(-4deg);">
-      ${heroImg
-        ? `<img src="${esc(heroImg)}" alt="${esc(heading)}" data-editable="image"
-            style="width:100%;height:100%;object-fit:cover;display:block;"/>`
-        : `<div style="width:100%;height:100%;
-            background:linear-gradient(135deg,${alpha(PRI,"44")} 0%,${alpha(ACC,"18")} 100%);"></div>`}
-      <div style="position:absolute;inset:0;
-        background:linear-gradient(180deg,transparent 50%,${alpha(BG,"aa")} 100%);
-        pointer-events:none;"></div>
-      <!-- shine layer -->
-      <div aria-hidden="true" style="position:absolute;top:0;left:-60%;width:50%;height:100%;
-        background:linear-gradient(105deg,transparent 40%,${alpha(TEXT,"08")} 50%,transparent 60%);
-        pointer-events:none;"></div>
-    </div>
-  </div>
-</section>`;
-}
-
-function renderSplit(s: Section, bp: SiteBlueprint, idx: number): string {
-  const c       = bp.theme.colors;
-  const TEXT    = hex(c.textPrimary);
-  const BG      = hex(c.background, "#0a0a0a");
-  const PRI     = hex(c.primary,    "#ff4d00");
-  const ACC     = hex(c.accent || c.primary, PRI);
-  const split   = getSplitImages(s) || { left: getHeroImage(s), right: "" };
-  const heading = clean(s.copy?.heading);
-  const body    = clean(s.copy?.body);
-  const cta     = clean(s.copy?.cta);
-
-  if (!heading && !body) return "";
-
-  return `
-<section id="story" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal
-  style="background:${BG};overflow:hidden;position:relative;">
-  <div style="display:grid;grid-template-columns:1fr 1fr;min-height:88vh;">
-    <div data-reveal-child style="position:relative;overflow:hidden;background:${BG};">
-      ${split.left
-        ? `<img src="${esc(split.left)}" alt="" data-editable="image" data-parallax="0.18"
-            style="width:100%;height:100%;object-fit:cover;display:block;will-change:transform;position:absolute;inset:-5%;width:110%;height:110%;"/>`
-        : `<div style="width:100%;height:100%;background:linear-gradient(135deg,${alpha(PRI,"33")},${alpha(ACC,"11")});"></div>`}
-      <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 50%,${alpha(BG,"99")} 100%);"></div>
-    </div>
-    <div data-reveal-child data-reveal-delay="100"
-      style="position:relative;display:flex;align-items:center;padding:100px 64px;
-        background:${lighten(c.secondary || c.background, 10)};overflow:hidden;">
-      ${split.right
-        ? `<img src="${esc(split.right)}" alt="" data-editable="image"
-            style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.12;pointer-events:none;"/>`
-        : ""}
-      ${blobs(PRI, ACC, false)}
-      <div style="position:relative;z-index:2;max-width:480px;">
-        <span data-editable="text"
-          style="display:inline-block;font-size:10.5px;letter-spacing:0.3em;
-            text-transform:uppercase;color:${ACC};margin-bottom:22px;">
-          ${esc(badgeFor(s, "The Story"))}
-        </span>
-        <h2 data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.headingFont)};
-            font-size:clamp(28px, 4vw, 50px);font-weight:900;color:${TEXT};
-            margin:0 0 24px;line-height:1.0;text-transform:uppercase;letter-spacing:-0.02em;">
-          ${esc(heading)}
-        </h2>
-        <p data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-            font-size:17px;line-height:1.7;color:${alpha(TEXT,"cc")};margin:0 0 36px;">
-          ${esc(body)}
-        </p>
-        ${cta ? `<a href="#products" data-editable="button"
-          style="display:inline-block;padding:14px 34px;background:${PRI};color:${BG};
-            font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
-            text-decoration:none;border-radius:99px;box-shadow:0 10px 30px ${alpha(PRI,"55")};">
-          ${esc(cta)}
-        </a>` : ""}
-      </div>
-    </div>
-  </div>
-</section>`;
-}
-
-function renderMarquee(s: Section, bp: SiteBlueprint, idx: number): string {
-  const c      = bp.theme.colors;
-  const TEXT   = hex(c.textPrimary);
-  const BG     = hex(c.background, "#0a0a0a");
-  const PRI    = hex(c.primary,    "#ff4d00");
-  const ACC    = hex(c.accent || c.primary, PRI);
-  const SURF   = lighten(c.secondary || c.background, 8);
-  const images = getMarqueeImages(s);
-  const heading = clean(s.copy?.heading);
-  const labels  = (s.copy?.microCopy?.length ? s.copy.microCopy : [heading || bp.niche.toUpperCase()]);
-
-  const imgItems = [...images, ...images, ...images].map((img: string) =>
-    `<div style="flex-shrink:0;width:260px;height:320px;border-radius:20px;overflow:hidden;
-      background:${SURF};box-shadow:0 20px 60px ${alpha(BG,"99")};">
-      <img src="${esc(img)}" alt="" data-editable="image"
-        style="width:100%;height:100%;object-fit:cover;display:block;"/>
-    </div>`
-  ).join("");
-
-  const txtItems = [...labels, ...labels, ...labels, ...labels].map((l: string) =>
-    `<span style="flex-shrink:0;
-      font-family:${fontStack(bp.theme.typography.headingFont)};
-      font-size:clamp(52px,9vw,120px);font-weight:900;
-      color:${alpha(TEXT,"15")};text-transform:uppercase;
-      letter-spacing:-0.025em;white-space:nowrap;">
-      ${esc(l)}&nbsp;<span style="color:${PRI};opacity:0.6;">•</span>&nbsp;
-    </span>`
-  ).join("");
-
-  return `
-<section id="gallery" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal
-  style="padding:${images.length > 0 ? "110px 0" : "70px 0"};background:${BG};overflow:hidden;position:relative;">
-  ${heading && images.length > 0
-    ? `<div style="max-width:1280px;margin:0 auto 52px;padding:0 28px;text-align:center;">
-        <h2 data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.headingFont)};
-            font-size:clamp(28px,4vw,48px);font-weight:900;color:${TEXT};margin:0;
-            text-transform:uppercase;letter-spacing:-0.015em;">
-          ${esc(heading)}
-        </h2>
-      </div>` : ""}
-  <!-- edge fade masks -->
-  <div aria-hidden="true" style="position:absolute;top:0;bottom:0;left:0;width:120px;z-index:2;
-    background:linear-gradient(90deg, ${BG} 0%, transparent 100%);pointer-events:none;"></div>
-  <div aria-hidden="true" style="position:absolute;top:0;bottom:0;right:0;width:120px;z-index:2;
-    background:linear-gradient(270deg, ${BG} 0%, transparent 100%);pointer-events:none;"></div>
-  <div data-marquee style="display:flex;gap:${images.length > 0 ? "20px" : "48px"};
-    align-items:center;
-    animation:sb-marquee ${images.length > 0 ? "42s" : "28s"} linear infinite;
-    will-change:transform;">
-    ${images.length > 0 ? imgItems : txtItems}
-  </div>
-</section>`;
-}
-
-function renderCta(s: Section, bp: SiteBlueprint, idx: number): string {
-  const c       = bp.theme.colors;
-  const TEXT    = hex(c.textPrimary);
-  const BG      = hex(c.background, "#0a0a0a");
-  const PRI     = hex(c.primary,    "#ff4d00");
-  const ACC     = hex(c.accent || c.primary, PRI);
-  const heading = clean(s.copy?.heading);
-  const body    = clean(s.copy?.body);
-  const cta     = clean(s.copy?.cta) || clean(bp.copy.hero?.ctaPrimary) || "Get Started";
-  const ctaImg  = getHeroImage(s);
-  const sections = bp.pages[0]?.sections ?? [];
-
-  if (!heading && !body) return "";
-
-  return `
-<section id="cta" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal
-  style="padding:150px 28px;position:relative;overflow:hidden;text-align:center;color:${BG};
-    background:linear-gradient(135deg, ${PRI} 0%, ${ACC} 100%);">
-  ${ctaImg ? `<img src="${esc(ctaImg)}" alt="" data-editable="image"
-    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-      opacity:0.14;mix-blend-mode:overlay;pointer-events:none;"/>` : ""}
-  <!-- animated light orbs -->
-  <div aria-hidden="true" style="position:absolute;top:-120px;left:-100px;
-    width:480px;height:480px;border-radius:50%;
-    background:${alpha(TEXT,"12")};filter:blur(80px);pointer-events:none;
-    animation:sb-blob-a 10s ease-in-out infinite alternate;"></div>
-  <div aria-hidden="true" style="position:absolute;bottom:-120px;right:-80px;
-    width:400px;height:400px;border-radius:50%;
-    background:${alpha(BG,"22")};filter:blur(80px);pointer-events:none;
-    animation:sb-blob-b 14s ease-in-out infinite alternate;"></div>
-  <!-- grid lines decoration -->
-  <div aria-hidden="true" style="position:absolute;inset:0;
-    background-image:linear-gradient(${alpha(BG,"08")} 1px, transparent 1px),
-      linear-gradient(90deg, ${alpha(BG,"08")} 1px, transparent 1px);
-    background-size:48px 48px;pointer-events:none;"></div>
-  <div style="position:relative;z-index:2;max-width:880px;margin:0 auto;">
-    <span data-editable="text" data-reveal-child
-      style="display:inline-block;font-size:10.5px;letter-spacing:0.34em;
-        text-transform:uppercase;color:${alpha(BG,"cc")};margin-bottom:24px;">
-      ${esc(badgeFor(s, "Take Action"))}
-    </span>
-    <h2 data-editable="text" data-reveal-child data-reveal-delay="60"
-      style="font-family:${fontStack(bp.theme.typography.headingFont)};
-        font-size:clamp(36px, 6.5vw, 76px);font-weight:900;margin:0 0 24px;
-        line-height:0.96;text-transform:uppercase;letter-spacing:-0.025em;">
-      ${esc(heading)}
-    </h2>
-    ${body ? `<p data-editable="text" data-reveal-child data-reveal-delay="120"
-      style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-        font-size:19px;opacity:0.9;line-height:1.6;margin:0 0 44px;">
-      ${esc(body)}
-    </p>` : `<div style="height:44px;"></div>`}
-    <a href="${navAnchor("/products","shop",sections)}" data-editable="button" data-reveal-child data-reveal-delay="200"
-      style="display:inline-flex;align-items:center;gap:12px;
-        padding:20px 54px;background:${BG};color:${PRI};
-        font-family:${fontStack(bp.theme.typography.headingFont)};
-        font-size:13px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
-        text-decoration:none;border-radius:99px;
-        box-shadow:0 20px 60px ${alpha(BG,"55")};
-        transition:transform .25s ease;">
-      ${esc(cta)}
-      <span style="width:20px;height:20px;border-radius:50%;
-        background:${alpha(PRI,"22")};display:flex;align-items:center;
-        justify-content:center;font-size:11px;">→</span>
-    </a>
-  </div>
-</section>`;
-}
-
-function renderTimeline(s: Section, bp: SiteBlueprint, idx: number): string {
-  const items = getItems(s);
-  if (items.length === 0) return renderFeatureBand(s, bp, idx);
-  const c       = bp.theme.colors;
-  const TEXT    = hex(c.textPrimary);
-  const BG      = hex(c.background, "#0a0a0a");
-  const PRI     = hex(c.primary,    "#ff4d00");
-  const ACC     = hex(c.accent || c.primary, PRI);
-  const heading = clean(s.copy?.heading);
-  const body    = clean(s.copy?.body);
-
-  const steps = items.slice(0, 5).map((item: any, i: number) => `
-    <div data-editable="container" data-reveal-child data-reveal-delay="${i * 110}"
-      style="display:flex;gap:28px;padding:36px 0;
-        border-bottom:1px solid ${alpha(TEXT,"14")};align-items:flex-start;">
-      <div style="flex-shrink:0;width:60px;height:60px;border-radius:50%;
-        background:${PRI};
-        display:flex;align-items:center;justify-content:center;
-        color:${BG};font-family:${fontStack(bp.theme.typography.headingFont)};
-        font-size:22px;font-weight:900;
-        box-shadow:0 10px 32px ${alpha(PRI,"55")};">
-        ${String(i + 1).padStart(2, "0")}
-      </div>
-      ${item.image ? `<img src="${esc(item.image)}" alt="" data-editable="image"
-        style="width:130px;height:88px;object-fit:cover;border-radius:14px;flex-shrink:0;"/>` : ""}
-      <div style="flex:1;padding-top:4px;">
-        <h3 data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.headingFont)};
-            font-size:20px;font-weight:700;color:${TEXT};
-            margin:0 0 10px;text-transform:uppercase;letter-spacing:-0.01em;">
-          ${esc(item.title || item.name || `Step ${i + 1}`)}
-        </h3>
-        <p data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-            font-size:14.5px;color:${alpha(TEXT,"88")};margin:0;line-height:1.65;">
-          ${esc(clean(item.description || item.body))}
-        </p>
-      </div>
-    </div>`).join("");
-
-  return `
-<section id="process" data-editable="section" data-section-index="${idx}" data-section-name="${esc(s.name)}" data-reveal
-  style="padding:130px 28px;background:${BG};position:relative;overflow:hidden;">
-  ${blobs(PRI, ACC, false)}
-  <div style="max-width:960px;margin:0 auto;position:relative;">
-    ${heading ? `<div style="text-align:center;margin-bottom:56px;">
-      <span data-editable="text" data-reveal-child
-        style="display:inline-block;font-size:10.5px;letter-spacing:0.3em;
-          text-transform:uppercase;color:${ACC};margin-bottom:16px;">
-        ${esc(badgeFor(s, "The Process"))}
-      </span>
-      <h2 data-editable="text" data-reveal-child data-reveal-delay="60"
-        style="font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:clamp(30px, 5vw, 56px);font-weight:900;color:${TEXT};
-          margin:0 0 18px;text-transform:uppercase;letter-spacing:-0.015em;">
-        ${esc(heading)}
-      </h2>
-      ${body ? `<p data-editable="text" data-reveal-child data-reveal-delay="120"
-        style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-          font-size:17px;color:${alpha(TEXT,"88")};max-width:600px;
-          margin:0 auto;line-height:1.65;">
-        ${esc(body)}
-      </p>` : ""}
-    </div>` : ""}
-    <div>${steps}</div>
-  </div>
-</section>`;
-}
-
-function renderFooter(bp: SiteBlueprint, idx: number, src?: Section): string {
-  const c       = bp.theme.colors;
-  const TEXT    = hex(c.textPrimary);
-  const BG      = hex(c.background, "#0a0a0a");
-  const SURF    = lighten(c.secondary || c.background, 10);
-  const PRI     = hex(c.primary,    "#ff4d00");
-  const ACC     = hex(c.accent || c.primary, PRI);
-  const nav     = bp.navigation?.items ?? [];
-  const fc      = bp.copy?.footer;
-  const copyright = fc?.copyright || `© ${new Date().getFullYear()} ${bp.niche.toUpperCase()}. All Rights Reserved.`;
-  const tagline   = fc?.tagline || "";
-  const brand     = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
-  const bgImg     = src ? getHeroImage(src) : "";
-  const sections  = bp.pages[0]?.sections ?? [];
-
-  const links = nav.map((n) =>
-    `<a href="${navAnchor(n.path, n.label, sections)}" data-editable="link"
-      style="color:${alpha(TEXT,"88")};text-decoration:none;font-size:13px;
-        letter-spacing:0.06em;transition:color .2s ease;white-space:nowrap;">
-      ${esc(n.label)}
+  const navLinks = pages.map(pg =>
+    `<a href="#" onclick="navigate('${pg.id}');return false;" data-editable="link"
+      style="color:${alpha(TEXT,"77")};font-size:13.5px;transition:color .2s ease;display:block;padding:4px 0;">
+      ${esc(pg.label)}
     </a>`
   ).join("");
 
-  const quickLinks = [
-    { label: "Home",     href: "#hero" },
-    { label: "Products", href: "#products" },
-    { label: "About",    href: "#story" },
-    { label: "Contact",  href: "#cta" },
-  ];
-
   return `
-<footer id="contact" data-editable="section" data-section-index="${idx}" data-section-name="Footer"
-  style="padding:90px 28px 44px;background:${SURF};
-    border-top:1px solid ${alpha(PRI,"33")};position:relative;overflow:hidden;">
-  ${bgImg ? `<img src="${esc(bgImg)}" alt="" data-editable="image"
-    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-      opacity:0.07;pointer-events:none;"/>` : ""}
-  <!-- top accent line -->
-  <div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:1px;
+<footer data-editable="section"
+  style="padding:90px 28px 44px;background:${SURF};border-top:1px solid ${alpha(PRI,"33")};position:relative;overflow:hidden;">
+  <div style="position:absolute;top:0;left:0;right:0;height:1px;
     background:linear-gradient(90deg,transparent 0%,${PRI} 40%,${ACC} 60%,transparent 100%);"></div>
   ${blobs(PRI, ACC)}
   <div style="max-width:1280px;margin:0 auto;position:relative;">
-    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:48px;margin-bottom:56px;">
-      <!-- brand column -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:48px;margin-bottom:56px;" class="grid-3">
       <div>
-        <div data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.headingFont)};
-            font-size:24px;font-weight:900;color:${TEXT};
-            text-transform:uppercase;letter-spacing:-0.015em;margin-bottom:16px;">
-          ${esc(brand)}
-        </div>
-        <p data-editable="text"
-          style="font-family:${fontStack(bp.theme.typography.bodyFont)};
-            font-size:14px;line-height:1.65;color:${alpha(TEXT,"88")};
-            margin:0 0 14px;max-width:300px;">
-          ${esc(clean(bp.copy?.hero?.subheadline))}
-        </p>
-        ${tagline ? `<p data-editable="text"
-          style="font-size:12px;font-style:italic;color:${alpha(TEXT,"55")};margin:0;">
-          ${esc(tagline)}
-        </p>` : ""}
+        <div data-editable="text" style="font-family:${fonts(hf)};font-size:22px;font-weight:900;color:${TEXT};text-transform:uppercase;letter-spacing:-.01em;margin-bottom:14px;">${esc(brand)}</div>
+        ${sub ? `<p data-editable="text" style="font-family:${fonts(bf)};font-size:14px;line-height:1.65;color:${alpha(TEXT,"88")};margin:0 0 10px;max-width:300px;">${esc(sub)}</p>` : ""}
+        ${tag ? `<p data-editable="text" style="font-size:12px;font-style:italic;color:${alpha(TEXT,"55")};margin:0;">${esc(tag)}</p>` : ""}
       </div>
-      <!-- nav links column -->
       <div>
-        <h4 style="font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:11px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;
-          color:${ACC};margin:0 0 20px;">
-          Navigate
-        </h4>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          ${links || quickLinks.map(l =>
-            `<a href="${l.href}" data-editable="link"
-              style="color:${alpha(TEXT,"88")};text-decoration:none;font-size:13.5px;
-                transition:color .2s ease;">
-              ${l.label}
-            </a>`
-          ).join("")}
-        </div>
+        <h4 style="font-family:${fonts(hf)};font-size:10px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:${ACC};margin:0 0 20px;">Navigate</h4>
+        ${navLinks}
       </div>
-      <!-- contact column -->
       <div>
-        <h4 style="font-family:${fontStack(bp.theme.typography.headingFont)};
-          font-size:11px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;
-          color:${ACC};margin:0 0 20px;">
-          Connect
-        </h4>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <a href="#cta" data-editable="link"
-            style="color:${alpha(TEXT,"88")};text-decoration:none;font-size:13.5px;">
-            Get In Touch
-          </a>
-          <a href="#products" data-editable="link"
-            style="color:${alpha(TEXT,"88")};text-decoration:none;font-size:13.5px;">
-            Shop Now
-          </a>
-          <a href="#story" data-editable="link"
-            style="color:${alpha(TEXT,"88")};text-decoration:none;font-size:13.5px;">
-            Our Story
-          </a>
-        </div>
+        <h4 style="font-family:${fonts(hf)};font-size:10px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:${ACC};margin:0 0 20px;">Connect</h4>
+        <a href="#" onclick="navigate('contact');return false;" style="color:${alpha(TEXT,"77")};font-size:13.5px;display:block;padding:4px 0;transition:color .2s ease;">Get In Touch</a>
+        <a href="#" onclick="navigate('products');return false;" style="color:${alpha(TEXT,"77")};font-size:13.5px;display:block;padding:4px 0;transition:color .2s ease;">Shop Now</a>
+        <a href="#" onclick="navigate('about');return false;" style="color:${alpha(TEXT,"77")};font-size:13.5px;display:block;padding:4px 0;transition:color .2s ease;">Our Story</a>
       </div>
     </div>
-    <div style="padding-top:32px;border-top:1px solid ${alpha(TEXT,"14")};
-      display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;
-      font-size:12px;color:${alpha(TEXT,"55")};">
-      <span data-editable="text">${esc(copyright)}</span>
-      <span data-editable="text">Powered by <strong style="color:${PRI};">Storebuilder.ph</strong></span>
+    <div style="padding-top:28px;border-top:1px solid ${alpha(TEXT,"12")};display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;font-size:12px;color:${alpha(TEXT,"50")};">
+      <span data-editable="text">${esc(copy)}</span>
+      <span>Powered by <strong style="color:${PRI};">Storebuilder.ph</strong></span>
     </div>
   </div>
 </footer>`;
 }
 
-// ── Section dispatcher ────────────────────────────────────────────────────────
+// ─── Router + interactions script ───────────────────────────────
 
-function renderSection(s: Section, bp: SiteBlueprint, idx: number): string {
-  if (isFooter(s))  return "";
-  if (isHero(s))    return renderHero(s, bp, idx);
-  if (isMarquee(s)) return renderMarquee(s, bp, idx);
-  if (isSplit(s))   return renderSplit(s, bp, idx);
-  if (hasItems(s)) {
-    if (isTimeline(s)) return renderTimeline(s, bp, idx);
-    return renderProductGrid(s, bp, idx);
-  }
-  if (isCta(s))     return renderCta(s, bp, idx);
-  return renderFeatureBand(s, bp, idx);
-}
-
-// ── Canvas particle script ────────────────────────────────────────────────────
-// Lightweight floating connected-dot particle field rendered in hero canvas.
-
-function particleScript(primary: string): string {
-  const col = primary.replace("#", "");
-  return `
-<script>
+function routerScript(BG: string, PRI: string): string {
+  return `<script>
 (function(){
-  var c = document.getElementById('sb-particles');
-  if (!c) return;
-  var ctx = c.getContext('2d');
-  var W, H, pts;
-  var PRI = '#${col}';
+  var currentPage = 'home';
 
-  function resize(){
-    W = c.width  = c.offsetWidth;
-    H = c.height = c.offsetHeight;
-    init();
-  }
+  window.navigate = function(id) {
+    if (id === currentPage) return;
+    var old = document.getElementById('page-' + currentPage);
+    var next = document.getElementById('page-' + id);
+    if (!next) return;
+    if (old) {
+      old.style.opacity = '0';
+      setTimeout(function(){ old.classList.remove('page-active'); old.style.display='none'; }, 380);
+    }
+    next.style.display = 'block';
+    setTimeout(function(){
+      next.style.opacity = '1';
+      next.classList.add('page-active');
+    }, 10);
+    currentPage = id;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  function rand(a, b){ return a + Math.random() * (b - a); }
+    // Update nav active state
+    document.querySelectorAll('[data-nav-page]').forEach(function(a) {
+      a.classList.toggle('nav-active', a.getAttribute('data-nav-page') === id);
+    });
 
-  function init(){
-    var n = Math.min(90, Math.floor(W * H / 12000));
-    pts = [];
-    for (var i = 0; i < n; i++){
-      pts.push({
-        x: rand(0, W), y: rand(0, H),
-        vx: rand(-0.28, 0.28), vy: rand(-0.28, 0.28),
-        r: rand(1.5, 3)
+    // Re-run reveal for new page
+    setTimeout(function() { runReveal(); }, 200);
+  };
+
+  // Reveal-on-scroll
+  function runReveal() {
+    if (!('IntersectionObserver' in window)) {
+      document.querySelectorAll('[data-rc]').forEach(function(el){ el.classList.add('vis'); });
+      return;
+    }
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (!e.isIntersecting) return;
+        var el = e.target;
+        el.classList.add('vis');
+        el.querySelectorAll('[data-rc]').forEach(function(ch) {
+          var d = parseInt(ch.getAttribute('data-reveal-delay') || '0', 10);
+          setTimeout(function(){ ch.classList.add('vis'); }, d);
+        });
+        io.unobserve(el);
       });
-    }
+    }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+    document.querySelectorAll('.page-active [data-reveal]').forEach(function(el){ io.observe(el); });
   }
 
-  function draw(){
-    ctx.clearRect(0, 0, W, H);
-    for (var i = 0; i < pts.length; i++){
-      var p = pts[i];
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.fill();
-      for (var j = i + 1; j < pts.length; j++){
-        var q = pts[j];
-        var dx = p.x - q.x, dy = p.y - q.y;
-        var d = Math.sqrt(dx*dx + dy*dy);
-        if (d < 120){
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(q.x, q.y);
-          ctx.strokeStyle = 'rgba(255,255,255,' + (0.14 * (1 - d/120)).toFixed(3) + ')';
-          ctx.lineWidth = 0.8;
-          ctx.stroke();
-        }
-      }
-    }
-    requestAnimationFrame(draw);
+  // Parallax
+  var pEls = [];
+  function onScroll() {
+    if (!pEls.length) return;
+    var sy = window.scrollY;
+    pEls.forEach(function(el) {
+      var r = el.getBoundingClientRect();
+      var off = window.innerHeight/2 - (r.top + r.height/2);
+      var str = parseFloat(el.getAttribute('data-parallax') || '.2');
+      el.style.transform = 'translate3d(0,' + (off * str * -1).toFixed(1) + 'px,0)';
+    });
   }
+  window.addEventListener('scroll', function() {
+    pEls = Array.from(document.querySelectorAll('.page-active [data-parallax]'));
+    onScroll();
+  }, { passive: true });
 
-  window.addEventListener('resize', resize);
-  resize();
-  draw();
+  // Nav shrink
+  var nav = document.getElementById('sb-nav');
+  window.addEventListener('scroll', function() {
+    if (nav) nav.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  // Contact form
+  window.handleContactForm = function(e) {
+    e.preventDefault();
+    var success = document.getElementById('form-success');
+    if (success) { success.style.display = 'block'; }
+    e.target.querySelectorAll('input,textarea').forEach(function(f){ f.value=''; });
+    setTimeout(function(){ if(success) success.style.display='none'; }, 5000);
+  };
+
+  // Product filter
+  window.filterCards = function(tag, btn) {
+    document.querySelectorAll('[data-filter]').forEach(function(b) {
+      var active = b.getAttribute('data-filter') === tag;
+      b.style.background = active ? '${PRI}' : 'transparent';
+      b.style.color      = active ? '${BG}' : '';
+      b.style.borderColor = active ? '${PRI}' : '';
+    });
+    document.querySelectorAll('#product-grid article').forEach(function(card) {
+      var t = card.getAttribute('data-tag') || '';
+      card.style.display = (tag === 'all' || t === tag) ? '' : 'none';
+    });
+  };
+
+  // Initial reveal
+  runReveal();
 })();
 </script>`;
 }
 
-// ── Top-level renderer ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// TOP-LEVEL RENDERER
+// ═══════════════════════════════════════════════════════════════════
 
 export function renderBlueprintToHtml(bp: SiteBlueprint): string {
   const c    = bp.theme.colors;
   const TEXT = hex(c.textPrimary);
   const BG   = hex(c.background, "#0a0a0a");
-  const PRI  = hex(c.primary,    "#ff4d00");
+  const PRI  = hex(c.primary, "#ff4d00");
   const ACC  = hex(c.accent || c.primary, PRI);
+  const hf   = bp.theme.typography.headingFont;
+  const bf   = bp.theme.typography.bodyFont;
 
   const page: Page | undefined = bp.pages[0];
-  if (!page) return "<!doctype html><html><body><p>Empty blueprint.</p></body></html>";
+  if (!page) return `<!doctype html><html><body style="background:${BG};color:${TEXT};font-family:sans-serif;padding:40px;"><p>Empty blueprint.</p></body></html>`;
 
-  const sections  = page.sections;
-  const nav       = bp.navigation?.items ?? [];
-  const brand     = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
-  const title     = page.meta?.title || brand;
-  const desc      = page.meta?.description || clean(bp.copy?.hero?.subheadline) || "";
-
-  // Nav links — map every item to the correct in-page anchor
-  const navLinks = nav.slice(0, 6)
-    .filter((n) => !n.isCta)
-    .map((n) =>
-      `<a href="${navAnchor(n.path, n.label, sections)}" data-editable="link"
-        style="color:${alpha(TEXT,"cc")};text-decoration:none;font-size:12px;
-          letter-spacing:0.22em;text-transform:uppercase;font-weight:600;
-          transition:color .25s ease,opacity .25s ease;white-space:nowrap;">
-        ${esc(n.label)}
-      </a>`
-    ).join("");
-
-  const ctaItem = nav.find((n) => n.isCta);
-  const ctaHtml = ctaItem
-    ? `<a href="${navAnchor(ctaItem.path, ctaItem.label, sections)}" data-editable="button"
-        style="padding:10px 24px;background:${PRI};color:${BG};
-          font-size:11.5px;letter-spacing:0.2em;text-transform:uppercase;
-          text-decoration:none;font-weight:700;border-radius:99px;
-          box-shadow:0 6px 24px ${alpha(PRI,"55")};transition:all .25s ease;
-          white-space:nowrap;">
-        ${esc(ctaItem.label)}
-      </a>`
-    : "";
-
-  const sectionsHtml = sections
-    .map((s, i) => renderSection(s, bp, i))
-    .filter(Boolean)
-    .join("\n");
-
-  const footerSection = sections.find(isFooter);
-  const footerHtml    = renderFooter(bp, sections.length, footerSection);
+  const pages    = detectPages(bp);
+  const brand    = bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
+  const title    = page.meta?.title || brand;
+  const desc     = page.meta?.description || clean(bp.copy?.hero?.subheadline) || "";
 
   return `<!doctype html>
 <html lang="en">
@@ -958,172 +1112,22 @@ export function renderBlueprintToHtml(bp: SiteBlueprint): string {
 <meta name="description" content="${esc(desc)}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(bp.theme.typography.headingFont)}:wght@400;600;700;800;900&family=${encodeURIComponent(bp.theme.typography.bodyFont)}:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(hf)}:wght@400;600;700;800;900&family=${encodeURIComponent(bf)}:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
-*,*::before,*::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin:0; padding:0; background:${BG}; color:${TEXT};
-  font-family:${fontStack(bp.theme.typography.bodyFont)};
-  -webkit-font-smoothing:antialiased; overflow-x:hidden; }
-img { max-width:100%; display:block; }
-a { color: inherit; }
-
-/* ── Button interactions ── */
-a[data-editable="button"]:hover { transform:translateY(-2px); filter:brightness(1.08); }
-a[data-editable="link"]:hover   { color:${PRI} !important; }
-
-/* ── Card 3D hover ── */
-article[data-tilt]:hover {
-  transform: perspective(800px) rotateX(3deg) rotateY(-3deg) translateY(-8px) !important;
-  border-color: ${alpha(PRI,"66")} !important;
-  box-shadow: 0 36px 80px ${alpha(BG,"cc")}, 0 0 0 1px ${alpha(PRI,"22")} !important;
-}
-article[data-tilt]:hover img { transform: scale(1.07); }
-
-/* ── Reveal-on-scroll ── */
-[data-reveal] [data-reveal-child],
-[data-reveal-child] {
-  opacity: 0;
-  transform: translateY(44px);
-  transition: opacity .95s cubic-bezier(0.16,1,0.3,1),
-              transform .95s cubic-bezier(0.16,1,0.3,1);
-}
-[data-reveal].is-visible [data-reveal-child],
-[data-reveal-child].is-visible { opacity:1; transform:translateY(0); }
-[data-reveal="hero"] [data-reveal-child] { transform:translateY(68px); }
-[data-reveal="hero"].is-visible [data-reveal-child] { transform:translateY(0); }
-
-/* ── Responsive ── */
-@media (max-width: 900px) {
-  div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; gap:40px !important; }
-  div[style*="grid-template-columns:1.4fr"] { grid-template-columns: 1fr !important; gap:32px !important; }
-  div[style*="min-height:88vh"] > div { grid-template-columns: 1fr !important; min-height:auto !important; }
-  div[style*="min-height:88vh"] > div > div:first-child { height:56vw !important; position:relative !important; }
-  nav > div { gap:12px !important; }
-  nav a:not([data-editable="button"]) { display:none; }
-  nav a[data-editable="button"] { display:inline-block !important; }
-}
-
-/* ── Reduced motion ── */
-@media (prefers-reduced-motion:reduce) {
-  [data-reveal] [data-reveal-child],[data-reveal-child]
-    { opacity:1 !important; transform:none !important; transition:none !important; }
-  [data-marquee],[data-parallax],canvas { animation:none !important; transform:none !important; }
-}
-
-/* ── Keyframes ── */
-@keyframes sb-marquee  { from{transform:translateX(0)} to{transform:translateX(-33.333%)} }
-@keyframes sb-bob      { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(9px)} }
-@keyframes sb-blob-a   { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(40px,-30px) scale(1.12)} }
-@keyframes sb-blob-b   { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(-30px,20px) scale(0.92)} }
-@keyframes sb-fade-in  { from{opacity:0} to{opacity:1} }
-@keyframes sb-nav-in   { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
-
-nav { animation: sb-nav-in .7s cubic-bezier(0.16,1,0.3,1) both; }
-
-/* ── Nav scroll-shrink ── */
-nav.scrolled {
-  padding: 12px 28px !important;
-  background: ${alpha(BG,"ee")} !important;
-  border-bottom-color: ${alpha(PRI,"44")} !important;
-}
+${sharedCss(TEXT, BG, PRI, ACC, hf, bf)}
 </style>
 </head>
 <body>
-
-<!-- ═══ NAV ═══ -->
-<nav id="sb-nav"
-  style="position:fixed;top:0;left:0;right:0;z-index:100;
-    display:flex;align-items:center;justify-content:space-between;
-    padding:20px 32px;
-    background:${alpha(BG,"bb")};
-    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-    border-bottom:1px solid ${alpha(TEXT,"0e")};
-    transition:padding .3s ease,background .3s ease,border-color .3s ease;">
-  <a href="#hero" data-editable="link"
-    style="font-family:${fontStack(bp.theme.typography.headingFont)};
-      font-size:15px;font-weight:900;letter-spacing:0.12em;
-      text-transform:uppercase;color:${TEXT};text-decoration:none;
-      transition:color .25s ease;">
-    ${esc(brand)}
-  </a>
-  <div style="display:flex;align-items:center;gap:30px;flex-wrap:nowrap;">
-    ${navLinks}
-    ${ctaHtml}
-  </div>
-</nav>
-
+${renderNav(bp, pages)}
 <main style="padding-top:0;">
-${sectionsHtml}
-${footerHtml}
+${renderHomePage(bp)}
+${renderProductsPage(bp)}
+${renderAboutPage(bp)}
+${renderContactPage(bp)}
+${renderFooter(bp, pages)}
 </main>
-
 ${particleScript(PRI)}
-
-<script>
-(function(){
-  /* ── scroll-reveal ── */
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        if (!e.isIntersecting) return;
-        var el = e.target;
-        el.classList.add('is-visible');
-        el.querySelectorAll('[data-reveal-child]').forEach(function(ch){
-          var d = parseInt(ch.getAttribute('data-reveal-delay') || '0', 10);
-          setTimeout(function(){ ch.classList.add('is-visible'); }, d);
-        });
-        io.unobserve(el);
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -72px 0px' });
-    document.querySelectorAll('[data-reveal]').forEach(function(el){ io.observe(el); });
-  } else {
-    document.querySelectorAll('[data-reveal],[data-reveal-child]')
-      .forEach(function(el){ el.classList.add('is-visible'); });
-  }
-
-  /* ── parallax ── */
-  var pEls = document.querySelectorAll('[data-parallax]');
-  if (pEls.length && !window.matchMedia('(prefers-reduced-motion:reduce)').matches) {
-    var tick = false;
-    function onScroll(){
-      if (tick) return; tick = true;
-      requestAnimationFrame(function(){
-        pEls.forEach(function(el){
-          var r = el.getBoundingClientRect();
-          var off = (window.innerHeight/2 - (r.top + r.height/2));
-          var str = parseFloat(el.getAttribute('data-parallax') || '0.2');
-          el.style.transform = 'translate3d(0,' + (off * str * -1).toFixed(1) + 'px,0)';
-        });
-        tick = false;
-      });
-    }
-    window.addEventListener('scroll', onScroll, {passive:true});
-    onScroll();
-  }
-
-  /* ── nav shrink on scroll ── */
-  var nav = document.getElementById('sb-nav');
-  if (nav) {
-    window.addEventListener('scroll', function(){
-      if (window.scrollY > 60) nav.classList.add('scrolled');
-      else nav.classList.remove('scrolled');
-    }, {passive:true});
-  }
-
-  /* ── smooth anchor scroll ── */
-  document.querySelectorAll('a[href^="#"]').forEach(function(a){
-    a.addEventListener('click', function(e){
-      var id = a.getAttribute('href').slice(1);
-      var target = document.getElementById(id);
-      if (target) {
-        e.preventDefault();
-        target.scrollIntoView({behavior:'smooth', block:'start'});
-      }
-    });
-  });
-})();
-</script>
+${routerScript(BG, PRI)}
 </body>
 </html>`;
 }
