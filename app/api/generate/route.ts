@@ -76,21 +76,19 @@ export async function POST(req: NextRequest) {
     const generatorResult = generateSite(prompt, session.user.id);
     const blueprint = generatorResult.blueprint;
 
-    // ── Render blueprint to editor-compatible HTML ─────────────────────────────
-    const htmlContent = renderBlueprintToHtml(blueprint);
-
-    // Preserve the user's explicit brand name. Priority:
-    //   1. businessName form field (if dashboard ever adds one)
-    //   2. siteSpec.siteName
-    //   3. Brand name extracted from the prompt (e.g. "Best Basketball Item's")
-    //   4. Niche fallback ("basketball")
+    // Resolve the brand/site name first — the renderer needs it so the HTML
+    // bakes in the correct name from the very first generation.
     const extractedBrand = extractBrandName(prompt);
     const siteName =
       businessName ||
       (siteSpec as { siteName?: string })?.siteName ||
       extractedBrand ||
+      blueprint.brandName ||
       blueprint.niche ||
       "Website";
+
+    // ── Render blueprint to editor-compatible HTML ─────────────────────────────
+    const htmlContent = renderBlueprintToHtml(blueprint, siteName);
 
     const industry = (siteSpec as { industry?: string })?.industry || blueprint.niche || "";
     const websiteType =

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { renderBlueprintToHtml } from "@/lib/ultra-premium/render/htmlRenderer";
+import type { SiteBlueprint } from "@/lib/ultra-premium/types/SiteBlueprint";
 
 // All operations use raw SQL to avoid type-mismatch errors with a stale
 // Prisma client (e.g., when the deployed client predates schema changes).
@@ -27,6 +29,25 @@ export async function GET(
     if (!website) {
       return NextResponse.json({ error: "Website not found" }, { status: 404 });
     }
+
+    // Lazy re-render: old websites were generated before the brandName fix.
+    // Detect them by checking if the stored blueprint lacks an explicit brandName.
+    // On first load, re-render with the correct website.name and update the DB so
+    // subsequent loads are fast (no re-render needed).
+    try {
+      const json = website.jsonContent as Record<string, unknown> | null;
+      const blueprint = json?.blueprint as SiteBlueprint | undefined;
+      if (blueprint && website.name && !blueprint.brandName) {
+        const freshHtml = renderBlueprintToHtml(blueprint, website.name);
+        website.htmlContent = freshHtml;
+        // Persist in background — don't block the response
+        prisma.$executeRawUnsafe(
+          `UPDATE "Website" SET "htmlContent" = $1, "updatedAt" = NOW() WHERE id = $2`,
+          freshHtml,
+          website.id
+        ).catch(() => {});
+      }
+    } catch { /* never fail a GET because of lazy re-render */ }
 
     return NextResponse.json({ website });
   } catch (err: any) {

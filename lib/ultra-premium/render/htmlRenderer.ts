@@ -64,27 +64,71 @@ function clean(s?: string | null): string {
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
 
-/** Niche → Unsplash keyword mapping for context-relevant real photography. */
+/** Niche → LoremFlickr keyword mapping for context-relevant real photography. */
 const NICHE_IMG_KW: Record<string, string> = {
-  basketball: "basketball,nba,sports,shoes",
+  basketball: "basketball,nba,sports",
   barber:     "barbershop,haircut,grooming,men",
   barbershop: "barbershop,haircut,grooming,men",
-  salon:      "beauty,salon,hair,luxury",
-  restaurant: "restaurant,food,dining,gourmet",
-  food:       "food,gourmet,culinary,plate",
-  coffee:     "coffee,cafe,espresso,barista",
-  fashion:    "fashion,clothing,runway,luxury",
-  fitness:    "fitness,gym,workout,athlete",
-  watchmaking:"watch,luxury,timepiece,horology",
-  jewelry:    "jewelry,luxury,gems,accessories",
-  portfolio:  "design,creative,architecture,studio",
-  creative:   "art,creative,studio,design",
-  cybersecurity:"technology,cybersecurity,code,servers",
-  saas:       "technology,software,app,digital",
+  salon:      "beauty,salon,hair",
+  restaurant: "restaurant,food,gourmet",
+  food:       "food,gourmet,culinary",
+  coffee:     "coffee,cafe,espresso",
+  fashion:    "fashion,clothing,runway",
+  fitness:    "fitness,gym,workout",
+  watchmaking:"watch,luxury,timepiece",
+  jewelry:    "jewelry,luxury,gems",
+  portfolio:  "design,creative,architecture",
+  creative:   "art,creative,studio",
+  cybersecurity:"technology,cybersecurity,code",
+  saas:       "technology,software,app",
   security:   "security,professional,protection",
-  store:      "retail,shopping,products,boutique",
-  ecommerce:  "ecommerce,products,shopping,storefront",
+  store:      "retail,shopping,products",
+  ecommerce:  "ecommerce,products,shopping",
 };
+
+/**
+ * Derive item-type-specific LoremFlickr keywords from item name + niche so every
+ * product card shows a contextually relevant photo, not just the generic niche image.
+ */
+function itemKeyword(itemName: string, niche: string): string {
+  const n = (itemName || "").toLowerCase();
+  switch (niche.toLowerCase()) {
+    case "basketball":
+      if (/shoe|sneaker|air\s*jordan|curry\s*flow|lebron|kobe|kd\b|tatum|luka|giannis|zoom/i.test(n))
+        return "basketball,sneakers,shoes,nike";
+      if (/jersey|swingman|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|uniform|authentic/i.test(n))
+        return "basketball,nba,jersey,uniform";
+      if (/short|pant/i.test(n))  return "basketball,shorts,athletic";
+      if (/\bball\b/i.test(n))    return "basketball,ball,court";
+      return "basketball,nba,sports";
+    case "food":
+    case "restaurant":
+      if (/coffee|espresso|latte|cappuccino/i.test(n)) return "coffee,cafe,barista";
+      if (/steak|beef|burger/i.test(n))  return "gourmet,steak,restaurant";
+      if (/seafood|fish|sushi/i.test(n)) return "seafood,gourmet,plate";
+      if (/pasta|pizza|italian/i.test(n)) return "pasta,gourmet,food";
+      if (/cake|dessert|pastry|bakery/i.test(n)) return "dessert,bakery,pastry";
+      return "restaurant,food,gourmet";
+    case "barber":
+    case "barbershop":
+      return "barbershop,haircut,grooming,men";
+    case "salon":
+    case "beauty":
+      if (/nail/i.test(n))        return "nails,manicure,beauty";
+      if (/skin|facial/i.test(n)) return "skincare,beauty,spa";
+      return "hair,salon,beauty";
+    case "watchmaking":
+      if (/sport|dive|pilot|chrono/i.test(n)) return "watch,sports,mechanical";
+      return "watch,luxury,timepiece,horology";
+    case "fashion":
+      if (/dress|gown/i.test(n))         return "fashion,dress,luxury,runway";
+      if (/jacket|coat|blazer/i.test(n)) return "fashion,jacket,menswear";
+      if (/shoe|heel|boot/i.test(n))     return "fashion,shoes,luxury";
+      return "fashion,clothing,runway,luxury";
+    default:
+      return NICHE_IMG_KW[niche.toLowerCase()] || niche.replace(/\s+/g, ",");
+  }
+}
 
 /**
  * Returns a niche-specific real photograph.
@@ -164,7 +208,17 @@ function extractUrl(obj: Record<string, any>): string {
 function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
   const found = extractUrl(item);
   if (found) return found;
-  return nicheImageUrl(bp.niche, bpSeed(bp) + idx * 137, 800, 800);
+  const name = String(item.title || item.name || "");
+  const kw = itemKeyword(name, bp.niche);
+  // Hash the item name + position for a stable, unique lock per product.
+  // Multiplying idx by a large prime spreads values far apart so LoremFlickr
+  // doesn't return the same photo from its pool for nearby lock values.
+  const hash = name.split("").reduce(
+    (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
+    (idx + 1) * 7919
+  );
+  const lock = Math.abs(hash) % 9_999_997;
+  return `https://loremflickr.com/800/800/${encodeURIComponent(kw)}?lock=${lock}`;
 }
 
 function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, _hint = ""): string {
@@ -1176,22 +1230,29 @@ function routerScript(BG: string, PRI: string): string {
 // TOP-LEVEL RENDERER
 // ═══════════════════════════════════════════════════════════════════
 
-export function renderBlueprintToHtml(bp: SiteBlueprint): string {
-  const c    = bp.theme.colors;
+export function renderBlueprintToHtml(bp: SiteBlueprint, overrideBrandName?: string): string {
+  // Inject correct brand name into blueprint so every sub-renderer reads it
+  // without needing to parse copyright/prompt text. Handles both old blueprints
+  // (no brandName field) and new ones where an external override is provided.
+  const bpR: SiteBlueprint = overrideBrandName
+    ? { ...bp, brandName: overrideBrandName }
+    : bp;
+
+  const c    = bpR.theme.colors;
   const TEXT = hex(c.textPrimary);
   const BG   = hex(c.background, "#0a0a0a");
   const PRI  = hex(c.primary, "#ff4d00");
   const ACC  = hex(c.accent || c.primary, PRI);
-  const hf   = bp.theme.typography.headingFont;
-  const bf   = bp.theme.typography.bodyFont;
+  const hf   = bpR.theme.typography.headingFont;
+  const bf   = bpR.theme.typography.bodyFont;
 
-  const page: Page | undefined = bp.pages[0];
+  const page: Page | undefined = bpR.pages[0];
   if (!page) return `<!doctype html><html><body style="background:${BG};color:${TEXT};font-family:sans-serif;padding:40px;"><p>Empty blueprint.</p></body></html>`;
 
-  const pages    = detectPages(bp);
-  const brand    = brandFromBlueprint(bp) || bp.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bp.niche.toUpperCase();
-  const title    = brand || page.meta?.title || bp.niche;
-  const desc     = page.meta?.description || clean(bp.copy?.hero?.subheadline) || "";
+  const pages    = detectPages(bpR);
+  const brand    = brandFromBlueprint(bpR) || bpR.copy?.hero?.headline?.split(/[,\-—]/)[0]?.trim() || bpR.niche.toUpperCase();
+  const title    = brand || page.meta?.title || bpR.niche;
+  const desc     = page.meta?.description || clean(bpR.copy?.hero?.subheadline) || "";
 
   return `<!doctype html>
 <html lang="en">
@@ -1208,13 +1269,13 @@ ${sharedCss(TEXT, BG, PRI, ACC, hf, bf)}
 </style>
 </head>
 <body>
-${renderNav(bp, pages)}
+${renderNav(bpR, pages)}
 <main style="padding-top:0;">
-${renderHomePage(bp)}
-${renderProductsPage(bp)}
-${renderAboutPage(bp)}
-${renderContactPage(bp)}
-${renderFooter(bp, pages)}
+${renderHomePage(bpR)}
+${renderProductsPage(bpR)}
+${renderAboutPage(bpR)}
+${renderContactPage(bpR)}
+${renderFooter(bpR, pages)}
 </main>
 ${particleScript(PRI, isLight(BG))}
 ${routerScript(BG, PRI)}
