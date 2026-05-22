@@ -414,6 +414,74 @@ const SALON: NichePreset = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BARBERSHOP PRESET (distinct from SALON — masculine, service-driven)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BARBER: NichePreset = {
+  key: "barber",
+  brandFormat: (hint) => hint || "Heritage Barbershop",
+  hero: (brand, _hint) => ({
+    headline: "Sharp Cuts. Classic Service.",
+    subheadline: `${brand} is a traditional barbershop crafted for the modern gentleman — straight-razor shaves, precision fades, and a hot towel finish on every chair.`,
+    badge: "MASTER BARBERS · WALK-IN OR APPOINTMENT",
+    ctaPrimary: "BOOK A CHAIR",
+    ctaSecondary: "OUR SERVICES",
+  }),
+  sectionHeadings: {
+    showcase: ["Our Services", "The Chair Menu", "Signature Cuts"],
+    content: ["Crafted on Every Chair", "From Apprentice to Master"],
+    conversion: ["Book Your Cut", "Reserve Your Chair"],
+    interactive: ["Style Gallery", "The Cut Sheet"],
+    footer: ["The Shop"],
+  },
+  bodyTemplates: [
+    "Straight-razor shaves, skin fades, and beard sculpting — every cut at {{brand}} is finished with a hot towel and a complimentary scalp massage.",
+    "Walk-in friendly. Appointment preferred. Our master barbers have a combined forty years on the chair and zero shortcuts in the routine.",
+  ],
+  productNames: [
+    "Classic Cut & Style",
+    "Skin Fade",
+    "Hot Towel Straight Shave",
+    "Beard Trim & Line-Up",
+    "Father & Son Cut",
+    "Royal Shave (45 min)",
+    "Buzz Cut & Neck Tidy",
+    "Color Blend / Grey Camouflage",
+  ],
+  imageKeyword:
+    "professional barbershop interior with leather chair classic mirror straight razor warm tungsten lighting masculine atmosphere",
+  theme: {
+    typography: {
+      headingFont: "Oswald",
+      bodyFont: "Inter",
+      accentFont: "Playfair Display",
+      headingScale: [4, 2.75, 2, 1.5],
+      bodySize: "1rem",
+      letterSpacing: "0.02em",
+      lineHeight: 1.65,
+      textTransform: "none",
+    },
+    colors: {
+      primary: "#1E3A5F",
+      secondary: "#1A1A1A",
+      accent: "#C9A961",
+      surface: "#F5F1EA",
+      background: "#0F1419",
+      textPrimary: "#F5F1EA",
+      textSecondary: "#B8AC97",
+      textMuted: "#7A7062",
+      gradients: [
+        { from: "#1E3A5F", to: "#0F1419", angle: 135 },
+        { from: "#C9A961", to: "#1E3A5F", angle: 180 },
+      ],
+    },
+  },
+  priceRange: [350, 1800],
+  currency: "₱",
+  copyrightTagline: "Sharp cuts since day one.",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PORTFOLIO / CREATIVE PRESET
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -622,6 +690,8 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
   restaurant: RESTAURANT,
   salon: SALON,
   beauty: SALON,
+  barber: BARBER,
+  barbershop: BARBER,
   portfolio: PORTFOLIO,
   creative: PORTFOLIO,
   cybersecurity: CYBERSECURITY,
@@ -636,8 +706,9 @@ const NICHE_KEYWORDS: Array<[RegExp, string]> = [
   [/\b(basketball|nba|jersey|sneaker|hoops?|jordan|lakers|bulls|curry|lebron)\b/i, "basketball"],
   [/\b(watch(es|making|maker)?|timepiece|horolog(y|er|ist)|chronograph|tourbillon|geneva|swiss\s*made)\b/i, "watchmaking"],
   [/\b(cyber\w*|security|infosec|saas|threat|defen[cs]e|encryption|firewall|endpoint|pentest|penetration\s*test|soc|siem|edr|xdr|mfa|zero[-\s]?trust)\b/i, "cybersecurity"],
+  [/\b(barber(shop)?|gentleman'?s?\s+(club|cut|grooming)|men'?s?\s+(grooming|cut|haircut)|straight[-\s]?razor)\b/i, "barber"],
   [/\b(restaurant|cafe|caf[eé]|bakery|food|dining|kitchen|menu|chef|bistro|tasting)\b/i, "food"],
-  [/\b(salon|spa|beauty|hair|barber|nail|makeup|skincare|stylist)\b/i, "salon"],
+  [/\b(salon|spa|beauty|hair\s+salon|nail|makeup|skincare|stylist|hair\s+studio)\b/i, "salon"],
   [/\b(portfolio|designer|artist|photographer|creative|illustration|studio)\b/i, "portfolio"],
   [/\b(fashion|apparel|clothing|runway|couture|boutique|garment|tailor)\b/i, "fashion"],
   [/\b(store|shop|e-?commerce|retail|marketplace|brand|product)\b/i, "store"],
@@ -710,4 +781,159 @@ export function buildGlobalBackground(niche: string): BackgroundLayer {
     },
     scrollBehavior: "parallax",
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER THEME OVERRIDES — extracts colors and style hints from the raw prompt
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type StyleHint = "minimal" | "luxury" | "playful" | "tech" | "bold";
+
+export interface ThemeOverrides {
+  colors?: Partial<ColorPalette>;
+  style?: StyleHint;
+}
+
+/** Predefined brand palettes the user can request by name ("like Facebook"). */
+const BRAND_PALETTES: Record<string, Partial<ColorPalette>> = {
+  facebook: { primary: "#1877F2", accent: "#42A5F5", background: "#FFFFFF", surface: "#F0F2F5", secondary: "#E4E6EB", textPrimary: "#050505", textSecondary: "#65676B", textMuted: "#8A8D91" },
+  meta:     { primary: "#1877F2", accent: "#0064E0", background: "#FFFFFF", surface: "#F0F2F5", secondary: "#E4E6EB", textPrimary: "#050505", textSecondary: "#65676B", textMuted: "#8A8D91" },
+  apple:    { primary: "#0071E3", accent: "#1D1D1F", background: "#FFFFFF", surface: "#F5F5F7", secondary: "#FBFBFD", textPrimary: "#1D1D1F", textSecondary: "#515154", textMuted: "#86868B" },
+  netflix:  { primary: "#E50914", accent: "#B81D24", background: "#0A0A0A", surface: "#141414", secondary: "#181818", textPrimary: "#FFFFFF", textSecondary: "#E5E5E5", textMuted: "#999999" },
+  spotify:  { primary: "#1DB954", accent: "#1ED760", background: "#191414", surface: "#212121", secondary: "#282828", textPrimary: "#FFFFFF", textSecondary: "#B3B3B3", textMuted: "#9B9B9B" },
+  twitter:  { primary: "#1DA1F2", accent: "#1A91DA", background: "#FFFFFF", surface: "#F7F9FA", secondary: "#EFF3F4", textPrimary: "#0F1419", textSecondary: "#536471", textMuted: "#71767B" },
+  x:        { primary: "#000000", accent: "#1D9BF0", background: "#FFFFFF", surface: "#F7F9FA", secondary: "#EFF3F4", textPrimary: "#0F1419", textSecondary: "#536471", textMuted: "#71767B" },
+  youtube:  { primary: "#FF0000", accent: "#CC0000", background: "#FFFFFF", surface: "#F9F9F9", secondary: "#F2F2F2", textPrimary: "#0F0F0F", textSecondary: "#606060", textMuted: "#909090" },
+  instagram:{ primary: "#E4405F", accent: "#833AB4", background: "#FFFFFF", surface: "#FAFAFA", secondary: "#F0F0F0", textPrimary: "#262626", textSecondary: "#8E8E8E", textMuted: "#C7C7C7" },
+  airbnb:   { primary: "#FF5A5F", accent: "#FF385C", background: "#FFFFFF", surface: "#F7F7F7", secondary: "#F1F1F1", textPrimary: "#222222", textSecondary: "#717171", textMuted: "#B0B0B0" },
+  google:   { primary: "#4285F4", accent: "#EA4335", background: "#FFFFFF", surface: "#F8F9FA", secondary: "#E8EAED", textPrimary: "#202124", textSecondary: "#5F6368", textMuted: "#80868B" },
+  discord:  { primary: "#5865F2", accent: "#7289DA", background: "#36393F", surface: "#2F3136", secondary: "#202225", textPrimary: "#FFFFFF", textSecondary: "#B9BBBE", textMuted: "#8E9297" },
+  stripe:   { primary: "#635BFF", accent: "#00D4FF", background: "#FFFFFF", surface: "#F6F9FC", secondary: "#EFF5FB", textPrimary: "#0A2540", textSecondary: "#425466", textMuted: "#8898AA" },
+  uber:     { primary: "#000000", accent: "#06C167", background: "#FFFFFF", surface: "#F6F6F6", secondary: "#EEEEEE", textPrimary: "#000000", textSecondary: "#545454", textMuted: "#909090" },
+};
+
+/** Named color → hex map for "white and blue", "navy and gold", etc. */
+const COLOR_NAMES: Record<string, string> = {
+  red: "#DC2626", crimson: "#9F1239", scarlet: "#DC2626",
+  blue: "#2563EB", navy: "#1E3A8A", azure: "#0EA5E9", royal: "#1D4ED8",
+  green: "#16A34A", emerald: "#10B981", forest: "#166534", mint: "#86EFAC",
+  yellow: "#EAB308", amber: "#F59E0B",
+  orange: "#EA580C", coral: "#FB7185",
+  purple: "#9333EA", violet: "#7C3AED", lavender: "#C4B5FD",
+  pink: "#DB2777", rose: "#F43F5E", magenta: "#D946EF",
+  black: "#000000", white: "#FFFFFF",
+  gray: "#6B7280", grey: "#6B7280", silver: "#94A3B8",
+  gold: "#CA8A04", bronze: "#92400E", copper: "#B45309",
+  teal: "#0D9488", cyan: "#0891B2", aqua: "#22D3EE", turquoise: "#14B8A6",
+  indigo: "#4F46E5", brown: "#92400E", tan: "#D4A574",
+  maroon: "#9F1239", burgundy: "#7F1D1D", beige: "#D2B48C", cream: "#FFFDD0",
+  charcoal: "#1F2937", slate: "#475569",
+};
+
+const LIGHT_PALETTE: Partial<ColorPalette> = {
+  background: "#FFFFFF", surface: "#F8FAFC", secondary: "#F1F5F9",
+  textPrimary: "#0F172A", textSecondary: "#475569", textMuted: "#94A3B8",
+};
+const DARK_PALETTE: Partial<ColorPalette> = {
+  background: "#0A0A0A", surface: "#141414", secondary: "#1F1F1F",
+  textPrimary: "#FAFAFA", textSecondary: "#A1A1AA", textMuted: "#71717A",
+};
+
+function isLightColor(hex: string): boolean {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return false;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
+}
+
+/**
+ * Parse the user's prompt for explicit theme requests like
+ *   "white and blue like Facebook"
+ *   "minimalist style"
+ *   "dark mode"
+ *   "navy and gold"
+ */
+export function extractThemeOverrides(prompt: string): ThemeOverrides {
+  const text = prompt.toLowerCase();
+  const overrides: ThemeOverrides = {};
+
+  // Brand palette — highest priority ("like Facebook")
+  for (const [brand, palette] of Object.entries(BRAND_PALETTES)) {
+    const re = new RegExp(`\\b(like|inspired\\s+by|similar\\s+to|same\\s+as)\\s+${brand}\\b|\\b${brand}[-\\s]?(style|colors?|theme|design|palette|inspired|look)\\b|\\b(use|using)\\s+${brand}\\b`, "i");
+    if (re.test(prompt)) {
+      overrides.colors = { ...palette };
+      break;
+    }
+  }
+
+  // Named colors — find all in order of appearance
+  const found: Array<{ name: string; hex: string; idx: number }> = [];
+  for (const [name, hexVal] of Object.entries(COLOR_NAMES)) {
+    const m = text.match(new RegExp(`\\b${name}\\b`));
+    if (m && m.index !== undefined) found.push({ name, hex: hexVal, idx: m.index });
+  }
+  found.sort((a, b) => a.idx - b.idx);
+
+  // Apply explicit color pairs only if user didn't already pick a brand
+  if (!overrides.colors && found.length >= 1) {
+    const has = (n: string) => found.some(c => c.name === n);
+    const others = found.filter(c => c.name !== "white" && c.name !== "black" && c.name !== "cream");
+
+    if (has("white") && others.length) {
+      const accent = others[0].hex;
+      overrides.colors = {
+        ...LIGHT_PALETTE,
+        primary: accent,
+        accent: others[1]?.hex || accent,
+      };
+    } else if (has("black") && others.length) {
+      const accent = others[0].hex;
+      overrides.colors = {
+        ...DARK_PALETTE,
+        primary: accent,
+        accent: others[1]?.hex || accent,
+      };
+    } else if (found.length >= 2) {
+      overrides.colors = {
+        primary: found[0].hex,
+        accent: found[1].hex,
+      };
+    } else if (found.length === 1) {
+      overrides.colors = { primary: found[0].hex, accent: found[0].hex };
+    }
+  }
+
+  // Theme-keyword overrides
+  if (/\b(light|bright|clean|whitish)\s+(theme|background|mode|design|look)\b/i.test(prompt)
+      || /\bwhite\s+(theme|background|mode)\b/i.test(prompt)) {
+    overrides.colors = { ...LIGHT_PALETTE, ...(overrides.colors || {}) };
+  }
+  if (/\b(dark|black|night|moody)\s+(theme|background|mode|design)\b/i.test(prompt)) {
+    overrides.colors = { ...DARK_PALETTE, ...(overrides.colors || {}) };
+  }
+
+  // Style hint
+  if (/\b(minimal(ist|istic)?|clean|simple|understated|airy|whitespace)\b/i.test(prompt))   overrides.style = "minimal";
+  else if (/\b(luxury|premium|elegant|refined|haute|exclusive|opulent)\b/i.test(prompt))    overrides.style = "luxury";
+  else if (/\b(playful|fun|vibrant|colorful|youthful|bouncy)\b/i.test(prompt))              overrides.style = "playful";
+  else if (/\b(bold|aggressive|raw|loud|edgy|punk|street)\b/i.test(prompt))                 overrides.style = "bold";
+  else if (/\b(tech|technical|engineered|precise|industrial|futuristic|cyber)\b/i.test(prompt)) overrides.style = "tech";
+
+  // If style is minimal but no explicit colors picked → assume light theme
+  if (overrides.style === "minimal" && !overrides.colors?.background) {
+    overrides.colors = { ...LIGHT_PALETTE, ...(overrides.colors || {}) };
+  }
+
+  // If colors give a light background but textPrimary still looks dark-mode-y, normalize
+  if (overrides.colors?.background && isLightColor(overrides.colors.background)) {
+    overrides.colors.textPrimary = overrides.colors.textPrimary || LIGHT_PALETTE.textPrimary;
+    overrides.colors.textSecondary = overrides.colors.textSecondary || LIGHT_PALETTE.textSecondary;
+    overrides.colors.textMuted = overrides.colors.textMuted || LIGHT_PALETTE.textMuted;
+    overrides.colors.surface = overrides.colors.surface || LIGHT_PALETTE.surface;
+    overrides.colors.secondary = overrides.colors.secondary || LIGHT_PALETTE.secondary;
+  }
+
+  return overrides;
 }

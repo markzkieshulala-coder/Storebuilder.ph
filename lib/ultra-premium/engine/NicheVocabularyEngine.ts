@@ -343,6 +343,26 @@ export const FASHION_VOCAB: NicheVocabulary = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BARBERSHOP VOCAB
+// ─────────────────────────────────────────────────────────────────────────────
+export const BARBER_VOCAB: NicheVocabulary = {
+  nav: [
+    "THE SHOP", "OUR SERVICES", "THE BARBERS", "BOOK A CHAIR",
+    "GALLERY", "STORE", "GIFT CARDS", "VISIT US",
+  ],
+  buttons: [
+    "BOOK A CHAIR", "RESERVE YOUR CUT", "SEE THE MENU", "VIEW SERVICES",
+    "WALK IN TODAY", "MEET THE BARBERS", "BUY A GIFT CARD",
+    "GET DIRECTIONS", "VIEW STYLES", "CALL THE SHOP",
+  ],
+  labels: ["MASTER BARBER", "STRAIGHT RAZOR", "HOT TOWEL", "SKIN FADE", "TRADITIONAL", "BY APPOINTMENT", "WALK-INS WELCOME", "ESTABLISHED"],
+  verbs: ["TRIM", "FADE", "SHAVE", "STYLE", "CRAFT", "SHARPEN", "RESTORE", "FINISH", "BLEND", "TAPER"],
+  adjectives: ["SHARP", "CLASSIC", "TRADITIONAL", "PRECISE", "CRAFTED", "MASTER-LEVEL", "TIMELESS", "DETAILED", "EXACTING", "REFINED"],
+  footerLinks: ["BOOK ONLINE", "SHOP HOURS", "OUR STORY", "STYLE GALLERY", "GIFT CARDS", "DIRECTIONS"],
+  socialVerbs: ["FOLLOW THE SHOP", "SEE OUR WORK", "JOIN THE LIST", "TAG YOUR CUT"],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STORE / ECOMMERCE VOCAB (default fallback)
 // ─────────────────────────────────────────────────────────────────────────────
 export const STORE_VOCAB: NicheVocabulary = {
@@ -381,6 +401,8 @@ const VOCABULARY_MAP: Record<string, NicheVocabulary> = {
   salon: SALON_VOCAB,
   beauty: SALON_VOCAB,
   spa: SALON_VOCAB,
+  barber: BARBER_VOCAB,
+  barbershop: BARBER_VOCAB,
   portfolio: PORTFOLIO_VOCAB,
   creative: PORTFOLIO_VOCAB,
   designer: PORTFOLIO_VOCAB,

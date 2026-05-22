@@ -15,7 +15,7 @@ import { SiteBlueprint, Page, Section, ComponentConfig, BackgroundLayer, ThreeDP
 import { SiteAssemblyPlan, PageAssembly, assembleSite, resolveSlot, ChoreographerSeed } from "./StructuralChoreographer";
 import { NicheVocabulary, resolveNicheVocabulary, validateNoGenericCopy, BANNED_GENERIC_WORDS } from "./NicheVocabularyEngine";
 import { ComponentRegistryEntry, ComponentVariant, getComponentByName } from "../registry/ComponentRegistry";
-import { detectNiche, getPreset, extractBrandName, buildGlobalBackground, type NichePreset } from "./NichePresets";
+import { detectNiche, getPreset, extractBrandName, buildGlobalBackground, extractThemeOverrides, type NichePreset, type ThemeOverrides } from "./NichePresets";
 import {
   generateUniqueImageURL,
   hydrateComponentAssets,
@@ -37,6 +37,7 @@ interface ParsedPrompt {
   moodKeywords: string[];         // e.g., ["modern", "aggressive", "cinematic"]
   pageCountHint?: number;         // if user implies number of pages
   targetAudience?: string;
+  themeOverrides?: ThemeOverrides; // user-requested colors / style
 }
 
 /**
@@ -77,6 +78,11 @@ function parseUserPrompt(prompt: string): ParsedPrompt {
   else if (/\blanding[-\s]?page\b/i.test(prompt)) pageCountHint = 1;
   else if (/\bmulti[-\s]?page\b/i.test(prompt)) pageCountHint = 4;
 
+  const themeOverrides = extractThemeOverrides(prompt);
+  if (themeOverrides.style && !moodKeywords.includes(themeOverrides.style)) {
+    moodKeywords.unshift(themeOverrides.style);
+  }
+
   return {
     raw: prompt,
     niche,
@@ -84,13 +90,15 @@ function parseUserPrompt(prompt: string): ParsedPrompt {
     moodKeywords,
     pageCountHint,
     targetAudience: undefined,
+    themeOverrides,
   };
 }
 
 // Local lookup helper to avoid importing the whole registry
 function NICHE_PRESETS_HAS(niche: string): boolean {
   return ["basketball", "watchmaking", "fashion", "food", "restaurant", "salon", "beauty",
-          "portfolio", "creative", "cybersecurity", "saas", "security", "store", "ecommerce"].includes(niche);
+          "barber", "barbershop", "portfolio", "creative", "cybersecurity", "saas", "security",
+          "store", "ecommerce"].includes(niche);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -187,13 +195,51 @@ interface GeneratedTheme {
  */
 function generateTheme(parsed: ParsedPrompt): GeneratedTheme {
   const preset = getPreset(parsed.niche);
+  const overrides = parsed.themeOverrides ?? {};
+
+  // Merge user-requested colors on top of preset
+  let colors = { ...preset.theme.colors, ...(overrides.colors ?? {}) };
+
+  // Rebuild gradients if user supplied a new primary/accent (preset gradients use old hexes)
+  if (overrides.colors?.primary || overrides.colors?.accent || overrides.colors?.background) {
+    colors.gradients = [
+      { from: colors.primary, to: colors.accent, angle: 135 },
+      { from: colors.surface || colors.background, to: colors.background, angle: 180 },
+    ];
+  }
+
+  // Style hint adjusts typography character without overriding niche fonts entirely
+  let typography = { ...preset.theme.typography };
+  if (overrides.style === "minimal") {
+    typography = {
+      ...typography,
+      headingFont: "Inter",
+      bodyFont: "Inter",
+      letterSpacing: "-0.015em",
+      lineHeight: 1.6,
+    };
+  } else if (overrides.style === "luxury") {
+    typography = {
+      ...typography,
+      headingFont: typography.headingFont || "Playfair Display",
+      accentFont: "Italiana",
+    };
+  } else if (overrides.style === "tech") {
+    typography = {
+      ...typography,
+      headingFont: "Space Grotesk",
+      bodyFont: "Inter",
+      accentFont: "JetBrains Mono",
+    };
+  }
+
   return {
-    typography: preset.theme.typography,
-    colors: preset.theme.colors,
+    typography,
+    colors,
     spacing: {
       unit: 4,
       scale: ["0.25rem", "0.5rem", "1rem", "2rem", "4rem", "8rem", "16rem"],
-      sectionPadding: "6rem",
+      sectionPadding: overrides.style === "minimal" ? "8rem" : "6rem",
       containerMaxWidth: "1400px",
       gridGap: "1.5rem",
     },

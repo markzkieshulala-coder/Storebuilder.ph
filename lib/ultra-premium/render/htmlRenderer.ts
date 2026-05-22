@@ -34,6 +34,27 @@ function lighten(c?: string, n = 16, fb = "#0d0d0d"): string {
   const ch = (s: string) => Math.min(255, parseInt(s, 16) + n).toString(16).padStart(2, "0");
   return `#${ch(h.slice(1,3))}${ch(h.slice(3,5))}${ch(h.slice(5,7))}`;
 }
+function darken(c?: string, n = 16, fb = "#ffffff"): string {
+  const h = hex(c, fb);
+  if (h.length !== 7) return h;
+  const ch = (s: string) => Math.max(0, parseInt(s, 16) - n).toString(16).padStart(2, "0");
+  return `#${ch(h.slice(1,3))}${ch(h.slice(3,5))}${ch(h.slice(5,7))}`;
+}
+/** True if the background color is bright (light theme). */
+function isLight(c?: string): boolean {
+  const h = hex(c, "#0a0a0a");
+  if (h.length !== 7) return false;
+  const r = parseInt(h.slice(1,3), 16);
+  const g = parseInt(h.slice(3,5), 16);
+  const b = parseInt(h.slice(5,7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
+}
+/** Pick a surface color guaranteed to contrast with background. */
+function surfaceFor(c: { background?: string; surface?: string; secondary?: string }): string {
+  const bg = hex(c.background, "#0a0a0a");
+  if (isLight(bg)) return c.surface ? hex(c.surface) : darken(bg, 8);
+  return c.secondary ? lighten(c.secondary, 14) : lighten(bg, 14);
+}
 /** Strip engine placeholder text. */
 function clean(s?: string | null): string {
   if (!s) return "";
@@ -152,7 +173,7 @@ input,textarea,select{font:inherit}
 .card-3d:hover img.card-img{transform:scale(1.07)}
 
 /* Image shimmer placeholder */
-.img-wrap{background:linear-gradient(135deg,${lighten(BG,20)},${lighten(BG,8)});overflow:hidden;position:relative}
+.img-wrap{background:linear-gradient(135deg,${isLight(BG) ? darken(BG, 10) : lighten(BG, 20)},${isLight(BG) ? darken(BG, 4) : lighten(BG, 8)});overflow:hidden;position:relative}
 .img-wrap img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s ease}
 .img-wrap img.loaded{opacity:1}
 
@@ -236,7 +257,11 @@ function imgWrap(src: string, alt: string, style = "", cls = ""): string {
 
 // ─── Particle canvas script ───────────────────────────────────────────────────
 
-function particleScript(PRI: string): string {
+function particleScript(PRI: string, light: boolean): string {
+  const dot  = light ? "0,0,0"       : "255,255,255";
+  const line = light ? "0,0,0"       : "255,255,255";
+  const dotA = light ? ".22"         : ".5";
+  const lnA  = light ? ".08"         : ".12";
   return `<script>
 (function(){
   var cv=document.getElementById('sb-canvas');
@@ -259,12 +284,12 @@ function particleScript(PRI: string): string {
       if(p.x<0)p.x=W;if(p.x>W)p.x=0;
       if(p.y<0)p.y=H;if(p.y>H)p.y=0;
       ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fillStyle='rgba(255,255,255,.5)';ctx.fill();
+      ctx.fillStyle='rgba(${dot},${dotA})';ctx.fill();
       for(var j=i+1;j<pts.length;j++){
         var q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=Math.sqrt(dx*dx+dy*dy);
         if(d<130){
           ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
-          ctx.strokeStyle='rgba(255,255,255,'+(0.12*(1-d/130)).toFixed(3)+')';
+          ctx.strokeStyle='rgba(${line},'+(${lnA}*(1-d/130)).toFixed(3)+')';
           ctx.lineWidth=.7;ctx.stroke();
         }
       }
@@ -287,7 +312,8 @@ function productCard(item: any, bp: SiteBlueprint, idx: number, c: SiteBlueprint
   const BG     = hex(c.background, "#0a0a0a");
   const PRI    = hex(c.primary, "#ff4d00");
   const ACC    = hex(c.accent || c.primary, PRI);
-  const SURF   = lighten(c.secondary || c.background, 18);
+  const SURF   = surfaceFor(c);
+  const BORDER = isLight(BG) ? alpha(c.textPrimary, "14") : alpha(TEXT, "12");
   const hf     = bp.theme.typography.headingFont;
   const bf     = bp.theme.typography.bodyFont;
   const img    = getItemImage(item, bp, idx);
@@ -299,7 +325,7 @@ function productCard(item: any, bp: SiteBlueprint, idx: number, c: SiteBlueprint
 
   return `
 <article class="card-3d" data-editable="container" data-rc data-reveal-delay="${idx * 70}"
-  style="background:${SURF};border:1px solid ${alpha(TEXT,"12")};border-radius:20px;overflow:hidden;cursor:pointer;position:relative;">
+  style="background:${SURF};border:1px solid ${BORDER};border-radius:20px;overflow:hidden;cursor:pointer;position:relative;${isLight(BG) ? "box-shadow:0 4px 20px rgba(0,0,0,.05);" : ""}">
   ${imgWrap(img, name, "aspect-ratio:1/1;", "")}
   <div style="padding:22px 24px;">
     ${tag ? `<span data-editable="text" style="display:inline-block;font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:${ACC};margin-bottom:10px;border:1px solid ${alpha(ACC,"44")};padding:3px 10px;border-radius:99px;">${tag}</span>` : ""}
@@ -367,17 +393,17 @@ function renderHomePage(bp: SiteBlueprint): string {
   <!-- HERO -->
   <section data-editable="section" data-reveal="hero"
     style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:${BG};">
-    <canvas id="sb-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:.5;"></canvas>
-    ${imgWrap(heroImg, heading, "position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:.48;filter:saturate(1.12) contrast(1.07);", "")}
-    <div style="position:absolute;inset:0;z-index:3;background:linear-gradient(160deg,${alpha(BG,"cc")} 0%,${alpha(BG,"55")} 50%,${alpha(BG,"bb")} 100%);"></div>
-    <div style="position:absolute;top:0;left:0;right:0;height:220px;z-index:4;background:linear-gradient(180deg,${alpha(BG,"ee")} 0%,transparent 100%);pointer-events:none;"></div>
+    <canvas id="sb-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:${isLight(BG) ? ".4" : ".5"};"></canvas>
+    ${imgWrap(heroImg, heading, `position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:${isLight(BG) ? ".7" : ".48"};filter:saturate(1.12) contrast(1.07);`, "")}
+    <div style="position:absolute;inset:0;z-index:3;background:linear-gradient(160deg,${alpha(BG, isLight(BG) ? "aa" : "cc")} 0%,${alpha(BG, isLight(BG) ? "33" : "55")} 50%,${alpha(BG, isLight(BG) ? "99" : "bb")} 100%);"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:220px;z-index:4;background:linear-gradient(180deg,${alpha(BG, isLight(BG) ? "dd" : "ee")} 0%,transparent 100%);pointer-events:none;"></div>
     ${blobs(PRI, ACC)}
     <div style="position:relative;z-index:10;text-align:center;max-width:1120px;padding:120px 28px 60px;">
       <div data-rc data-reveal-delay="0">${badge(heroSection || {} as any, badgeText, ACC)}</div>
       <h1 data-editable="text" data-rc data-reveal-delay="80"
         style="font-family:${fonts(hf)};font-size:clamp(44px,9vw,112px);font-weight:900;
           line-height:.92;letter-spacing:-.03em;margin:24px 0;color:${TEXT};text-transform:uppercase;
-          text-shadow:0 2px 60px ${alpha(BG,"99")};">
+          ${isLight(BG) ? "" : `text-shadow:0 2px 60px ${alpha(BG,"99")};`}">
         ${esc(heading)}
       </h1>
       ${subheadline ? `<p data-editable="text" data-rc data-reveal-delay="160"
@@ -515,8 +541,8 @@ function renderProductsPage(bp: SiteBlueprint): string {
 
   <!-- PAGE HERO -->
   <section data-editable="section" style="position:relative;min-height:44vh;display:flex;align-items:flex-end;overflow:hidden;background:${BG};padding-top:96px;">
-    ${imgWrap(bgImg, pageHead, "position:absolute;inset:0;width:100%;height:100%;opacity:.4;filter:saturate(1.1);", "")}
-    <div style="position:absolute;inset:0;background:linear-gradient(180deg,${alpha(BG,"44")} 0%,${alpha(BG,"ee")} 100%);"></div>
+    ${imgWrap(bgImg, pageHead, `position:absolute;inset:0;width:100%;height:100%;opacity:${isLight(BG) ? ".65" : ".4"};filter:saturate(1.1);`, "")}
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,${alpha(BG, isLight(BG) ? "22" : "44")} 0%,${alpha(BG, isLight(BG) ? "dd" : "ee")} 100%);"></div>
     ${blobs(PRI, ACC)}
     <div style="position:relative;z-index:2;max-width:1300px;margin:0 auto;padding:60px 28px;width:100%;">
       <span style="display:inline-block;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:${ACC};margin-bottom:16px;">Catalog</span>
@@ -599,8 +625,8 @@ function renderAboutPage(bp: SiteBlueprint): string {
   <!-- CINEMATIC HEADER -->
   <section data-editable="section" data-reveal="hero"
     style="position:relative;min-height:80vh;display:flex;align-items:center;overflow:hidden;background:${BG};padding-top:88px;">
-    ${imgWrap(bgImg, brand, "position:absolute;inset:0;width:100%;height:100%;opacity:.5;filter:saturate(1.1);", "")}
-    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${alpha(BG,"dd")} 0%,${alpha(BG,"66")} 60%,${alpha(BG,"cc")} 100%);"></div>
+    ${imgWrap(bgImg, brand, `position:absolute;inset:0;width:100%;height:100%;opacity:${isLight(BG) ? ".7" : ".5"};filter:saturate(1.1);`, "")}
+    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${alpha(BG, isLight(BG) ? "bb" : "dd")} 0%,${alpha(BG, isLight(BG) ? "33" : "66")} 60%,${alpha(BG, isLight(BG) ? "aa" : "cc")} 100%);"></div>
     ${blobs(PRI, ACC)}
     <div style="position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:80px 28px;">
       <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:${ACC};margin-bottom:24px;">About Us</span>
@@ -771,8 +797,8 @@ function renderContactPage(bp: SiteBlueprint): string {
   <!-- HEADER -->
   <section data-editable="section" data-reveal="hero"
     style="position:relative;min-height:50vh;display:flex;align-items:center;overflow:hidden;background:${BG};padding-top:88px;">
-    ${imgWrap(bgImg, "Contact", "position:absolute;inset:0;width:100%;height:100%;opacity:.44;filter:saturate(1.1);", "")}
-    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${alpha(BG,"ee")} 0%,${alpha(BG,"77")} 60%,${alpha(BG,"cc")} 100%);"></div>
+    ${imgWrap(bgImg, "Contact", `position:absolute;inset:0;width:100%;height:100%;opacity:${isLight(BG) ? ".7" : ".44"};filter:saturate(1.1);`, "")}
+    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${alpha(BG, isLight(BG) ? "cc" : "ee")} 0%,${alpha(BG, isLight(BG) ? "44" : "77")} 60%,${alpha(BG, isLight(BG) ? "aa" : "cc")} 100%);"></div>
     ${blobs(PRI, ACC)}
     <div style="position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:80px 28px;">
       <span data-rc style="display:inline-block;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:${ACC};margin-bottom:20px;">Get In Touch</span>
@@ -1126,7 +1152,7 @@ ${renderAboutPage(bp)}
 ${renderContactPage(bp)}
 ${renderFooter(bp, pages)}
 </main>
-${particleScript(PRI)}
+${particleScript(PRI, isLight(BG))}
 ${routerScript(BG, PRI)}
 </body>
 </html>`;
