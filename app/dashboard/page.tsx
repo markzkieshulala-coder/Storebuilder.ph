@@ -60,6 +60,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [resetIn, setResetIn] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [isLaunching, setIsLaunching] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -177,7 +178,10 @@ function DashboardContent() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: trimmed }),
+        body: JSON.stringify({
+          prompt: trimmed,
+          businessName: businessName.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -614,6 +618,17 @@ function DashboardContent() {
               </div>
             </div>
 
+            <input
+              type="text"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              disabled={isLaunching}
+              maxLength={80}
+              placeholder="Brand / business name (e.g. Best Basketball Item's)"
+              className="w-full mb-3 rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#1877F2] transition-colors disabled:opacity-60"
+              style={{ fontFamily: FONT }}
+            />
+
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -622,7 +637,7 @@ function DashboardContent() {
               }}
               disabled={isLaunching}
               rows={4}
-              placeholder="e.g. A luxury Italian artisan shoe brand named Velasca with rich obsidian textures, macro product photography, and editorial craft storytelling."
+              placeholder="e.g. A luxury Italian artisan shoe brand with rich obsidian textures, macro product photography, and editorial craft storytelling."
               className="w-full resize-none rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#1877F2] transition-colors disabled:opacity-60"
               style={{ fontFamily: FONT }}
             />

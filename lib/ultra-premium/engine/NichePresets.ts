@@ -728,20 +728,39 @@ export function getPreset(niche: string): NichePreset {
   return NICHE_PRESETS[niche.toLowerCase()] ?? DEFAULT_STORE;
 }
 
-/** Extract a brand/site name heuristic from the user prompt */
+/**
+ * Extract a brand/site name heuristic from the user prompt.
+ * Tries explicit declarations first, then quoted strings (handling apostrophes
+ * inside names like "Item's"), then "called/named/brand name" phrases, then
+ * a TitleCase fallback.
+ */
 export function extractBrandName(prompt: string): string {
-  // 1. Quoted text is the most explicit brand declaration
-  const quoted = prompt.match(/['""]([^'""]{2,60})['"'"]/);
-  if (quoted) return quoted[1].trim();
-  // 2. "called X" / "named X" / "brand name is X" — only TitleCase words so we
-  //    don't accidentally grab lowercase filler like "and", "of", "the"
-  const named = prompt.match(
-    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?)\s*[:–—]?\s*([A-Z][a-z']+(?:\s+(?:[A-Z][a-z']+|&)){0,5})/i
+  // 1. Double-quoted text — ASCII " or smart curly quotes “ ”
+  const doubleQuoted = prompt.match(/["“”]([^"“”\n]{2,80})["“”]/);
+  if (doubleQuoted) return doubleQuoted[1].trim();
+  // 2. Single-quoted text with internal apostrophe support.
+  //    Captures things like 'Best Basketball Item's' — the apostrophe in
+  //    "Item's" would normally break a naive [^']+ pattern, but here we
+  //    permit `'` + lowercase-letter (possessives, contractions) inside.
+  const singleQuoted = prompt.match(
+    /['‘’]([^'‘’\n]+(?:'[a-z][^'‘’\n]*)*)['‘’]/
   );
-  if (named) return named[1].trim().replace(/[.,!?]+$/, "");
-  // 3. Two-or-more consecutive TitleCase words — requiring ≥2 words avoids
-  //    single-word sentence starters like "Build", "Create", "I"
-  const caps = prompt.match(/\b[A-Z][a-z']{1,}(?:\s+[A-Z][a-z']+){1,4}/g);
+  if (singleQuoted) return singleQuoted[1].trim().slice(0, 80);
+  // 3. "called X" / "named X" / "brand name: X" / "brand name is X"
+  //    Captures any letter-starting phrase until a natural sentence boundary
+  //    or a transition word that signals the brand name has ended.
+  const named = prompt.match(
+    /\b(?:brand(?:\s+name)?(?:\s+is)?|called|named)\s*[:\-–—]?\s+([A-Za-z][\w'’\-&.\s]{0,79}?)(?=\s*(?:[.!?\n,;]|$|\s+(?:and|with|that|which|sells?|located|online|offers?|features?|specializ\w*|is\s+a|store|shop|business|website|brand)\b))/i
+  );
+  if (named) {
+    const cleaned = named[1].trim().replace(/[.,!?]+$/, "").trim();
+    if (cleaned.length >= 2) return cleaned;
+  }
+  // 4. Two-or-more consecutive TitleCase words (e.g. "Best Basketball Item's")
+  //    — requires ≥2 words so single-word sentence starters like "Build" or
+  //    "Create" don't get returned as the brand. Apostrophe in [a-z'’]
+  //    keeps "Item's" intact.
+  const caps = prompt.match(/\b[A-Z][a-z'’]+(?:\s+[A-Z][a-z'’]+){1,4}/g);
   if (caps?.length) return caps[0];
   return "";
 }

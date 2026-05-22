@@ -221,17 +221,104 @@ function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
   return `https://loremflickr.com/800/800/${encodeURIComponent(kw)}?lock=${lock}`;
 }
 
-function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, _hint = ""): string {
+/**
+ * Pick a niche-specific keyword tuned to the SECTION'S role on the page so
+ * hero, about, products, contact, and CTA each pull from distinct photo pools
+ * instead of all returning the same generic "basketball,nba,sports" image.
+ */
+function sectionKeyword(niche: string, context: string): string {
+  const c = context.toLowerCase();
+  const n = niche.toLowerCase();
+  // Classify the section's intent
+  let role = "general";
+  if (/hero|cinematic|action|opening|landing/.test(c)) role = "hero";
+  else if (/about|story|heritage|lifestyle|brand\s+story|documentary/.test(c)) role = "about";
+  else if (/product|showcase|collection|catalog|grid/.test(c)) role = "products";
+  else if (/contact|location|exterior|interior|store|ambiance/.test(c)) role = "contact";
+  else if (/cta|call\s+to\s+action|conversion/.test(c)) role = "cta";
+
+  // Per-niche role → keyword mapping. Each role pulls from a distinct
+  // visual pool so the same site doesn't repeat the same photo everywhere.
+  switch (n) {
+    case "basketball":
+      if (role === "hero")     return "basketball,arena,nba,action,court";
+      if (role === "about")    return "basketball,team,locker,athlete,training";
+      if (role === "products") return "basketball,store,retail,jersey,shoes";
+      if (role === "contact")  return "basketball,gym,court,facility,interior";
+      if (role === "cta")      return "basketball,fans,crowd,celebration";
+      return "basketball,nba,sports";
+    case "food":
+    case "restaurant":
+      if (role === "hero")     return "restaurant,interior,dining,chef,plating";
+      if (role === "about")    return "kitchen,chef,cooking,culinary";
+      if (role === "products") return "gourmet,plate,food,menu";
+      if (role === "contact")  return "restaurant,interior,table,ambiance";
+      if (role === "cta")      return "restaurant,celebration,dining,reserved";
+      return "restaurant,food,gourmet";
+    case "salon":
+    case "beauty":
+      if (role === "hero")     return "salon,interior,modern,beauty,spa";
+      if (role === "about")    return "stylist,team,hair,beauty,professional";
+      if (role === "products") return "beauty,product,cosmetics,luxury";
+      if (role === "contact")  return "salon,reception,interior,modern";
+      return "beauty,salon,hair";
+    case "barber":
+    case "barbershop":
+      if (role === "hero")     return "barbershop,interior,classic,vintage";
+      if (role === "about")    return "barber,man,grooming,straight razor";
+      if (role === "products") return "grooming,product,pomade,beard";
+      if (role === "contact")  return "barbershop,chair,interior,wood";
+      return "barbershop,haircut,grooming";
+    case "watchmaking":
+      if (role === "hero")     return "watch,luxury,timepiece,closeup,macro";
+      if (role === "about")    return "watchmaker,workshop,hands,craft";
+      if (role === "products") return "watch,collection,display,luxury";
+      if (role === "contact")  return "watch,boutique,showroom,marble";
+      return "watch,luxury,timepiece,horology";
+    case "fashion":
+      if (role === "hero")     return "fashion,runway,model,editorial";
+      if (role === "about")    return "atelier,designer,fabric,studio";
+      if (role === "products") return "fashion,collection,wardrobe,boutique";
+      if (role === "contact")  return "boutique,interior,minimalist,fashion";
+      return "fashion,clothing,runway,luxury";
+    case "cybersecurity":
+      if (role === "hero")     return "cybersecurity,code,server,dark,tech";
+      if (role === "about")    return "team,office,technology,professional";
+      if (role === "products") return "technology,dashboard,interface,data";
+      if (role === "contact")  return "office,modern,interior,technology";
+      return "technology,cybersecurity,code";
+    default:
+      return NICHE_IMG_KW[n] || n.replace(/\s+/g, ",");
+  }
+}
+
+function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): string {
   const p = getProps(s);
   const found = extractUrl(p);
   if (found) return found;
   const slot = assetUrls(s).find((u) => !isAiImage(u));
   if (slot) return slot;
-  return nicheImageUrl(bp.niche, bpSeed(bp) + idx * 239, 1600, 900);
+  // Use section-role keyword + heavily spread seed so each section gets a
+  // distinct, contextually-appropriate background photo.
+  const kw = sectionKeyword(bp.niche, hint || s.name || "");
+  const hash = (hint + s.name + s.id).split("").reduce(
+    (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
+    (idx + 1) * 6151
+  );
+  const lock = (Math.abs(hash) + bpSeed(bp)) % 9_999_997;
+  return `https://loremflickr.com/1600/900/${encodeURIComponent(kw)}?lock=${lock}`;
 }
 
-function getPageBg(bp: SiteBlueprint, _context: string, offset: number): string {
-  return nicheImageUrl(bp.niche, bpSeed(bp) + offset, 1920, 1080);
+function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
+  // Use context-aware keyword so the hero, products, about, and contact pages
+  // each show a different background, not all the same generic niche photo.
+  const kw = sectionKeyword(bp.niche, context);
+  const hash = context.split("").reduce(
+    (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
+    (offset + 1) * 8893
+  );
+  const lock = (Math.abs(hash) + bpSeed(bp)) % 9_999_997;
+  return `https://loremflickr.com/1920/1080/${encodeURIComponent(kw)}?lock=${lock}`;
 }
 
 function getItems(s: Section): any[] {
