@@ -10,7 +10,6 @@
  */
 
 import type { SiteBlueprint, Page, Section } from "../types/SiteBlueprint";
-import { curatedSectionImage, curatedProductImage } from "./imageCatalog";
 
 // ─── String utilities ─────────────────────────────────────────────────────────
 
@@ -65,97 +64,244 @@ function clean(s?: string | null): string {
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
 
-/** Niche → LoremFlickr keyword mapping for context-relevant real photography. */
-const NICHE_IMG_KW: Record<string, string> = {
-  basketball: "basketball,nba,sports",
-  barber:     "barbershop,haircut,grooming,men",
-  barbershop: "barbershop,haircut,grooming,men",
-  salon:      "beauty,salon,hair",
-  restaurant: "restaurant,food,gourmet",
-  food:       "food,gourmet,culinary",
-  coffee:     "coffee,cafe,espresso",
-  fashion:    "fashion,clothing,runway",
-  fitness:    "fitness,gym,workout",
-  watchmaking:"watch,luxury,timepiece",
-  jewelry:    "jewelry,luxury,gems",
-  portfolio:  "design,creative,architecture",
-  creative:   "art,creative,studio",
-  cybersecurity:"technology,cybersecurity,code",
-  saas:       "technology,software,app",
-  security:   "security,professional,protection",
-  store:      "retail,shopping,products",
-  ecommerce:  "ecommerce,products,shopping",
-};
+// ─── Pollinations image engine ────────────────────────────────────────────────
+//
+// Pollinations.ai (https://pollinations.ai) generates AI images for free with no
+// API key. The `nologo=true` parameter removes their watermark. We also include
+// explicit "no text, no words" in every prompt to prevent the AI from rendering
+// labels/signs inside the image. Seeds are deterministic so the same product
+// always produces the same image (Pollinations caches by prompt+seed).
 
 /**
- * Derive item-type-specific LoremFlickr keywords from item name + niche so every
- * product card shows a contextually relevant photo, not just the generic niche image.
+ * Build a Pollinations URL for a PRODUCT CARD image.
+ * The prompt describes the exact product type and niche so the image is
+ * relevant to what's actually in the card.
  */
-function itemKeyword(itemName: string, niche: string): string {
-  const n = (itemName || "").toLowerCase();
-  switch (niche.toLowerCase()) {
-    case "basketball":
-      if (/shoe|sneaker|air\s*jordan|curry\s*flow|lebron|kobe|kd\b|tatum|luka|giannis|zoom/i.test(n))
-        return "basketball,sneakers,shoes,nike";
-      if (/jersey|swingman|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|uniform|authentic/i.test(n))
-        return "basketball,nba,jersey,uniform";
-      if (/short|pant/i.test(n))  return "basketball,shorts,athletic";
-      if (/\bball\b/i.test(n))    return "basketball,ball,court";
-      return "basketball,nba,sports";
-    case "food":
-    case "restaurant":
-      if (/coffee|espresso|latte|cappuccino/i.test(n)) return "coffee,cafe,barista";
-      if (/steak|beef|burger/i.test(n))  return "gourmet,steak,restaurant";
-      if (/seafood|fish|sushi/i.test(n)) return "seafood,gourmet,plate";
-      if (/pasta|pizza|italian/i.test(n)) return "pasta,gourmet,food";
-      if (/cake|dessert|pastry|bakery/i.test(n)) return "dessert,bakery,pastry";
-      return "restaurant,food,gourmet";
-    case "barber":
-    case "barbershop":
-      return "barbershop,haircut,grooming,men";
-    case "salon":
-    case "beauty":
-      if (/nail/i.test(n))        return "nails,manicure,beauty";
-      if (/skin|facial/i.test(n)) return "skincare,beauty,spa";
-      return "hair,salon,beauty";
-    case "watchmaking":
-      if (/sport|dive|pilot|chrono/i.test(n)) return "watch,sports,mechanical";
-      return "watch,luxury,timepiece,horology";
-    case "fashion":
-      if (/dress|gown/i.test(n))         return "fashion,dress,luxury,runway";
-      if (/jacket|coat|blazer/i.test(n)) return "fashion,jacket,menswear";
-      if (/shoe|heel|boot/i.test(n))     return "fashion,shoes,luxury";
-      return "fashion,clothing,runway,luxury";
-    default:
-      return NICHE_IMG_KW[niche.toLowerCase()] || niche.replace(/\s+/g, ",");
-  }
+function productImageUrl(productName: string, niche: string, seed: number, w = 800, h = 800): string {
+  const prompt = buildProductPrompt(productName, niche);
+  const s = Math.abs(seed) % 999983;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux`;
 }
 
 /**
- * Returns a niche-specific real photograph.
- * Uses LoremFlickr — pulls real Flickr photos by keyword, lock parameter makes
- * each seed return the same photo. Active since 2011, no API key required,
- * no AI text artifacts, niche-relevant images.
+ * Build a Pollinations URL for a SECTION / PAGE background image.
+ * Role-specific and niche-specific so hero, about, products, contact each
+ * pull from distinct visual contexts.
  */
-function nicheImageUrl(niche: string, seed: number, w = 800, h = 800): string {
-  const kw = NICHE_IMG_KW[niche.toLowerCase()] || niche.toLowerCase().replace(/\s+/g, ",");
-  const lock = Math.abs(seed) % 9_999_997;
-  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(kw)}?lock=${lock}`;
+function sectionImageUrl(niche: string, role: string, seed: number, w = 1600, h = 900): string {
+  const prompt = buildSectionPrompt(niche, role);
+  const s = Math.abs(seed) % 999983;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux`;
 }
 
-/**
- * Picsum — instant-loading fallback photos for onerror handlers.
- */
+/** Picsum — fallback when Pollinations fails (onerror). Always loads. */
 function picsumUrl(seed: number, w = 800, h = 800): string {
   const s = Math.abs(seed) % 9_999_997;
   return `https://picsum.photos/seed/sb${s}/${w}/${h}`;
 }
 
-// Keep pollinationsUrl compiled but unused (replaced by nicheImageUrl/picsumUrl)
-function pollinationsUrl(_prompt: string, _seed: number, _w = 800, _h = 800): string {
-  return "";
+// ─── Prompt builders ──────────────────────────────────────────────────────────
+
+/**
+ * Generate a specific product photography prompt so the AI renders exactly
+ * what the product card describes.
+ */
+function buildProductPrompt(name: string, niche: string): string {
+  const n = (name  || "").toLowerCase();
+  const base = "professional product photography, clean studio background, cinematic lighting, ultra realistic, 8k, no text, no words, no labels, no watermarks, no logos";
+
+  switch (niche.toLowerCase()) {
+    case "basketball":
+      if (/shoe|sneaker|jordan|curry|lebron|kobe|kd|tatum|luka|giannis|zoom|kyrie/i.test(n))
+        return `premium basketball sneakers floating mid-air on dark gradient background, ${base}`;
+      if (/jersey|swingman|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|uniform/i.test(n))
+        return `basketball jersey laid flat on hardwood floor with dramatic lighting, ${base}`;
+      if (/short|pant/i.test(n))
+        return `basketball shorts athletic apparel on dark background, ${base}`;
+      if (/\bball\b/i.test(n))
+        return `basketball on hardwood court with dramatic spotlights and bokeh background, ${base}`;
+      return `basketball sports equipment premium display, ${base}`;
+
+    case "food":
+    case "restaurant":
+      if (/coffee|espresso|latte|cappuccino/i.test(n))
+        return `artisan coffee drink in white ceramic cup, steam rising, dark moody cafe background, ${base}`;
+      if (/steak|beef|fillet|ribeye/i.test(n))
+        return `premium grilled steak on slate plate with garnishes, restaurant fine dining, ${base}`;
+      if (/burger|sandwich/i.test(n))
+        return `gourmet burger with fresh ingredients stacked tall on dark wooden board, ${base}`;
+      if (/seafood|fish|sushi|salmon/i.test(n))
+        return `elegant seafood dish beautifully plated on white plate, fine dining, ${base}`;
+      if (/pasta|spaghetti|ravioli/i.test(n))
+        return `artisan pasta dish with sauce and herbs on dark plate, restaurant style, ${base}`;
+      if (/pizza/i.test(n))
+        return `artisan pizza with fresh toppings on wooden board, rustic Italian style, ${base}`;
+      if (/cake|dessert|pastry/i.test(n))
+        return `elegant dessert with chocolate and berries on white plate, patisserie style, ${base}`;
+      return `gourmet dish beautifully plated, fine dining restaurant, ${base}`;
+
+    case "barber":
+    case "barbershop":
+      if (/pomade|wax|clay|gel|product/i.test(n))
+        return `premium men's grooming product dark glass jar on marble surface, ${base}`;
+      if (/razor|blade/i.test(n))
+        return `vintage straight razor on dark leather barbershop surface, ${base}`;
+      if (/trim|fade|cut|service/i.test(n))
+        return `professional barbershop service close-up with scissors and comb, ${base}`;
+      return `premium barbershop grooming product on dark marble, ${base}`;
+
+    case "salon":
+    case "beauty":
+      if (/nail|manicure/i.test(n))
+        return `elegant manicure with luxury nail polish on white background, beauty, ${base}`;
+      if (/skin|facial|serum/i.test(n))
+        return `luxury skincare serum glass bottle with dropper on white marble, ${base}`;
+      if (/hair|shampoo|conditioner/i.test(n))
+        return `premium hair care product glass bottle on white background, salon, ${base}`;
+      return `luxury beauty product on white marble surface, high-end cosmetics, ${base}`;
+
+    case "watchmaking":
+      if (/sport|dive|diver/i.test(n))
+        return `luxury sports dive watch on wet black rock surface with water drops, ${base}`;
+      if (/chrono|chronograph/i.test(n))
+        return `premium chronograph watch on dark carbon fiber surface, macro photography, ${base}`;
+      if (/pilot|aviation/i.test(n))
+        return `aviation pilot watch on dark leather with instruments background, ${base}`;
+      return `luxury mechanical watch on dark velvet surface, macro closeup, ${base}`;
+
+    case "jewelry":
+      if (/ring|diamond/i.test(n))
+        return `diamond engagement ring on white velvet cushion, jewelry store display, ${base}`;
+      if (/necklace|chain/i.test(n))
+        return `elegant gold necklace on white marble surface, luxury jewelry, ${base}`;
+      if (/bracelet/i.test(n))
+        return `luxury diamond bracelet on dark velvet, high-end jewelry display, ${base}`;
+      return `luxury jewelry piece on white velvet, premium display, ${base}`;
+
+    case "fashion":
+      if (/dress|gown/i.test(n))
+        return `elegant luxury dress on minimal white background, fashion photography, ${base}`;
+      if (/jacket|coat|blazer/i.test(n))
+        return `premium fashion jacket on dark minimal background, high-end menswear, ${base}`;
+      if (/shoe|heel|boot/i.test(n))
+        return `designer shoe on clean white background, luxury fashion, ${base}`;
+      if (/bag|handbag|purse/i.test(n))
+        return `luxury leather handbag on white marble, fashion editorial, ${base}`;
+      return `luxury fashion apparel on clean minimal background, editorial photography, ${base}`;
+
+    case "coffee":
+      return `artisan coffee drink in specialty cafe, latte art, moody lighting, ${base}`;
+
+    case "fitness":
+      if (/protein|supplement/i.test(n))
+        return `premium fitness supplement container on dark gym floor, ${base}`;
+      if (/equipment|weight|dumbbell/i.test(n))
+        return `premium fitness equipment on dark gym floor with dramatic lighting, ${base}`;
+      return `premium fitness product on dark gym background, athletic, ${base}`;
+
+    default:
+      return `premium product display on dark minimal background, professional, ${base}`;
+  }
 }
-void pollinationsUrl;
+
+/**
+ * Build a section/page background prompt tailored to niche × role so
+ * hero, about, products, and contact each show a distinct cinematic scene.
+ */
+function buildSectionPrompt(niche: string, role: string): string {
+  const base = "cinematic photography, ultra realistic, 8k, dramatic lighting, no text, no words, no signs, no labels, no watermarks, no logos, wide angle";
+
+  const n = niche.toLowerCase();
+  const r = role.toLowerCase();
+
+  switch (n) {
+    case "basketball":
+      if (r === "hero")     return `NBA basketball arena interior at night with dramatic court lighting and empty seats glowing, ${base}`;
+      if (r === "about")    return `basketball team in locker room pre-game motivational moment dramatic lighting, ${base}`;
+      if (r === "products") return `premium basketball sneaker store interior with glowing shelves and dark atmosphere, ${base}`;
+      if (r === "contact")  return `indoor basketball training facility with dramatic spotlights on empty court, ${base}`;
+      if (r === "cta")      return `packed basketball arena crowd celebrating at night with lights and confetti, ${base}`;
+      return `basketball court with dramatic spotlights at night, ${base}`;
+
+    case "restaurant":
+    case "food":
+      if (r === "hero")     return `upscale restaurant interior with warm candlelight and elegant table settings, ${base}`;
+      if (r === "about")    return `executive chef in professional kitchen plating gourmet dish with intense concentration, ${base}`;
+      if (r === "products") return `beautifully arranged charcuterie and gourmet dishes on dark marble table, ${base}`;
+      if (r === "contact")  return `intimate restaurant dining room with warm lighting and white tablecloths, ${base}`;
+      return `fine dining restaurant with elegant atmosphere, ${base}`;
+
+    case "barber":
+    case "barbershop":
+      if (r === "hero")     return `classic vintage barbershop interior with leather chairs mirrors and wood paneling, warm light, ${base}`;
+      if (r === "about")    return `master barber doing precise straight razor shave close-up dramatic light, ${base}`;
+      if (r === "products") return `premium grooming products arranged on dark marble counter, barbershop aesthetic, ${base}`;
+      if (r === "contact")  return `barbershop waiting area with vintage chairs dark wood and warm Edison bulbs, ${base}`;
+      return `classic barbershop interior with leather chairs and mirrors, ${base}`;
+
+    case "salon":
+    case "beauty":
+      if (r === "hero")     return `luxury modern hair salon interior with white and gold decor and dramatic lighting, ${base}`;
+      if (r === "about")    return `professional hair stylist team in sleek modern salon, ${base}`;
+      if (r === "products") return `luxury beauty and cosmetics products arranged on white marble, ${base}`;
+      if (r === "contact")  return `elegant salon reception area with flowers and minimal white decor, ${base}`;
+      return `luxury beauty salon modern interior, ${base}`;
+
+    case "watchmaking":
+      if (r === "hero")     return `luxury watch store interior with dark wood and soft spotlights on glass display cases, ${base}`;
+      if (r === "about")    return `master watchmaker hands working on mechanical watch movement with tools and loupe, ${base}`;
+      if (r === "products") return `row of luxury watches displayed on dark velvet in glass case with spotlight, ${base}`;
+      if (r === "contact")  return `watch boutique showroom with marble floors and glass display cases, ${base}`;
+      return `luxury watch boutique interior with dramatic lighting, ${base}`;
+
+    case "jewelry":
+      if (r === "hero")     return `luxury jewelry store interior with diamond displays and crystal chandeliers, ${base}`;
+      if (r === "about")    return `master jeweler crafting ring at workbench with magnifying tools, ${base}`;
+      if (r === "products") return `luxury jewelry collection displayed on dark velvet with spotlights, ${base}`;
+      if (r === "contact")  return `high-end jewelry boutique interior with marble and gold accents, ${base}`;
+      return `luxury jewelry boutique with elegant displays, ${base}`;
+
+    case "fashion":
+      if (r === "hero")     return `luxury fashion runway show with dramatic lighting and silhouetted models, ${base}`;
+      if (r === "about")    return `fashion designer atelier with fabrics patterns and sewing table, ${base}`;
+      if (r === "products") return `high-end boutique interior with minimal white walls and clothes on racks, ${base}`;
+      if (r === "contact")  return `minimalist luxury fashion boutique entrance with white walls, ${base}`;
+      return `luxury fashion editorial environment, ${base}`;
+
+    case "coffee":
+      if (r === "hero")     return `cozy specialty coffee shop interior with warm light exposed brick and latte art, ${base}`;
+      if (r === "about")    return `barista carefully pouring latte art in artisan coffee shop, ${base}`;
+      if (r === "products") return `coffee beans and brewing equipment on dark wooden counter, ${base}`;
+      if (r === "contact")  return `coffee shop interior with comfortable seating and warm ambient light, ${base}`;
+      return `specialty coffee shop interior with warm lighting, ${base}`;
+
+    case "fitness":
+      if (r === "hero")     return `premium gym interior at night with dramatic lighting and rows of equipment, ${base}`;
+      if (r === "about")    return `personal trainer coaching client with intense gym lighting, ${base}`;
+      if (r === "products") return `fitness equipment and supplements arranged on dark gym floor, ${base}`;
+      if (r === "contact")  return `modern gym reception area with sleek design, ${base}`;
+      return `premium fitness gym interior with dramatic lighting, ${base}`;
+
+    case "cybersecurity":
+      if (r === "hero")     return `server room with glowing blue server racks and dramatic lighting, ${base}`;
+      if (r === "about")    return `cybersecurity team in dark office with multiple monitors and code, ${base}`;
+      if (r === "products") return `cybersecurity dashboard on monitors with data visualizations, ${base}`;
+      if (r === "contact")  return `modern tech office interior with blue ambient lighting, ${base}`;
+      return `dark server room with glowing blue racks and data streams, ${base}`;
+
+    default: {
+      // Generic premium commercial photography for unknown niches
+      const prompts: Record<string, string> = {
+        hero:     `modern premium commercial business interior with dramatic lighting, ${base}`,
+        about:    `professional team meeting in modern office with large windows, ${base}`,
+        products: `premium products displayed on dark minimal background with spotlights, ${base}`,
+        contact:  `elegant modern office reception area with warm lighting, ${base}`,
+        cta:      `successful business celebration in modern office, ${base}`,
+      };
+      return prompts[r] || prompts.hero;
+    }
+  }
+}
 
 function bpSeed(bp: SiteBlueprint): number {
   const raw = (bp.seed || "a1b2c3d4").replace(/[^0-9a-f]/gi, "").slice(0, 8) || "1a2b3c4d";
@@ -188,9 +334,10 @@ function assetUrls(s: Section): string[] {
   return ((s.component?.assetSlots ?? []) as any[]).map((sl: any) => sl?.generatedUrl).filter(Boolean);
 }
 
-/** True if a URL is a generic placeholder that should be skipped in favour of niche-specific images. */
+/** True if a URL is a generic placeholder that should be replaced with a niche-specific image. */
 function isAiImage(u: string): boolean {
-  return /image\.pollinations\.ai|stable-?diffusion|deepai|leonardo|picsum\.photos/i.test(u);
+  // Only block truly generic placeholders — Pollinations is now our primary source.
+  return /stable-?diffusion|deepai|leonardo|picsum\.photos/i.test(u);
 }
 
 /** Scan every string prop for a usable real-photo URL. */
@@ -210,99 +357,22 @@ function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
   const found = extractUrl(item);
   if (found) return found;
   const name = String(item.title || item.name || "");
-  // Hash the item name + position for a stable, unique pick per product.
   const hash = name.split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 7919
   );
-  // 1) Curated Unsplash catalog — premium, niche-tailored photography.
-  const curated = curatedProductImage(name, bp.niche, hash, 800, 800);
-  if (curated) return curated;
-  // 2) LoremFlickr fallback for uncovered niches.
-  const kw = itemKeyword(name, bp.niche);
-  const lock = Math.abs(hash) % 9_999_997;
-  return `https://loremflickr.com/800/800/${encodeURIComponent(kw)}?lock=${lock}`;
+  // Pollinations with product-specific AI prompt — always niche-correct.
+  return productImageUrl(name, bp.niche, hash, 800, 800);
 }
 
-/**
- * Pick a niche-specific keyword tuned to the SECTION'S role on the page so
- * hero, about, products, contact, and CTA each pull from distinct photo pools
- * instead of all returning the same generic "basketball,nba,sports" image.
- */
-function sectionKeyword(niche: string, context: string): string {
-  const c = context.toLowerCase();
-  const n = niche.toLowerCase();
-  // Classify the section's intent
-  let role = "general";
-  if (/hero|cinematic|action|opening|landing/.test(c)) role = "hero";
-  else if (/about|story|heritage|lifestyle|brand\s+story|documentary/.test(c)) role = "about";
-  else if (/product|showcase|collection|catalog|grid/.test(c)) role = "products";
-  else if (/contact|location|exterior|interior|store|ambiance/.test(c)) role = "contact";
-  else if (/cta|call\s+to\s+action|conversion/.test(c)) role = "cta";
 
-  // Per-niche role → keyword mapping. Each role pulls from a distinct
-  // visual pool so the same site doesn't repeat the same photo everywhere.
-  switch (n) {
-    case "basketball":
-      if (role === "hero")     return "basketball,arena,nba,action,court";
-      if (role === "about")    return "basketball,team,locker,athlete,training";
-      if (role === "products") return "basketball,store,retail,jersey,shoes";
-      if (role === "contact")  return "basketball,gym,court,facility,interior";
-      if (role === "cta")      return "basketball,fans,crowd,celebration";
-      return "basketball,nba,sports";
-    case "food":
-    case "restaurant":
-      if (role === "hero")     return "restaurant,interior,dining,chef,plating";
-      if (role === "about")    return "kitchen,chef,cooking,culinary";
-      if (role === "products") return "gourmet,plate,food,menu";
-      if (role === "contact")  return "restaurant,interior,table,ambiance";
-      if (role === "cta")      return "restaurant,celebration,dining,reserved";
-      return "restaurant,food,gourmet";
-    case "salon":
-    case "beauty":
-      if (role === "hero")     return "salon,interior,modern,beauty,spa";
-      if (role === "about")    return "stylist,team,hair,beauty,professional";
-      if (role === "products") return "beauty,product,cosmetics,luxury";
-      if (role === "contact")  return "salon,reception,interior,modern";
-      return "beauty,salon,hair";
-    case "barber":
-    case "barbershop":
-      if (role === "hero")     return "barbershop,interior,classic,vintage";
-      if (role === "about")    return "barber,man,grooming,straight razor";
-      if (role === "products") return "grooming,product,pomade,beard";
-      if (role === "contact")  return "barbershop,chair,interior,wood";
-      return "barbershop,haircut,grooming";
-    case "watchmaking":
-      if (role === "hero")     return "watch,luxury,timepiece,closeup,macro";
-      if (role === "about")    return "watchmaker,workshop,hands,craft";
-      if (role === "products") return "watch,collection,display,luxury";
-      if (role === "contact")  return "watch,boutique,showroom,marble";
-      return "watch,luxury,timepiece,horology";
-    case "fashion":
-      if (role === "hero")     return "fashion,runway,model,editorial";
-      if (role === "about")    return "atelier,designer,fabric,studio";
-      if (role === "products") return "fashion,collection,wardrobe,boutique";
-      if (role === "contact")  return "boutique,interior,minimalist,fashion";
-      return "fashion,clothing,runway,luxury";
-    case "cybersecurity":
-      if (role === "hero")     return "cybersecurity,code,server,dark,tech";
-      if (role === "about")    return "team,office,technology,professional";
-      if (role === "products") return "technology,dashboard,interface,data";
-      if (role === "contact")  return "office,modern,interior,technology";
-      return "technology,cybersecurity,code";
-    default:
-      return NICHE_IMG_KW[n] || n.replace(/\s+/g, ",");
-  }
-}
-
-/** Map a free-form context hint to a known section role for the catalog. */
 function detectRole(context: string): string {
   const c = context.toLowerCase();
-  if (/hero|cinematic|action|opening|landing/.test(c))         return "hero";
+  if (/hero|cinematic|action|opening|landing/.test(c))            return "hero";
   if (/about|story|heritage|lifestyle|brand|documentary/.test(c)) return "about";
-  if (/product|showcase|collection|catalog|grid/.test(c))      return "products";
-  if (/contact|location|exterior|interior|ambiance/.test(c))   return "contact";
-  if (/cta|call\s+to\s+action|conversion/.test(c))             return "cta";
+  if (/product|showcase|collection|catalog|grid/.test(c))         return "products";
+  if (/contact|location|exterior|interior|ambiance/.test(c))      return "contact";
+  if (/cta|call\s+to\s+action|conversion/.test(c))                return "cta";
   return "hero";
 }
 
@@ -318,13 +388,7 @@ function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): st
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 6151
   );
-  // 1) Curated Unsplash background per niche × role.
-  const curated = curatedSectionImage(bp.niche, role, hash + bpSeed(bp), 1600, 900);
-  if (curated) return curated;
-  // 2) LoremFlickr fallback.
-  const kw = sectionKeyword(bp.niche, ctx);
-  const lock = (Math.abs(hash) + bpSeed(bp)) % 9_999_997;
-  return `https://loremflickr.com/1600/900/${encodeURIComponent(kw)}?lock=${lock}`;
+  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1600, 900);
 }
 
 function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
@@ -333,11 +397,7 @@ function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (offset + 1) * 8893
   );
-  const curated = curatedSectionImage(bp.niche, role, hash + bpSeed(bp), 1920, 1080);
-  if (curated) return curated;
-  const kw = sectionKeyword(bp.niche, context);
-  const lock = (Math.abs(hash) + bpSeed(bp)) % 9_999_997;
-  return `https://loremflickr.com/1920/1080/${encodeURIComponent(kw)}?lock=${lock}`;
+  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1920, 1080);
 }
 
 function getItems(s: Section): any[] {
@@ -469,13 +529,12 @@ function badge(s: Section, fb: string, ACC: string): string {
 let _fbCtr = 0;
 function imgWrap(src: string, alt: string, style = "", cls = ""): string {
   const seed = (++_fbCtr) * 7919 % 9_999_991;
-  // Two-stage fallback: Unsplash → LoremFlickr (generic) → Picsum.
-  const fb1 = `https://loremflickr.com/800/800/lifestyle?lock=${seed}`;
-  const fb2 = `https://picsum.photos/seed/sbfb${seed}/800/800`;
+  // Fallback: if Pollinations is slow/down, Picsum always loads instantly.
+  const fb = picsumUrl(seed, 800, 800);
   return `<div class="img-wrap ${cls}" style="${style}">
-    <img src="${esc(src)}" alt="${esc(alt)}" loading="eager" decoding="async"
+    <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async"
       onload="this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
-      onerror="var s=parseInt(this.dataset.fb||'0',10);if(s===0){this.dataset.fb='1';this.src='${fb1}';}else if(s===1){this.dataset.fb='2';this.src='${fb2}';}else{var p=this.parentElement;if(p)p.classList.add('img-loaded');this.style.display='none';}"
+      onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='${fb}';}else{var p=this.parentElement;if(p)p.classList.add('img-loaded');this.style.display='none';}"
       class="card-img"
       style="min-height:100%;min-width:100%"
     />
