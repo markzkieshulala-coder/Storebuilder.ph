@@ -10,6 +10,7 @@
  */
 
 import type { SiteBlueprint, Page, Section } from "../types/SiteBlueprint";
+import { curatedSectionImage, curatedProductImage } from "./imageCatalog";
 
 // ─── String utilities ─────────────────────────────────────────────────────────
 
@@ -209,14 +210,16 @@ function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
   const found = extractUrl(item);
   if (found) return found;
   const name = String(item.title || item.name || "");
-  const kw = itemKeyword(name, bp.niche);
-  // Hash the item name + position for a stable, unique lock per product.
-  // Multiplying idx by a large prime spreads values far apart so LoremFlickr
-  // doesn't return the same photo from its pool for nearby lock values.
+  // Hash the item name + position for a stable, unique pick per product.
   const hash = name.split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 7919
   );
+  // 1) Curated Unsplash catalog — premium, niche-tailored photography.
+  const curated = curatedProductImage(name, bp.niche, hash, 800, 800);
+  if (curated) return curated;
+  // 2) LoremFlickr fallback for uncovered niches.
+  const kw = itemKeyword(name, bp.niche);
   const lock = Math.abs(hash) % 9_999_997;
   return `https://loremflickr.com/800/800/${encodeURIComponent(kw)}?lock=${lock}`;
 }
@@ -292,31 +295,47 @@ function sectionKeyword(niche: string, context: string): string {
   }
 }
 
+/** Map a free-form context hint to a known section role for the catalog. */
+function detectRole(context: string): string {
+  const c = context.toLowerCase();
+  if (/hero|cinematic|action|opening|landing/.test(c))         return "hero";
+  if (/about|story|heritage|lifestyle|brand|documentary/.test(c)) return "about";
+  if (/product|showcase|collection|catalog|grid/.test(c))      return "products";
+  if (/contact|location|exterior|interior|ambiance/.test(c))   return "contact";
+  if (/cta|call\s+to\s+action|conversion/.test(c))             return "cta";
+  return "hero";
+}
+
 function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): string {
   const p = getProps(s);
   const found = extractUrl(p);
   if (found) return found;
   const slot = assetUrls(s).find((u) => !isAiImage(u));
   if (slot) return slot;
-  // Use section-role keyword + heavily spread seed so each section gets a
-  // distinct, contextually-appropriate background photo.
-  const kw = sectionKeyword(bp.niche, hint || s.name || "");
-  const hash = (hint + s.name + s.id).split("").reduce(
+  const ctx  = hint || s.name || "";
+  const role = detectRole(ctx);
+  const hash = (ctx + s.name + s.id).split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 6151
   );
+  // 1) Curated Unsplash background per niche × role.
+  const curated = curatedSectionImage(bp.niche, role, hash + bpSeed(bp), 1600, 900);
+  if (curated) return curated;
+  // 2) LoremFlickr fallback.
+  const kw = sectionKeyword(bp.niche, ctx);
   const lock = (Math.abs(hash) + bpSeed(bp)) % 9_999_997;
   return `https://loremflickr.com/1600/900/${encodeURIComponent(kw)}?lock=${lock}`;
 }
 
 function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
-  // Use context-aware keyword so the hero, products, about, and contact pages
-  // each show a different background, not all the same generic niche photo.
-  const kw = sectionKeyword(bp.niche, context);
+  const role = detectRole(context);
   const hash = context.split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (offset + 1) * 8893
   );
+  const curated = curatedSectionImage(bp.niche, role, hash + bpSeed(bp), 1920, 1080);
+  if (curated) return curated;
+  const kw = sectionKeyword(bp.niche, context);
   const lock = (Math.abs(hash) + bpSeed(bp)) % 9_999_997;
   return `https://loremflickr.com/1920/1080/${encodeURIComponent(kw)}?lock=${lock}`;
 }
@@ -362,16 +381,21 @@ input,textarea,select{font:inherit}
 [data-reveal="hero"] [data-rc]{transform:translateY(72px)}
 [data-reveal="hero"].vis [data-rc]{transform:translateY(0)}
 
-/* Card 3D tilt */
-.card-3d{transform-style:preserve-3d;transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease,border-color .4s ease}
-.card-3d:hover{transform:perspective(800px) rotateX(4deg) rotateY(-4deg) translateY(-10px) !important;box-shadow:0 40px 90px ${alpha(BG,"dd")},0 0 0 1px ${alpha(PRI,"44")} !important}
-.card-3d:hover img.card-img{transform:scale(1.07)}
+/* Card 3D tilt — true perspective depth, cinematic shadow stacking */
+.card-3d{transform-style:preserve-3d;perspective:1200px;transition:transform .55s cubic-bezier(.16,1,.3,1),box-shadow .55s ease,border-color .4s ease;will-change:transform}
+.card-3d::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,${alpha(PRI,"00")} 0%,${alpha(PRI,"00")} 60%,${alpha(PRI,"22")} 100%);opacity:0;transition:opacity .5s ease;pointer-events:none;z-index:4}
+.card-3d:hover{transform:perspective(1200px) rotateX(6deg) rotateY(-7deg) translateY(-14px) scale(1.015) !important;box-shadow:0 50px 110px ${alpha(BG,"ee")},0 22px 40px ${alpha(PRI,"33")},0 0 0 1px ${alpha(PRI,"55")} !important}
+.card-3d:hover::after{opacity:1}
+.card-3d:hover img.card-img{transform:scale(1.09);filter:saturate(1.15) contrast(1.05)}
+.card-3d img.card-img{transition:transform .8s cubic-bezier(.16,1,.3,1),filter .5s ease}
 
-/* Image shimmer placeholder */
+/* Image shimmer placeholder + cinematic finish */
 .img-wrap{background:linear-gradient(135deg,${isLight(BG) ? darken(BG, 10) : lighten(BG, 20)},${isLight(BG) ? darken(BG, 4) : lighten(BG, 8)});overflow:hidden;position:relative}
 .img-wrap::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,${isLight(BG) ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.07)"} 50%,transparent 100%);background-size:200% 100%;animation:shimmer 1.6s infinite linear;z-index:1;pointer-events:none}
 .img-wrap.img-loaded::before{display:none}
-.img-wrap img{width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .4s ease;position:relative;z-index:2}
+/* Vignette ring tightens focus on subject and gives a film-grade feel */
+.img-wrap::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 55%,${alpha(BG,"55")} 100%);pointer-events:none;z-index:3;opacity:.85}
+.img-wrap img{width:100%;height:100%;object-fit:cover;opacity:1;transition:opacity .4s ease,transform .8s cubic-bezier(.16,1,.3,1),filter .5s ease;position:relative;z-index:2;filter:saturate(1.08) contrast(1.04)}
 .img-wrap img.loaded{opacity:1}
 
 /* Buttons */
@@ -444,11 +468,14 @@ function badge(s: Section, fb: string, ACC: string): string {
 
 let _fbCtr = 0;
 function imgWrap(src: string, alt: string, style = "", cls = ""): string {
-  const fb = `https://picsum.photos/seed/sbfb${(++_fbCtr) * 7919 % 9_999_991}/800/800`;
+  const seed = (++_fbCtr) * 7919 % 9_999_991;
+  // Two-stage fallback: Unsplash → LoremFlickr (generic) → Picsum.
+  const fb1 = `https://loremflickr.com/800/800/lifestyle?lock=${seed}`;
+  const fb2 = `https://picsum.photos/seed/sbfb${seed}/800/800`;
   return `<div class="img-wrap ${cls}" style="${style}">
     <img src="${esc(src)}" alt="${esc(alt)}" loading="eager" decoding="async"
       onload="this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
-      onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='${fb}';}else{var p=this.parentElement;if(p)p.classList.add('img-loaded');this.style.display='none';}"
+      onerror="var s=parseInt(this.dataset.fb||'0',10);if(s===0){this.dataset.fb='1';this.src='${fb1}';}else if(s===1){this.dataset.fb='2';this.src='${fb2}';}else{var p=this.parentElement;if(p)p.classList.add('img-loaded');this.style.display='none';}"
       class="card-img"
       style="min-height:100%;min-width:100%"
     />
