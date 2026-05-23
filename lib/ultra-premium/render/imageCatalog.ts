@@ -119,6 +119,13 @@ const SECTION_KEYWORDS: Record<string, Record<string, string>> = {
     contact:  "studio,creative,workspace,modern",
     cta:      "creative,design,inspiration,portfolio",
   },
+  pet: {
+    hero:     "pet,dog,cat,puppy,kitten,animal",
+    about:    "pet,dog,cat,care,grooming,vet",
+    products: "pet,food,toy,supplies,treats,collar",
+    contact:  "pet,store,clinic,grooming",
+    cta:      "pet,happy,owner,family,companion",
+  },
 };
 
 /** Map: niche → product-type → LoremFlickr keyword string */
@@ -185,6 +192,13 @@ const PRODUCT_KEYWORDS: Record<string, Record<string, string>> = {
   portfolio: {
     default: "design,creative,portfolio,artwork",
   },
+  pet: {
+    food:    "pet,food,kibble,dog,cat",
+    toy:     "pet,toy,dog,cat,play",
+    treat:   "pet,treats,snacks,dog,cat",
+    grooming:"pet,grooming,brush,bath,care",
+    default: "pet,product,supplies,dog,cat",
+  },
 };
 
 // ─── URL builder ───────────────────────────────────────────────────────────────
@@ -204,6 +218,9 @@ function loremFlickrUrl(keywords: string, w: number, h: number, seed: number): s
 function nicheKey(niche: string): string {
   const n = (niche || "").toLowerCase().trim();
   if (/barber/.test(n))                     return "barber";
+  // Pet matched BEFORE generic food/salon so "pet food" / "pet grooming" /
+  // "dog food" route to pet keywords instead of restaurant or salon keywords.
+  if (/\bpet|dog|cat|puppy|kitten|aquarium/.test(n)) return "pet";
   if (/salon|beauty|cosmetic|spa/.test(n))  return "salon";
   if (/restaurant|dining|bistro/.test(n))   return "restaurant";
   if (/coffee|cafe|espresso/.test(n))       return "coffee";
@@ -252,6 +269,11 @@ function productKey(name: string, niche: string): string {
       if (/jacket|coat|blazer/.test(n))   return "jacket";
       if (/shoe|heel|boot/.test(n))       return "shoe";
       return "default";
+    case "pet":
+      if (/food|kibble|treat/.test(n))    return "food";
+      if (/toy|chew|play/.test(n))        return "toy";
+      if (/grooming|brush|shampoo/.test(n)) return "grooming";
+      return "default";
     default:
       return "default";
   }
@@ -278,8 +300,18 @@ export function curatedSectionImage(
   const nk  = nicheKey(niche);
   const map  = SECTION_KEYWORDS[nk];
   if (!map) {
-    // Unknown niche — generic premium commercial photo
-    return loremFlickrUrl("business,modern,luxury,premium,commercial", w, h, hash);
+    // Unknown niche — derive keywords from the niche string itself so
+    // "cat toy" → search "cat,toy", "real estate" → search "real,estate", etc.
+    const fromNiche = (niche || "business")
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !/^(the|and|for|with|that|new|best|top|store|shop|online|premium)$/.test(w))
+      .slice(0, 3)
+      .join(",");
+    const keywords = (fromNiche || "business") + ",premium,modern,professional";
+    return loremFlickrUrl(keywords, w, h, hash);
   }
   const keywords = map[role] ?? map.hero ?? "business,modern,premium";
   return loremFlickrUrl(keywords, w, h, hash);
@@ -306,7 +338,26 @@ export function curatedProductImage(
   const pk  = productKey(productName, niche);
   const map  = PRODUCT_KEYWORDS[nk];
   if (!map) {
-    return loremFlickrUrl("product,premium,modern,display,commercial", w, h, hash);
+    // Unknown niche — keywords pulled from the product NAME first, then niche
+    // so "Catnip Mouse Toy" + niche "cat toy" → "catnip,mouse,toy,cat,product".
+    const fromName = (productName || "")
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !/^(the|and|for|with|premium|luxury|new|best|top)$/.test(w))
+      .slice(0, 3)
+      .join(",");
+    const fromNiche = (niche || "")
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !/^(the|and|for|with|that|new|best|store|shop|online|premium)$/.test(w))
+      .slice(0, 2)
+      .join(",");
+    const keywords = [fromName, fromNiche, "product,premium"].filter(Boolean).join(",") || "product,premium,modern";
+    return loremFlickrUrl(keywords, w, h, hash);
   }
   const keywords = map[pk] ?? map.default ?? "product,premium,display";
   return loremFlickrUrl(keywords, w, h, hash);

@@ -6,6 +6,12 @@ import { prisma } from "@/lib/prisma";
 import { renderBlueprintToHtml } from "@/lib/ultra-premium/render/htmlRenderer";
 import type { SiteBlueprint } from "@/lib/ultra-premium/types/SiteBlueprint";
 
+// Disable all caching so the lazy re-render below always reaches the editor.
+// Without this, GET responses can be served from the Next.js fetch cache or
+// the browser disk cache, masking renderer fixes.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // All operations use raw SQL to avoid type-mismatch errors with a stale
 // Prisma client (e.g., when the deployed client predates schema changes).
 
@@ -34,24 +40,40 @@ export async function GET(
     // any improvements to the renderer (image engine, theme styling, CSS) reach
     // the editor immediately instead of being shadowed by stale `htmlContent`
     // that was baked at the moment the website was first generated.
+    let rerenderStatus: "ok" | "no-blueprint" | "no-name" | "error" = "no-blueprint";
+    let rerenderError = "";
     try {
       const json = website.jsonContent as Record<string, unknown> | null;
       const blueprint = json?.blueprint as SiteBlueprint | undefined;
-      if (blueprint && website.name) {
+      if (!blueprint) {
+        rerenderStatus = "no-blueprint";
+      } else if (!website.name) {
+        rerenderStatus = "no-name";
+      } else {
         const freshHtml = renderBlueprintToHtml(blueprint, website.name);
         if (freshHtml !== website.htmlContent) {
           website.htmlContent = freshHtml;
-          // Persist in background — don't block the response
           prisma.$executeRawUnsafe(
             `UPDATE "Website" SET "htmlContent" = $1, "updatedAt" = NOW() WHERE id = $2`,
             freshHtml,
             website.id
           ).catch(() => {});
         }
+        rerenderStatus = "ok";
       }
-    } catch { /* never fail a GET because of lazy re-render */ }
+    } catch (e: any) {
+      // SURFACE rerender errors instead of silently swallowing — when this
+      // throws, the editor gets old stale HTML and the user sees stale images.
+      rerenderStatus = "error";
+      rerenderError = e?.message ?? String(e);
+      console.error("[GET /api/websites/[id]] lazy re-render failed:", rerenderError);
+    }
+    console.log("[GET /api/websites/" + params.id + "] rerender:", rerenderStatus, rerenderError ? `(${rerenderError})` : "");
 
-    return NextResponse.json({ website });
+    const res = NextResponse.json({ website, _rerender: rerenderStatus });
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.headers.set("Pragma", "no-cache");
+    return res;
   } catch (err: any) {
     console.error("[GET /api/websites/[id]]", err);
     return NextResponse.json(

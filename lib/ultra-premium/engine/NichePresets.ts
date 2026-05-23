@@ -709,26 +709,101 @@ const NICHE_KEYWORDS: Array<[RegExp, string]> = [
   [/\b(cyber\w*|security|infosec|saas|threat|defen[cs]e|encryption|firewall|endpoint|pentest|penetration\s*test|soc|siem|edr|xdr|mfa|zero[-\s]?trust)\b/i, "cybersecurity"],
   [/\b(fitness|gym|workout|crossfit|trainer|athletic|bodybuild)\b/i, "fitness"],
   [/\b(barber(shop)?|gentleman'?s?\s+(club|cut|grooming)|men'?s?\s+(grooming|cut|haircut)|straight[-\s]?razor)\b/i, "barber"],
+  // Pet niche checked BEFORE "food" because "dog food" / "pet food" contain
+  // the word "food" but the user intends a pet store, not a restaurant.
+  [/\bpet(s|\s+(supplies|food|store|shop|toys|grooming|care))?\b|\b(dog|cat|puppy|kitten|hamster|rabbit|bird|fish|aquarium|reptile)\s+(food|toy|toys|supplies|treats|grooming|accessor)/i, "pet"],
   [/\b(coffee|espresso|latte|cappuccino|barista|brew(ery|ing)?|roaster)\b/i, "coffee"],
-  [/\b(restaurant|cafe|caf[eé]|bakery|food|dining|kitchen|menu|chef|bistro|tasting|cuisine|pizzeria|sushi|ramen)\b/i, "food"],
+  // "food" intentionally NOT standalone — must appear as cuisine/dining/etc.
+  // Standalone "food" matched things like "dog food", "pet food", "fast food".
+  [/\b(restaurant|cafe|caf[eé]|bakery|dining|kitchen|menu|chef|bistro|tasting|cuisine|pizzeria|sushi|ramen|deli|food[-\s]?truck|food[-\s]?delivery|fine[-\s]?dining|gourmet)\b/i, "food"],
   [/\b(salon|spa|beauty|hair\s+salon|nail|makeup|skincare|stylist|hair\s+studio|cosmetic)\b/i, "salon"],
   [/\b(portfolio|designer|artist|photographer|creative|illustration|studio)\b/i, "portfolio"],
   [/\b(fashion|apparel|clothing|runway|couture|boutique|garment|tailor|wear)\b/i, "fashion"],
   [/\b(store|shop|e-?commerce|retail|marketplace|brand|product)\b/i, "store"],
 ];
 
-/** Detect niche from prompt; returns canonical key or "store" as default */
+/** Detect niche from prompt; returns canonical key or extracted subject. */
 export function detectNiche(prompt: string): string {
   const text = prompt.toLowerCase();
+
+  // First pass: match SPECIFIC niches only (skip generic "store") so that
+  // "online cat toy store" extracts "cat toy" instead of resolving to "store".
   for (const [regex, key] of NICHE_KEYWORDS) {
+    if (key === "store") continue;
     if (regex.test(text)) return key;
   }
+
+  // Second pass: extract the actual subject from common prompt patterns so
+  // unknown niches (cat toy, pet supplies, real estate, dog grooming…) still
+  // get niche-aware images and product names.
+  const subject = extractSubjectFromPrompt(text);
+  if (subject) return subject;
+
+  // Fall back to generic store ONLY when nothing usable was extracted.
   return "store";
+}
+
+/** Pull the main subject from prompts like "online X store", "Y agency", etc. */
+function extractSubjectFromPrompt(text: string): string {
+  const stop = new Set(["online","premium","luxury","the","a","an","and","for","with","that","new","best","top","professional","modern","website","landing","build","create","make","my","our","your","this"]);
+
+  // Pattern A: "X store|shop|boutique|business|website|service|agency|studio|app"
+  const a = text.match(/\b(?:an?\s+|the\s+)?([a-z][a-z\s]{2,50}?)\s+(?:store|shop|online|business|website|service|brand|company|boutique|studio|agency|firm|platform|app|delivery|catering|rental|rentals)\b/);
+  if (a && a[1]) {
+    const subject = a[1].trim().split(/\s+/).filter(w => !stop.has(w) && w.length >= 3).slice(-3).join(" ");
+    if (subject.length >= 3) return subject;
+  }
+
+  // Pattern B: "site for X", "website for X", "platform for X"
+  const b = text.match(/(?:site|website|platform|app|portal)\s+(?:for|about|that\s+sells?)\s+([a-z][a-z\s]{2,50})/);
+  if (b && b[1]) {
+    const subject = b[1].trim().split(/\s+/).filter(w => !stop.has(w) && w.length >= 3).slice(0, 3).join(" ");
+    if (subject.length >= 3) return subject;
+  }
+
+  // Pattern C: first 1–3 meaningful nouns
+  const tokens = text.split(/[^a-z]+/).filter(w => w.length >= 3 && !stop.has(w));
+  if (tokens.length) return tokens.slice(0, 2).join(" ");
+  return "";
 }
 
 /** Get the resolved preset for a niche (with safe default) */
 export function getPreset(niche: string): NichePreset {
-  return NICHE_PRESETS[niche.toLowerCase()] ?? DEFAULT_STORE;
+  const key = (niche || "").toLowerCase().trim();
+  const exact = NICHE_PRESETS[key];
+  if (exact) return exact;
+
+  // Unknown niche (e.g. "cat toy", "real estate", "dog grooming") — derive a
+  // synthetic preset whose product names and imageKeyword reference the niche
+  // text. Without this, every unknown niche got DEFAULT_STORE's generic
+  // "House Edition No. 01" product names, which then drove generic image
+  // prompts at render time. Now "cat toy" niche yields "Premium Cat Toy 01",
+  // "Cat Toy Essentials", etc., which Pollinations renders as cat-toy photos.
+  return synthesizePreset(niche || "premium");
+}
+
+/** Build a preset whose product names and imageKeyword reflect the niche text. */
+function synthesizePreset(niche: string): NichePreset {
+  const Title = niche
+    .split(/\s+/)
+    .map(w => w[0]?.toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ")
+    .trim() || "Premium";
+  return {
+    ...DEFAULT_STORE,
+    key: niche.toLowerCase(),
+    productNames: [
+      `Premium ${Title}`,
+      `${Title} Essentials`,
+      `${Title} Collection`,
+      `Signature ${Title}`,
+      `${Title} Pro`,
+      `Limited Edition ${Title}`,
+      `${Title} Classic`,
+      `${Title} Studio Series`,
+    ],
+    imageKeyword: `${niche} premium professional photography hero subject`,
+  };
 }
 
 /**

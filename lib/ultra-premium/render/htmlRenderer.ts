@@ -141,9 +141,10 @@ function sectionImageUrl(
  */
 function buildProductPrompt(name: string, niche: string): string {
   const n = (name  || "").toLowerCase();
+  const safeName = (name || "premium product").trim();
   const base = "professional product photography, clean studio background, cinematic lighting, ultra realistic, 8k, no text, no words, no labels, no watermarks, no logos";
 
-  switch (niche.toLowerCase()) {
+  switch ((niche || "").toLowerCase()) {
     case "basketball":
       // Check jersey/ball/shorts BEFORE player-name shoe patterns so
       // "LeBron James Lakers Jersey" → jersey photo (not shoe).
@@ -235,7 +236,11 @@ function buildProductPrompt(name: string, niche: string): string {
       return `premium fitness product on dark gym background, athletic, ${base}`;
 
     default:
-      return `premium product display on dark minimal background, professional, ${base}`;
+      // CRITICAL: include the actual product name in the prompt so the AI image
+      // matches what the card sells. Without this, every "unknown niche" product
+      // got the same generic "premium product on dark background" image
+      // regardless of whether it was a cat toy, a book, a fishing rod, etc.
+      return `${safeName} ${niche || ""} premium product, dramatic studio lighting, on dark minimalist background, hero product shot, ${base}`;
   }
 }
 
@@ -246,8 +251,9 @@ function buildProductPrompt(name: string, niche: string): string {
 function buildSectionPrompt(niche: string, role: string): string {
   const base = "cinematic photography, ultra realistic, 8k, dramatic lighting, no text, no words, no signs, no labels, no watermarks, no logos, wide angle";
 
-  const n = niche.toLowerCase();
-  const r = role.toLowerCase();
+  const safeNiche = (niche || "premium").trim();
+  const n = safeNiche.toLowerCase();
+  const r = (role || "hero").toLowerCase();
 
   switch (n) {
     case "basketball":
@@ -325,13 +331,16 @@ function buildSectionPrompt(niche: string, role: string): string {
       return `dark server room with glowing blue racks and data streams, ${base}`;
 
     default: {
-      // Generic premium commercial photography for unknown niches
+      // CRITICAL: include the actual niche text in every prompt so the AI image
+      // matches the user's business type. Without this, a "cat toy store" got
+      // the same generic "modern commercial business interior" as a "real estate
+      // agency" — no relation to the actual business.
       const prompts: Record<string, string> = {
-        hero:     `modern premium commercial business interior with dramatic lighting, ${base}`,
-        about:    `professional team meeting in modern office with large windows, ${base}`,
-        products: `premium products displayed on dark minimal background with spotlights, ${base}`,
-        contact:  `elegant modern office reception area with warm lighting, ${base}`,
-        cta:      `successful business celebration in modern office, ${base}`,
+        hero:     `${safeNiche} business cinematic premium interior, dramatic spotlight, professional environment, ${base}`,
+        about:    `${safeNiche} business professional team at work, modern environment, ${base}`,
+        products: `${safeNiche} products beautifully displayed on premium showcase, dark moody background, ${base}`,
+        contact:  `${safeNiche} business modern reception area, warm ambient lighting, ${base}`,
+        cta:      `${safeNiche} business success moment, premium environment, ${base}`,
       };
       return prompts[r] || prompts.hero;
     }
