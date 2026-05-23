@@ -369,13 +369,19 @@ function assetUrls(s: Section): string[] {
   return ((s.component?.assetSlots ?? []) as any[]).map((sl: any) => sl?.generatedUrl).filter(Boolean);
 }
 
-/** True if a URL is a generic placeholder that should be replaced with a niche-specific image. */
+/**
+ * URLs we treat as "generated placeholders" that the renderer should ignore.
+ * Engine-stored Pollinations / LoremFlickr / picsum URLs are rejected here so
+ * the renderer always builds its own fresh AI prompt with the most specific
+ * product-name + niche logic. User-supplied custom photo URLs (e.g. a real
+ * stock photo URL the user pasted in the editor) bypass this filter and win
+ * as the primary source.
+ */
 function isAiImage(u: string): boolean {
-  // Only block truly generic placeholders — Pollinations is now our primary source.
-  return /stable-?diffusion|deepai|leonardo|picsum\.photos/i.test(u);
+  return /stable-?diffusion|deepai|leonardo|picsum\.photos|pollinations\.ai|loremflickr\.com/i.test(u);
 }
 
-/** Scan every string prop for a usable real-photo URL. */
+/** Scan every string prop for a user-supplied real photo URL. */
 function extractUrl(obj: Record<string, any>): string {
   const known = ["image","imageSrc","imageUrl","thumbnail","photo","src","cover","poster","artwork","productImage","img","heroImageSrc","heroMediaSrc","mediaSrc","backgroundMedia","backgroundTexture","foregroundProduct","glitchTexture","marqueeTexture","transitionTexture","glassBackground","leftMediaSrc","rightMediaSrc","featuredImage"];
   for (const k of known) {
@@ -389,25 +395,36 @@ function extractUrl(obj: Record<string, any>): string {
 }
 
 /**
- * Image source = {primary URL, AI fallback URL}.
- * Primary is a curated Unsplash photo when the niche has catalog coverage —
- * instant load, hand-picked to match the niche and product type. AI fallback
- * is a Pollinations URL with the same niche/style prompt, used when the
- * Unsplash photo 404s. When both fail, the .img-wrap CSS gradient shows.
+ * Image source = {primary URL, fallback URL}.
+ *
+ * Primary is a Pollinations AI image built from a niche- and product-aware
+ * prompt (e.g. "premium basketball sneakers floating mid-air on dark gradient
+ * background, professional product photography, ultra realistic, 8k, ..."),
+ * guaranteeing the image content matches the product name and niche.
+ *
+ * Fallback is a LoremFlickr keyword-matched photo that loads instantly if the
+ * Pollinations request 404s or times out. The CSS shimmer gradient inside
+ * .img-wrap renders while the AI image is being generated (~3–6s on flux).
  */
 interface ImageSrc { primary: string; fallback: string; }
 
 function getItemImage(item: any, bp: SiteBlueprint, idx: number): ImageSrc {
-  const found = extractUrl(item);
   const name = String(item.title || item.name || "");
   const hash = name.split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 7919
   );
-  const aiUrl = productImageUrl(name, bp.niche, hash, 600, 600, bp.themeStyle);
+  // Pollinations primary — prompt-driven, guaranteed niche- and product-relevant.
+  // 800×800 hits the sweet spot: visibly sharper than 600 yet ~30% faster than 1024.
+  const aiUrl = productImageUrl(name, bp.niche, hash, 800, 800, bp.themeStyle);
+  // LoremFlickr fallback — keyword-matched real photo, instant if Pollinations fails.
+  const curated = curatedProductImage(name, bp.niche, Math.abs(hash), 800, 800);
+
+  // User-supplied URLs (custom uploads, real stock photo URLs) override the AI primary.
+  const found = extractUrl(item);
   if (found) return { primary: found, fallback: aiUrl };
-  const curated = curatedProductImage(name, bp.niche, Math.abs(hash), 600, 600);
-  return { primary: curated || aiUrl, fallback: curated ? aiUrl : "" };
+
+  return { primary: aiUrl, fallback: curated || "" };
 }
 
 function detectRole(context: string): string {
@@ -421,8 +438,6 @@ function detectRole(context: string): string {
 }
 
 function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): ImageSrc {
-  const p = getProps(s);
-  const found = extractUrl(p);
   const ctx  = hint || s.name || "";
   const role = detectRole(ctx);
   const hash = (ctx + s.name + s.id).split("").reduce(
@@ -430,12 +445,18 @@ function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): Im
     (idx + 1) * 6151
   );
   const seed = Math.abs(hash) + bpSeed(bp);
-  const aiUrl = sectionImageUrl(bp.niche, role, seed, 1280, 720, bp.themeStyle);
+  // Pollinations primary at higher res for hero-quality backgrounds.
+  const aiUrl = sectionImageUrl(bp.niche, role, seed, 1920, 1080, bp.themeStyle);
+  const curated = curatedSectionImage(bp.niche, role, seed, 1920, 1080);
+
+  // User-supplied URLs win as primary.
+  const p = getProps(s);
+  const found = extractUrl(p);
   if (found) return { primary: found, fallback: aiUrl };
   const slot = assetUrls(s).find((u) => !isAiImage(u));
   if (slot) return { primary: slot, fallback: aiUrl };
-  const curated = curatedSectionImage(bp.niche, role, seed, 1280, 720);
-  return { primary: curated || aiUrl, fallback: curated ? aiUrl : "" };
+
+  return { primary: aiUrl, fallback: curated || "" };
 }
 
 function getPageBg(bp: SiteBlueprint, context: string, offset: number): ImageSrc {
@@ -445,9 +466,9 @@ function getPageBg(bp: SiteBlueprint, context: string, offset: number): ImageSrc
     (offset + 1) * 8893
   );
   const seed = Math.abs(hash) + bpSeed(bp);
-  const aiUrl = sectionImageUrl(bp.niche, role, seed, 1280, 720, bp.themeStyle);
-  const curated = curatedSectionImage(bp.niche, role, seed, 1280, 720);
-  return { primary: curated || aiUrl, fallback: curated ? aiUrl : "" };
+  const aiUrl = sectionImageUrl(bp.niche, role, seed, 1920, 1080, bp.themeStyle);
+  const curated = curatedSectionImage(bp.niche, role, seed, 1920, 1080);
+  return { primary: aiUrl, fallback: curated || "" };
 }
 
 function getItems(s: Section): any[] {
@@ -613,14 +634,19 @@ function badge(s: Section, fb: string, ACC: string): string {
 // ─── Image wrapper ────────────────────────────────────────────────────────────
 
 /**
- * Wraps an image with a 3-tier fallback chain:
- *   1. primary src (curated Unsplash photo for niche)
- *   2. onerror → fallback src (Pollinations AI-generated for same niche)
- *   3. onerror again → image hidden, CSS gradient background of .img-wrap shows
+ * Wraps an image with a 3-tier display chain:
+ *   1. CSS background-image = fallback URL (LoremFlickr keyword photo) — paints
+ *      INSTANTLY so the user always sees a niche-relevant photo immediately.
+ *   2. Foreground <img src> = primary URL (Pollinations prompt-generated AI
+ *      photo) — replaces the background once loaded (~3–6s on flux). This is
+ *      the most accurate image because the prompt explicitly describes the
+ *      product / niche.
+ *   3. If primary <img> errors, onerror swaps src to the fallback URL.
+ *   4. If that also errors, the image is hidden and the CSS gradient on
+ *      .img-wrap remains visible.
  *
- * Accepts either a plain string (no fallback) or an ImageSrc {primary, fallback}.
- * Pass eager=true for above-the-fold images (hero) so they start loading
- * immediately without waiting for lazy-scroll intersection.
+ * Pass eager=true for above-the-fold images (hero) so the browser starts
+ * loading immediately without waiting for the lazy-scroll intersection.
  */
 function imgWrap(
   src: string | ImageSrc,
@@ -634,12 +660,23 @@ function imgWrap(
   const onerror = fallback
     ? `if(!this.dataset.fb){this.dataset.fb='1';this.src=${JSON.stringify(fallback)};}else{this.style.display='none';var p=this.parentElement;if(p)p.classList.add('img-loaded');}`
     : `this.style.display='none';var p=this.parentElement;if(p)p.classList.add('img-loaded');`;
-  return `<div class="img-wrap ${cls}" style="${style}">
+
+  // Inline background-image gives instant niche-relevant paint. We also keep
+  // background-size:cover + center positioning so the photo fills the wrapper
+  // regardless of aspect ratio. The <img> foreground will fade in over it.
+  const bgInline = fallback
+    ? `background-image:url('${esc(fallback)}');background-size:cover;background-position:center;background-repeat:no-repeat;`
+    : '';
+
+  // Inline opacity:0 → fades in to 1 on load. We toggle inline rather than via
+  // class because inline styles beat class styles without !important.
+  const initOpacity = fallback ? "opacity:0;transition:opacity .6s ease;" : "";
+  return `<div class="img-wrap ${cls}" style="${bgInline}${style}">
     <img src="${esc(primary)}" alt="${esc(alt)}" loading="${eager ? "eager" : "lazy"}" decoding="async"
-      onload="this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
+      onload="this.style.opacity='1';this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
       onerror="${onerror}"
       class="card-img"
-      style="min-height:100%;min-width:100%"
+      style="min-height:100%;min-width:100%;${initOpacity}"
     />
   </div>`;
 }
@@ -1546,10 +1583,44 @@ function routerScript(BG: string, PRI: string): string {
     });
   };
 
+  // ── Cursor glow follower ──────────────────────────────────────────────────
+  // Signature ultra-premium effect: a soft, color-tinted dot that follows the
+  // cursor with elastic easing. Hidden on touch devices where no cursor exists.
+  function initCursor() {
+    if (matchMedia('(hover:none)').matches) return;
+    if (document.getElementById('sb-cursor')) return;
+    var c = document.createElement('div');
+    c.id = 'sb-cursor';
+    c.style.cssText = 'position:fixed;top:0;left:0;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle,${alpha(PRI,"99")} 0%,${alpha(PRI,"22")} 60%,transparent 100%);pointer-events:none;z-index:99998;mix-blend-mode:screen;transform:translate(-50%,-50%);transition:width .25s ease,height .25s ease,opacity .25s ease;will-change:transform;opacity:0;';
+    document.body.appendChild(c);
+    var tx = 0, ty = 0, cx = 0, cy = 0;
+    document.addEventListener('mousemove', function(e) {
+      tx = e.clientX; ty = e.clientY;
+      if (c.style.opacity === '0') c.style.opacity = '1';
+    }, { passive: true });
+    document.addEventListener('mouseleave', function() { c.style.opacity = '0'; });
+    // Enlarge over clickable elements
+    document.addEventListener('mouseover', function(e) {
+      var t = e.target;
+      if (t && t.closest && t.closest('a,button,[role="button"],.card-3d,input,textarea')) {
+        c.style.width = '54px'; c.style.height = '54px';
+      } else {
+        c.style.width = '28px'; c.style.height = '28px';
+      }
+    }, { passive: true });
+    (function loop() {
+      cx += (tx - cx) * 0.18;
+      cy += (ty - cy) * 0.18;
+      c.style.transform = 'translate(' + (cx - c.offsetWidth/2) + 'px,' + (cy - c.offsetHeight/2) + 'px)';
+      requestAnimationFrame(loop);
+    })();
+  }
+
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   runReveal();
   initTilt();
   doHeroParallax();
+  initCursor();
 })();
 </script>`;
 }
@@ -1582,6 +1653,11 @@ export function renderBlueprintToHtml(bp: SiteBlueprint, overrideBrandName?: str
   const title    = brand || page.meta?.title || bpR.niche;
   const desc     = page.meta?.description || clean(bpR.copy?.hero?.subheadline) || "";
 
+  // Preload the hero image so the browser starts fetching it during HTML parse
+  // — eliminates the ~2s gap between page load and image arrival on slow links.
+  const heroSection = page.sections.find(s => /Hero|Header|GlitchHeader/i.test(s.name));
+  const heroPreload = heroSection ? getSectionBg(heroSection, bpR, 0, "hero cinematic scene") : getPageBg(bpR, "hero cinematic scene", 0);
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1591,6 +1667,9 @@ export function renderBlueprintToHtml(bp: SiteBlueprint, overrideBrandName?: str
 <meta name="description" content="${esc(desc)}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://image.pollinations.ai"/>
+<link rel="preconnect" href="https://loremflickr.com"/>
+<link rel="preload" as="image" href="${esc(heroPreload.primary)}" fetchpriority="high"/>
 <link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(hf)}:wght@400;600;700;800;900&family=${encodeURIComponent(bf)}:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 ${sharedCss(TEXT, BG, PRI, ACC, hf, bf, bpR.themeStyle)}
