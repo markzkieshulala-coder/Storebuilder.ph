@@ -1,562 +1,231 @@
 /**
- * Curated Premium Image Catalog
+ * Curated Niche Image Catalog
  *
- * Hand-picked Unsplash photo IDs per niche × role × product-type. Unsplash
- * direct CDN URLs (`https://images.unsplash.com/photo-{ID}`) are stable,
- * royalty-free, and require no API key — perfect for an Ultra-Premium
- * production renderer.
+ * Returns instant, niche-relevant image URLs for section backgrounds and
+ * product cards. Uses LoremFlickr (keyword-based Flickr CDN) as the primary
+ * source — no specific photo IDs to verify, no API key needed, and keywords
+ * guarantee the image content matches the niche and role.
  *
- * The renderer picks deterministically from the pool via item-name hash, so
- * each product card / section gets a unique but always niche-relevant photo.
- *
- * Fallback chain: this catalog → LoremFlickr (existing) → Picsum (onerror).
+ * The seed (lock) parameter makes results deterministic: the same section
+ * always gets the same photo on every render.
  */
 
-// ────────────────────────────────────────────────────────────────────────────
-// SECTION POOLS — per niche × role (hero / about / products / contact / cta)
-// ────────────────────────────────────────────────────────────────────────────
+// ─── Keyword maps ──────────────────────────────────────────────────────────────
 
-type NicheRolePools = Record<string, Record<string, string[]>>;
-
-/** Map of niche → role → array of Unsplash photo IDs (no domain prefix). */
-const SECTION_POOLS: NicheRolePools = {
+/** Map: niche → role → LoremFlickr keyword string */
+const SECTION_KEYWORDS: Record<string, Record<string, string>> = {
   basketball: {
-    hero: [
-      "1546519638-68e109498ffc",       // basketball court at sunset
-      "1574623452334-1e0ac2b3ccb4",   // player dunking
-      "1577471488278-16eec37ffcc2",   // close-up of hoop
-      "1518605458261-bdab6b6c8d70",   // arena interior
-      "1612872087720-bb876e2e67d1",   // basketball game action
-    ],
-    about: [
-      "1518614914854-d96be8a6f49a",   // team huddle
-      "1571019613454-1cb2f99b2d8b",   // locker room
-      "1505666287802-931582b5fcde",   // training session
-      "1518605458261-bdab6b6c8d70",   // arena lights
-    ],
-    products: [
-      "1542718610-a1d656d1884c",       // basketball sneakers display
-      "1556906781-9a412961c28c",       // sneaker close-up
-      "1595950653106-6c9ebd614d3a",   // sports retail store
-      "1518365050014-70fe7232897f",   // sneakers shelf
-    ],
-    contact: [
-      "1574629810360-7efbbe195018",   // gym interior
-      "1571902943202-507ec2618e8f",   // empty court
-      "1505666287802-931582b5fcde",   // facility
-    ],
-    cta: [
-      "1518605458261-bdab6b6c8d70",   // crowd / arena
-      "1577741314755-c19842611a8b",   // game-winning moment
-    ],
+    hero:     "basketball,arena,NBA,court,stadium",
+    about:    "basketball,athletes,training,team,sport",
+    products: "basketball,sneakers,Nike,gear,store",
+    contact:  "basketball,gym,court,training,facility",
+    cta:      "basketball,champions,celebration,victory",
   },
-
   restaurant: {
-    hero: [
-      "1414235077428-338989a2e8c0",   // restaurant interior warm light
-      "1517248135467-4c7edcad34c4",   // gourmet plating
-      "1552566626-52f8b828add9",       // fine dining table
-      "1559339352-11d035aa65de",       // chef plating
-    ],
-    about: [
-      "1556910103-1c02745aae4d",       // chef in kitchen
-      "1551218808-94e220e084d2",       // kitchen team
-      "1592417817038-d13fd7342605",   // cooking action
-    ],
-    products: [
-      "1546069901-ba9599a7e63c",       // signature dish
-      "1567620905732-2d1ec7ab7445",   // burger gourmet
-      "1565299624946-b28f40a0ae38",   // pizza
-      "1559847844-5315695dadae",       // dessert plate
-    ],
-    contact: [
-      "1414235077428-338989a2e8c0",   // restaurant ambiance
-      "1517248135467-4c7edcad34c4",   // table setting
-    ],
-    cta: [
-      "1552566626-52f8b828add9",       // celebration table
-    ],
+    hero:     "restaurant,fine-dining,interior,elegant,luxury",
+    about:    "chef,kitchen,cooking,gourmet,culinary",
+    products: "food,gourmet,plating,dish,cuisine",
+    contact:  "restaurant,dining,table,ambiance,interior",
+    cta:      "restaurant,celebration,dining,experience",
   },
-
   food: {
-    hero: [
-      "1517248135467-4c7edcad34c4",   // gourmet plating
-      "1546069901-ba9599a7e63c",       // signature dish
-    ],
-    about: [
-      "1556910103-1c02745aae4d",       // chef
-    ],
-    products: [
-      "1546069901-ba9599a7e63c",
-      "1567620905732-2d1ec7ab7445",
-      "1565299624946-b28f40a0ae38",
-    ],
-    contact: [
-      "1414235077428-338989a2e8c0",
-    ],
-    cta: [
-      "1552566626-52f8b828add9",
-    ],
+    hero:     "food,gourmet,cuisine,plating,elegant",
+    about:    "chef,kitchen,cooking,culinary",
+    products: "food,dish,gourmet,meal",
+    contact:  "restaurant,cafe,food,interior",
+    cta:      "food,dining,feast,celebration",
   },
-
   barber: {
-    hero: [
-      "1517398852892-bc7d11586c4e",   // classic barbershop interior
-      "1622286342621-4bd786c2447c",   // barber chair vintage
-      "1503951914875-452162b0f3f1",   // straight razor shave
-    ],
-    about: [
-      "1605497788044-5a32c7078486",   // barber working
-      "1593702275687-f9fa3b5e6648",   // close-up grooming
-    ],
-    products: [
-      "1521590832167-7bcbfaa6381f",   // grooming products
-      "1626808642875-0aa545482dfb",   // beard care kit
-    ],
-    contact: [
-      "1622286342621-4bd786c2447c",   // chair
-      "1517398852892-bc7d11586c4e",   // shop interior
-    ],
-    cta: [
-      "1605497788044-5a32c7078486",   // barber finishing
-    ],
+    hero:     "barbershop,barber,vintage,interior,classic",
+    about:    "barber,grooming,haircut,professional",
+    products: "grooming,beard,pomade,men,barbershop",
+    contact:  "barbershop,chair,interior,vintage",
+    cta:      "barber,grooming,style,men",
   },
-
   barbershop: {
-    hero: [
-      "1517398852892-bc7d11586c4e",
-      "1622286342621-4bd786c2447c",
-    ],
-    about: ["1605497788044-5a32c7078486"],
-    products: ["1521590832167-7bcbfaa6381f"],
-    contact: ["1517398852892-bc7d11586c4e"],
-    cta: ["1605497788044-5a32c7078486"],
+    hero:     "barbershop,barber,vintage,interior,classic",
+    about:    "barber,grooming,haircut,professional",
+    products: "grooming,beard,pomade,men",
+    contact:  "barbershop,chair,interior",
+    cta:      "barber,grooming,style",
   },
-
   salon: {
-    hero: [
-      "1560066984-138dadb4c035",       // salon modern interior
-      "1522335789203-aaae5b4b8d04",   // styling chair
-      "1487412947147-5cebf100ffc2",   // beauty hair flow
-    ],
-    about: [
-      "1580618672591-eb180b1a973f",   // stylist working
-      "1571646034647-52e6ea84b28c",   // beauty professional
-    ],
-    products: [
-      "1556228720-195a672e8a03",       // cosmetics flat lay
-      "1571781926291-c477ebfd024b",   // luxury beauty bottles
-    ],
-    contact: [
-      "1560066984-138dadb4c035",
-    ],
-    cta: [
-      "1487412947147-5cebf100ffc2",
-    ],
+    hero:     "salon,beauty,hair,luxury,interior",
+    about:    "stylist,salon,hair,professional,beauty",
+    products: "cosmetics,beauty,skincare,makeup,luxury",
+    contact:  "salon,reception,beauty,elegant",
+    cta:      "beauty,salon,transformation,style",
   },
-
   beauty: {
-    hero: ["1560066984-138dadb4c035", "1487412947147-5cebf100ffc2"],
-    about: ["1580618672591-eb180b1a973f"],
-    products: ["1556228720-195a672e8a03", "1571781926291-c477ebfd024b"],
-    contact: ["1560066984-138dadb4c035"],
-    cta: ["1487412947147-5cebf100ffc2"],
+    hero:     "beauty,cosmetics,luxury,skincare,elegant",
+    about:    "beauty,professional,salon,cosmetics",
+    products: "skincare,cosmetics,beauty,luxury,bottle",
+    contact:  "beauty,salon,elegant,interior",
+    cta:      "beauty,transformation,glow,luxury",
   },
-
   watchmaking: {
-    hero: [
-      "1523275335684-37898b6baf30",   // luxury watch closeup
-      "1547996160-81dfa63595aa",       // mechanical watch macro
-      "1522312346375-d1a52e2b99b3",   // watch movement
-    ],
-    about: [
-      "1518131672697-613becd4fab5",   // watchmaker hands
-      "1509048191080-d2e2678e67b8",   // workshop
-    ],
-    products: [
-      "1547996160-81dfa63595aa",
-      "1523275335684-37898b6baf30",
-      "1522312346375-d1a52e2b99b3",
-    ],
-    contact: [
-      "1509048191080-d2e2678e67b8",
-    ],
-    cta: [
-      "1547996160-81dfa63595aa",
-    ],
+    hero:     "luxury,watch,timepiece,craft,boutique",
+    about:    "watchmaker,craftsmanship,workshop,precision",
+    products: "watch,luxury,timepiece,mechanical,display",
+    contact:  "watch,boutique,showroom,luxury",
+    cta:      "watch,luxury,elegance,timepiece",
   },
-
   jewelry: {
-    hero: [
-      "1599643478518-a784e5dc4c8f",   // diamond ring
-      "1535632787350-4e68ef0ac584",   // jewelry display
-    ],
-    about: [
-      "1606503825008-909a67e63c3d",   // jeweler at work
-    ],
-    products: [
-      "1599643478518-a784e5dc4c8f",
-      "1535632787350-4e68ef0ac584",
-    ],
-    contact: [
-      "1535632787350-4e68ef0ac584",
-    ],
-    cta: [
-      "1599643478518-a784e5dc4c8f",
-    ],
+    hero:     "jewelry,diamond,luxury,elegant,boutique",
+    about:    "jeweler,craft,workshop,gemstone,luxury",
+    products: "jewelry,diamond,ring,necklace,luxury",
+    contact:  "jewelry,boutique,display,luxury",
+    cta:      "jewelry,diamond,luxury,elegance",
   },
-
   fashion: {
-    hero: [
-      "1490481651871-ab68de25d43d",   // fashion model editorial
-      "1485231183945-fffde7cc051e",   // runway moment
-      "1483985988355-763728e1935b",   // fashion editorial
-    ],
-    about: [
-      "1558769132-cb1aea458c5e",       // designer atelier
-      "1551803091-e20673f15770",       // sewing studio
-    ],
-    products: [
-      "1539109136881-3be0616acf4b",   // boutique rack
-      "1567401893414-76b7b1e5a7a5",   // fashion flat lay
-      "1525507119028-ed4c629a60a3",   // luxury bag
-    ],
-    contact: [
-      "1567401893414-76b7b1e5a7a5",
-    ],
-    cta: [
-      "1490481651871-ab68de25d43d",
-    ],
+    hero:     "fashion,runway,model,luxury,elegant",
+    about:    "fashion,designer,atelier,studio,style",
+    products: "fashion,clothing,boutique,luxury,apparel",
+    contact:  "fashion,boutique,store,luxury",
+    cta:      "fashion,style,luxury,collection",
   },
-
   coffee: {
-    hero: [
-      "1495474472287-4d71bcdd2085",   // cafe ambiance
-      "1453614512568-c4024d13c247",   // espresso shot
-      "1559496417-e7f25cb247f3",       // pour over
-    ],
-    about: [
-      "1556761175-5973dc0f32e7",       // barista
-    ],
-    products: [
-      "1453614512568-c4024d13c247",
-      "1559496417-e7f25cb247f3",
-    ],
-    contact: ["1495474472287-4d71bcdd2085"],
-    cta: ["1559496417-e7f25cb247f3"],
+    hero:     "coffee,cafe,barista,interior,cozy",
+    about:    "barista,coffee,brewing,artisan,cafe",
+    products: "coffee,espresso,latte,beans,drink",
+    contact:  "coffee,cafe,interior,cozy",
+    cta:      "coffee,morning,cafe,warm",
   },
-
   fitness: {
-    hero: [
-      "1534438327276-14e5300c3a48",   // gym dark moody
-      "1574680096145-d05b474e2155",   // workout
-      "1571019614242-c5c5dee9f50b",   // gym equipment
-    ],
-    about: [
-      "1517344884509-a0c97ec11bcc",   // trainer
-    ],
-    products: [
-      "1571019614242-c5c5dee9f50b",
-    ],
-    contact: ["1534438327276-14e5300c3a48"],
-    cta: ["1574680096145-d05b474e2155"],
+    hero:     "gym,fitness,workout,training,dark",
+    about:    "trainer,fitness,workout,athlete,gym",
+    products: "fitness,equipment,gym,workout,sport",
+    contact:  "gym,fitness,facility,modern",
+    cta:      "fitness,motivation,strength,athlete",
   },
-
   cybersecurity: {
-    hero: [
-      "1550751827-4bd374c3f58b",       // server lights
-      "1518770660439-4636190af475",   // circuit board
-      "1526374965328-7f61d4dc18c5",   // matrix-style code
-    ],
-    about: [
-      "1521737711867-e3b97375f902",   // tech team
-    ],
-    products: [
-      "1551288049-bebda4e38f71",       // dashboard
-      "1518770660439-4636190af475",
-    ],
-    contact: ["1497366216548-37526070297c"],
-    cta: ["1550751827-4bd374c3f58b"],
+    hero:     "server,technology,data,cyber,blue",
+    about:    "technology,cybersecurity,team,office,monitors",
+    products: "cybersecurity,dashboard,technology,data",
+    contact:  "office,technology,modern,blue",
+    cta:      "security,technology,protection,digital",
   },
-
   saas: {
-    hero: [
-      "1551288049-bebda4e38f71",       // analytics dashboard
-      "1460925895917-afdab827c52f",   // laptop work
-    ],
-    about: [
-      "1521737711867-e3b97375f902",   // team
-    ],
-    products: [
-      "1551288049-bebda4e38f71",
-    ],
-    contact: ["1497366216548-37526070297c"],
-    cta: ["1460925895917-afdab827c52f"],
+    hero:     "technology,software,laptop,modern,digital",
+    about:    "team,office,technology,startup,modern",
+    products: "software,dashboard,technology,app",
+    contact:  "office,modern,technology,startup",
+    cta:      "technology,success,digital,growth",
   },
-
   portfolio: {
-    hero: [
-      "1486406146926-c627a92ad1ab",   // creative workspace
-      "1561070791-2526d30994b8",       // designer setup
-    ],
-    about: [
-      "1517457373958-b7bdd4587205",   // creative working
-    ],
-    products: [
-      "1561070791-2526d30994b8",
-    ],
-    contact: ["1486406146926-c627a92ad1ab"],
-    cta: ["1517457373958-b7bdd4587205"],
+    hero:     "creative,design,workspace,studio,modern",
+    about:    "creative,designer,studio,work,artist",
+    products: "design,creative,portfolio,artwork,studio",
+    contact:  "studio,creative,workspace,modern",
+    cta:      "creative,design,inspiration,portfolio",
   },
 };
 
-// ────────────────────────────────────────────────────────────────────────────
-// PRODUCT POOLS — per niche × product-type
-// ────────────────────────────────────────────────────────────────────────────
-
-const PRODUCT_POOLS: Record<string, Record<string, string[]>> = {
+/** Map: niche → product-type → LoremFlickr keyword string */
+const PRODUCT_KEYWORDS: Record<string, Record<string, string>> = {
   basketball: {
-    shoe: [
-      "1542718610-a1d656d1884c",       // basketball shoes
-      "1556906781-9a412961c28c",       // sneaker shot
-      "1518365050014-70fe7232897f",   // sneakers shelf
-      "1542291026-7eec264c27ff",       // red sneakers
-      "1595950653106-6c9ebd614d3a",   // store display
-    ],
-    jersey: [
-      "1577741314755-c19842611a8b",   // basketball game
-      "1518605458261-bdab6b6c8d70",   // arena
-      "1571019613454-1cb2f99b2d8b",   // jersey rack
-      "1574629810360-7efbbe195018",   // sports apparel
-    ],
-    ball: [
-      "1546519638-68e109498ffc",       // basketball
-      "1612872087720-bb876e2e67d1",   // ball in action
-      "1577471488278-16eec37ffcc2",   // hoop
-    ],
-    shorts: [
-      "1571019613454-1cb2f99b2d8b",
-      "1595950653106-6c9ebd614d3a",
-    ],
-    default: [
-      "1546519638-68e109498ffc",
-      "1574623452334-1e0ac2b3ccb4",
-      "1518605458261-bdab6b6c8d70",
-      "1542718610-a1d656d1884c",
-    ],
+    shoe:    "basketball,sneakers,Jordan,Nike,footwear",
+    jersey:  "basketball,jersey,NBA,uniform,team",
+    ball:    "basketball,ball,sport,court",
+    shorts:  "basketball,shorts,athletic,sport",
+    default: "basketball,gear,sport,equipment",
   },
-
   restaurant: {
-    steak: [
-      "1546964124-0cce460f38ef",
-      "1558030006-450675393462",
-    ],
-    burger: [
-      "1567620905732-2d1ec7ab7445",
-      "1568901346375-23c9450c58cd",
-    ],
-    seafood: [
-      "1559339352-11d035aa65de",
-      "1532465614-6cc8d45f647f",
-    ],
-    pasta: [
-      "1551183053-bf91a1d81141",
-      "1473093295043-cdd812d0e601",
-    ],
-    pizza: [
-      "1565299624946-b28f40a0ae38",
-      "1574071318508-1cdbab80d002",
-    ],
-    dessert: [
-      "1559847844-5315695dadae",
-      "1551024601-bec78aea704b",
-    ],
-    coffee: [
-      "1453614512568-c4024d13c247",
-      "1559496417-e7f25cb247f3",
-    ],
-    default: [
-      "1546069901-ba9599a7e63c",
-      "1517248135467-4c7edcad34c4",
-      "1567620905732-2d1ec7ab7445",
-      "1565299624946-b28f40a0ae38",
-    ],
+    steak:   "steak,beef,grill,fine-dining",
+    burger:  "burger,gourmet,food,sandwich",
+    seafood: "seafood,fish,sushi,elegant",
+    pasta:   "pasta,Italian,food,gourmet",
+    pizza:   "pizza,Italian,food,artisan",
+    dessert: "dessert,cake,pastry,sweet",
+    coffee:  "coffee,espresso,drink,cafe",
+    default: "food,gourmet,dish,restaurant",
   },
-
   food: {
-    default: [
-      "1546069901-ba9599a7e63c",
-      "1517248135467-4c7edcad34c4",
-      "1567620905732-2d1ec7ab7445",
-      "1565299624946-b28f40a0ae38",
-    ],
+    default: "food,gourmet,meal,cuisine",
   },
-
   barber: {
-    default: [
-      "1521590832167-7bcbfaa6381f",   // grooming products
-      "1626808642875-0aa545482dfb",   // beard kit
-      "1503951914875-452162b0f3f1",   // razor
-      "1605497788044-5a32c7078486",   // barber action
-    ],
+    default: "barber,grooming,pomade,men,beard",
   },
-
   barbershop: {
-    default: [
-      "1521590832167-7bcbfaa6381f",
-      "1626808642875-0aa545482dfb",
-      "1503951914875-452162b0f3f1",
-      "1605497788044-5a32c7078486",
-    ],
+    default: "barber,grooming,pomade,men",
   },
-
   salon: {
-    nail: [
-      "1604654894610-df63bc536371",
-      "1632345031435-8727f6897d53",
-    ],
-    skin: [
-      "1571781926291-c477ebfd024b",
-      "1556228720-195a672e8a03",
-    ],
-    hair: [
-      "1487412947147-5cebf100ffc2",
-      "1522335789203-aaae5b4b8d04",
-    ],
-    default: [
-      "1556228720-195a672e8a03",
-      "1571781926291-c477ebfd024b",
-      "1487412947147-5cebf100ffc2",
-    ],
+    nail:    "nails,manicure,beauty,cosmetics",
+    skin:    "skincare,serum,beauty,luxury",
+    hair:    "hair,styling,salon,beauty",
+    default: "beauty,cosmetics,luxury,salon",
   },
-
   beauty: {
-    default: [
-      "1556228720-195a672e8a03",
-      "1571781926291-c477ebfd024b",
-      "1487412947147-5cebf100ffc2",
-    ],
+    default: "beauty,cosmetics,skincare,luxury",
   },
-
   watchmaking: {
-    default: [
-      "1547996160-81dfa63595aa",
-      "1523275335684-37898b6baf30",
-      "1522312346375-d1a52e2b99b3",
-      "1524805444758-089113d48a6d",
-    ],
+    default: "watch,luxury,timepiece,mechanical",
   },
-
   jewelry: {
-    default: [
-      "1599643478518-a784e5dc4c8f",
-      "1535632787350-4e68ef0ac584",
-      "1611652022419-a9419f74343d",
-    ],
+    default: "jewelry,diamond,luxury,ring",
   },
-
   fashion: {
-    dress: [
-      "1490481651871-ab68de25d43d",
-      "1483985988355-763728e1935b",
-    ],
-    jacket: [
-      "1551028719-00167b16eac5",
-      "1539109136881-3be0616acf4b",
-    ],
-    shoe: [
-      "1525507119028-ed4c629a60a3",
-      "1543163521-1bf539c55dd2",
-    ],
-    default: [
-      "1490481651871-ab68de25d43d",
-      "1539109136881-3be0616acf4b",
-      "1525507119028-ed4c629a60a3",
-      "1567401893414-76b7b1e5a7a5",
-    ],
+    dress:   "dress,fashion,elegant,gown",
+    jacket:  "jacket,fashion,menswear,style",
+    shoe:    "shoes,fashion,luxury,designer",
+    default: "fashion,clothing,luxury,style",
   },
-
   coffee: {
-    default: [
-      "1453614512568-c4024d13c247",
-      "1559496417-e7f25cb247f3",
-      "1495474472287-4d71bcdd2085",
-    ],
+    default: "coffee,espresso,drink,cafe",
   },
-
   fitness: {
-    default: [
-      "1571019614242-c5c5dee9f50b",
-      "1534438327276-14e5300c3a48",
-      "1574680096145-d05b474e2155",
-    ],
+    default: "fitness,gym,sport,athletic",
   },
-
   cybersecurity: {
-    default: [
-      "1550751827-4bd374c3f58b",
-      "1518770660439-4636190af475",
-      "1551288049-bebda4e38f71",
-      "1526374965328-7f61d4dc18c5",
-    ],
+    default: "technology,cybersecurity,digital,data",
   },
-
   saas: {
-    default: [
-      "1551288049-bebda4e38f71",
-      "1460925895917-afdab827c52f",
-      "1518770660439-4636190af475",
-    ],
+    default: "software,technology,app,digital",
   },
-
   portfolio: {
-    default: [
-      "1486406146926-c627a92ad1ab",
-      "1561070791-2526d30994b8",
-      "1517457373958-b7bdd4587205",
-    ],
+    default: "design,creative,portfolio,artwork",
   },
 };
 
-// ────────────────────────────────────────────────────────────────────────────
-// URL BUILDERS
-// ────────────────────────────────────────────────────────────────────────────
+// ─── URL builder ───────────────────────────────────────────────────────────────
 
-function unsplashUrl(id: string, w: number, h: number): string {
-  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=85`;
+/**
+ * Build a LoremFlickr URL. Keywords determine subject matter; lock makes the
+ * result deterministic. Images are served from Flickr CDN — instant load,
+ * no API key, always niche-relevant.
+ */
+function loremFlickrUrl(keywords: string, w: number, h: number, seed: number): string {
+  const lock = Math.abs(seed) % 9973; // prime limit keeps distribution clean
+  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(keywords)}?lock=${lock}`;
 }
 
-function pickFromPool(pool: string[], hash: number): string | null {
-  if (!pool.length) return null;
-  return pool[Math.abs(hash) % pool.length];
-}
+// ─── Niche normalisation ───────────────────────────────────────────────────────
 
-/** Normalize the niche string to a catalog key. */
 function nicheKey(niche: string): string {
   const n = (niche || "").toLowerCase().trim();
-  if (/barber/.test(n))                   return "barber";
-  if (/salon|beauty|cosmetic|spa/.test(n)) return "salon";
-  if (/restaurant|dining|bistro/.test(n)) return "restaurant";
-  if (/coffee|cafe|espresso/.test(n))     return "coffee";
-  if (/food|culinary|gourmet/.test(n))    return "food";
-  if (/basketball|nba/.test(n))           return "basketball";
-  if (/watch/.test(n))                    return "watchmaking";
-  if (/jewel|jeweler/.test(n))            return "jewelry";
+  if (/barber/.test(n))                     return "barber";
+  if (/salon|beauty|cosmetic|spa/.test(n))  return "salon";
+  if (/restaurant|dining|bistro/.test(n))   return "restaurant";
+  if (/coffee|cafe|espresso/.test(n))       return "coffee";
+  if (/food|culinary|gourmet/.test(n))      return "food";
+  if (/basketball|nba/.test(n))             return "basketball";
+  if (/watch/.test(n))                      return "watchmaking";
+  if (/jewel/.test(n))                      return "jewelry";
   if (/fashion|cloth|apparel|wear/.test(n)) return "fashion";
-  if (/fit|gym|workout/.test(n))          return "fitness";
-  if (/cyber|security/.test(n))           return "cybersecurity";
-  if (/saas|software|app/.test(n))        return "saas";
+  if (/fit|gym|workout/.test(n))            return "fitness";
+  if (/cyber|security/.test(n))             return "cybersecurity";
+  if (/saas|software|app/.test(n))          return "saas";
   if (/portfolio|creative|design|art/.test(n)) return "portfolio";
   return n;
 }
 
-/** Classify a product name into a known type bucket for that niche. */
+/** Classify a product name into its type bucket for niche-specific keywords. */
 function productKey(name: string, niche: string): string {
   const n = (name || "").toLowerCase();
   switch (nicheKey(niche)) {
     case "basketball":
-      // Check jersey/ball/shorts BEFORE shoes — many jersey names contain
-      // player names (lebron, curry, kobe) that also appear in shoe names.
+      // Check jersey/ball/shorts BEFORE shoes — player names in jersey names
+      // (lebron, curry, kobe) also appear in shoe names; jersey must win.
       if (/jersey|uniform|swingman|authentic|statement|city\s+edition|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|#\d+/.test(n)) return "jersey";
       if (/short|pant/.test(n))   return "shorts";
       if (/\bball\b/.test(n))     return "ball";
@@ -564,13 +233,13 @@ function productKey(name: string, niche: string): string {
       return "default";
     case "restaurant":
     case "food":
-      if (/coffee|espresso|latte/.test(n))          return "coffee";
-      if (/steak|beef|fillet|ribeye/.test(n))       return "steak";
-      if (/burger|sandwich/.test(n))                 return "burger";
-      if (/seafood|fish|sushi|salmon/.test(n))       return "seafood";
+      if (/coffee|espresso|latte/.test(n))           return "coffee";
+      if (/steak|beef|fillet|ribeye/.test(n))        return "steak";
+      if (/burger|sandwich/.test(n))                  return "burger";
+      if (/seafood|fish|sushi|salmon/.test(n))        return "seafood";
       if (/pasta|spaghetti|ravioli|risotto/.test(n)) return "pasta";
-      if (/pizza/.test(n))                           return "pizza";
-      if (/dessert|cake|pastry|ice/.test(n))         return "dessert";
+      if (/pizza/.test(n))                            return "pizza";
+      if (/dessert|cake|pastry|ice/.test(n))          return "dessert";
       return "default";
     case "salon":
     case "beauty":
@@ -579,26 +248,24 @@ function productKey(name: string, niche: string): string {
       if (/hair|color|cut|style/.test(n))   return "hair";
       return "default";
     case "fashion":
-      if (/dress|gown/.test(n))          return "dress";
-      if (/jacket|coat|blazer/.test(n)) return "jacket";
-      if (/shoe|heel|boot/.test(n))     return "shoe";
+      if (/dress|gown/.test(n))           return "dress";
+      if (/jacket|coat|blazer/.test(n))   return "jacket";
+      if (/shoe|heel|boot/.test(n))       return "shoe";
       return "default";
     default:
       return "default";
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// PUBLIC API
-// ────────────────────────────────────────────────────────────────────────────
+// ─── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Returns a curated Unsplash URL for a SECTION background, or null if no
- * curated pool exists for this niche+role combination.
+ * Returns a LoremFlickr URL for a SECTION background matching this niche+role.
+ * Always returns a URL (never null) — keywords guarantee relevant content.
  *
  * @param niche  e.g. "basketball"
  * @param role   one of "hero" | "about" | "products" | "contact" | "cta"
- * @param hash   deterministic seed (lets each section pick a different pool entry)
+ * @param hash   deterministic seed (different sections pick different lock values)
  * @param w/h    desired dimensions
  */
 export function curatedSectionImage(
@@ -608,17 +275,25 @@ export function curatedSectionImage(
   w = 1600,
   h = 900
 ): string | null {
-  const nk = nicheKey(niche);
-  const pool = SECTION_POOLS[nk]?.[role] ?? SECTION_POOLS[nk]?.hero;
-  if (!pool?.length) return null;
-  const id = pickFromPool(pool, hash);
-  return id ? unsplashUrl(id, w, h) : null;
+  const nk  = nicheKey(niche);
+  const map  = SECTION_KEYWORDS[nk];
+  if (!map) {
+    // Unknown niche — generic premium commercial photo
+    return loremFlickrUrl("business,modern,luxury,premium,commercial", w, h, hash);
+  }
+  const keywords = map[role] ?? map.hero ?? "business,modern,premium";
+  return loremFlickrUrl(keywords, w, h, hash);
 }
 
 /**
- * Returns a curated Unsplash URL for a specific PRODUCT card, classified by
- * the product name (so e.g. "LeBron Lakers Jersey" → basketball jersey shots,
- * "Air Jordan 1" → basketball shoes), or null if no curated pool exists.
+ * Returns a LoremFlickr URL for a PRODUCT CARD image. The product name is
+ * classified into a type bucket (shoe / jersey / ball / etc.) so the image
+ * matches what the card is actually selling.
+ *
+ * @param productName  e.g. "Air Jordan 1" or "LeBron Lakers Jersey"
+ * @param niche        e.g. "basketball"
+ * @param hash         deterministic seed
+ * @param w/h          desired dimensions
  */
 export function curatedProductImage(
   productName: string,
@@ -629,17 +304,16 @@ export function curatedProductImage(
 ): string | null {
   const nk  = nicheKey(niche);
   const pk  = productKey(productName, niche);
-  const pool =
-    PRODUCT_POOLS[nk]?.[pk] ??
-    PRODUCT_POOLS[nk]?.default ??
-    [];
-  if (!pool.length) return null;
-  const id = pickFromPool(pool, hash);
-  return id ? unsplashUrl(id, w, h) : null;
+  const map  = PRODUCT_KEYWORDS[nk];
+  if (!map) {
+    return loremFlickrUrl("product,premium,modern,display,commercial", w, h, hash);
+  }
+  const keywords = map[pk] ?? map.default ?? "product,premium,display";
+  return loremFlickrUrl(keywords, w, h, hash);
 }
 
-/** Detect whether the niche has any curated coverage in this catalog. */
+/** Returns true when niche has dedicated keyword coverage in this catalog. */
 export function hasCuratedCoverage(niche: string): boolean {
   const nk = nicheKey(niche);
-  return Boolean(SECTION_POOLS[nk] || PRODUCT_POOLS[nk]);
+  return Boolean(SECTION_KEYWORDS[nk] || PRODUCT_KEYWORDS[nk]);
 }

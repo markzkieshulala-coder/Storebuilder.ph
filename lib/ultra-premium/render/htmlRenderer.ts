@@ -99,7 +99,7 @@ function styleModifier(style?: string): string {
  * The prompt describes the exact product type and niche so the image is
  * relevant to what's actually in the card. Style modifier ensures the
  * rendered image matches the requested aesthetic (minimalist / luxury / etc.).
- * Uses flux-realism model for photorealistic product photography.
+ * Uses flux model (faster than flux-realism) for photorealistic product photography.
  */
 function productImageUrl(
   productName: string,
@@ -111,14 +111,14 @@ function productImageUrl(
 ): string {
   const prompt = `${styleModifier(style)} ${buildProductPrompt(productName, niche)}`;
   const s = Math.abs(seed) % 999983;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux-realism&enhance=true`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux&enhance=true`;
 }
 
 /**
  * Build a Pollinations URL for a SECTION / PAGE background image.
  * Role-specific and niche-specific so hero, about, products, contact each
  * pull from distinct visual contexts. Style modifier matches user's request.
- * Uses flux-realism model for cinematic photorealistic backgrounds.
+ * Uses flux model for cinematic photorealistic backgrounds.
  */
 function sectionImageUrl(
   niche: string,
@@ -130,7 +130,7 @@ function sectionImageUrl(
 ): string {
   const prompt = `${styleModifier(style)} ${buildSectionPrompt(niche, role)}`;
   const s = Math.abs(seed) % 999983;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux-realism&enhance=true`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux&enhance=true`;
 }
 
 // ─── Prompt builders ──────────────────────────────────────────────────────────
@@ -529,7 +529,7 @@ input,textarea,select{font:inherit}
 /* Card 3D tilt — true perspective depth, cinematic shadow stacking */
 .card-3d{transform-style:preserve-3d;perspective:1200px;transition:transform .55s cubic-bezier(.16,1,.3,1),box-shadow .55s ease,border-color .4s ease;will-change:transform}
 .card-3d::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,${alpha(PRI,"00")} 0%,${alpha(PRI,"00")} 60%,${alpha(PRI,"22")} 100%);opacity:0;transition:opacity .5s ease;pointer-events:none;z-index:4}
-.card-3d:hover{transform:perspective(1200px) rotateX(6deg) rotateY(-7deg) translateY(-14px) scale(1.015) !important;box-shadow:0 50px 110px ${alpha(BG,"ee")},0 22px 40px ${alpha(PRI,"33")},0 0 0 1px ${alpha(PRI,"55")} !important}
+.card-3d:hover{transform:perspective(1200px) rotateX(6deg) rotateY(-7deg) translateY(-14px) scale(1.015);box-shadow:0 50px 110px ${alpha(BG,"ee")},0 22px 40px ${alpha(PRI,"33")},0 0 0 1px ${alpha(PRI,"55")}}
 .card-3d:hover::after{opacity:1}
 .card-3d:hover img.card-img{transform:scale(1.09);filter:saturate(1.15) contrast(1.05)}
 .card-3d img.card-img{transition:transform .8s cubic-bezier(.16,1,.3,1),filter .5s ease}
@@ -788,7 +788,7 @@ function renderHomePage(bp: SiteBlueprint): string {
   <section data-editable="section" data-reveal="hero"
     style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:${BG};">
     <canvas id="sb-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:${isLight(BG) ? ".4" : ".5"};"></canvas>
-    ${imgWrap(heroImg, heading, `position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:${isLight(BG) ? ".7" : ".48"};filter:saturate(1.12) contrast(1.07);`, "", true)}
+    ${imgWrap(heroImg, heading, `position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:${isLight(BG) ? ".75" : ".65"};filter:saturate(1.15) contrast(1.08);`, "hero-bg-wrap", true)}
     <div style="position:absolute;inset:0;z-index:3;background:linear-gradient(160deg,${alpha(BG, isLight(BG) ? "aa" : "cc")} 0%,${alpha(BG, isLight(BG) ? "33" : "55")} 50%,${alpha(BG, isLight(BG) ? "99" : "bb")} 100%);"></div>
     <div style="position:absolute;top:0;left:0;right:0;height:220px;z-index:4;background:linear-gradient(180deg,${alpha(BG, isLight(BG) ? "dd" : "ee")} 0%,transparent 100%);pointer-events:none;"></div>
     ${blobs(PRI, ACC)}
@@ -1419,17 +1419,13 @@ function routerScript(BG: string, PRI: string): string {
     }, 10);
     currentPage = id;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    // Update nav active state
     document.querySelectorAll('[data-nav-page]').forEach(function(a) {
       a.classList.toggle('nav-active', a.getAttribute('data-nav-page') === id);
     });
-
-    // Re-run reveal for new page
-    setTimeout(function() { runReveal(); }, 200);
+    setTimeout(function() { runReveal(); initTilt(); }, 220);
   };
 
-  // Reveal-on-scroll
+  // ── Reveal-on-scroll ──────────────────────────────────────────────────────
   function runReveal() {
     if (!('IntersectionObserver' in window)) {
       document.querySelectorAll('[data-rc]').forEach(function(el){ el.classList.add('vis'); });
@@ -1450,30 +1446,84 @@ function routerScript(BG: string, PRI: string): string {
     document.querySelectorAll('.page-active [data-reveal]').forEach(function(el){ io.observe(el); });
   }
 
-  // Parallax
-  var pEls = [];
-  function onScroll() {
-    if (!pEls.length) return;
-    var sy = window.scrollY;
-    pEls.forEach(function(el) {
-      var r = el.getBoundingClientRect();
-      var off = window.innerHeight/2 - (r.top + r.height/2);
-      var str = parseFloat(el.getAttribute('data-parallax') || '.2');
-      el.style.transform = 'translate3d(0,' + (off * str * -1).toFixed(1) + 'px,0)';
+  // ── Mouse-tracking 3D card tilt ───────────────────────────────────────────
+  // Overrides the CSS static hover transform with a dynamic mouse-position-
+  // aware perspective transform, giving genuine 3D depth on product cards.
+  function applyTilt(card, e) {
+    var r = card.getBoundingClientRect();
+    var mx = (e.clientX - r.left) / r.width - 0.5;
+    var my = (e.clientY - r.top) / r.height - 0.5;
+    var rx = (my * -16).toFixed(2);
+    var ry = (mx * 22).toFixed(2);
+    var sh1 = '0 50px 100px ${alpha(BG,"f0")}';
+    var sh2 = '0 24px 48px ${alpha(PRI,"44")}';
+    var sh3 = '0 0 0 1px ${alpha(PRI,"66")}';
+    card.style.transform = 'perspective(1200px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateY(-12px) scale(1.014)';
+    card.style.boxShadow = sh1+','+sh2+','+sh3;
+    card.style.zIndex = '10';
+  }
+
+  function initTilt() {
+    document.querySelectorAll('.card-3d').forEach(function(card) {
+      // Remove previous listeners by cloning (avoids listener accumulation on re-init)
+      var clone = card.cloneNode(true);
+      card.parentNode && card.parentNode.replaceChild(clone, card);
+      var c = clone;
+
+      c.addEventListener('mouseenter', function(e) {
+        c.style.transition = 'box-shadow .4s ease, border-color .4s ease, z-index 0s';
+        applyTilt(c, e);
+      });
+      c.addEventListener('mousemove', function(e) {
+        applyTilt(c, e);
+      }, { passive: true });
+      c.addEventListener('mouseleave', function() {
+        c.style.transition = '';
+        c.style.transform  = '';
+        c.style.boxShadow  = '';
+        c.style.zIndex     = '';
+      });
     });
   }
-  window.addEventListener('scroll', function() {
-    pEls = Array.from(document.querySelectorAll('.page-active [data-parallax]'));
-    onScroll();
-  }, { passive: true });
 
-  // Nav shrink
+  // ── Hero image parallax ───────────────────────────────────────────────────
+  // Translates the hero background image at ~20% of scroll speed, creating a
+  // cinematic depth separation between foreground text and background photo.
+  var heroScrollCache = -1;
+  function doHeroParallax() {
+    var sy = window.scrollY;
+    if (Math.abs(sy - heroScrollCache) < 1) return;
+    heroScrollCache = sy;
+    var wrap = document.querySelector('.hero-bg-wrap');
+    if (!wrap) return;
+    var img = wrap.querySelector('img');
+    if (!img) return;
+    // Strip the CSS transform transition on first call so parallax is instant
+    if (!img._pxReady) {
+      img._pxReady = true;
+      img.style.transition = 'opacity .4s ease, filter .5s ease';
+      img.style.willChange = 'transform';
+    }
+    // Cap at 55px so the oversized wrapper's buffer never clips
+    var offset = Math.min(sy * 0.22, 55);
+    img.style.transform = 'translate3d(0,' + offset.toFixed(1) + 'px,0)';
+  }
+
+  // ── Scroll composite listener ─────────────────────────────────────────────
   var nav = document.getElementById('sb-nav');
+  var rafPending = false;
   window.addEventListener('scroll', function() {
-    if (nav) nav.classList.toggle('scrolled', window.scrollY > 60);
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(function() {
+        rafPending = false;
+        if (nav) nav.classList.toggle('scrolled', window.scrollY > 60);
+        doHeroParallax();
+      });
+    }
   }, { passive: true });
 
-  // Contact form
+  // ── Contact form ──────────────────────────────────────────────────────────
   window.handleContactForm = function(e) {
     e.preventDefault();
     var success = document.getElementById('form-success');
@@ -1482,12 +1532,12 @@ function routerScript(BG: string, PRI: string): string {
     setTimeout(function(){ if(success) success.style.display='none'; }, 5000);
   };
 
-  // Product filter
+  // ── Product filter ────────────────────────────────────────────────────────
   window.filterCards = function(tag, btn) {
     document.querySelectorAll('[data-filter]').forEach(function(b) {
       var active = b.getAttribute('data-filter') === tag;
-      b.style.background = active ? '${PRI}' : 'transparent';
-      b.style.color      = active ? '${BG}' : '';
+      b.style.background  = active ? '${PRI}' : 'transparent';
+      b.style.color       = active ? '${BG}'  : '';
       b.style.borderColor = active ? '${PRI}' : '';
     });
     document.querySelectorAll('#product-grid article').forEach(function(card) {
@@ -1496,8 +1546,10 @@ function routerScript(BG: string, PRI: string): string {
     });
   };
 
-  // Initial reveal
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
   runReveal();
+  initTilt();
+  doHeroParallax();
 })();
 </script>`;
 }
