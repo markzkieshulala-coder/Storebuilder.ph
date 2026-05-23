@@ -3,13 +3,14 @@
  *
  * Renders a SiteBlueprint into a fully self-contained HTML document with:
  *  - Hash-based SPA routing (Home / Products / About / Contact)
- *  - Pollinations.ai fallback images for every item and section
+ *  - Curated Unsplash images (primary) + Pollinations AI fallback (onerror)
  *  - Canvas particle field, animated gradient blobs, CSS 3D card tilt
  *  - IntersectionObserver scroll-reveal with per-child stagger
  *  - Nav links that open distinct pages, not just scroll to anchors
  */
 
 import type { SiteBlueprint, Page, Section } from "../types/SiteBlueprint";
+import { curatedSectionImage, curatedProductImage } from "./imageCatalog";
 
 // ─── String utilities ─────────────────────────────────────────────────────────
 
@@ -385,17 +386,27 @@ function extractUrl(obj: Record<string, any>): string {
   return "";
 }
 
-function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
+/**
+ * Image source = {primary URL, AI fallback URL}.
+ * Primary is a curated Unsplash photo when the niche has catalog coverage —
+ * instant load, hand-picked to match the niche and product type. AI fallback
+ * is a Pollinations URL with the same niche/style prompt, used when the
+ * Unsplash photo 404s. When both fail, the .img-wrap CSS gradient shows.
+ */
+interface ImageSrc { primary: string; fallback: string; }
+
+function getItemImage(item: any, bp: SiteBlueprint, idx: number): ImageSrc {
   const found = extractUrl(item);
-  if (found) return found;
   const name = String(item.title || item.name || "");
   const hash = name.split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 7919
   );
-  return productImageUrl(name, bp.niche, hash, 600, 600, bp.themeStyle);
+  const aiUrl = productImageUrl(name, bp.niche, hash, 600, 600, bp.themeStyle);
+  if (found) return { primary: found, fallback: aiUrl };
+  const curated = curatedProductImage(name, bp.niche, Math.abs(hash), 600, 600);
+  return { primary: curated || aiUrl, fallback: curated ? aiUrl : "" };
 }
-
 
 function detectRole(context: string): string {
   const c = context.toLowerCase();
@@ -407,28 +418,34 @@ function detectRole(context: string): string {
   return "hero";
 }
 
-function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): string {
+function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): ImageSrc {
   const p = getProps(s);
   const found = extractUrl(p);
-  if (found) return found;
-  const slot = assetUrls(s).find((u) => !isAiImage(u));
-  if (slot) return slot;
   const ctx  = hint || s.name || "";
   const role = detectRole(ctx);
   const hash = (ctx + s.name + s.id).split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 6151
   );
-  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1280, 720, bp.themeStyle);
+  const seed = Math.abs(hash) + bpSeed(bp);
+  const aiUrl = sectionImageUrl(bp.niche, role, seed, 1280, 720, bp.themeStyle);
+  if (found) return { primary: found, fallback: aiUrl };
+  const slot = assetUrls(s).find((u) => !isAiImage(u));
+  if (slot) return { primary: slot, fallback: aiUrl };
+  const curated = curatedSectionImage(bp.niche, role, seed, 1280, 720);
+  return { primary: curated || aiUrl, fallback: curated ? aiUrl : "" };
 }
 
-function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
+function getPageBg(bp: SiteBlueprint, context: string, offset: number): ImageSrc {
   const role = detectRole(context);
   const hash = context.split("").reduce(
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (offset + 1) * 8893
   );
-  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1280, 720, bp.themeStyle);
+  const seed = Math.abs(hash) + bpSeed(bp);
+  const aiUrl = sectionImageUrl(bp.niche, role, seed, 1280, 720, bp.themeStyle);
+  const curated = curatedSectionImage(bp.niche, role, seed, 1280, 720);
+  return { primary: curated || aiUrl, fallback: curated ? aiUrl : "" };
 }
 
 function getItems(s: Section): any[] {
@@ -594,17 +611,31 @@ function badge(s: Section, fb: string, ACC: string): string {
 // ─── Image wrapper ────────────────────────────────────────────────────────────
 
 /**
- * Wraps an image in the standard shimmer/vignette container.
- * On error the image is hidden — the CSS gradient background of .img-wrap
- * shows through instead of a random unrelated stock photo.
+ * Wraps an image with a 3-tier fallback chain:
+ *   1. primary src (curated Unsplash photo for niche)
+ *   2. onerror → fallback src (Pollinations AI-generated for same niche)
+ *   3. onerror again → image hidden, CSS gradient background of .img-wrap shows
+ *
+ * Accepts either a plain string (no fallback) or an ImageSrc {primary, fallback}.
  * Pass eager=true for above-the-fold images (hero) so they start loading
  * immediately without waiting for lazy-scroll intersection.
  */
-function imgWrap(src: string, alt: string, style = "", cls = "", eager = false): string {
+function imgWrap(
+  src: string | ImageSrc,
+  alt: string,
+  style = "",
+  cls = "",
+  eager = false
+): string {
+  const primary  = typeof src === "string" ? src : src.primary;
+  const fallback = typeof src === "string" ? ""  : src.fallback;
+  const onerror = fallback
+    ? `if(!this.dataset.fb){this.dataset.fb='1';this.src=${JSON.stringify(fallback)};}else{this.style.display='none';var p=this.parentElement;if(p)p.classList.add('img-loaded');}`
+    : `this.style.display='none';var p=this.parentElement;if(p)p.classList.add('img-loaded');`;
   return `<div class="img-wrap ${cls}" style="${style}">
-    <img src="${esc(src)}" alt="${esc(alt)}" loading="${eager ? "eager" : "lazy"}" decoding="async"
+    <img src="${esc(primary)}" alt="${esc(alt)}" loading="${eager ? "eager" : "lazy"}" decoding="async"
       onload="this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
-      onerror="this.style.display='none';var p=this.parentElement;if(p)p.classList.add('img-loaded');"
+      onerror="${onerror}"
       class="card-img"
       style="min-height:100%;min-width:100%"
     />
@@ -745,7 +776,7 @@ function renderHomePage(bp: SiteBlueprint): string {
   const ctaHead      = clean(ctaSection?.copy?.heading) || "Ready to Experience It?";
   const ctaBody      = clean(ctaSection?.copy?.body)    || `Discover our full range of premium ${bp.niche} offerings.`;
   const ctaCta       = clean(ctaSection?.copy?.cta)     || clean(bp.copy.hero?.ctaPrimary) || "Get Started";
-  const ctaImg       = ctaSection ? getSectionBg(ctaSection, bp, 8, "call to action") : "";
+  const ctaImg       = ctaSection ? getSectionBg(ctaSection, bp, 8, "call to action") : null;
 
   return `
 <!-- ═══ HOME PAGE ═══ -->
