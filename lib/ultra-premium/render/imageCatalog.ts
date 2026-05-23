@@ -555,20 +555,22 @@ function productKey(name: string, niche: string): string {
   const n = (name || "").toLowerCase();
   switch (nicheKey(niche)) {
     case "basketball":
-      if (/shoe|sneaker|jordan|curry|lebron|kobe|kd|tatum|zoom|kyrie|giannis/.test(n)) return "shoe";
-      if (/jersey|uniform|swingman|lakers|warriors|celtics|bulls|nets|bucks/.test(n)) return "jersey";
+      // Check jersey/ball/shorts BEFORE shoes — many jersey names contain
+      // player names (lebron, curry, kobe) that also appear in shoe names.
+      if (/jersey|uniform|swingman|authentic|statement|city\s+edition|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|#\d+/.test(n)) return "jersey";
       if (/short|pant/.test(n))   return "shorts";
-      if (/ball|round/.test(n))   return "ball";
+      if (/\bball\b/.test(n))     return "ball";
+      if (/shoe|sneaker|air\s+jordan|air\s+max|zoom|flow|kyrie|kd\s*\d|lebron\s*\d|curry\s*\d/.test(n)) return "shoe";
       return "default";
     case "restaurant":
     case "food":
-      if (/coffee|espresso|latte/.test(n))     return "coffee";
-      if (/steak|beef|fillet|ribeye/.test(n)) return "steak";
-      if (/burger|sandwich/.test(n))           return "burger";
-      if (/seafood|fish|sushi|salmon/.test(n)) return "seafood";
+      if (/coffee|espresso|latte/.test(n))          return "coffee";
+      if (/steak|beef|fillet|ribeye/.test(n))       return "steak";
+      if (/burger|sandwich/.test(n))                 return "burger";
+      if (/seafood|fish|sushi|salmon/.test(n))       return "seafood";
       if (/pasta|spaghetti|ravioli|risotto/.test(n)) return "pasta";
-      if (/pizza/.test(n))                     return "pizza";
-      if (/dessert|cake|pastry|ice/.test(n))   return "dessert";
+      if (/pizza/.test(n))                           return "pizza";
+      if (/dessert|cake|pastry|ice/.test(n))         return "dessert";
       return "default";
     case "salon":
     case "beauty":
@@ -577,9 +579,9 @@ function productKey(name: string, niche: string): string {
       if (/hair|color|cut|style/.test(n))   return "hair";
       return "default";
     case "fashion":
-      if (/dress|gown/.test(n))           return "dress";
-      if (/jacket|coat|blazer/.test(n))  return "jacket";
-      if (/shoe|heel|boot/.test(n))      return "shoe";
+      if (/dress|gown/.test(n))          return "dress";
+      if (/jacket|coat|blazer/.test(n)) return "jacket";
+      if (/shoe|heel|boot/.test(n))     return "shoe";
       return "default";
     default:
       return "default";

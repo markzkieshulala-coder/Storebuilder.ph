@@ -145,14 +145,16 @@ function buildProductPrompt(name: string, niche: string): string {
 
   switch (niche.toLowerCase()) {
     case "basketball":
-      if (/shoe|sneaker|jordan|curry|lebron|kobe|kd|tatum|luka|giannis|zoom|kyrie/i.test(n))
-        return `premium basketball sneakers floating mid-air on dark gradient background, ${base}`;
-      if (/jersey|swingman|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|uniform/i.test(n))
-        return `basketball jersey laid flat on hardwood floor with dramatic lighting, ${base}`;
+      // Check jersey/ball/shorts BEFORE player-name shoe patterns so
+      // "LeBron James Lakers Jersey" → jersey photo (not shoe).
+      if (/jersey|swingman|authentic|statement|city\s+edition|lakers|warriors|celtics|bulls|nets|bucks|heat|mavericks|uniform|#\d+/i.test(n))
+        return `basketball jersey on professional display against dark background, official team colors, crisp fabric detail, ${base}`;
       if (/short|pant/i.test(n))
         return `basketball shorts athletic apparel on dark background, ${base}`;
       if (/\bball\b/i.test(n))
         return `basketball on hardwood court with dramatic spotlights and bokeh background, ${base}`;
+      if (/shoe|sneaker|air\s+jordan|air\s+max|zoom|flow|kyrie|kd\s*\d+|lebron\s*\d+|curry\s*\d+/i.test(n))
+        return `premium basketball sneakers floating mid-air on dark gradient background, ${base}`;
       return `basketball sports equipment premium display, ${base}`;
 
     case "food":
@@ -765,8 +767,8 @@ function renderHomePage(bp: SiteBlueprint): string {
     getItems(s).length === 0
   );
   const aboutImg     = aboutSection ? getSectionBg(aboutSection, bp, 5, "brand story lifestyle") : getPageBg(bp, "brand story lifestyle", 400);
-  const aboutHead    = clean(aboutSection?.copy?.heading) || `About ${bp.niche}`;
-  const aboutBody    = clean(aboutSection?.copy?.body) || `Premium ${bp.niche} experience crafted with uncompromising quality and attention to detail.`;
+  const aboutHead    = clean(aboutSection?.copy?.heading) || clean(bp.copy.sections?.find(s => /about|story|brand/i.test(s.componentId))?.heading) || `Our Story`;
+  const aboutBody    = clean(aboutSection?.copy?.body) || clean(bp.copy.sections?.find(s => /about|story|brand/i.test(s.componentId))?.body) || clean(bp.theme?.typography ? bp.copy.hero?.subheadline : "") || `Premium quality crafted with uncompromising standards — every product hand-picked for the ${brandFromBlueprint(bp) || bp.niche} experience.`;
 
   // stats row from microCopy
   const stats = (aboutSection?.copy?.microCopy ?? []).slice(0, 4);
