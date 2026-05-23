@@ -4,6 +4,8 @@ import VisitTracker from "@/components/VisitTracker";
 import type { Metadata } from "next";
 import { UltraPremiumRenderer } from "@/components/ultra-premium/UltraPremiumRenderer";
 import type { SiteBlueprint } from "@/components/ultra-premium/types/blueprint";
+import { renderBlueprintToHtml } from "@/lib/ultra-premium/render/htmlRenderer";
+import type { SiteBlueprint as RendererBlueprint } from "@/lib/ultra-premium/types/SiteBlueprint";
 
 interface Props {
   params: { subdomain: string };
@@ -32,7 +34,27 @@ export default async function SubdomainPage({ params }: Props) {
 
   if (!website) notFound();
 
-  // Use htmlContent first — this matches what the editor shows
+  // If a blueprint exists, always re-render from it so renderer improvements
+  // (image engine, theme styling, CSS) reach the live published site instead
+  // of being shadowed by stale htmlContent baked at generation time.
+  const json = website.jsonContent as Record<string, unknown> | null;
+  const rendererBlueprint = json?.blueprint as RendererBlueprint | undefined;
+  if (rendererBlueprint && website.name) {
+    const freshHtml = renderBlueprintToHtml(rendererBlueprint, website.name);
+    return (
+      <>
+        <VisitTracker subdomain={website.subdomain!} path="/" />
+        <iframe
+          srcDoc={freshHtml}
+          style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+          title={website.name}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
+      </>
+    );
+  }
+
+  // Fallback: cached htmlContent for sites whose blueprint was lost
   if (website.htmlContent) {
     return (
       <>
@@ -47,8 +69,7 @@ export default async function SubdomainPage({ params }: Props) {
     );
   }
 
-  // Fallback: blueprint-based rendering for sites without htmlContent
-  const json = website.jsonContent as Record<string, unknown> | null;
+  // Last fallback: legacy React renderer
   const blueprint = json?.blueprint as SiteBlueprint | undefined;
   if (blueprint) {
     return (

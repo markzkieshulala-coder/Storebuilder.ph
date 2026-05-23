@@ -30,22 +30,24 @@ export async function GET(
       return NextResponse.json({ error: "Website not found" }, { status: 404 });
     }
 
-    // Lazy re-render: old websites were generated before the brandName fix.
-    // Detect them by checking if the stored blueprint lacks an explicit brandName.
-    // On first load, re-render with the correct website.name and update the DB so
-    // subsequent loads are fast (no re-render needed).
+    // Lazy re-render: always re-render from the blueprint when one exists, so
+    // any improvements to the renderer (image engine, theme styling, CSS) reach
+    // the editor immediately instead of being shadowed by stale `htmlContent`
+    // that was baked at the moment the website was first generated.
     try {
       const json = website.jsonContent as Record<string, unknown> | null;
       const blueprint = json?.blueprint as SiteBlueprint | undefined;
-      if (blueprint && website.name && !blueprint.brandName) {
+      if (blueprint && website.name) {
         const freshHtml = renderBlueprintToHtml(blueprint, website.name);
-        website.htmlContent = freshHtml;
-        // Persist in background — don't block the response
-        prisma.$executeRawUnsafe(
-          `UPDATE "Website" SET "htmlContent" = $1, "updatedAt" = NOW() WHERE id = $2`,
-          freshHtml,
-          website.id
-        ).catch(() => {});
+        if (freshHtml !== website.htmlContent) {
+          website.htmlContent = freshHtml;
+          // Persist in background — don't block the response
+          prisma.$executeRawUnsafe(
+            `UPDATE "Website" SET "htmlContent" = $1, "updatedAt" = NOW() WHERE id = $2`,
+            freshHtml,
+            website.id
+          ).catch(() => {});
+        }
       }
     } catch { /* never fail a GET because of lazy re-render */ }
 
