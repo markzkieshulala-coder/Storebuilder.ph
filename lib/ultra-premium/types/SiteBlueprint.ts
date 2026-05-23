@@ -270,6 +270,7 @@ export interface SiteBlueprint {
   niche: string;
   prompt: string;
   brandName?: string;             // explicit brand/business name extracted from the prompt
+  themeStyle?: "minimal" | "luxury" | "playful" | "bold" | "tech" | "cinematic";  // user-requested overall style
   theme: {
     typography: TypographySpec;
     colors: ColorPalette;

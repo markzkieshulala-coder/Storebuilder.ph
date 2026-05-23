@@ -73,12 +73,41 @@ function clean(s?: string | null): string {
 // always produces the same image (Pollinations caches by prompt+seed).
 
 /**
+ * Style modifier injected into every Pollinations prompt so the AI image
+ * matches the user's requested aesthetic (minimal / luxury / bold / etc.).
+ */
+function styleModifier(style?: string): string {
+  switch (style) {
+    case "minimal":
+      return "minimalist composition, lots of negative space, clean white or soft background, single subject, ultra clean, understated, no clutter,";
+    case "luxury":
+      return "luxury editorial, opulent details, golden hour lighting, high-end magazine cover, premium materials,";
+    case "bold":
+      return "bold dramatic composition, high contrast, vivid saturated colors, edgy attitude,";
+    case "playful":
+      return "playful vibrant colorful, energetic composition, fun atmosphere, bright,";
+    case "tech":
+      return "futuristic high-tech, neon accent lighting, glass and chrome surfaces, sleek modern,";
+    default:
+      return "cinematic premium,";
+  }
+}
+
+/**
  * Build a Pollinations URL for a PRODUCT CARD image.
  * The prompt describes the exact product type and niche so the image is
- * relevant to what's actually in the card.
+ * relevant to what's actually in the card. Style modifier ensures the
+ * rendered image matches the requested aesthetic (minimalist / luxury / etc.).
  */
-function productImageUrl(productName: string, niche: string, seed: number, w = 800, h = 800): string {
-  const prompt = buildProductPrompt(productName, niche);
+function productImageUrl(
+  productName: string,
+  niche: string,
+  seed: number,
+  w = 800,
+  h = 800,
+  style?: string
+): string {
+  const prompt = `${styleModifier(style)} ${buildProductPrompt(productName, niche)}`;
   const s = Math.abs(seed) % 999983;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux`;
 }
@@ -86,10 +115,17 @@ function productImageUrl(productName: string, niche: string, seed: number, w = 8
 /**
  * Build a Pollinations URL for a SECTION / PAGE background image.
  * Role-specific and niche-specific so hero, about, products, contact each
- * pull from distinct visual contexts.
+ * pull from distinct visual contexts. Style modifier matches user's request.
  */
-function sectionImageUrl(niche: string, role: string, seed: number, w = 1600, h = 900): string {
-  const prompt = buildSectionPrompt(niche, role);
+function sectionImageUrl(
+  niche: string,
+  role: string,
+  seed: number,
+  w = 1600,
+  h = 900,
+  style?: string
+): string {
+  const prompt = `${styleModifier(style)} ${buildSectionPrompt(niche, role)}`;
   const s = Math.abs(seed) % 999983;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux`;
 }
@@ -361,8 +397,7 @@ function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 7919
   );
-  // Pollinations with product-specific AI prompt — always niche-correct.
-  return productImageUrl(name, bp.niche, hash, 800, 800);
+  return productImageUrl(name, bp.niche, hash, 800, 800, bp.themeStyle);
 }
 
 
@@ -388,7 +423,7 @@ function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): st
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 6151
   );
-  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1600, 900);
+  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1600, 900, bp.themeStyle);
 }
 
 function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
@@ -397,7 +432,7 @@ function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (offset + 1) * 8893
   );
-  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1920, 1080);
+  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1920, 1080, bp.themeStyle);
 }
 
 function getItems(s: Section): any[] {
@@ -422,7 +457,42 @@ function allItems(bp: SiteBlueprint): any[] {
 
 // ─── Shared CSS + keyframes ───────────────────────────────────────────────────
 
-function sharedCss(TEXT: string, BG: string, PRI: string, ACC: string, hf: string, bf: string): string {
+function sharedCss(TEXT: string, BG: string, PRI: string, ACC: string, hf: string, bf: string, style?: string): string {
+  // Style-specific overrides applied at the end of the stylesheet so they win
+  // the cascade. "minimal" strips decorative effects (blobs, particles, heavy
+  // shadows) to actually deliver a minimalist look when the user asks for one.
+  const styleOverrides =
+    style === "minimal" ? `
+/* Minimalist style overrides */
+.blob{display:none !important}
+#sb-canvas{display:none !important}
+.card-3d:hover{transform:translateY(-4px) !important;box-shadow:0 16px 40px ${alpha(TEXT,"14")} !important}
+.card-3d::after{display:none !important}
+.btn-pri{box-shadow:none !important;border-radius:2px !important;font-weight:600 !important;letter-spacing:.08em !important}
+.btn-pri:hover{box-shadow:0 4px 16px ${alpha(PRI,"33")} !important;transform:none !important}
+.btn-sec{border-radius:2px !important;font-weight:600 !important;letter-spacing:.08em !important}
+.img-wrap::after{display:none !important}
+.img-wrap img{filter:none !important}
+h1,h2,h3{letter-spacing:-.01em !important;text-transform:none !important}
+` :
+    style === "luxury" ? `
+/* Luxury style overrides */
+h1,h2{letter-spacing:-.02em !important}
+.btn-pri{border-radius:0 !important;letter-spacing:.24em !important;text-transform:uppercase !important}
+.btn-sec{border-radius:0 !important;letter-spacing:.24em !important;text-transform:uppercase !important}
+.card-3d{border-radius:0 !important}
+` :
+    style === "bold" ? `
+/* Bold style overrides */
+h1,h2,h3{font-weight:900 !important;letter-spacing:-.04em !important;text-transform:uppercase !important}
+.btn-pri{box-shadow:0 0 0 4px ${alpha(BG,"00")},0 0 0 6px ${PRI} !important;background:${BG} !important;color:${PRI} !important}
+` :
+    style === "tech" ? `
+/* Tech style overrides */
+body{font-family:'Inter','SF Mono','JetBrains Mono',monospace}
+.btn-pri{border-radius:4px !important;font-family:'JetBrains Mono',monospace !important}
+` : "";
+
   return `
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -504,6 +574,7 @@ a:not(.btn-pri):not(.btn-sec)[data-editable="link"]:hover{color:${PRI} !importan
 @keyframes fade-in{from{opacity:0}to{opacity:1}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes page-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+${styleOverrides}
 `;
 }
 
@@ -1438,7 +1509,7 @@ export function renderBlueprintToHtml(bp: SiteBlueprint, overrideBrandName?: str
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(hf)}:wght@400;600;700;800;900&family=${encodeURIComponent(bf)}:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
-${sharedCss(TEXT, BG, PRI, ACC, hf, bf)}
+${sharedCss(TEXT, BG, PRI, ACC, hf, bf, bpR.themeStyle)}
 </style>
 </head>
 <body>

@@ -638,6 +638,11 @@ function assembleSiteBlueprint(
 
   const resolvedBrandName = extractBrandName(parsed.raw) || getPreset(parsed.niche).brandFormat("");
 
+  // Propagate the user's requested style so the renderer can match the visual
+  // tone (e.g. "minimalist" → clean AI imagery, lots of whitespace, no decoration).
+  const resolvedStyle = (parsed.themeOverrides?.style ?? null) as
+    | "minimal" | "luxury" | "playful" | "bold" | "tech" | null;
+
   return {
     version: "2.0.0-ultra-premium",
     generatedAt: new Date().toISOString(),
@@ -645,6 +650,7 @@ function assembleSiteBlueprint(
     niche: parsed.niche,
     prompt: parsed.raw,
     brandName: resolvedBrandName,
+    themeStyle: resolvedStyle ?? undefined,
     theme: {
       typography: theme.typography,
       colors: theme.colors,
