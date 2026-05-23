@@ -98,42 +98,38 @@ function styleModifier(style?: string): string {
  * The prompt describes the exact product type and niche so the image is
  * relevant to what's actually in the card. Style modifier ensures the
  * rendered image matches the requested aesthetic (minimalist / luxury / etc.).
+ * Uses flux-realism model for photorealistic product photography.
  */
 function productImageUrl(
   productName: string,
   niche: string,
   seed: number,
-  w = 800,
-  h = 800,
+  w = 600,
+  h = 600,
   style?: string
 ): string {
   const prompt = `${styleModifier(style)} ${buildProductPrompt(productName, niche)}`;
   const s = Math.abs(seed) % 999983;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux-realism&enhance=true`;
 }
 
 /**
  * Build a Pollinations URL for a SECTION / PAGE background image.
  * Role-specific and niche-specific so hero, about, products, contact each
  * pull from distinct visual contexts. Style modifier matches user's request.
+ * Uses flux-realism model for cinematic photorealistic backgrounds.
  */
 function sectionImageUrl(
   niche: string,
   role: string,
   seed: number,
-  w = 1600,
-  h = 900,
+  w = 1280,
+  h = 720,
   style?: string
 ): string {
   const prompt = `${styleModifier(style)} ${buildSectionPrompt(niche, role)}`;
   const s = Math.abs(seed) % 999983;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux`;
-}
-
-/** Picsum — fallback when Pollinations fails (onerror). Always loads. */
-function picsumUrl(seed: number, w = 800, h = 800): string {
-  const s = Math.abs(seed) % 9_999_997;
-  return `https://picsum.photos/seed/sb${s}/${w}/${h}`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${s}&width=${w}&height=${h}&model=flux-realism&enhance=true`;
 }
 
 // ─── Prompt builders ──────────────────────────────────────────────────────────
@@ -397,7 +393,7 @@ function getItemImage(item: any, bp: SiteBlueprint, idx: number): string {
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 7919
   );
-  return productImageUrl(name, bp.niche, hash, 800, 800, bp.themeStyle);
+  return productImageUrl(name, bp.niche, hash, 600, 600, bp.themeStyle);
 }
 
 
@@ -423,7 +419,7 @@ function getSectionBg(s: Section, bp: SiteBlueprint, idx: number, hint = ""): st
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (idx + 1) * 6151
   );
-  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1600, 900, bp.themeStyle);
+  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1280, 720, bp.themeStyle);
 }
 
 function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
@@ -432,7 +428,7 @@ function getPageBg(bp: SiteBlueprint, context: string, offset: number): string {
     (h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0,
     (offset + 1) * 8893
   );
-  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1920, 1080, bp.themeStyle);
+  return sectionImageUrl(bp.niche, role, Math.abs(hash) + bpSeed(bp), 1280, 720, bp.themeStyle);
 }
 
 function getItems(s: Section): any[] {
@@ -597,15 +593,18 @@ function badge(s: Section, fb: string, ACC: string): string {
 
 // ─── Image wrapper ────────────────────────────────────────────────────────────
 
-let _fbCtr = 0;
-function imgWrap(src: string, alt: string, style = "", cls = ""): string {
-  const seed = (++_fbCtr) * 7919 % 9_999_991;
-  // Fallback: if Pollinations is slow/down, Picsum always loads instantly.
-  const fb = picsumUrl(seed, 800, 800);
+/**
+ * Wraps an image in the standard shimmer/vignette container.
+ * On error the image is hidden — the CSS gradient background of .img-wrap
+ * shows through instead of a random unrelated stock photo.
+ * Pass eager=true for above-the-fold images (hero) so they start loading
+ * immediately without waiting for lazy-scroll intersection.
+ */
+function imgWrap(src: string, alt: string, style = "", cls = "", eager = false): string {
   return `<div class="img-wrap ${cls}" style="${style}">
-    <img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async"
+    <img src="${esc(src)}" alt="${esc(alt)}" loading="${eager ? "eager" : "lazy"}" decoding="async"
       onload="this.classList.add('loaded');var p=this.parentElement;if(p)p.classList.add('img-loaded')"
-      onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='${fb}';}else{var p=this.parentElement;if(p)p.classList.add('img-loaded');this.style.display='none';}"
+      onerror="this.style.display='none';var p=this.parentElement;if(p)p.classList.add('img-loaded');"
       class="card-img"
       style="min-height:100%;min-width:100%"
     />
@@ -756,7 +755,7 @@ function renderHomePage(bp: SiteBlueprint): string {
   <section data-editable="section" data-reveal="hero"
     style="position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:${BG};">
     <canvas id="sb-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:${isLight(BG) ? ".4" : ".5"};"></canvas>
-    ${imgWrap(heroImg, heading, `position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:${isLight(BG) ? ".7" : ".48"};filter:saturate(1.12) contrast(1.07);`, "")}
+    ${imgWrap(heroImg, heading, `position:absolute;inset:-8% -4%;width:110%;height:116%;z-index:2;opacity:${isLight(BG) ? ".7" : ".48"};filter:saturate(1.12) contrast(1.07);`, "", true)}
     <div style="position:absolute;inset:0;z-index:3;background:linear-gradient(160deg,${alpha(BG, isLight(BG) ? "aa" : "cc")} 0%,${alpha(BG, isLight(BG) ? "33" : "55")} 50%,${alpha(BG, isLight(BG) ? "99" : "bb")} 100%);"></div>
     <div style="position:absolute;top:0;left:0;right:0;height:220px;z-index:4;background:linear-gradient(180deg,${alpha(BG, isLight(BG) ? "dd" : "ee")} 0%,transparent 100%);pointer-events:none;"></div>
     ${blobs(PRI, ACC)}
