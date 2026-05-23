@@ -703,14 +703,17 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
 
 /** Niche detection keyword map — checked in declared order, so most specific first. */
 const NICHE_KEYWORDS: Array<[RegExp, string]> = [
-  [/\b(basketball|nba|jersey|sneaker|hoops?|jordan|lakers|bulls|curry|lebron)\b/i, "basketball"],
+  [/\b(basketball|nba|jersey|sneaker|hoops?|jordan|lakers|bulls|curry|lebron|kobe|kyrie)\b/i, "basketball"],
   [/\b(watch(es|making|maker)?|timepiece|horolog(y|er|ist)|chronograph|tourbillon|geneva|swiss\s*made)\b/i, "watchmaking"],
+  [/\b(jewel(ry|er|lery)?|diamond|engagement\s+ring|gemstone|necklace|bracelet|earring)\b/i, "jewelry"],
   [/\b(cyber\w*|security|infosec|saas|threat|defen[cs]e|encryption|firewall|endpoint|pentest|penetration\s*test|soc|siem|edr|xdr|mfa|zero[-\s]?trust)\b/i, "cybersecurity"],
+  [/\b(fitness|gym|workout|crossfit|trainer|athletic|bodybuild)\b/i, "fitness"],
   [/\b(barber(shop)?|gentleman'?s?\s+(club|cut|grooming)|men'?s?\s+(grooming|cut|haircut)|straight[-\s]?razor)\b/i, "barber"],
-  [/\b(restaurant|cafe|caf[eé]|bakery|food|dining|kitchen|menu|chef|bistro|tasting)\b/i, "food"],
-  [/\b(salon|spa|beauty|hair\s+salon|nail|makeup|skincare|stylist|hair\s+studio)\b/i, "salon"],
+  [/\b(coffee|espresso|latte|cappuccino|barista|brew(ery|ing)?|roaster)\b/i, "coffee"],
+  [/\b(restaurant|cafe|caf[eé]|bakery|food|dining|kitchen|menu|chef|bistro|tasting|cuisine|pizzeria|sushi|ramen)\b/i, "food"],
+  [/\b(salon|spa|beauty|hair\s+salon|nail|makeup|skincare|stylist|hair\s+studio|cosmetic)\b/i, "salon"],
   [/\b(portfolio|designer|artist|photographer|creative|illustration|studio)\b/i, "portfolio"],
-  [/\b(fashion|apparel|clothing|runway|couture|boutique|garment|tailor)\b/i, "fashion"],
+  [/\b(fashion|apparel|clothing|runway|couture|boutique|garment|tailor|wear)\b/i, "fashion"],
   [/\b(store|shop|e-?commerce|retail|marketplace|brand|product)\b/i, "store"],
 ];
 

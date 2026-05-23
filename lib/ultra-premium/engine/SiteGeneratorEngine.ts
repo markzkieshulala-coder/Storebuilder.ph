@@ -25,6 +25,18 @@ import {
   AssetHydrationPatch,
 } from "../pipeline/AssetHydrator";
 import { COMPONENT_ASSET_SLOTS } from "../pipeline/PromptMutationEngine";
+import { curatedSectionImage, curatedProductImage } from "../render/imageCatalog";
+
+/** Niche-aware product image URL — replaces random picsum stock photos. */
+function nicheProductImage(productName: string, niche: string, seed: number, w = 1024, h = 1024): string {
+  return curatedProductImage(productName, niche, seed, w, h)
+    || `https://picsum.photos/seed/sb${seed % 9_999_991}/${w}/${h}`;
+}
+/** Niche-aware section background URL — replaces random picsum stock photos. */
+function nicheSectionImage(niche: string, role: string, seed: number, w = 1280, h = 720): string {
+  return curatedSectionImage(niche, role, seed, w, h)
+    || `https://picsum.photos/seed/sb${seed % 9_999_991}/${w}/${h}`;
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PHASE 1: INPUT & NICHE EXTRACTION
@@ -719,13 +731,14 @@ function generatePropsFromSchema(
         ? `${preset.currency}${Math.round((priceMin + (priceMax - priceMin) * (0.2 + (i * 0.13) % 0.8))).toLocaleString()}`
         : "";
 
-      // Real photography via Lorem Picsum — instant load, no text artifacts,
-      // deterministic per seed.
+      // Niche-relevant product photo via the renderer's curated catalog.
+      // Classifies by product name (jersey/shoe/ball/etc.) so the photo
+      // actually matches what the card sells.
       const seed = `${parsed.niche}-${entry.name}-${i}-${name.slice(0,8)}`;
       const numericSeed = Math.abs(
         Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
       ) % 9_999_991;
-      const image = `https://picsum.photos/seed/sb${numericSeed}/1024/1024`;
+      const image = nicheProductImage(name, parsed.niche, numericSeed, 1024, 1024);
 
       items.push({
         title: name,
@@ -737,7 +750,7 @@ function generatePropsFromSchema(
         body: desc,
         price,
         cta: vocab.buttons[i % vocab.buttons.length],
-        image, // niche-themed default; may be overridden by AssetHydrator
+        image,
         slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       });
     }
@@ -760,7 +773,16 @@ function generatePropsFromSchema(
           const numericSeed = Math.abs(
             Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
           ) % 9_999_991;
-          props[key] = `https://picsum.photos/seed/sb${numericSeed}/1280/720`;
+          // Determine section role from key/entry name so the background matches
+          // the section's purpose (hero/about/products/contact/cta).
+          const ctx = `${entry.name} ${key}`.toLowerCase();
+          const role = /hero|opening|header/.test(ctx) ? "hero"
+            : /about|story|brand|content/.test(ctx) ? "about"
+            : /product|showcase|card|grid/.test(ctx) ? "products"
+            : /contact/.test(ctx) ? "contact"
+            : /cta|conversion/.test(ctx) ? "cta"
+            : "hero";
+          props[key] = nicheSectionImage(parsed.niche, role, numericSeed, 1280, 720);
         } else {
           props[key] = "";
         }
@@ -787,11 +809,11 @@ function generatePropsFromSchema(
             const numericSeed = Math.abs(
               Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
             ) % 9_999_991;
-            const picsum = `https://picsum.photos/seed/sb${numericSeed}/1024/1024`;
+            const niched = nicheProductImage(name, parsed.niche, numericSeed, 1024, 1024);
             imgList.push({
-              url: picsum,
-              src: picsum,
-              image: picsum,
+              url: niched,
+              src: niched,
+              image: niched,
               alt: name,
               caption: name,
             });
@@ -1148,7 +1170,7 @@ function ensureItemArraysForSlots(
       const numericSeed = Math.abs(
         Array.from(seed).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
       ) % 9_999_991;
-      const image = `https://picsum.photos/seed/sb${numericSeed}/1024/1024`;
+      const image = nicheProductImage(name, parsed.niche, numericSeed, 1024, 1024);
 
       baseProps[key].push({
         title: name,

@@ -4,7 +4,8 @@
  * ============================================================================
  * This module is the rendering-layer entry point for image asset hydration.
  * Every time a component renders an asset slot, this function is called
- * to produce a uniquely computed image URL that will never cache or repeat.
+ * to produce a real, niche-relevant image URL routed through the renderer's
+ * shared image catalog.
  *
  * Integration point: Called during Phase 7 (Schema Assembly) in the
  * SiteGeneratorEngine, immediately before props are injected into ComponentConfig.
@@ -17,6 +18,7 @@ import {
   COMPONENT_ASSET_SLOTS,
   AssetSlot,
 } from "./PromptMutationEngine";
+import { curatedSectionImage, curatedProductImage } from "../render/imageCatalog";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // POLLINATIONS AI URL BUILDER
@@ -37,6 +39,17 @@ interface PollinationsUrlParams {
 }
 
 const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt/";
+
+/** Map a registry blockType label to a canonical section role. */
+function blockTypeToRole(blockType: string): string {
+  const bt = (blockType || "").toLowerCase();
+  if (/hero|opening|landing|header/.test(bt))              return "hero";
+  if (/about|story|content|brand|heritage|lifestyle/.test(bt)) return "about";
+  if (/product|showcase|card|grid|collection|catalog/.test(bt)) return "products";
+  if (/contact|location/.test(bt))                          return "contact";
+  if (/cta|conversion/.test(bt))                            return "cta";
+  return "hero";
+}
 
 /** Aspect ratio to dimension mapping. */
 const ASPECT_RATIOS: Record<string, { width: number; height: number }> = {
@@ -152,13 +165,27 @@ export function generateUniqueImageURL(
   }
   numericSeed = Math.abs(numericSeed);
 
-  // ── Step 3: Build the URL.
-  // Switched from Pollinations.ai (which often bakes the prompt text into the
-  // image as a visible watermark/word-collage) to Lorem Picsum, which serves
-  // real, high-quality photographs from Unsplash, loads instantly, never
-  // renders text artifacts, and is fully deterministic per seed.
+  // ── Step 3: Build the URL via the renderer's curated catalog ───────────────
+  // Picsum returns RANDOM scenic stock photos with no relation to niche or
+  // product — the source of the "random generic photo" bug. The shared catalog
+  // returns LoremFlickr URLs whose keywords are tailored to niche+role (for
+  // backgrounds) or niche+product-type (for cards), so the image content is
+  // guaranteed relevant to what the component is rendering.
   const dims = ASPECT_RATIOS[aspectRatio ?? "16:9"] ?? ASPECT_RATIOS["16:9"];
-  const url = `https://picsum.photos/seed/sb${numericSeed % 9_999_991}/${dims.width}/${dims.height}`;
+  const role = blockTypeToRole(blockType);
+  const isProductSlot = role === "products" || /card|item|product|showcase/i.test(blockType);
+
+  let url: string;
+  if (isProductSlot) {
+    // Card-style image — classify by product name extracted from localizedText
+    url = curatedProductImage(localizedText, nicheContext, numericSeed, dims.width, dims.height)
+      || curatedSectionImage(nicheContext, role, numericSeed, dims.width, dims.height)
+      || `https://picsum.photos/seed/sb${numericSeed % 9_999_991}/${dims.width}/${dims.height}`;
+  } else {
+    // Section background — keywords keyed off niche + role
+    url = curatedSectionImage(nicheContext, role, numericSeed, dims.width, dims.height)
+      || `https://picsum.photos/seed/sb${numericSeed % 9_999_991}/${dims.width}/${dims.height}`;
+  }
   void buildPollinationsUrl;
 
   return {
