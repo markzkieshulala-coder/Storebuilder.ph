@@ -6,7 +6,6 @@
   "env": {
     "DATABASE_URL": "@database_url",
     "NEXTAUTH_SECRET": "@nextauth_secret",
-    "ANTHROPIC_API_KEY": "@anthropic_api_key",
     "PAYMONGO_SECRET_KEY": "@paymongo_secret_key",
     "PAYMONGO_PUBLIC_KEY": "@paymongo_public_key",
     "CLOUDFLARE_API_TOKEN": "@cloudflare_api_token"

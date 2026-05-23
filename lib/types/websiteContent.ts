@@ -1,9 +1,6 @@
 /**
- * Type surface for legacy `Website.jsonContent` reads.
- *
- * The website generator has been removed. Only the `GeneratedWebsite` type
- * remains — it shapes the legacy `jsonContent` payload that checkout and
- * contact routes still read for payment/contact settings.
+ * Shape of the legacy `Website.jsonContent` payload.
+ * Consumed by checkout and contact routes to read payment/contact settings.
  */
 
 export type GeneratedWebsite = {

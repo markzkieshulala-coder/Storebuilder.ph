@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { GeneratedWebsite } from "@/lib/ai/generate";
+import { GeneratedWebsite } from "@/lib/types/websiteContent";
 import { sendContactFormEmail } from "@/lib/email";
 import { ensureSchemaMigrations } from "@/lib/db-migrations";
 import { createNotification, contactTitleFor } from "@/lib/notifications";

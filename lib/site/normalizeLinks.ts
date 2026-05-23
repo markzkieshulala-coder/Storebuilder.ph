@@ -1,6 +1,5 @@
-// Minimal anchor-to-route normalizer extracted from lib/ai/generate.ts so it
-// can be called at render time (for legacy DB records whose hrefs were stored
-// as "#about" before normalisation was added to the generation pipeline).
+// Minimal anchor-to-route normalizer called at render time for legacy DB
+// records whose hrefs were stored as "#about" before normalisation existed.
 
 const ANCHOR_ROUTE_MAP: Record<string, string> = {
   home: "/", index: "/", main: "/",
