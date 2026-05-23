@@ -1667,13 +1667,25 @@ export function renderBlueprintToHtml(bp: SiteBlueprint, overrideBrandName?: str
   const heroSection = page.sections.find(s => /Hero|Header|GlitchHeader/i.test(s.name));
   const heroPreload = heroSection ? getSectionBg(heroSection, bpR, 0, "hero cinematic scene") : getPageBg(bpR, "hero cinematic scene", 0);
 
+  // DEBUG MARKER (v7 — image-fix-2026-05-23). If the user does NOT see this
+  // string in the page source / console, the new renderer code is NOT running
+  // and any image-correctness fix in this file is irrelevant. This is the
+  // single source of truth for "is the latest code reaching the browser".
+  const RENDERER_VERSION = "v7-img-2026-05-23";
+  const sampleImg = heroPreload.primary || "(none)";
+  const debugLog = `<script>console.log("%c[Storebuilder Renderer ${RENDERER_VERSION}] niche=${esc(bpR.niche || "?")} | brand=${esc(brand || "?")} | hero=${esc(sampleImg.slice(0, 110))}", "background:#000;color:#0f0;padding:4px 8px;font-size:11px;");</script>`;
+  const debugComment = `<!-- Storebuilder Renderer ${RENDERER_VERSION} | niche="${esc(bpR.niche || "?")}" | brand="${esc(brand || "?")}" | heroImg="${esc(sampleImg)}" -->`;
+
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-sb-renderer="${RENDERER_VERSION}">
 <head>
+${debugComment}
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}"/>
+<meta name="sb-renderer" content="${RENDERER_VERSION}"/>
+<meta name="sb-niche" content="${esc(bpR.niche || "")}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://image.pollinations.ai"/>
@@ -1685,6 +1697,7 @@ ${sharedCss(TEXT, BG, PRI, ACC, hf, bf, bpR.themeStyle)}
 </style>
 </head>
 <body>
+${debugLog}
 ${renderNav(bpR, pages)}
 <main style="padding-top:0;">
 ${renderHomePage(bpR)}
