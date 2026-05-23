@@ -1,14 +1,9 @@
 /**
  * Type surface for legacy `Website.jsonContent` reads.
  *
- * The server-side Native Premium Generator was retired in favour of the
- * browser-side Ultra-Premium 3D Procedural Engine (see public/index.html and
- * public/js/). HTML is now produced entirely client-side; `/api/generate`
- * accepts the precompiled HTML and persists it.
- *
- * Only the `GeneratedWebsite` type remains — it shapes the legacy
- * `jsonContent` payload that checkout and contact routes still read for
- * payment/contact settings.
+ * The website generator has been removed. Only the `GeneratedWebsite` type
+ * remains — it shapes the legacy `jsonContent` payload that checkout and
+ * contact routes still read for payment/contact settings.
  */
 
 export type GeneratedWebsite = {

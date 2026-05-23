@@ -28,9 +28,7 @@ export default async function SectionPage({ params }: Props) {
   });
   if (!website) notFound();
 
-  // All Stitch-generated sites are self-contained single-page HTML files.
-  // Internal navigation (to sections like /about, /products) is handled
-  // within the iframe on the main page. Redirect back to the root.
+  // Sites are self-contained single-page HTML files; redirect back to the root.
   redirect(`/sites/${params.subdomain}`);
 }
 

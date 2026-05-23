@@ -43,14 +43,6 @@ type Credits = {
   slots?: { used: number; limit: number; remaining: number };
 };
 
-const GENERATION_STEPS = [
-  "Booting Ultra-Premium 3D Generator…",
-  "Calibrating procedural intelligence engine…",
-  "Synthesizing layout matrices & viewport blocks…",
-  "Compiling premium HTML/CSS environments…",
-  "Mounting preview canvas…",
-];
-
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -59,10 +51,6 @@ function DashboardContent() {
   const [credits, setCredits] = useState<Credits | null>(null);
   const [loading, setLoading] = useState(true);
   const [resetIn, setResetIn] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [isLaunching, setIsLaunching] = useState(false);
-  const [generationStep, setGenerationStep] = useState(0);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -142,87 +130,12 @@ function DashboardContent() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [status]);
-  // The 3D engine now redirects straight to /editor/:id after save.
-  // Keep this handler as a fallback in case the engine ever redirects here.
   useEffect(() => {
     if (searchParams.get("saved") === "1") {
       fetchData();
       router.replace("/dashboard");
     }
   }, [searchParams]);
-
-  // Cinematic step cycler while we hand off to the 3D engine.
-  useEffect(() => {
-    if (!isLaunching) return;
-    setGenerationStep(0);
-    const id = setInterval(() => {
-      setGenerationStep((s) => (s + 1) % GENERATION_STEPS.length);
-    }, 700);
-    return () => clearInterval(id);
-  }, [isLaunching]);
-
-  const [generatorIframeSrc, setGeneratorIframeSrc] = useState<string | null>(null);
-
-  async function handleGenerate() {
-    const trimmed = prompt.trim();
-    if (trimmed.length < 8) {
-      toast.error("Describe your website with at least 8 characters.");
-      return;
-    }
-    if (credits && !credits.canGenerate) {
-      toast.error(`No credits left today. Resets in ${resetIn}.`);
-      return;
-    }
-    setIsLaunching(true);
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: trimmed,
-          businessName: businessName.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || `Generation failed (${res.status})`);
-        setIsLaunching(false);
-        return;
-      }
-      // Server-side generator returned a blueprint AND htmlContent.
-      // Open the editor so the user can customise → preview → publish.
-      if (data?.website?.id) {
-        router.push(`/editor/${data.website.id}`);
-      } else {
-        toast.error("Generation succeeded but no website id was returned.");
-        setIsLaunching(false);
-      }
-    } catch (err: any) {
-      console.error("[generate]", err);
-      toast.error(err?.message || "Network error — please try again.");
-      setIsLaunching(false);
-    }
-  }
-
-  // Legacy iframe message handler — no longer used by handleGenerate, but
-  // kept for any in-flight iframe instances that might still post errors.
-  useEffect(() => {
-    if (!isLaunching) return;
-    function onMessage(e: MessageEvent) {
-      if (e.origin !== window.location.origin) return;
-      const data = e.data || {};
-      if (data.type === "engine:error") {
-        const msg = (data.code === "AUTH")
-          ? "Please sign in to save websites to your account."
-          : `Generation failed: ${data.message || "unknown error"}`;
-        toast.error(msg);
-        setIsLaunching(false);
-        setGeneratorIframeSrc(null);
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [isLaunching]);
   useEffect(() => {
     if (!credits?.resetAt) return;
     const t = setInterval(() => setResetIn(timeUntilReset(new Date(credits.resetAt))), 1000);
@@ -482,62 +395,6 @@ function DashboardContent() {
         />
       </aside>
 
-      {/* ── Generation overlay ── Facebook-blue loading screen shown while
-          the Ultra-Premium 3D Engine runs in a HIDDEN iframe behind the
-          scenes. The iframe drives the engine and, on success, navigates
-          the top window to /editor/:id. */}
-      {isLaunching && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm">
-          <div className="w-[92%] max-w-md bg-white border border-[#E4E6EB] rounded-2xl shadow-xl p-6 sm:p-8 text-center">
-            <div
-              className="w-12 h-12 rounded-2xl mx-auto mb-4 grid place-items-center text-white"
-              style={{ background: BLUE }}
-            >
-              <Zap size={22} />
-            </div>
-            <h3 className="text-base font-bold text-[#1C1E21] mb-1" style={{ fontFamily: FONT }}>
-              Building your website
-            </h3>
-            <p className="text-xs text-[#65676B] mb-4">
-              Ultra-Premium 3D Website System Generator is compiling your site.
-            </p>
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="w-4 h-4 border-2 border-blue-100 border-t-[#1877F2] rounded-full animate-spin" />
-              <span className="text-xs font-medium text-[#1877F2]">
-                {GENERATION_STEPS[generationStep]}
-              </span>
-            </div>
-            <div className="h-1.5 bg-[#E4E6EB] rounded-full overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: BLUE }}
-                initial={{ width: "5%" }}
-                animate={{ width: "95%" }}
-                transition={{ duration: 14, ease: "easeInOut" }}
-              />
-            </div>
-          </div>
-          {generatorIframeSrc && (
-            <iframe
-              src={generatorIframeSrc}
-              title="Ultra-Premium 3D Engine"
-              aria-hidden="true"
-              tabIndex={-1}
-              style={{
-                position: "absolute",
-                width: 1,
-                height: 1,
-                left: -9999,
-                top: -9999,
-                border: 0,
-                opacity: 0,
-                pointerEvents: "none",
-              }}
-            />
-          )}
-        </div>
-      )}
-
       {/* ── Main content ── */}
       <main className="lg:ml-60 pt-14 lg:pt-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -548,7 +405,7 @@ function DashboardContent() {
               Good {getGreeting()}, {session?.user?.name?.split(" ")[0] || "there"}
             </h1>
             <p className="text-sm text-[#65676B] mt-1">
-              {websites.length === 0 ? "Create your first website below" : `${websites.length} website${websites.length !== 1 ? "s" : ""} in your account`}
+              {websites.length === 0 ? "No websites yet" : `${websites.length} website${websites.length !== 1 ? "s" : ""} in your account`}
             </p>
           </div>
 
@@ -600,93 +457,12 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Generation card — the user composes a brief here, then we hand
-              the prompt off to the Ultra-Premium 3D Generator Engine at
-              /index.html?prompt=…&autorun=1. The engine compiles the site
-              client-side and POSTs the finished HTML back to /api/generate
-              via its own "Save to My Account" button. */}
-          <div className="bg-white rounded-2xl border border-[#E4E6EB] p-5 sm:p-7 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="w-10 h-10 rounded-xl grid place-items-center text-white shrink-0"
-                style={{ background: BLUE, boxShadow: "0 6px 18px rgba(24,119,242,.22)" }}
-              >
-                <Zap size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base sm:text-lg font-bold text-[#1C1E21]">Create a new website</h2>
-              </div>
-            </div>
-
-            <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              disabled={isLaunching}
-              maxLength={80}
-              placeholder="Brand / business name (e.g. Best Basketball Item's)"
-              className="w-full mb-3 rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#1877F2] transition-colors disabled:opacity-60"
-              style={{ fontFamily: FONT }}
-            />
-
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleGenerate();
-              }}
-              disabled={isLaunching}
-              rows={4}
-              placeholder="e.g. A luxury Italian artisan shoe brand with rich obsidian textures, macro product photography, and editorial craft storytelling."
-              className="w-full resize-none rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] px-4 py-3 text-sm text-[#1C1E21] placeholder:text-[#8A8D91] focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-[#1877F2] transition-colors disabled:opacity-60"
-              style={{ fontFamily: FONT }}
-            />
-
-            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-[11px] text-[#8A8D91]">
-                {isLaunching ? (
-                  <span className="inline-flex items-center gap-1.5 text-[#1877F2]">
-                    <span className="w-3 h-3 border-2 border-blue-100 border-t-[#1877F2] rounded-full animate-spin" />
-                    {GENERATION_STEPS[generationStep]}
-                  </span>
-                ) : (
-                  <>Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-[10px] font-mono">⌘/Ctrl + Enter</kbd> to generate</>
-                )}
-              </div>
-              <button
-                onClick={handleGenerate}
-                disabled={isLaunching || !prompt.trim() || (credits ? !credits.canGenerate : false)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  background: BLUE,
-                  boxShadow: "0 4px 16px rgba(24,119,242,.28)",
-                  fontFamily: FONT,
-                }}
-              >
-                {isLaunching ? "Launching…" : (
-                  <>
-                    <Zap size={14} />
-                    Generate Website
-                  </>
-                )}
-              </button>
-            </div>
-
-            {credits && !isPro && credits.remaining === 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs text-amber-700">
-                <AlertCircle size={12} />
-                No credits left today. Resets in {resetIn} ·{" "}
-                <Link href="/upgrade" className="underline" style={{ color: BLUE }}>Upgrade to Pro</Link>
-              </div>
-            )}
-          </div>
-
           {/* Websites grid */}
           {websites.length === 0 ? (
             <div className="text-center py-20 text-[#BCC0C4]">
               <Globe size={44} className="mx-auto mb-4 opacity-40" />
               <p className="text-base font-semibold text-[#8A8D91] mb-1">No websites yet</p>
-              <p className="text-sm">Describe your business above and click Generate Website</p>
+              <p className="text-sm">The website generator has been disabled.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
