@@ -8,6 +8,7 @@
     "NEXTAUTH_SECRET": "@nextauth_secret",
     "PAYMONGO_SECRET_KEY": "@paymongo_secret_key",
     "PAYMONGO_PUBLIC_KEY": "@paymongo_public_key",
-    "CLOUDFLARE_API_TOKEN": "@cloudflare_api_token"
+    "CLOUDFLARE_API_TOKEN": "@cloudflare_api_token",
+    "ANTHROPIC_API_KEY": "@anthropic_api_key"
   }
 }

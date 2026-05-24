@@ -19,6 +19,19 @@ import { timeUntilReset } from "@/lib/utils";
 const BLUE = "#1877F2";
 const FONT = "'Google Sans', Roboto, Arial, system-ui, sans-serif";
 
+const GENERATION_STEPS = [
+  "Analyzing business intent...",
+  "Generating creative direction...",
+  "Locking Design DNA...",
+  "Choreographing motion system...",
+  "Orchestrating layout...",
+  "Planning visual campaign...",
+  "Specifying components...",
+  "Validating design quality...",
+  "Building website blueprint...",
+  "Generating your website...",
+];
+
 type WebsitePreview = {
   image: string | null;
   headline: string;
@@ -58,6 +71,10 @@ function DashboardContent() {
   const [openToolsId, setOpenToolsId] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [isLaunching, setIsLaunching] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [sendingVerify, setSendingVerify] = useState(false);
   // Persist dismissal across reloads — once a user closes the banner we
@@ -141,6 +158,46 @@ function DashboardContent() {
     const t = setInterval(() => setResetIn(timeUntilReset(new Date(credits.resetAt))), 1000);
     return () => clearInterval(t);
   }, [credits?.resetAt]);
+
+  useEffect(() => {
+    if (!isLaunching) return;
+    setGenerationStep(0);
+    let idx = 0;
+    const id = setInterval(() => {
+      idx = (idx + 1) % GENERATION_STEPS.length;
+      setGenerationStep(idx);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [isLaunching]);
+
+  async function handleGenerate() {
+    if (!prompt.trim() || isLaunching) return;
+    if (credits && !credits.canGenerate && credits.plan !== "PRO" && credits.plan !== "ENTERPRISE") {
+      toast.error("No credits remaining. Please upgrade or wait for reset.");
+      return;
+    }
+    setIsLaunching(true);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.trim(), businessName: businessName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Generation failed — please try again.");
+        return;
+      }
+      toast.success("Website generated!");
+      setPrompt("");
+      setBusinessName("");
+      fetchData();
+    } catch {
+      toast.error("Network error — please try again.");
+    } finally {
+      setIsLaunching(false);
+    }
+  }
   // Close card menu on outside click
   useEffect(() => {
     if (!openMenuId) return;
@@ -457,12 +514,68 @@ function DashboardContent() {
             </div>
           )}
 
+          {/* Generation overlay */}
+          <AnimatePresence>
+            {isLaunching && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              >
+                <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
+                  <div className="w-12 h-12 border-[3px] border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-5" />
+                  <p className="text-sm font-semibold text-[#1C1E21] mb-1">AI Generation OS</p>
+                  <p className="text-xs text-[#65676B] min-h-[20px] transition-all">
+                    {GENERATION_STEPS[generationStep]}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Generate website card */}
+          <div className="bg-white rounded-2xl border border-[#E4E6EB] p-5 mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap size={16} color={BLUE} />
+              <span className="text-sm font-bold text-[#1C1E21]">Generate a Website</span>
+            </div>
+            <input
+              type="text"
+              placeholder="Business name (optional)"
+              value={businessName}
+              onChange={e => setBusinessName(e.target.value)}
+              disabled={isLaunching}
+              className="w-full mb-2 px-3 py-2 rounded-xl border border-[#E4E6EB] text-sm text-[#1C1E21] placeholder-[#BCC0C4] focus:outline-none focus:border-[#1877F2] disabled:opacity-50"
+              style={{ fontFamily: FONT }}
+            />
+            <textarea
+              placeholder="Describe your website — e.g. A premium Japanese ramen restaurant in Manila with a moody, cinematic vibe..."
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              disabled={isLaunching}
+              rows={3}
+              className="w-full mb-3 px-3 py-2 rounded-xl border border-[#E4E6EB] text-sm text-[#1C1E21] placeholder-[#BCC0C4] focus:outline-none focus:border-[#1877F2] resize-none disabled:opacity-50"
+              style={{ fontFamily: FONT }}
+              onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
+            />
+            <button
+              onClick={handleGenerate}
+              disabled={isLaunching || !prompt.trim()}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              style={{ background: BLUE, fontFamily: FONT }}
+            >
+              <Zap size={14} />
+              {isLaunching ? "Generating…" : "Generate Website"}
+            </button>
+          </div>
+
           {/* Websites grid */}
           {websites.length === 0 ? (
             <div className="text-center py-20 text-[#BCC0C4]">
               <Globe size={44} className="mx-auto mb-4 opacity-40" />
               <p className="text-base font-semibold text-[#8A8D91] mb-1">No websites yet</p>
-              <p className="text-sm">The website generator has been disabled.</p>
+              <p className="text-sm">Generate your first website above.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
