@@ -13,21 +13,36 @@ function extractJson(text: string): unknown {
     return JSON.parse(text.trim());
   } catch {}
 
-  // Extract from markdown code block
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // Extract from markdown code block — greedy match to handle large JSONs
+  // that may contain inner code blocks or be truncated before closing ```
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
   if (codeBlockMatch) {
     try {
       return JSON.parse(codeBlockMatch[1].trim());
     } catch {}
   }
 
-  // Find first { and last }
+  // Fallback: find first { and last } — handles truncated/fence-less responses
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     try {
       return JSON.parse(text.slice(firstBrace, lastBrace + 1));
     } catch {}
+  }
+
+  // Last resort: if response starts with a code fence but JSON was truncated
+  // (no closing ```), try extracting from first { to end of text
+  if (firstBrace !== -1) {
+    const candidate = text.slice(firstBrace);
+    // Try progressively shorter slices to find valid JSON
+    for (let end = candidate.length; end > candidate.length / 2; end--) {
+      if (candidate[end - 1] === "}") {
+        try {
+          return JSON.parse(candidate.slice(0, end));
+        } catch {}
+      }
+    }
   }
 
   throw new Error("Could not extract valid JSON from response");
@@ -73,7 +88,7 @@ export async function generateWebsite(
   console.log("[generation] Phase 1: Planning...");
   const phase1Message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 8000,
+    max_tokens: 16000,
     system: PHASE1_SYSTEM_PROMPT,
     messages: [
       {
