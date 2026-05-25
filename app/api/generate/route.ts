@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateWebsite } from "@/lib/generation";
+import { generateWebsite } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // 5 minutes for full pipeline
+export const maxDuration = 60;
 
 function generateSubdomain(brandName: string): string {
   return brandName
@@ -52,10 +52,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`[generate] Starting pipeline for: "${brandName}" — "${prompt.slice(0, 80)}"`);
 
-    // Run the 3-phase AI generation pipeline
+    // Run the in-process 9-stage orchestration engine (no external AI calls)
     const result = await generateWebsite(prompt.trim(), brandName);
 
-    console.log(`[generate] Pipeline complete. HTML: ${result.html.length} chars`);
+    console.log(`[generate] Pipeline complete. HTML: ${result.html.length} chars, score: ${result.score}`);
 
     // Determine website type from niche
     const niche = result.niche.toLowerCase();
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       subdomain,
       session.user.id,
       result.html,
-      JSON.stringify({ blueprint: result.blueprint, prompt, niche: result.niche })
+      JSON.stringify({ artifacts: result.artifacts, prompt, niche: result.niche, score: result.score })
     );
 
     const website = rows?.[0];
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       website,
-      model: "elite-ai-generation-os-v1",
+      model: "orchestration-engine-v1",
     });
 
   } catch (err: any) {
