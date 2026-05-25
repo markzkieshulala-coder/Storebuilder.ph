@@ -67,11 +67,12 @@ export async function POST(req: NextRequest) {
 
     // Store in database
     const rows = await prisma.$queryRawUnsafe<any[]>(
-      `INSERT INTO "Website" (id, name, type, subdomain, "userId", "htmlContent", "jsonContent", published, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid(), $1, $2::"WebsiteType", $3, $4, $5, $6::jsonb, false, NOW(), NOW())
+      `INSERT INTO "Website" (id, name, type, prompt, subdomain, "userId", "htmlContent", "jsonContent", published, "createdAt", "updatedAt")
+       VALUES (gen_random_uuid(), $1, $2::"WebsiteType", $3, $4, $5, $6, $7::jsonb, false, NOW(), NOW())
        RETURNING *`,
       brandName,
       type,
+      prompt.trim(),
       subdomain,
       session.user.id,
       result.html,
