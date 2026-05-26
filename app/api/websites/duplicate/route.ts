@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { generateSubdomain } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
       name: newName,
       type: src.type,
       prompt: src.prompt,
-      jsonContent: src.jsonContent,
+      jsonContent: src.jsonContent === null ? Prisma.JsonNull : (src.jsonContent as Prisma.InputJsonValue),
       subdomain,
       seoTitle: src.seoTitle,
       seoDesc: src.seoDesc,

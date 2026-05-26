@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { Session } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureInfluencerColumn } from "@/lib/influencer-column";
 
-function isAdmin(session: Awaited<ReturnType<typeof getServerSession>>) {
+function isAdmin(session: Session | null) {
   return session?.user?.role === "ADMIN";
 }
 
