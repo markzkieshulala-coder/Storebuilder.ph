@@ -1,5 +1,5 @@
 import { createOrchestrator } from './bootstrap';
-import { renderSiteHtml } from './html-renderer';
+import { renderSiteHtml, detectNiche } from './html-renderer';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 
@@ -9,16 +9,6 @@ export interface EngineGenerationResult {
   brandName: string;
   score: number;
   artifacts: Record<string, unknown>;
-}
-
-function deriveNiche(prompt: string): string {
-  const p = prompt.toLowerCase();
-  if (/(restaurant|ramen|cafe|coffee|food|bistro|dining|menu|bakery)/.test(p)) return 'restaurant';
-  if (/(portfolio|photographer|photography|designer|artist|creative)/.test(p)) return 'portfolio';
-  if (/(saas|software|\bapp\b|platform|dashboard|startup|productivity)/.test(p)) return 'saas';
-  if (/(shop|store|ecommerce|e-commerce|apparel|fashion|\bproduct\b|products|boutique|skincare|jewelry|checkout)/.test(p)) return 'ecommerce';
-  if (/(agency|studio|marketing|consult)/.test(p)) return 'agency';
-  return 'business';
 }
 
 // Runs the full orchestration pipeline (planning -> blueprint -> design-dna ->
@@ -50,7 +40,7 @@ export async function generateWebsite(
 
   return {
     html,
-    niche: deriveNiche(prompt),
+    niche: detectNiche(prompt),
     brandName,
     score: scoring?.overall ?? 0,
     artifacts: context.artifacts,
