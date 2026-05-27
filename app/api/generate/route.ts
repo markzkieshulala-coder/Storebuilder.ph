@@ -50,12 +50,15 @@ export async function POST(req: NextRequest) {
 
     const brandName = (businessName?.trim() || prompt.trim().split(" ").slice(0, 3).join(" "));
 
+    // Generate subdomain first so the renderer can embed correct <base href> links
+    const subdomain = generateSubdomain(brandName);
+
     console.log(`[generate] Starting pipeline for: "${brandName}" — "${prompt.slice(0, 80)}"`);
 
     // Run the in-process orchestration engine (no external AI calls)
-    const result = await generateWebsite(prompt.trim(), brandName);
+    const result = await generateWebsite(prompt.trim(), brandName, subdomain);
 
-    console.log(`[generate] Pipeline complete. HTML: ${result.html.length} chars, score: ${result.score}`);
+    console.log(`[generate] Pipeline complete. Pages: ${Object.keys(result.pages).length}, score: ${result.score}`);
 
     // Determine website type from niche
     const niche = result.niche.toLowerCase();
@@ -63,9 +66,7 @@ export async function POST(req: NextRequest) {
       : niche.includes("restaurant") || niche.includes("food") ? "RESTAURANT"
       : "STORE";
 
-    const subdomain = generateSubdomain(brandName);
-
-    // Store in database
+    // Store in database — jsonContent holds all multi-page HTML for routing
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO "Website" (id, name, type, prompt, subdomain, "userId", "htmlContent", "jsonContent", published, "createdAt", "updatedAt")
        VALUES (gen_random_uuid(), $1, $2::"WebsiteType", $3, $4, $5, $6, $7::jsonb, false, NOW(), NOW())
@@ -76,7 +77,15 @@ export async function POST(req: NextRequest) {
       subdomain,
       session.user.id,
       result.html,
-      JSON.stringify({ artifacts: result.artifacts, prompt, niche: result.niche, score: result.score })
+      JSON.stringify({
+        multipage: true,
+        pages: result.pages,
+        nav: result.nav,
+        gallerySlug: result.gallerySlug,
+        niche: result.niche,
+        score: result.score,
+        prompt,
+      })
     );
 
     const website = rows?.[0];

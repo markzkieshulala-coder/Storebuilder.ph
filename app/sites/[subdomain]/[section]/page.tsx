@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 interface Props {
   params: { subdomain: string; section: string };
 }
 
-// These sub-paths are handled by other routes — don't treat as section redirects
+// These sub-paths are handled by other routes — don't treat as section pages
 const SKIP = new Set(["checkout"]);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -28,7 +28,25 @@ export default async function SectionPage({ params }: Props) {
   });
   if (!website) notFound();
 
-  // Sites are self-contained single-page HTML files; redirect back to the root.
+  const json = website.jsonContent as Record<string, unknown> | null;
+  if (json?.multipage && json?.pages) {
+    const pageHtml = (json.pages as Record<string, string>)[`/${params.section}`];
+    if (pageHtml) {
+      return (
+        <iframe
+          srcDoc={pageHtml}
+          style={{ width: "100%", height: "100vh", border: "none", display: "block" }}
+          title={`${website.name} — ${params.section}`}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
+      );
+    }
+    // Section not found in this multi-page site
+    notFound();
+  }
+
+  // Legacy single-page sites: any section path redirects to root
+  const { redirect } = await import("next/navigation");
   redirect(`/sites/${params.subdomain}`);
 }
 

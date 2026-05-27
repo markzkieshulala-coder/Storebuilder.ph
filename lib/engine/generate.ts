@@ -1,10 +1,15 @@
 import { createOrchestrator } from './bootstrap';
-import { renderSiteHtml, detectNiche } from './html-renderer';
+import { renderMultiPageSite, detectNiche } from './html-renderer';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 
 export interface EngineGenerationResult {
+  /** Primary page HTML — stored in htmlContent for backward-compat */
   html: string;
+  /** All generated pages keyed by path e.g. '/', '/about', '/menu' */
+  pages: Record<string, string>;
+  nav: Array<{ label: string; href: string }>;
+  gallerySlug: string;
   niche: string;
   brandName: string;
   score: number;
@@ -13,11 +18,12 @@ export interface EngineGenerationResult {
 
 // Runs the full orchestration pipeline (planning -> blueprint -> design-dna ->
 // component -> frontend -> motion -> validation -> scoring -> final-rendering)
-// in-process, then composes a self-contained ultra-premium HTML document from
+// in-process, then composes self-contained ultra-premium HTML pages from
 // the design + planning artifacts. No external AI calls.
 export async function generateWebsite(
   prompt: string,
   brandName: string,
+  subdomain = '',
 ): Promise<EngineGenerationResult> {
   const orchestrator = createOrchestrator({ logEvents: false, persistMemory: false });
 
@@ -35,11 +41,14 @@ export async function generateWebsite(
     throw new Error(`Pipeline failed: ${context.errors.map((e) => e.message).join('; ')}`);
   }
 
-  const html = renderSiteHtml(context, brandName);
+  const multiPage = renderMultiPageSite(context, brandName, subdomain);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   return {
-    html,
+    html: multiPage.primaryPage,
+    pages: multiPage.pages,
+    nav: multiPage.nav,
+    gallerySlug: multiPage.gallerySlug,
     niche: detectNiche(prompt),
     brandName,
     score: scoring?.overall ?? 0,
