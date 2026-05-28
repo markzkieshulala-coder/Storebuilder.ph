@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateWebsite } from "@/lib/engine";
+import { buildUnderstanding, type AnalyzerConcept } from "@/lib/engine/understanding";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,7 +26,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt, businessName, concept } = body;
+    // `concept` is the raw analyzer (Gemini) understanding produced by /api/analyze.
+    const { prompt, businessName, concept } = body as {
+      prompt?: string; businessName?: string; concept?: AnalyzerConcept | null;
+    };
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 8) {
       return NextResponse.json(
@@ -48,30 +52,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const brandName = (businessName?.trim() || prompt.trim().split(" ").slice(0, 3).join(" "));
+    const cleanPrompt = prompt.trim();
+    const brandName = (businessName?.trim() || cleanPrompt.split(" ").slice(0, 3).join(" "));
 
     // Generate subdomain first so the renderer can embed correct <base href> links
     const subdomain = generateSubdomain(brandName);
 
-    // If Gemini analysis was passed from /api/analyze, prepend structured hints to the
-    // raw prompt so the deterministic parser has explicit niche/style/mood signals.
-    let effectivePrompt = prompt.trim();
-    if (concept && typeof concept === "object" && concept.rawNiche) {
-      const hint = [
-        concept.rawNiche && `niche: ${concept.rawNiche}`,
-        concept.designStyle && `design style: ${concept.designStyle}`,
-        concept.visualMood && `visual mood: ${concept.visualMood}`,
-        concept.personality && `personality: ${concept.personality}`,
-        concept.tone && `tone: ${concept.tone}`,
-        concept.colorHint && `color palette: ${concept.colorHint}`,
-      ].filter(Boolean).join(", ");
-      effectivePrompt = `[${hint}] ${effectivePrompt}`;
-    }
+    // Build the ONE canonical understanding (same call /api/analyze made) and
+    // thread it straight into the engine. The renderer uses this verbatim
+    // instead of re-parsing, so the site matches the concept the user was shown.
+    const understanding = buildUnderstanding(cleanPrompt, concept);
 
-    console.log(`[generate] Starting pipeline for: "${brandName}" — "${effectivePrompt.slice(0, 120)}"`);
+    console.log(`[generate] Pipeline for "${brandName}" — niche="${understanding.inferredIndustry}" mood="${understanding.visualMood}" style="${understanding.designStyle}"`);
 
-    // Run the in-process orchestration engine (no external AI calls)
-    const result = await generateWebsite(effectivePrompt, brandName, subdomain);
+    // Run the in-process orchestration engine (no external AI calls for rendering)
+    const result = await generateWebsite(cleanPrompt, brandName, subdomain, understanding);
 
     console.log(`[generate] Pipeline complete. Pages: ${Object.keys(result.pages).length}, score: ${result.score}`);
 

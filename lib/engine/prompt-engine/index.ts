@@ -1,4 +1,5 @@
 export { parsePrompt, parsePrompts, validatePUO } from './parser';
+export type { UnderstandingOverrides } from './parser';
 export { DEFAULT_PARSER_CONFIG } from './types';
 export type {
   PromptUnderstandingObject,

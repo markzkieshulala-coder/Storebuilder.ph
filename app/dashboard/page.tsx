@@ -181,7 +181,7 @@ function DashboardContent() {
     try {
       // PHASE 1 — understand the prompt and form a clear visual concept first.
       let steps = GENERATION_STEPS;
-      let analyzedConcept: any = null;
+      let geminiConcept: any = null;
       try {
         const aRes = await fetch("/api/analyze", {
           method: "POST",
@@ -191,10 +191,10 @@ function DashboardContent() {
         if (aRes.ok) {
           const aData = await aRes.json();
           if (Array.isArray(aData.steps) && aData.steps.length) steps = aData.steps;
-          if (aData.concept) {
-            analyzedConcept = aData.concept;
-            setConcept(aData.concept);
-          }
+          if (aData.concept) setConcept(aData.concept);
+          // The raw analyzer concept drives generation so the built site matches
+          // exactly what the analysis phase displayed.
+          if (aData.geminiConcept) geminiConcept = aData.geminiConcept;
         }
       } catch {
         // Analysis is best-effort — fall back to the generic step labels.
@@ -202,14 +202,14 @@ function DashboardContent() {
       setAnalysisSteps(steps);
 
       // PHASE 2 — kick off generation in parallel with the concept walkthrough.
-      // Pass the Gemini concept so the renderer receives explicit niche/style/mood hints.
+      // Pass the same analyzer concept so the renderer builds the understood site.
       const genPromise = fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: prompt.trim(),
           businessName: businessName.trim(),
-          concept: analyzedConcept,
+          concept: geminiConcept,
         }),
       });
 

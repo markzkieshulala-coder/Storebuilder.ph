@@ -1335,10 +1335,59 @@ function generateInteraction(
 }
 
 // ───────────────────────────────────────────────────────────────
+// UNDERSTANDING OVERRIDES
+// ───────────────────────────────────────────────────────────────
+
+// Semantic understanding supplied by an upstream analyzer (e.g. Gemini).
+// When present, these values REPLACE the deterministic guesses BEFORE any
+// derived configuration (palette, typography, copy, page structure) is
+// generated — so the rendered site faithfully reflects the analysis the user
+// was shown, instead of a second, independent re-interpretation of the prompt.
+export interface UnderstandingOverrides {
+  industry?: string;
+  visualMood?: string;
+  designStyle?: string;
+  websitePersonality?: string;
+  businessTone?: string;
+  imageDirection?: string;
+  /** Named colours or hex values to honour as the accent (e.g. ["navy", "#D4AF37"]). */
+  extractedColors?: string[];
+  /** Content keywords to anchor headlines/copy on the real subject. */
+  keywords?: string[];
+  audience?: string;
+  artisticDirection?: string;
+}
+
+const VALID_MOODS: ReadonlySet<string> = new Set<VisualMood>([
+  "dark","light","contrast","muted","vibrant","ethereal","grounded","dramatic","soft","warm","cold","neutral",
+]);
+const VALID_STYLES: ReadonlySet<string> = new Set<DesignStyle>([
+  "minimal","brutalist","glassmorphism","neumorphism","skeuomorphic","flat","material","cyberpunk","futuristic",
+  "retro","vaporwave","editorial","corporate","playful","artistic","organic","industrial","luxury","premium",
+  "startup","enterprise","cinematic","high-tech",
+]);
+const VALID_PERSONALITIES: ReadonlySet<string> = new Set<WebsitePersonality>([
+  "bold","elegant","aggressive","friendly","authoritative","whimsical","serious","approachable","exclusive",
+  "energetic","calm","rebellious","sophisticated","youthful","trustworthy","innovative","timeless","experimental",
+]);
+const VALID_TONES: ReadonlySet<string> = new Set<BusinessTone>([
+  "professional","casual","formal","playful","technical","luxury","accessible","disruptive","authoritative",
+  "empathetic","aggressive","conservative",
+]);
+
+function pickValid<T extends string>(value: string | undefined, valid: ReadonlySet<string>, current: T): T {
+  return value && valid.has(value) ? (value as T) : current;
+}
+
+// ───────────────────────────────────────────────────────────────
 // MAIN PARSE FUNCTION
 // ───────────────────────────────────────────────────────────────
 
-export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSER_CONFIG): ParseResult {
+export function parsePrompt(
+  prompt: string,
+  config: ParserConfig = DEFAULT_PARSER_CONFIG,
+  overrides?: UnderstandingOverrides,
+): ParseResult {
   const startTime = Date.now();
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -1356,7 +1405,10 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
 
     // 3b. Infer niche first so it can supply design defaults for any dimension
     //     the user did not explicitly specify (explicit vocabulary still wins).
-    const industry = inferIndustry(entities, keywords);
+    //     An upstream analyzer's niche (overrides.industry) takes precedence so
+    //     photos, copy banks and hidden pages lock to the understood niche.
+    const detectedIndustry = inferIndustry(entities, keywords);
+    const industry = overrides?.industry?.trim() ? overrides.industry.trim().toLowerCase() : detectedIndustry;
     const nd = nicheDefaults(industry);
 
     // 4. Sentiment (simple polarity from matched tokens)
@@ -1364,20 +1416,40 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
       .filter((m) => m.token.polarity !== "neutral")
       .map((m) => ({ word: m.token.terms[0], score: m.token.polarity === "positive" ? 1 : -1 }));
 
-    // 5. Resolve all directions — niche default → global default fallback chain
-    const visualMood = pickHighest<VisualMood>(aggregated, "visualMood", nd.visualMood ?? "neutral");
-    const designStyle = pickHighest<DesignStyle>(aggregated, "designStyle", nd.designStyle ?? "minimal");
-    const websitePersonality = pickHighest<WebsitePersonality>(aggregated, "websitePersonality", nd.websitePersonality ?? "friendly");
+    // 5. Resolve all directions — niche default → global default fallback chain.
+    //    Dimensions an upstream analyzer understood are overridden below.
+    let visualMood = pickHighest<VisualMood>(aggregated, "visualMood", nd.visualMood ?? "neutral");
+    let designStyle = pickHighest<DesignStyle>(aggregated, "designStyle", nd.designStyle ?? "minimal");
+    let websitePersonality = pickHighest<WebsitePersonality>(aggregated, "websitePersonality", nd.websitePersonality ?? "friendly");
     const visualDensity = pickHighest<VisualDensity>(aggregated, "visualDensity", "balanced");
     const modernityLevel = pickHighest<ModernityLevel>(aggregated, "modernityLevel", "modern");
-    const businessTone = pickHighest<BusinessTone>(aggregated, "businessTone", nd.businessTone ?? "professional");
+    let businessTone = pickHighest<BusinessTone>(aggregated, "businessTone", nd.businessTone ?? "professional");
     const conversionStyle = pickHighest<ConversionStyle>(aggregated, "conversionStyle", nd.conversionStyle ?? "trust-first");
     const layoutDirection = pickHighest<LayoutDirection>(aggregated, "layoutDirection", nd.layoutDirection ?? "landing");
     const animationExpectation = pickHighest<AnimationExpectation>(aggregated, "animationExpectation", "subtle");
     const compositionType = pickHighest<CompositionExpectation>(aggregated, "compositionExpectation", nd.compositionExpectation ?? "centered");
     const interactionPrimary = pickHighest<InteractionExpectation>(aggregated, "interactionExpectation", "hover-reactive");
-    const imageDirection = pickHighest<ImageDirection>(aggregated, "imageDirection", nd.imageDirection ?? "mixed-media");
+    let imageDirection = pickHighest<ImageDirection>(aggregated, "imageDirection", nd.imageDirection ?? "mixed-media");
     const brandingDirection = pickHighest<BrandingDirection>(aggregated, "brandingDirection", "logo-centric");
+
+    // 5b. Apply upstream-analyzer overrides (validated against engine vocabularies).
+    if (overrides) {
+      visualMood = pickValid(overrides.visualMood, VALID_MOODS, visualMood);
+      designStyle = pickValid(overrides.designStyle, VALID_STYLES, designStyle);
+      websitePersonality = pickValid(overrides.websitePersonality, VALID_PERSONALITIES, websitePersonality);
+      businessTone = pickValid(overrides.businessTone, VALID_TONES, businessTone);
+      if (overrides.imageDirection) imageDirection = overrides.imageDirection as ImageDirection;
+    }
+
+    // 5c. Fold analyzer-supplied colours into the entity stream so the palette
+    //     generator honours them exactly as if the user had typed them.
+    const colorEntities: ExtractedEntity[] = (overrides?.extractedColors ?? []).map((c, i) => ({
+      type: c.startsWith("#") ? "hex_color" : "color",
+      value: c.toLowerCase(),
+      confidence: 1,
+      position: i,
+    }));
+    const paletteEntities = colorEntities.length ? [...colorEntities, ...entities] : entities;
 
     // 6. Apply negations
     const negations = Object.entries(aggregated).filter(([k]) => k.startsWith("negation:"));
@@ -1389,24 +1461,30 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
     }
 
     // 7. Generate derived configurations
-    const colorPalette = generateColorPalette(visualMood, designStyle, websitePersonality, entities);
+    const colorPalette = generateColorPalette(visualMood, designStyle, websitePersonality, paletteEntities);
     const typography = generateTypography(designStyle, websitePersonality, visualDensity);
     const spacing = generateSpacing(designStyle, visualDensity);
     const borderRadius = generateBorderRadius(designStyle);
     const shadows = generateShadows(designStyle, visualMood);
     const animation = generateAnimation(animationExpectation, designStyle, websitePersonality);
     const layout = generateLayout(layoutDirection, designStyle, visualDensity);
-    const audience = inferAudience(entities);
+    const audience = overrides?.audience?.trim() || inferAudience(entities);
     const ux = generateUX(layoutDirection, businessTone, conversionStyle, industry, audience);
     const pageStructure = generatePageStructure(layoutDirection, designStyle, websitePersonality, visualDensity);
     const composition = generateComposition(compositionType, designStyle, layoutDirection);
     const branding = generateBranding(brandingDirection, designStyle, websitePersonality);
     const interaction = generateInteraction(interactionPrimary, designStyle);
 
-    // 8. Compute confidence
+    // 8. Compute confidence — analyzer-supplied understanding is high-confidence.
     const matchCount = Object.keys(aggregated).length;
     const totalPossible = 25; // approximate number of category prefixes
-    const confidence = Math.min(1, matchCount / totalPossible + 0.3);
+    const confidence = overrides ? 0.95 : Math.min(1, matchCount / totalPossible + 0.3);
+
+    // 8b. Anchor content keywords on analyzer-extracted nouns when supplied, so
+    //     headlines/copy describe the real subject rather than style adjectives.
+    const mergedKeywords = overrides?.keywords?.length
+      ? [...overrides.keywords.map((k) => k.toLowerCase()), ...keywords]
+      : keywords;
 
     const puo: PromptUnderstandingObject = {
       version: "1.0.0",
@@ -1421,7 +1499,7 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
       modernityLevel,
       businessTone,
       conversionStyle,
-      artisticDirection: `${visualMood} ${designStyle} with ${websitePersonality} personality`,
+      artisticDirection: overrides?.artisticDirection?.trim() || `${visualMood} ${designStyle} with ${websitePersonality} personality`,
 
       layout,
       visual: {
@@ -1442,7 +1520,7 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
       branding,
       interaction,
 
-      extractedKeywords: [...new Set(keywords)].slice(0, 50),
+      extractedKeywords: [...new Set(mergedKeywords)].slice(0, 50),
       extractedSentiments: sentiments,
       rawEntities: entities,
 

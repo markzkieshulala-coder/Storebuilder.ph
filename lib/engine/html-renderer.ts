@@ -2294,18 +2294,19 @@ export function renderMultiPageSite(
   context: ISharedContext,
   brandName: string,
   subdomain = '',
+  understanding?: PromptUnderstandingObject,
 ): MultiPageOutput {
   const prompt = context.input.userPrompt;
   const brand  = brandName || 'Brand';
   const year   = new Date().getFullYear();
   const base   = subdomain ? `/sites/${subdomain}/` : '';
 
-  // 1. Deep prompt analysis — extracts 12 semantic dimensions
-  const parseResult = parsePrompt(prompt);
-  const puo = parseResult.success ? parseResult.object : (() => {
-    // Fallback: minimal safe PUO
-    const fallback = parsePrompt('modern professional website');
-    return fallback.object;
+  // 1. Use the canonical analyzer-resolved understanding when supplied, so the
+  //    render matches the concept the user was shown. Only re-parse as a
+  //    fallback (e.g. direct/legacy callers that pass no understanding).
+  const puo = understanding ?? (() => {
+    const parseResult = parsePrompt(prompt);
+    return parseResult.success ? parseResult.object : parsePrompt('modern professional website').object;
   })();
 
   const fp = fnv(brand + '|' + prompt);

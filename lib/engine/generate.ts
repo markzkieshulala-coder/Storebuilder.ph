@@ -2,6 +2,7 @@ import { createOrchestrator } from './bootstrap';
 import { renderMultiPageSite, detectNiche } from './html-renderer';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
+import type { PromptUnderstandingObject } from './prompt-engine';
 
 export interface EngineGenerationResult {
   /** Primary page HTML — stored in htmlContent for backward-compat */
@@ -20,10 +21,14 @@ export interface EngineGenerationResult {
 // component -> frontend -> motion -> validation -> scoring -> final-rendering)
 // in-process, then composes self-contained ultra-premium HTML pages from
 // the design + planning artifacts. No external AI calls.
+// `understanding` is the canonical, analyzer-resolved PromptUnderstandingObject.
+// When provided, the renderer uses it verbatim instead of re-parsing the prompt,
+// so the generated site faithfully matches the concept the user was shown.
 export async function generateWebsite(
   prompt: string,
   brandName: string,
   subdomain = '',
+  understanding?: PromptUnderstandingObject,
 ): Promise<EngineGenerationResult> {
   const orchestrator = createOrchestrator({ logEvents: false, persistMemory: false });
 
@@ -41,7 +46,7 @@ export async function generateWebsite(
     throw new Error(`Pipeline failed: ${context.errors.map((e) => e.message).join('; ')}`);
   }
 
-  const multiPage = renderMultiPageSite(context, brandName, subdomain);
+  const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   return {
@@ -49,7 +54,7 @@ export async function generateWebsite(
     pages: multiPage.pages,
     nav: multiPage.nav,
     gallerySlug: multiPage.gallerySlug,
-    niche: detectNiche(prompt),
+    niche: understanding?.inferredIndustry || detectNiche(prompt),
     brandName,
     score: scoring?.overall ?? 0,
     artifacts: context.artifacts,
