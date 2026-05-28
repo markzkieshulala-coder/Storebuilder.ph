@@ -75,6 +75,11 @@ function DashboardContent() {
   const [businessName, setBusinessName] = useState("");
   const [isLaunching, setIsLaunching] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
+  const [analysisSteps, setAnalysisSteps] = useState<string[]>(GENERATION_STEPS);
+  const [concept, setConcept] = useState<{
+    niche: string; designStyle: string; visualMood: string;
+    palette: { primary: string; accent: string; background: string; surface: string; text: string };
+  } | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [sendingVerify, setSendingVerify] = useState(false);
   // Persist dismissal across reloads — once a user closes the banner we
@@ -159,16 +164,8 @@ function DashboardContent() {
     return () => clearInterval(t);
   }, [credits?.resetAt]);
 
-  useEffect(() => {
-    if (!isLaunching) return;
-    setGenerationStep(0);
-    let idx = 0;
-    const id = setInterval(() => {
-      idx = (idx + 1) % GENERATION_STEPS.length;
-      setGenerationStep(idx);
-    }, 3000);
-    return () => clearInterval(id);
-  }, [isLaunching]);
+  // Step advancement is driven imperatively inside handleGenerate so the
+  // understanding sequence stays in sync with the real analysis + generation.
 
   async function handleGenerate() {
     if (!prompt.trim() || isLaunching) return;
@@ -176,13 +173,47 @@ function DashboardContent() {
       toast.error("No credits remaining. Please upgrade or wait for reset.");
       return;
     }
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     setIsLaunching(true);
+    setConcept(null);
+    setGenerationStep(0);
+    setAnalysisSteps(["Analyzing your prompt…"]);
     try {
-      const res = await fetch("/api/generate", {
+      // PHASE 1 — understand the prompt and form a clear visual concept first.
+      let steps = GENERATION_STEPS;
+      try {
+        const aRes = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: prompt.trim() }),
+        });
+        if (aRes.ok) {
+          const aData = await aRes.json();
+          if (Array.isArray(aData.steps) && aData.steps.length) steps = aData.steps;
+          if (aData.concept) setConcept(aData.concept);
+        }
+      } catch {
+        // Analysis is best-effort — fall back to the generic step labels.
+      }
+      setAnalysisSteps(steps);
+
+      // PHASE 2 — kick off generation in parallel with the concept walkthrough.
+      const genPromise = fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: prompt.trim(), businessName: businessName.trim() }),
       });
+
+      // Walk through the understanding steps over ~16s so the user sees the
+      // concept form before the finished website is revealed.
+      const perStep = Math.max(1600, Math.round(16000 / steps.length));
+      for (let i = 0; i < steps.length; i++) {
+        setGenerationStep(i);
+        await sleep(perStep);
+      }
+
+      // Only reveal the result once generation has actually completed.
+      const res = await genPromise;
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Generation failed — please try again.");
@@ -196,6 +227,7 @@ function DashboardContent() {
       toast.error("Network error — please try again.");
     } finally {
       setIsLaunching(false);
+      setConcept(null);
     }
   }
   // Close card menu on outside click
@@ -525,10 +557,42 @@ function DashboardContent() {
               >
                 <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
                   <div className="w-12 h-12 border-[3px] border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-5" />
-                  <p className="text-sm font-semibold text-[#1C1E21] mb-1">AI Generation OS</p>
-                  <p className="text-xs text-[#65676B] min-h-[20px] transition-all">
-                    {GENERATION_STEPS[generationStep]}
+                  <p className="text-sm font-semibold text-[#1C1E21] mb-1">
+                    {concept ? "Understanding your prompt" : "Analyzing your prompt"}
                   </p>
+                  <p className="text-xs text-[#65676B] min-h-[32px] transition-all px-2">
+                    {analysisSteps[Math.min(generationStep, analysisSteps.length - 1)]}
+                  </p>
+                  {concept && (
+                    <div className="mt-4 pt-4 border-t border-[#E4E6EB] text-left">
+                      <div className="flex flex-wrap gap-1.5 mb-3 justify-center">
+                        {[concept.niche, concept.designStyle, concept.visualMood].map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-50 text-blue-700"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-1.5 justify-center">
+                        {[
+                          concept.palette.background,
+                          concept.palette.surface,
+                          concept.palette.primary,
+                          concept.palette.accent,
+                          concept.palette.text,
+                        ].map((c, i) => (
+                          <span
+                            key={i}
+                            className="w-6 h-6 rounded-full border border-[#E4E6EB]"
+                            style={{ backgroundColor: c }}
+                            title={c}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

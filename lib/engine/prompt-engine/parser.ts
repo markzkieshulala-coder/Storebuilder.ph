@@ -59,12 +59,12 @@ const VOCABULARY: VocabularyToken[] = [
   { terms: ["cold", "icy", "steel", "arctic", "frost", "blue tone"], category: "visualMood:cold", weight: 1.0, polarity: "neutral" },
 
   // ── Design Style ──
-  { terms: ["minimal", "minimalist", "simple", "less is more", "stripped", "bare", "essential"], category: "designStyle:minimal", weight: 1.0, polarity: "positive" },
+  { terms: ["minimal", "minimalist", "simple", "less is more", "stripped", "bare", "essential"], category: "designStyle:minimal", weight: 0.8, polarity: "positive" },
   { terms: ["brutalist", "brutalism", "raw", "unfinished", "concrete", "harsh", "ugly", "anti-design"], category: "designStyle:brutalist", weight: 1.0, polarity: "neutral" },
   { terms: ["glassmorphism", "frosted", "glass", "transparent", "blur", "see-through"], category: "designStyle:glassmorphism", weight: 1.0, polarity: "positive" },
   { terms: ["neumorphism", "soft ui", "extruded", "inset", "bevel", "plastic"], category: "designStyle:neumorphism", weight: 1.0, polarity: "neutral" },
   { terms: ["skeuomorphic", "realistic", "3d", "life-like", "texture"], category: "designStyle:skeuomorphic", weight: 1.0, polarity: "neutral" },
-  { terms: ["flat", "flat design", "material", "google style"], category: "designStyle:flat", weight: 1.0, polarity: "positive" },
+  { terms: ["flat", "flat design", "material", "google style"], category: "designStyle:flat", weight: 0.8, polarity: "positive" },
   { terms: ["cyberpunk", "neon-noir", "blade runner", "hacker", "retro future"], category: "designStyle:cyberpunk", weight: 1.0, polarity: "positive" },
   { terms: ["futuristic", "future", "sci-fi", "space", "tech-forward", "tomorrow"], category: "designStyle:futuristic", weight: 1.0, polarity: "positive" },
   { terms: ["retro", "vintage", "old school", "nostalgia", "80s", "90s"], category: "designStyle:retro", weight: 1.0, polarity: "neutral" },
@@ -458,16 +458,34 @@ function nicheDefaults(industry: string): NicheDefaults {
   return {};
 }
 
+// Umbrella terms that should lose to a more specific niche word when both appear
+// (e.g. "tech studio for a coffee brand" → coffee, not tech/studio).
+const GENERIC_INDUSTRY = new Set(["tech", "technology", "retail", "studio", "design", "art", "software", "startup", "agency"]);
+
 function inferIndustry(entities: ExtractedEntity[], keywords: string[]): string {
   const industryEntities = entities.filter((e) => e.type === "industry");
   if (industryEntities.length > 0) {
-    return industryEntities[0].value;
+    // Rank by how often each niche word is mentioned (the dominant subject of the
+    // prompt), then prefer specific niches over umbrella terms, then earliest mention.
+    const stats: Record<string, { count: number; pos: number; specific: boolean }> = {};
+    for (const e of industryEntities) {
+      if (!stats[e.value]) stats[e.value] = { count: 0, pos: e.position, specific: !GENERIC_INDUSTRY.has(e.value) };
+      stats[e.value].count += 1;
+      stats[e.value].pos = Math.min(stats[e.value].pos, e.position);
+    }
+    const ranked = Object.entries(stats).sort((a, b) => {
+      if (b[1].count !== a[1].count) return b[1].count - a[1].count;
+      if (a[1].specific !== b[1].specific) return a[1].specific ? -1 : 1;
+      return a[1].pos - b[1].pos;
+    });
+    return ranked[0][0];
   }
   // Fallback keyword-based inference
-  for (const kw of keywords) {
-    const match = ENTITY_PATTERNS.find((p) => p.type === "industry");
-    if (match && match.regex.test(kw)) {
-      return kw;
+  const industryPattern = ENTITY_PATTERNS.find((p) => p.type === "industry");
+  if (industryPattern) {
+    for (const kw of keywords) {
+      const re = new RegExp(industryPattern.regex.source, "i");
+      if (re.test(kw)) return kw;
     }
   }
   return "general";
@@ -616,19 +634,68 @@ function generateColorPalette(
   let key = `${mood}-${style}`;
   if (palettes[key]) {
     const p = palettes[key];
-    return { ...p, derived: { ...p.derived } };
+    return applyExtractedColors({ ...p, derived: { ...p.derived } }, extractedColors);
   }
 
-  // Fallback: blend based on mood
+  // Style-specific fallback within the same mood family
   key = `${mood}-minimal`;
   if (palettes[key]) {
     const p = palettes[key];
-    return { ...p, derived: { ...p.derived } };
+    return applyExtractedColors({ ...p, derived: { ...p.derived } }, extractedColors);
   }
 
-  // Ultimate fallback
-  const defaultPalette = palettes["light-minimal"];
-  return { ...defaultPalette, derived: { ...defaultPalette.derived } };
+  // Mood-based synthesis — guarantees the palette honours the requested mood
+  // instead of silently collapsing to a light theme.
+  const synthesized = synthesizePaletteForMood(mood, style);
+  return applyExtractedColors(synthesized, extractedColors);
+}
+
+// Anchor palette per visual mood. Used whenever no exact mood-style combo exists,
+// so an explicitly "dark"/"vibrant"/"warm" prompt never renders as light-minimal.
+const MOOD_ANCHOR: Record<string, ColorPalette> = {
+  dark:     { primary:"#FFFFFF", secondary:"#A1A1AA", accent:"#6366F1", background:"#0A0A0B", surface:"#161618", text:"#FAFAFA", muted:"#71717A", border:"#262629", derived:{ "surface-elevated":"#1F1F23", "surface-hover":"#2A2A30" } },
+  dramatic: { primary:"#F8FAFC", secondary:"#94A3B8", accent:"#EF4444", background:"#0B0B0F", surface:"#16161D", text:"#F8FAFC", muted:"#64748B", border:"#1E1E2A", derived:{ "surface-elevated":"#1E1E2A", "surface-hover":"#2A2A38" } },
+  contrast: { primary:"#FFFFFF", secondary:"#D4D4D8", accent:"#FACC15", background:"#000000", surface:"#111111", text:"#FFFFFF", muted:"#A1A1AA", border:"#222222", derived:{ "surface-elevated":"#1A1A1A", "surface-hover":"#262626" } },
+  vibrant:  { primary:"#FFFFFF", secondary:"#E2E8F0", accent:"#FF006E", background:"#16121F", surface:"#1F1830", text:"#FFFFFF", muted:"#A78BFA", border:"#2D2440", derived:{ "surface-elevated":"#241B38", "surface-hover":"#33274D" } },
+  ethereal: { primary:"#4C1D95", secondary:"#6D28D9", accent:"#A78BFA", background:"#FAF5FF", surface:"#F3E8FF", text:"#3B1768", muted:"#A78BFA", border:"#E9D5FF", derived:{ "surface-elevated":"#FFFFFF", "surface-hover":"#E9D5FF" } },
+  warm:     { primary:"#431407", secondary:"#7C2D12", accent:"#EA580C", background:"#FFF7ED", surface:"#FFEDD5", text:"#431407", muted:"#B45309", border:"#FED7AA", derived:{ "surface-elevated":"#FFFFFF", "surface-hover":"#FED7AA" } },
+  cold:     { primary:"#0C4A6E", secondary:"#075985", accent:"#0EA5E9", background:"#F0F9FF", surface:"#E0F2FE", text:"#0C4A6E", muted:"#0284C7", border:"#BAE6FD", derived:{ "surface-elevated":"#FFFFFF", "surface-hover":"#BAE6FD" } },
+  muted:    { primary:"#292524", secondary:"#57534E", accent:"#78716C", background:"#FAFAF9", surface:"#F5F5F4", text:"#292524", muted:"#A8A29E", border:"#E7E5E4", derived:{ "surface-elevated":"#FFFFFF", "surface-hover":"#E7E5E4" } },
+  light:    { primary:"#18181B", secondary:"#52525B", accent:"#2563EB", background:"#FFFFFF", surface:"#F4F4F5", text:"#18181B", muted:"#A1A1AA", border:"#E4E4E7", derived:{ "surface-elevated":"#FAFAFA", "surface-hover":"#E4E4E7" } },
+  neutral:  { primary:"#18181B", secondary:"#52525B", accent:"#2563EB", background:"#FFFFFF", surface:"#F4F4F5", text:"#18181B", muted:"#A1A1AA", border:"#E4E4E7", derived:{ "surface-elevated":"#FAFAFA", "surface-hover":"#E4E4E7" } },
+};
+
+// Per-style accent override so the synthesized palette still reflects the design style.
+const STYLE_ACCENT: Record<string, string> = {
+  luxury:"#D4AF37", premium:"#C2410C", cyberpunk:"#00F0FF", futuristic:"#38BDF8", "high-tech":"#38BDF8",
+  playful:"#F59E0B", organic:"#65A30D", brutalist:"#FACC15", editorial:"#DC2626", corporate:"#2563EB",
+  industrial:"#F97316", artistic:"#EC4899", retro:"#E11D48", vaporwave:"#FF00C8", startup:"#6366F1", enterprise:"#0EA5E9",
+};
+
+function synthesizePaletteForMood(mood: string, style: string): ColorPalette {
+  const base = MOOD_ANCHOR[mood] || MOOD_ANCHOR.neutral;
+  const accent = STYLE_ACCENT[style];
+  const p: ColorPalette = { ...base, derived: { ...base.derived } };
+  if (accent) p.accent = accent;
+  return p;
+}
+
+// If the user named explicit colours, honour them as the accent/primary.
+const NAMED_COLOR_HEX: Record<string, string> = {
+  red:"#EF4444", green:"#22C55E", blue:"#3B82F6", yellow:"#FACC15", orange:"#F97316", purple:"#A855F7",
+  pink:"#EC4899", teal:"#14B8A6", cyan:"#06B6D4", indigo:"#6366F1", violet:"#8B5CF6", gold:"#D4AF37",
+  emerald:"#10B981", rose:"#F43F5E", amber:"#F59E0B", coral:"#FB7185", navy:"#1E3A8A", maroon:"#7F1D1D",
+  lime:"#84CC16", turquoise:"#06B6D4", sapphire:"#2563EB", ruby:"#E11D48", mint:"#34D399",
+};
+
+function applyExtractedColors(palette: ColorPalette, extractedColors: string[]): ColorPalette {
+  if (!extractedColors || extractedColors.length === 0) return palette;
+  for (const c of extractedColors) {
+    if (c.startsWith("#")) { palette.accent = c; return palette; }
+    const hex = NAMED_COLOR_HEX[c];
+    if (hex) { palette.accent = hex; return palette; }
+  }
+  return palette;
 }
 
 function generateTypography(

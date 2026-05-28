@@ -476,13 +476,42 @@ interface SiteCopy {
   hiddenSecondaryCtaLabel: string;
 }
 
-const STYLE_WORDS = new Set(['dark','light','minimal','bold','elegant','clean','modern','luxury','premium','website','site','page','layout','design','style','color','font','beautiful','stunning','amazing','great','best','good','nice','cool','awesome']);
+// Words that describe HOW a site should look/feel rather than WHAT it is about.
+// Filtered out of content extraction so headlines/feature copy anchor on the real
+// subject noun (e.g. "ramen", "sneakers") instead of an adjective like "minimalist".
+const STYLE_WORDS = new Set([
+  // moods / tones
+  'dark','light','bright','airy','warm','cold','cozy','muted','vibrant','neon','ethereal','dreamy','dramatic','contrast','moody','calm','serene',
+  // design styles / adjectives
+  'minimal','minimalist','bold','elegant','clean','modern','luxury','luxurious','premium','sleek','stylish','sophisticated','refined','classy','chic',
+  'flat','brutalist','glassmorphism','neumorphism','cyberpunk','futuristic','retro','vintage','editorial','corporate','playful','artistic','organic','industrial','vaporwave','cinematic',
+  'professional','aesthetic','beautiful','stunning','amazing','gorgeous','sexy','fancy','fresh','trendy','crisp','smooth','polished','high-end','upscale',
+  // personality / filler
+  'great','best','good','nice','cool','awesome','simple','creative','unique','dynamic','energetic','friendly','powerful','strong','exclusive',
+  // web meta words
+  'website','site','page','pages','landing','homepage','layout','design','designs','style','styles','theme','color','colors','colour','font','fonts','typography',
+  'build','create','make','generate','want','need','please','with','that','this','for','the','and','have','has','look','feel','vibe','using','about',
+]);
 
 function getContentWords(puo: PromptUnderstandingObject): string[] {
-  return puo.extractedKeywords
-    .filter(k => k.length > 3 && !STYLE_WORDS.has(k))
-    .slice(0, 8);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of puo.extractedKeywords) {
+    const k = raw.toLowerCase();
+    if (k.length <= 3 || STYLE_WORDS.has(k) || seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+    if (out.length >= 8) break;
+  }
+  return out;
 }
+
+// Human-readable subject for a niche, used as the headline anchor when the prompt
+// has no distinctive content noun of its own. Reads naturally in copy patterns.
+const NICHE_SUBJECT: Record<string, string> = {
+  food: 'Flavour', sports: 'Performance', technology: 'Innovation', photography: 'Imagery',
+  fashion: 'Style', ecommerce: 'Shopping', portfolio: 'Craft', agency: 'Strategy', general: 'Excellence',
+};
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
@@ -500,9 +529,11 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const gallerySlug = detectGallerySlug(puo);
   const hiddenCfg = getHiddenPageConfig(normIndustry);
 
-  // Derive headline descriptors from keywords
-  const mainKw = kws[0] ? titleCase(kws[0]) : industry !== 'general' ? titleCase(industry) : 'Excellence';
-  const secKw  = kws[1] ? titleCase(kws[1]) : 'Experience';
+  // Derive headline descriptors. The prompt's own content noun wins; otherwise a
+  // natural niche subject is used (never the raw industry slug like "ecommerce").
+  const nicheSubject = NICHE_SUBJECT[normIndustry] || (industry !== 'general' ? titleCase(industry) : 'Excellence');
+  const mainKw = kws[0] ? titleCase(kws[0]) : nicheSubject;
+  const secKw  = kws[1] ? titleCase(kws[1]) : nicheSubject !== 'Experience' ? 'Experience' : 'Quality';
   const thirdKw = kws[2] ? titleCase(kws[2]) : 'Innovation';
 
   // Headline patterns keyed by personality
