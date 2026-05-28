@@ -53,14 +53,8 @@ function rotate<T>(arr: T[], by: number): T[] {
   return arr.slice(n).concat(arr.slice(0, n));
 }
 
-// Builds an Unsplash image URL.
-// - If `ref` starts with `?` it's a keyword query → source.unsplash.com (relevant images).
-// - Otherwise it's a raw Unsplash photo ID → images.unsplash.com (deterministic).
-function ph(ref: string, w: number, h: number): string {
-  if (ref.startsWith('?')) {
-    return `https://source.unsplash.com/${w}x${h}/${ref}`;
-  }
-  return `https://images.unsplash.com/photo-${ref}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
+function ph(id: string, w: number, h: number): string {
+  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -379,6 +373,60 @@ footer{background:color-mix(in srgb,var(--bg) 70%,var(--surf));border-top:1px so
 .footer-col ul li a:hover{color:var(--text)}
 .footer-bottom{border-top:1px solid var(--bdr);padding-top:clamp(18px,2.5vw,26px);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .footer-bottom p{font-size:var(--caption-size);color:var(--muted)}
+
+/* ── ULTRA-PREMIUM 3D & DEPTH EFFECTS ──────────────────────────────── */
+@keyframes float{0%,100%{transform:translateY(0) rotate(-0.8deg)}50%{transform:translateY(-20px) rotate(0.8deg)}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 12px 32px -10px ${cp.primary}88}50%{box-shadow:0 22px 52px -8px ${cp.primary}cc,0 0 48px -8px ${cp.primary}66}}
+@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+
+/* Floating hero media */
+.hero-media{animation:float 7s ease-in-out infinite;transform-origin:center bottom;will-change:transform}
+
+/* 3D card hover — perspective lift for every niche */
+.card{transform-style:preserve-3d;will-change:transform;transition:transform .45s cubic-bezier(.22,1,.36,1),box-shadow .45s cubic-bezier(.22,1,.36,1),background .25s}
+.card:hover{transform:perspective(1200px) translateY(-12px) rotateX(4deg) scale(1.02);box-shadow:0 28px 64px -12px ${cp.primary}44,var(--shadow-lg)}
+.card-icon{transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s;box-shadow:0 4px 20px color-mix(in srgb,var(--primary) 18%,transparent)}
+.card:hover .card-icon{transform:scale(1.15) translateY(-2px);box-shadow:0 8px 32px color-mix(in srgb,var(--primary) 30%,transparent)}
+
+/* Glow CTA button */
+.btn-primary{animation:glow-pulse 3.5s ease-in-out infinite}
+.btn-primary:hover{animation:none;transform:translateY(-3px) scale(1.04);box-shadow:0 20px 50px -8px ${cp.primary}cc,0 0 40px -6px ${cp.primary}66}
+
+${isDark ? `
+/* Glassmorphism — dark theme cards */
+.card{background:rgba(255,255,255,0.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.10)}
+.card:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.20)}
+.testimonial-card{background:rgba(255,255,255,0.04);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.08)}
+.signal-inner{background:rgba(255,255,255,0.04);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.10)}
+header.scrolled{background:rgba(0,0,0,0.72);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+` : `
+/* Soft glassmorphism — light theme cards */
+.card{box-shadow:0 2px 16px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,.8)}
+.signal-inner{box-shadow:0 8px 40px rgba(0,0,0,.08)}
+`}
+
+/* Cinematic hero depth layer */
+.hero-fullbleed .hero-bg::before{content:'';position:absolute;inset:0;z-index:1;background:radial-gradient(ellipse at 25% 60%,${cp.primary}28 0%,transparent 65%)}
+.hero-bg img{filter:brightness(${isDark ? '0.65' : '0.80'});transform:scale(1.03);transition:transform 8s ease-out}
+
+/* Premium stat numbers — gradient shimmer */
+.stat-number{background:linear-gradient(90deg,${cp.primary},${cp.secondary},${cp.accent},${cp.primary});background-size:300% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 4s linear infinite}
+
+/* Section accent backgrounds for visual rhythm */
+section:nth-child(even){background:color-mix(in srgb,var(--surf) 55%,var(--bg))}
+.strip-section{background:color-mix(in srgb,var(--primary) 5%,var(--surf));border-top:1px solid color-mix(in srgb,var(--primary) 14%,transparent);border-bottom:1px solid color-mix(in srgb,var(--primary) 14%,transparent)}
+
+/* Gallery item depth hover */
+.gallery-item{transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s}
+.gallery-item:hover{transform:scale(1.03) translateY(-4px);box-shadow:0 20px 48px -8px rgba(0,0,0,0.35)}
+
+/* Split media — premium depth */
+.split-media{transition:transform .5s cubic-bezier(.22,1,.36,1),box-shadow .5s}
+.split-media:hover{transform:perspective(1200px) rotateY(-3deg) translateX(4px);box-shadow:0 32px 80px -16px rgba(0,0,0,0.3)}
+
+/* Testimonial card lift */
+.testimonial-card{transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s}
+.testimonial-card:hover{transform:translateY(-8px) scale(1.01);box-shadow:0 20px 52px -12px ${cp.primary}33,var(--shadow-lg)}
 `;
 }
 
@@ -428,39 +476,55 @@ function normalizeIndustry(raw: string): string {
   return INDUSTRY_KEY_MAP[raw] || 'general';
 }
 
-// Keyword → Unsplash Source query string. Photos are pulled by the actual
-// subject of the prompt, not a static bank.
-// Format: `?keyword1,keyword2,qualifier` — fed to source.unsplash.com/{W}x{H}/
-function buildPhotoQuery(subjects: string[], moodQ: string): string {
-  return `?${encodeURIComponent(subjects.join(',') + moodQ)}`;
-}
+// Curated Unsplash photo ID banks — all IDs verified to work with images.unsplash.com/photo-{id}
+const PHOTOS_BY_MOOD: Record<string, string[]> = {
+  dark:     ['1546519638-68e109498ffc','1551963831-d3b034eda6c1','1507003211169-0a1dd7228f2d','1478720568477-152d9b92543f','1555274175-6cbf6f3b137b','1517604931442-7e0c8ed2963c'],
+  dramatic: ['1519861531473-9200262188bf','1574629810360-7efbbe195018','1516466723360-e8a869c7b0ea','1547891654-e332f33f5571','1492691527719-9d1e7e7c14f3','1506929562872-bb421503ef21'],
+  vibrant:  ['1559339352-11d035aa65de','1568992687947-868a62a9f521','1505740420928-5e560c06d30e','1504173010664-32509aeebb62','1533167649-7c5e9c6e9a46','1518770660439-4636190af475'],
+  warm:     ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445','1495195129352-aeb325a55b65','1540189549-5c5aa0b0da51'],
+  cold:     ['1460925895917-afdab827c52f','1551434678-e076c223a692','1496181133206-80ce9b88a853','1504384308090-c894fdcc538d','1518770660439-4636190af475','1451187580459-43490279c0fa'],
+  ethereal: ['1452587925148-ce544e77e70d','1493863641943-9b68992a8d07','1533461502717-83f69c69e1a3','1481627834876-b7833e8f5cf1','1465146344425-f00d5f5c8f07','1524785106558-ddbdb7788d0e'],
+  light:    ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1497366216548-37526070297c','1524758631624-e2822132143e','1495195129352-aeb325a55b65'],
+  neutral:  ['1542744173-8e7e53415bb0','1519090347852-b6fa5e2fe0b9','1454165804606-c3d57bc86b40','1531973576160-7125cd663d86','1497366216548-37526070297c','1497215842964-222b430dc094'],
+};
+const PHOTOS_BY_INDUSTRY: Record<string, string[]> = {
+  sports:      ['1546519638-68e109498ffc','1574629810360-7efbbe195018','1519861531473-9200262188bf','1574623452334-1e0ac2b3ccb4','1534438327743-e8f9a5736c99','1576678927484-cc907957088c'],
+  food:        ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445','1555244162-af5a7e0d12bb','1504674900247-0877df9cc836'],
+  photography: ['1452587925148-ce544e77e70d','1581291518857-4d27a4f0e37a','1517048676732-d65bc937f952','1492551557933-34265f7af79e','1504703552179-6b32d9f5e310','1551316179-ef83f3bf93a5'],
+  technology:  ['1551434678-e076c223a692','1460925895917-afdab827c52f','1504384308090-c894fdcc538d','1556761175-5973dc0f32e7','1518770660439-4636190af475','1519389950473-47ba0277781c'],
+  fashion:     ['1483985988355-763728e1935b','1490481651871-ab68de25d43d','1441986300917-64674bd600d8','1525507119028-ed4c629a60a3','1509631179647-0177331693ae','1562157873-818bc0726f68'],
+  ecommerce:   ['1523275335684-37898b6baf30','1542291026-7eec264c27ff','1553062407-98eeb64c6a62','1491553895911-0055eca6402d','1556742400-b75a4bbdd8e7','1515886657613-9f3515b0c78f'],
+  portfolio:   ['1497366216548-37526070297c','1497366811353-6870744d04b2','1522202176988-66273c2fd55f','1544717305-2782549b5bd6','1541462608143-67571c6738dd','1534670007418-5a73bcb45b52'],
+  agency:      ['1556761175-5973dc0f32e7','1542744173-8e7e53415bb0','1497215842964-222b430dc094','1531403009284-440f080d1e12','1550399504-8953b4a95c4e','1454165804606-c3d57bc86b40'],
+  wellness:    ['1506126613408-eca07ce68773','1545205597-3d9d02c29597','1518611012118-696072aa579a','1571019614242-c5c5dee9f50b','1536623975707-c4b3b2af565d','1544367654-5d8a7d0e0a7a'],
+  professional:['1454165804606-c3d57bc86b40','1542744173-8e7e53415bb0','1531973576160-7125cd663d86','1497215842964-222b430dc094','1519090347852-b6fa5e2fe0b9','1507003211169-0a1dd7228f2d'],
+  hospitality: ['1566073771259-470de1bed68c','1520250497591-112f2f40a3f4','1571896349842-33c89424de2d','1469474968028-56623f02e42e','1540541338537-c7d3649e94d3','1527529482837-4698179dc6ce'],
+  general:     ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1542744173-8e7e53415bb0','1519090347852-b6fa5e2fe0b9','1531973576160-7125cd663d86'],
+};
 
-function getPhotos(puo: PromptUnderstandingObject, _fp: number): string[] {
-  const words = getContentWords(puo);                    // real content nouns from prompt
+function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
   const rawIndustry = puo.inferredIndustry.toLowerCase();
-  const isDark = ['dark', 'dramatic', 'contrast'].includes(puo.visualMood);
-  const moodQ = isDark ? ',dark,moody' : puo.visualMood === 'warm' ? ',warm,cozy'
-    : puo.visualMood === 'ethereal' ? ',dreamy,light' : '';
+  const normI = normalizeIndustry(rawIndustry);
+  const mood = puo.visualMood as string;
 
-  // Subjects: content words from the prompt come first (most specific),
-  // then the raw industry slug (e.g. "ramen", "crossfit", "espresso").
-  const s0 = words[0] || rawIndustry;
-  const s1 = words[1] || rawIndustry;
-  const s2 = words[2] || normalizeIndustry(rawIndustry);
-  const combined = [s0, s1].filter(Boolean).join(',');
+  const industryBank = PHOTOS_BY_INDUSTRY[normI] || PHOTOS_BY_INDUSTRY.general;
+  const moodBank = PHOTOS_BY_MOOD[mood] || PHOTOS_BY_MOOD.neutral;
 
-  return [
-    buildPhotoQuery([s0, s1], moodQ),                  // hero — most specific match
-    buildPhotoQuery([combined, 'interior'], moodQ),     // split section — interior
-    buildPhotoQuery([s0], moodQ),                       // feature tile
-    buildPhotoQuery([s1, s2], moodQ),                   // gallery 1
-    buildPhotoQuery([s0, 'detail'], ''),                 // gallery 2 — close-up detail
-    buildPhotoQuery([rawIndustry], moodQ),              // gallery 3 — niche generic
-    buildPhotoQuery([s1, 'lifestyle'], ''),              // gallery 4 — lifestyle
-    buildPhotoQuery([s2], moodQ),                       // about page
-    buildPhotoQuery([s0, s2], ''),                      // team / secondary
-    buildPhotoQuery([combined], moodQ),                 // CTA background
-  ];
+  // Interleave industry + mood photos so every section gets visually coherent imagery
+  const combined: string[] = [];
+  const max = Math.max(industryBank.length, moodBank.length);
+  for (let i = 0; i < max; i++) {
+    if (i < industryBank.length) combined.push(industryBank[i]);
+    if (i < moodBank.length) combined.push(moodBank[i]);
+  }
+
+  // Remove duplicates while preserving order
+  const seen = new Set<string>();
+  const unique = combined.filter(id => { if (seen.has(id)) return false; seen.add(id); return true; });
+
+  // Rotate by fp so each brand gets a different photo starting point
+  const n = unique.length ? (Math.abs(fp) % unique.length) : 0;
+  return unique.slice(n).concat(unique.slice(0, n));
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -503,15 +567,32 @@ interface SiteCopy {
 const STYLE_WORDS = new Set([
   // moods / tones
   'dark','light','bright','airy','warm','cold','cozy','muted','vibrant','neon','ethereal','dreamy','dramatic','contrast','moody','calm','serene',
+  'intimate','atmospheric','atmosphere','ambiance','ambient','lush','deep','pure','raw','earthy','rustic','subtle','understated','timeless',
   // design styles / adjectives
   'minimal','minimalist','bold','elegant','clean','modern','luxury','luxurious','premium','sleek','stylish','sophisticated','refined','classy','chic',
   'flat','brutalist','glassmorphism','neumorphism','cyberpunk','futuristic','retro','vintage','editorial','corporate','playful','artistic','organic','industrial','vaporwave','cinematic',
   'professional','aesthetic','beautiful','stunning','amazing','gorgeous','sexy','fancy','fresh','trendy','crisp','smooth','polished','high-end','upscale',
+  'classic','sleek','sharp','bold','iconic','signature','curated','handcrafted','artisanal','bespoke','elevated','immersive',
   // personality / filler
   'great','best','good','nice','cool','awesome','simple','creative','unique','dynamic','energetic','friendly','powerful','strong','exclusive',
+  'inspired','authentic','genuine','real','true','pure','honest','passionate','dedicated','committed',
   // web meta words
   'website','site','page','pages','landing','homepage','layout','design','designs','style','styles','theme','color','colors','colour','font','fonts','typography',
   'build','create','make','generate','want','need','please','with','that','this','for','the','and','have','has','look','feel','vibe','using','about',
+  // industry entity nouns (these are niche classifiers, not distinctive content nouns)
+  'restaurant','shop','store','studio','brand','boutique','agency','firm','company','business','cafe','bar','salon',
+  'clinic','gym','club','space','venue','place','spot','concept','market','collective','office','practice','center','centre',
+  // location / geography — city names, districts, countries that should never be headline subjects
+  'tokyo','osaka','kyoto','shibuya','shinjuku','nagoya','hiroshima','yokohama',
+  'manila','bgc','makati','taguig','cebu','ortigas','quezon','pasig',
+  'paris','london','berlin','amsterdam','rome','madrid','lisbon','vienna','zurich',
+  'nyc','newyork','brooklyn','manhattan','losangeles','chicago','miami','seattle','boston','austin',
+  'seoul','beijing','shanghai','hongkong','singapore','jakarta','kuala','lumpur','bangkok','dubai',
+  'japan','korea','china','taiwan','vietnam','thailand','india','france','germany','italy','spain','portugal',
+  'downtown','uptown','midtown','westside','eastside','northside','southside','suburb','district','neighborhood',
+  // prepositions / connectors / articles (double-coverage is harmless)
+  'from','into','onto','upon','over','under','between','through','across','along','within','without','beyond',
+  'also','just','very','too','more','most','less','much','many','some','any','all','new',
 ]);
 
 function getContentWords(puo: PromptUnderstandingObject): string[] {
