@@ -470,6 +470,10 @@ interface SiteCopy {
   ctaSub: string;
   footerTagline: string;
   pricingPlans: Array<{ name: string; price: string; period: string; desc: string; features: string[]; featured: boolean }> | null;
+  hiddenPrimarySlug: string;
+  hiddenSecondarySlug: string;
+  hiddenPrimaryCtaLabel: string;
+  hiddenSecondaryCtaLabel: string;
 }
 
 const STYLE_WORDS = new Set(['dark','light','minimal','bold','elegant','clean','modern','luxury','premium','website','site','page','layout','design','style','color','font','beautiful','stunning','amazing','great','best','good','nice','cool','awesome']);
@@ -494,6 +498,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const direction = puo.layout.direction;
   // gallerySlug declared early so feature hrefs can reference it
   const gallerySlug = detectGallerySlug(puo);
+  const hiddenCfg = getHiddenPageConfig(normIndustry);
 
   // Derive headline descriptors from keywords
   const mainKw = kws[0] ? titleCase(kws[0]) : industry !== 'general' ? titleCase(industry) : 'Excellence';
@@ -723,6 +728,10 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     galleryHeading, gallerySlug,
     contactHeading, contactSub, ctaHeading, ctaSub, footerTagline,
     pricingPlans,
+    hiddenPrimarySlug:    hiddenCfg.primary.slug,
+    hiddenSecondarySlug:  hiddenCfg.secondary.slug,
+    hiddenPrimaryCtaLabel:   hiddenCfg.primary.ctaLabel,
+    hiddenSecondaryCtaLabel: hiddenCfg.secondary.ctaLabel,
   };
 }
 
@@ -734,6 +743,32 @@ function detectGallerySlug(puo: PromptUnderstandingObject): string {
   if (industry === 'food' || industry === 'restaurant') return 'menu';
   if (industry === 'sports' || industry === 'fitness') return 'gallery';
   return 'gallery';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// HIDDEN PAGE CONFIG — niche-specific pages bundled in the SPA but NOT
+// listed in the nav. Section CTAs route here instead of reusing nav pages.
+// ─────────────────────────────────────────────────────────────────
+
+interface HiddenPageCfg {
+  primary: { slug: string; ctaLabel: string };
+  secondary: { slug: string; ctaLabel: string };
+}
+
+const HIDDEN_PAGE_MAP: Record<string, HiddenPageCfg> = {
+  food:        { primary: { slug: 'reservations', ctaLabel: 'Reserve a Table'    }, secondary: { slug: 'our-story',    ctaLabel: 'Our Story'        } },
+  technology:  { primary: { slug: 'demo',         ctaLabel: 'Book a Demo'        }, secondary: { slug: 'case-studies', ctaLabel: 'Case Studies'     } },
+  photography: { primary: { slug: 'services',     ctaLabel: 'View Services'      }, secondary: { slug: 'process',      ctaLabel: 'Our Process'      } },
+  portfolio:   { primary: { slug: 'services',     ctaLabel: 'View Services'      }, secondary: { slug: 'process',      ctaLabel: 'Our Process'      } },
+  fashion:     { primary: { slug: 'lookbook',     ctaLabel: 'Browse Lookbook'    }, secondary: { slug: 'new-arrivals', ctaLabel: 'New Arrivals'     } },
+  ecommerce:   { primary: { slug: 'new-arrivals', ctaLabel: 'New Arrivals'       }, secondary: { slug: 'lookbook',     ctaLabel: 'Browse Lookbook'  } },
+  sports:      { primary: { slug: 'programs',     ctaLabel: 'View Programs'      }, secondary: { slug: 'coaches',      ctaLabel: 'Meet Our Coaches' } },
+  agency:      { primary: { slug: 'services',     ctaLabel: 'Our Services'       }, secondary: { slug: 'process',      ctaLabel: 'Our Process'      } },
+  general:     { primary: { slug: 'services',     ctaLabel: 'Our Services'       }, secondary: { slug: 'team',         ctaLabel: 'Meet the Team'    } },
+};
+
+function getHiddenPageConfig(normIndustry: string): HiddenPageCfg {
+  return HIDDEN_PAGE_MAP[normIndustry] || HIDDEN_PAGE_MAP.general;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1029,7 +1064,7 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
         <p class="lead reveal reveal-delay-2">${esc(copy.heroSub)}</p>
         <div class="hero-ctas reveal reveal-delay-3">
           <a href="${ctx.copy.gallerySlug}" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-          <a href="about" class="btn btn-outline">${esc(copy.secondaryCta)} →</a>
+          <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
         </div>
       </div>
       <div class="hero-media reveal reveal-delay-2">
@@ -1052,7 +1087,7 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
     <p class="lead reveal reveal-delay-2" style="color:${isDark||node.depth==='immersed'?'rgba(255,255,255,.8)':'var(--muted)'}">${esc(copy.heroSub)}</p>
     <div class="hero-ctas reveal reveal-delay-3">
       <a href="${ctx.copy.gallerySlug}" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-      <a href="about" class="btn btn-outline" style="${isDark||node.depth==='immersed'?'border-color:rgba(255,255,255,.4);color:#fff':''}">${esc(copy.secondaryCta)} →</a>
+      <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="${isDark||node.depth==='immersed'?'border-color:rgba(255,255,255,.4);color:#fff':''}">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
     </div>
   </div>
 </section>`;
@@ -1140,7 +1175,7 @@ function renderSplitSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
         </div>
         <p class="split-body reveal">${esc(copy.aboutBody)}</p>
         <ul class="split-list reveal">${bullets}</ul>
-        <a href="about" class="btn btn-primary reveal">${esc(copy.secondaryCta)}</a>
+        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-primary reveal">${esc(copy.hiddenPrimaryCtaLabel)}</a>
       </div>
       <div class="split-media reveal">
         <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.aboutHeading)}" loading="lazy"/>
@@ -1190,7 +1225,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
     <p class="reveal">${esc(copy.ctaSub)}</p>
     <div class="signal-ctas reveal">
       <a href="contact" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-      <a href="about" class="btn btn-outline">${esc(copy.secondaryCta)}</a>
+      <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(copy.hiddenSecondaryCtaLabel)}</a>
     </div>
   </div>
 </section>`;
@@ -1204,7 +1239,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
       <p class="reveal">${esc(copy.ctaSub)}</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-        <a href="about" class="btn btn-outline">${esc(copy.secondaryCta)}</a>
+        <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(copy.hiddenSecondaryCtaLabel)}</a>
       </div>
     </div>
   </div>
@@ -1293,7 +1328,7 @@ function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
             <h2>${esc(copy.missionHeading)}</h2>
           </div>
           <p class="split-body">${esc(copy.missionBody)}</p>
-          <a href="about" class="btn btn-primary">${esc(copy.secondaryCta)}</a>
+          <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-primary">${esc(copy.hiddenPrimaryCtaLabel)}</a>
         </div>
         <div class="split-media">
           <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.aboutHeading)}" loading="lazy"/>
@@ -1449,7 +1484,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
       <p class="reveal">Let's create something amazing together.</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">Get in Touch</a>
-        <a href="about" class="btn btn-outline">About Us</a>
+        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.hiddenPrimaryCtaLabel)}</a>
       </div>
     </div>
   </div>
@@ -1551,6 +1586,574 @@ function renderPricingPageHtml(puo: PromptUnderstandingObject, brand: string, na
   const footer = buildFooter(brand, navItems, copy, year);
   const head = buildHead(brand, 'Pricing', 'Simple, transparent pricing', font, css, base);
   return `${head}<body>${nav}<main>${main}</main>${footer}${PAGE_JS}</body></html>`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// HIDDEN PAGE BUILDERS — niche-specific pages bundled in the SPA,
+// reachable via section CTAs but not listed in the top nav.
+// ─────────────────────────────────────────────────────────────────
+
+const SERVICES_BY_INDUSTRY: Record<string, Array<{name:string; desc:string; price:string}>> = {
+  food: [
+    { name:'Private Dining',  desc:'Exclusive events and private hire for special occasions.',    price:'From $500'        },
+    { name:'Catering',        desc:'Off-site catering for corporate events and celebrations.',    price:'Custom Quote'     },
+    { name:"Chef's Table",    desc:'Intimate tasting menu experience with our head chef.',        price:'From $120/person' },
+    { name:'Delivery',        desc:'Fresh meals delivered straight to your door.',                price:'From $15'         },
+    { name:'Meal Prep',       desc:'Weekly meal prep packages tailored to your lifestyle.',       price:'From $80/week'    },
+    { name:'Gift Vouchers',   desc:'The perfect gift for food lovers.',                           price:'From $50'         },
+  ],
+  photography: [
+    { name:'Brand Photography',   desc:'Compelling visuals that tell your brand story.',          price:'From $800'    },
+    { name:'Portrait Sessions',   desc:'Studio and on-location portrait photography.',            price:'From $450'    },
+    { name:'Event Coverage',      desc:'Full-day event photography and same-week delivery.',     price:'From $1,200'  },
+    { name:'Product Photography', desc:'Studio product shots optimised for e-commerce.',         price:'From $600'    },
+    { name:'Editorial Shoots',    desc:'Magazine-quality editorial and campaign imagery.',        price:'From $1,500'  },
+    { name:'Licensing',           desc:'Extended usage rights for commercial purposes.',          price:'Custom Quote' },
+  ],
+  portfolio: [
+    { name:'Brand Identity',    desc:'Logo, colour system, typography, and brand guidelines.',   price:'From $1,200'  },
+    { name:'UI/UX Design',      desc:'User-centred interface design for web and mobile.',         price:'From $2,500'  },
+    { name:'Web Design',        desc:'Custom website design with full Figma handoff.',            price:'From $1,800'  },
+    { name:'Motion Graphics',   desc:'Animated assets for social, ads, and presentations.',      price:'From $800'    },
+    { name:'Print & Packaging', desc:'Packaging design, brochures, and print collateral.',       price:'From $600'    },
+    { name:'Consultation',      desc:'90-minute strategy and brand audit session.',               price:'$250/session' },
+  ],
+  technology: [
+    { name:'Starter Plan',    desc:'Core features for individuals and small teams.',              price:'Free'         },
+    { name:'Growth Plan',     desc:'Advanced tools and priority support for scaling teams.',      price:'$49/month'    },
+    { name:'Enterprise',      desc:'Custom SLA, dedicated support, and on-premise options.',      price:'Custom'       },
+    { name:'API Access',      desc:'Full API access with developer documentation.',               price:'From $99/month'},
+    { name:'Onboarding',      desc:'Guided setup with a dedicated success manager.',              price:'Included'     },
+    { name:'Training',        desc:'Team training workshops and certification programme.',        price:'From $499'    },
+  ],
+  sports: [
+    { name:'Personal Training',  desc:'One-on-one coaching sessions tailored to your goals.',    price:'From $80/session' },
+    { name:'Group Classes',      desc:'High-energy group sessions for all fitness levels.',      price:'From $25/class'   },
+    { name:'Nutrition Coaching', desc:'Personalised meal plans and macro guidance.',             price:'From $150/month'  },
+    { name:'Online Programme',   desc:'Structured training plans with video library access.',    price:'From $30/month'   },
+    { name:'Competition Prep',   desc:'Specialised prep for competitive athletes.',              price:'Custom Quote'     },
+    { name:'Assessments',        desc:'Full fitness assessment and goal-setting session.',       price:'From $60'         },
+  ],
+  agency: [
+    { name:'Brand Strategy',     desc:'Research-backed positioning and messaging frameworks.',   price:'From $3,500'      },
+    { name:'Creative Direction', desc:'Campaign concepting, art direction, and visual identity.',price:'From $2,500'      },
+    { name:'Paid Media',         desc:'Performance advertising across Google, Meta, and TikTok.',price:'From $1,500/month'},
+    { name:'SEO & Content',      desc:'Organic growth through content strategy and technical SEO.',price:'From $1,200/month'},
+    { name:'Web Development',    desc:'Custom website builds on modern tech stacks.',            price:'From $5,000'      },
+    { name:'Analytics & CRO',    desc:'Data-driven optimisation to maximise conversion rates.', price:'From $1,000/month'},
+  ],
+  fashion: [
+    { name:'Custom Tailoring',  desc:'Made-to-measure garments crafted to your exact fit.',     price:'From $350'        },
+    { name:'Styling Sessions',  desc:'Personal shopping and wardrobe curation service.',         price:'From $200'        },
+    { name:'Wholesale',         desc:'Bulk ordering for retailers and boutiques.',               price:'Min. order $500'  },
+    { name:'Alterations',       desc:'Expert alterations and garment repairs.',                  price:'From $30'         },
+    { name:'Gift Cards',        desc:'Treat someone to their perfect wardrobe.',                 price:'From $50'         },
+    { name:'Memberships',       desc:'Early access to drops, exclusive discounts, and events.',  price:'From $15/month'   },
+  ],
+  ecommerce: [
+    { name:'Express Shipping',  desc:'Next-day delivery on all in-stock items.',                price:'From $9.99'       },
+    { name:'Gift Wrapping',     desc:'Premium gift wrapping with personalised message.',        price:'$5'               },
+    { name:'Subscriptions',     desc:'Save 15% with monthly subscription orders.',              price:'From $25/month'   },
+    { name:'Bulk Orders',       desc:'Volume discounts for orders over 20 units.',              price:'Custom Quote'     },
+    { name:'Returns',           desc:'30-day hassle-free returns and exchanges.',               price:'Free'             },
+    { name:'Loyalty Programme', desc:'Earn points on every purchase and redeem for rewards.',   price:'Free to join'     },
+  ],
+  general: [
+    { name:'Consultation',    desc:'Initial discovery session to understand your needs.',        price:'Free'             },
+    { name:'Core Package',    desc:'Our most popular all-inclusive service bundle.',             price:'From $500'        },
+    { name:'Premium Package', desc:'Full-service solution with priority support.',               price:'From $1,500'      },
+    { name:'Enterprise',      desc:'Custom enterprise solutions at scale.',                      price:'Custom Quote'     },
+    { name:'Maintenance',     desc:'Ongoing support and account management.',                    price:'From $200/month'  },
+    { name:'Training',        desc:'Workshops and onboarding for your team.',                    price:'From $300'        },
+  ],
+};
+
+const PROCESS_STEPS_BY_INDUSTRY: Record<string, Array<{title:string; desc:string}>> = {
+  photography: [
+    { title:'Discovery Call',   desc:'We discuss your vision, style preferences, and deliverables in detail.'          },
+    { title:'Creative Brief',   desc:'A detailed shot list, mood board, and location scouting are completed.'          },
+    { title:'The Shoot',        desc:'Professional photography session with full art direction and lighting setup.'     },
+    { title:'Delivery',         desc:'Curated, edited gallery delivered via private link within five business days.'    },
+  ],
+  portfolio: [
+    { title:'Kickoff',          desc:'We align on project goals, audience, and creative direction.'                    },
+    { title:'Concepts',         desc:'Initial design concepts presented with rationale and direction options.'          },
+    { title:'Refinement',       desc:'Iterative revisions based on feedback until the design is exactly right.'        },
+    { title:'Handoff',          desc:'Final assets delivered with documentation, style guides, and source files.'      },
+  ],
+  agency: [
+    { title:'Strategy',         desc:'Deep-dive audit of your brand, competitors, and target audience.'               },
+    { title:'Concept',          desc:'Creative concepts developed to resonate with your specific market.'              },
+    { title:'Execution',        desc:'Full campaign production across all agreed channels and touchpoints.'            },
+    { title:'Results',          desc:'Detailed performance reports with actionable insights and next steps.'           },
+  ],
+  sports: [
+    { title:'Assessment',       desc:'Comprehensive fitness evaluation to establish your current baseline.'            },
+    { title:'Programme Design', desc:'A personalised training plan built around your goals and schedule.'              },
+    { title:'Coaching',         desc:'Expert-led sessions with real-time form corrections and motivation.'             },
+    { title:'Progress Review',  desc:'Regular check-ins to track progress and adjust the programme accordingly.'      },
+  ],
+  general: [
+    { title:'Discovery',        desc:'We start by fully understanding your goals, challenges, and opportunities.'      },
+    { title:'Strategy',         desc:'A tailored approach is developed to address your specific needs.'                },
+    { title:'Execution',        desc:'We deliver with precision, on time and within scope.'                            },
+    { title:'Results',          desc:'Transparent reporting so you can see the full impact of our work.'               },
+  ],
+};
+
+function buildServicesMain(normIndustry: string, brand: string, copy: SiteCopy, fp: number): string {
+  const services = SERVICES_BY_INDUSTRY[normIndustry] || SERVICES_BY_INDUSTRY.general;
+  const cardsHtml = services.map((s, i) => `
+    <div class="card reveal reveal-delay-${i % 3}">
+      <div class="card-icon">${ICON_SVGS[(fp + i) % ICON_SVGS.length]}</div>
+      <h3>${esc(s.name)}</h3>
+      <p>${esc(s.desc)}</p>
+      <p style="margin-top:12px;font-weight:600;color:var(--primary);font-size:var(--small-size)">${esc(s.price)}</p>
+      <a href="contact" class="card-link">Enquire →</a>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">What We Offer</span>
+      <h1 style="font-size:var(--h1-size)">Our Services</h1>
+      <p>Everything you need, tailored to your goals.</p>
+    </div>
+    <div class="g3" style="margin-top:clamp(36px,5vw,56px)">${cardsHtml}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Ready to Get Started?</h2>
+      <p class="reveal">Talk to our team about the right package for you.</p>
+      <div class="signal-ctas reveal">
+        <a href="contact" class="btn btn-primary">Get in Touch</a>
+        <a href="about" class="btn btn-outline">About Us</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildProcessMain(normIndustry: string, _brand: string, _copy: SiteCopy): string {
+  const steps = PROCESS_STEPS_BY_INDUSTRY[normIndustry] || PROCESS_STEPS_BY_INDUSTRY.general;
+  const stepsHtml = steps.map((s, i) => `
+    <div class="reveal" style="display:flex;gap:24px;align-items:flex-start;padding:clamp(20px,3vw,32px) 0;border-bottom:1px solid var(--bdr)">
+      <div style="min-width:56px;height:56px;border-radius:var(--radius-sm);background:var(--grad);color:#fff;display:grid;place-items:center;font-family:var(--display);font-size:1.35rem;font-weight:700;flex-shrink:0">${i + 1}</div>
+      <div>
+        <h3 style="margin-bottom:6px">${esc(s.title)}</h3>
+        <p style="color:var(--muted);font-size:var(--small-size);line-height:1.65">${esc(s.desc)}</p>
+      </div>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">How We Work</span>
+      <h1 style="font-size:var(--h1-size)">Our Process</h1>
+      <p>A clear, proven approach that delivers results every time.</p>
+    </div>
+    <div style="max-width:720px;margin:clamp(36px,5vw,56px) auto 0">${stepsHtml}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Start Your Project</h2>
+      <p class="reveal">Let's walk through the process together.</p>
+      <div class="signal-ctas reveal">
+        <a href="contact" class="btn btn-primary">Get in Touch</a>
+        <a href="about" class="btn btn-outline">About Us</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildReservationsMain(brand: string, copy: SiteCopy): string {
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Book a Table</span>
+      <h1 style="font-size:var(--h1-size)">Make a Reservation</h1>
+      <p>Reserve your table at ${esc(brand)}. We look forward to welcoming you.</p>
+    </div>
+    <div class="contact-form-grid" style="margin-top:clamp(36px,5vw,56px)">
+      <div class="contact-info reveal">
+        <h3 style="margin-bottom:14px">Plan Your Visit</h3>
+        <p style="color:var(--muted);margin-bottom:20px">Walk-ins are welcome, but reservations guarantee your preferred time and table.</p>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_CLOCK}</span><span>Mon–Thu 11am–10pm<br>Fri–Sat 11am–11pm<br>Sun 10am–9pm</span></div>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_PIN}</span><span>123 Main Street, City</span></div>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_PHONE}</span><span>+1 (555) 000-0000</span></div>
+      </div>
+      <form class="reveal" onsubmit="event.preventDefault();this.innerHTML='<p style=&quot;padding:24px 0;font-size:1.1rem&quot;>Reservation confirmed! We&apos;ll send a confirmation to your email shortly.</p>';">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div><label>Date</label><input type="date" name="date" required/></div>
+          <div><label>Time</label><select name="time"><option>6:00 PM</option><option>6:30 PM</option><option>7:00 PM</option><option>7:30 PM</option><option>8:00 PM</option><option>8:30 PM</option></select></div>
+        </div>
+        <div><label>Party Size</label><select name="size"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7–10</option><option>10+</option></select></div>
+        <div><label>Full Name</label><input type="text" name="name" placeholder="Your name" required/></div>
+        <div><label>Email Address</label><input type="email" name="email" placeholder="you@email.com" required/></div>
+        <div><label>Phone Number</label><input type="tel" name="phone" placeholder="+1 (555) 000-0000"/></div>
+        <div><label>Special Requests</label><textarea name="requests" placeholder="Dietary requirements, celebrations, accessibility needs..."></textarea></div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-start">Confirm Reservation →</button>
+      </form>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildOurStoryMain(brand: string, copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
+  const photos = getPhotos(puo, fp);
+  const photo = photos[fp % photos.length];
+  const bullets = copy.aboutBullets.map(b => `<li>${esc(b)}</li>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">Our Heritage</span>
+      <h1 style="font-size:var(--h1-size)">The Story Behind ${esc(brand)}</h1>
+    </div>
+  </div>
+</section>
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="split-section">
+      <div class="split-text">
+        <div class="sec-head reveal"><h2>Where It All Began</h2></div>
+        <p class="split-body reveal">${esc(copy.aboutBody)}</p>
+        <ul class="split-list reveal">${bullets}</ul>
+        <a href="reservations" class="btn btn-primary reveal">Reserve a Table</a>
+      </div>
+      <div class="split-media reveal">
+        <img src="${ph(photo, 800, 1000)}" alt="The story of ${esc(brand)}" loading="lazy"/>
+      </div>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">Our Values</span><h2>What We Stand For</h2></div>
+    <div class="g3">
+      <div class="card reveal"><div class="card-icon">${ICON_SVGS[2]}</div><h3>Quality</h3><p style="color:var(--muted);font-size:var(--small-size)">We never compromise on the quality of our ingredients or our craft.</p></div>
+      <div class="card reveal reveal-delay-1"><div class="card-icon">${ICON_SVGS[4]}</div><h3>Community</h3><p style="color:var(--muted);font-size:var(--small-size)">${esc(brand)} was built for the community and continues to thrive because of it.</p></div>
+      <div class="card reveal reveal-delay-2"><div class="card-icon">${ICON_SVGS[7]}</div><h3>Passion</h3><p style="color:var(--muted);font-size:var(--small-size)">Every dish, every service, every detail — crafted with genuine passion.</p></div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildDemoMain(brand: string, copy: SiteCopy): string {
+  const benefits = [
+    `See ${copy.features[0]?.title || 'core features'} live with your actual data`,
+    'Get answers to your specific technical questions in real time',
+    'Personalised walkthrough based on your team\'s exact use case',
+    'Leave with a custom implementation roadmap',
+  ];
+  const benefitsHtml = benefits.map(b => `<li style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px"><span style="color:var(--primary);font-weight:700;margin-top:1px">→</span><span style="color:var(--muted);font-size:var(--small-size)">${esc(b)}</span></li>`).join('');
+  const statsHtml = copy.stats.slice(0, 3).map(s => `<div style="text-align:center;padding:16px;flex:1"><div style="font-family:var(--display);font-size:1.8rem;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">${esc(s.number)}</div><div style="font-size:var(--caption-size);color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${esc(s.label)}</div></div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">See It Live</span>
+      <h1 style="font-size:var(--h1-size)">Book a Personalised Demo</h1>
+      <p>A 30-minute session tailored to your team's specific use case.</p>
+    </div>
+    <div class="contact-form-grid" style="margin-top:clamp(36px,5vw,56px)">
+      <div class="reveal">
+        <h3 style="margin-bottom:14px">What to Expect</h3>
+        <ul style="list-style:none;margin-bottom:28px">${benefitsHtml}</ul>
+        <div style="display:flex;border:1px solid var(--bdr);border-radius:var(--radius);overflow:hidden">${statsHtml}</div>
+      </div>
+      <form class="reveal" onsubmit="event.preventDefault();this.innerHTML='<p style=&quot;padding:24px 0;font-size:1.1rem&quot;>Demo request received! A specialist will confirm your slot within one business day.</p>';">
+        <div><label>Work Email</label><input type="email" name="email" placeholder="you@company.com" required/></div>
+        <div><label>Full Name</label><input type="text" name="name" placeholder="Your name" required/></div>
+        <div><label>Company</label><input type="text" name="company" placeholder="Company name"/></div>
+        <div><label>Team Size</label><select name="size"><option>Just me</option><option>2–10</option><option>11–50</option><option>51–200</option><option>200+</option></select></div>
+        <div><label>Primary Use Case</label><textarea name="usecase" placeholder="What would you like to solve with ${esc(brand)}?"></textarea></div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-start">Request Demo →</button>
+      </form>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildCaseStudiesMain(brand: string, copy: SiteCopy, _fp: number): string {
+  const cases = [
+    { company:'ScaleUp Inc.',  industry:'SaaS',       challenge:`Manually managing ${copy.features[0]?.title || 'workflows'}`,                result:'Reduced time by 70%',    metric:'70%', metricLabel:'Time Saved'  },
+    { company:'BuildFast',     industry:'Engineering', challenge:`Poor visibility into ${copy.features[1]?.title || 'performance metrics'}`,   result:'3× improvement in KPIs', metric:'3×',  metricLabel:'KPI Growth'  },
+    { company:'DataFlow Co.',  industry:'Analytics',  challenge:`Scaling ${copy.features[2]?.title || 'operations'} without headcount`,        result:'2× output, same team',   metric:'2×',  metricLabel:'Output'      },
+  ];
+  const cardsHtml = cases.map((c, i) => `
+    <div class="card reveal reveal-delay-${i % 3}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <h3 style="margin-bottom:4px">${esc(c.company)}</h3>
+          <span style="font-size:var(--caption-size);color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${esc(c.industry)}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--display);font-size:1.8rem;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">${esc(c.metric)}</div>
+          <div style="font-size:var(--caption-size);color:var(--muted)">${esc(c.metricLabel)}</div>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:var(--small-size);margin-bottom:8px"><strong>Challenge:</strong> ${esc(c.challenge)}.</p>
+      <p style="color:var(--muted);font-size:var(--small-size)"><strong>Result:</strong> ${esc(c.result)}.</p>
+      <a href="demo" class="card-link" style="margin-top:16px">Get similar results →</a>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">Customer Success</span>
+      <h1 style="font-size:var(--h1-size)">Real Results from Real Clients</h1>
+      <p>See how teams like yours have transformed with ${esc(brand)}.</p>
+    </div>
+    <div class="g3" style="margin-top:clamp(36px,5vw,56px)">${cardsHtml}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Ready to Write Your Success Story?</h2>
+      <p class="reveal">Book a personalised demo and see ${esc(brand)} in action.</p>
+      <div class="signal-ctas reveal">
+        <a href="demo" class="btn btn-primary">Book a Demo</a>
+        <a href="contact" class="btn btn-outline">Talk to Sales</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildProgramsMain(brand: string, _copy: SiteCopy, _fp: number): string {
+  const programs = [
+    { name:'Foundation', level:'Beginner',     sessions:'3× per week', duration:'8 weeks',  focus:'Form, mobility, and base conditioning',                     price:'$180/month' },
+    { name:'Performance', level:'Intermediate',sessions:'4× per week', duration:'12 weeks', focus:'Strength, endurance, and sport-specific training',          price:'$240/month' },
+    { name:'Elite',       level:'Advanced',    sessions:'5–6× per week',duration:'Ongoing', focus:'Competition prep and peak performance optimisation',        price:'$320/month' },
+  ];
+  const cardsHtml = programs.map((p, i) => `
+    <div class="price-card${i === 1 ? ' featured' : ''} reveal reveal-delay-${i}">
+      ${i === 1 ? '<div class="price-badge">Most Popular</div>' : ''}
+      <div class="price-name">${esc(p.name)}</div>
+      <div class="price-desc">${esc(p.level)} Level</div>
+      <div class="price-amount">${esc(p.price)}</div>
+      <div class="price-period">${esc(p.sessions)}</div>
+      <ul class="price-features">
+        <li><span class="price-check">✓</span> ${esc(p.duration)} programme</li>
+        <li><span class="price-check">✓</span> ${esc(p.focus)}</li>
+        <li><span class="price-check">✓</span> Progress tracking</li>
+        <li><span class="price-check">✓</span> Nutrition guidance</li>
+        ${i >= 1 ? '<li><span class="price-check">✓</span> 1-on-1 coaching sessions</li>' : ''}
+        ${i >= 2 ? '<li><span class="price-check">✓</span> Competition prep support</li>' : ''}
+      </ul>
+      <a href="contact" class="btn ${i === 1 ? 'btn-primary' : 'btn-outline'}" style="width:100%;justify-content:center">Enrol Now</a>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">Training</span>
+      <h1 style="font-size:var(--h1-size)">Our Programmes</h1>
+      <p>Structured training built for every level, with real results.</p>
+    </div>
+    <div class="price-grid" style="margin-top:clamp(36px,5vw,56px)">${cardsHtml}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Not Sure Which Programme to Choose?</h2>
+      <p class="reveal">Book a free assessment and we'll recommend the right fit.</p>
+      <div class="signal-ctas reveal">
+        <a href="contact" class="btn btn-primary">Book Free Assessment</a>
+        <a href="coaches" class="btn btn-outline">Meet Our Coaches</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildCoachesMain(brand: string, _copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
+  const photos = getPhotos(puo, fp);
+  const coaches = [
+    { name:'Alex Chen',     specialty:'Strength & Conditioning', exp:'12 years', cert:'CSCS, NSCA'              },
+    { name:'Jordan Rivera', specialty:'Endurance & Recovery',    exp:'8 years',  cert:'NASM-CPT, Precision'     },
+    { name:'Sam Torres',    specialty:'Sport-Specific Training', exp:'10 years', cert:'ACSM, USA Weightlifting'  },
+    { name:'Morgan Lee',    specialty:'Nutrition & Performance', exp:'6 years',  cert:'RD, CISSN'               },
+  ];
+  const cardsHtml = coaches.map((c, i) => `
+    <div class="card reveal reveal-delay-${i % 3}" style="text-align:center">
+      <img src="${ph(photos[(fp + i + 3) % photos.length], 400, 400)}" alt="${esc(c.name)}" loading="lazy" style="width:100%;height:200px;object-fit:cover;border-radius:var(--radius);margin-bottom:16px"/>
+      <h3 style="margin-bottom:4px">${esc(c.name)}</h3>
+      <p style="color:var(--primary);font-size:var(--small-size);font-weight:500;margin-bottom:8px">${esc(c.specialty)}</p>
+      <p style="color:var(--muted);font-size:var(--caption-size);margin-bottom:4px">${esc(c.exp)} experience</p>
+      <p style="color:var(--muted);font-size:var(--caption-size)">${esc(c.cert)}</p>
+      <a href="contact" class="card-link" style="justify-content:center;margin-top:12px">Train with ${esc(c.name.split(' ')[0])} →</a>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">The Team</span>
+      <h1 style="font-size:var(--h1-size)">Meet Our Coaches</h1>
+      <p>World-class coaches dedicated to your success.</p>
+    </div>
+    <div class="g4" style="margin-top:clamp(36px,5vw,56px)">${cardsHtml}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Ready to Start Training?</h2>
+      <p class="reveal">Choose a coach and book your first session today.</p>
+      <div class="signal-ctas reveal">
+        <a href="contact" class="btn btn-primary">Book a Session</a>
+        <a href="programs" class="btn btn-outline">View Programmes</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildLookbookMain(puo: PromptUnderstandingObject, brand: string, copy: SiteCopy, fp: number): string {
+  const photos = getPhotos(puo, fp);
+  const season = ['SS25', 'AW24', 'SS24', 'Resort 25'][fp % 4];
+  const items = Array.from({ length: 9 }, (_, i) => {
+    const hs = [380, 500, 340, 460, 420, 360, 440, 390, 480];
+    return `<div class="gallery-item reveal">
+      <img src="${ph(photos[(fp + i + 1) % photos.length], 500, hs[i])}" alt="${esc(brand)} ${season} Look ${i+1}" loading="lazy"/>
+    </div>`;
+  }).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">${esc(season)} Collection</span>
+      <h1 style="font-size:var(--h1-size)">${esc(brand)} Lookbook</h1>
+      <p>The season's defining looks — curated for the bold.</p>
+    </div>
+    <div class="gallery-grid masonry" style="grid-auto-rows:220px;margin-top:clamp(36px,5vw,56px)">${items}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Shop the Collection</h2>
+      <p class="reveal">Every look available now. Limited quantities.</p>
+      <div class="signal-ctas reveal">
+        <a href="${esc(copy.gallerySlug)}" class="btn btn-primary">Shop New Arrivals</a>
+        <a href="contact" class="btn btn-outline">Personal Styling</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildNewArrivalsMain(puo: PromptUnderstandingObject, brand: string, copy: SiteCopy, fp: number): string {
+  const photos = getPhotos(puo, fp);
+  const kws = getContentWords(puo);
+  const productNames = [
+    `${titleCase(kws[0] || 'Classic')} Essential`,
+    `${titleCase(kws[1] || 'Premium')} Series`,
+    `${titleCase(kws[0] || 'Signature')} Drop`,
+    `${titleCase(kws[2] || 'Limited')} Edition`,
+    `${titleCase(kws[1] || 'Core')} Collection`,
+    `${titleCase(kws[0] || 'Essential')} Pack`,
+  ];
+  const prices = ['$49', '$89', '$129', '$69', '$99', '$79'];
+  const badges = ['New', 'Featured', 'Limited', 'Bestseller', 'Sale', 'New'];
+  const productsHtml = productNames.map((name, i) => `
+    <div class="card reveal reveal-delay-${i % 3}">
+      <div style="position:relative;margin-bottom:14px">
+        <img src="${ph(photos[(fp + i + 2) % photos.length], 400, 450)}" alt="${esc(name)}" loading="lazy" style="width:100%;height:220px;object-fit:cover;border-radius:var(--radius-sm)"/>
+        <span style="position:absolute;top:10px;left:10px;background:var(--grad);color:#fff;padding:3px 10px;border-radius:9999px;font-size:.72rem;font-weight:600">${esc(badges[i])}</span>
+      </div>
+      <h3 style="font-size:var(--small-size);font-weight:600;margin-bottom:4px">${esc(name)}</h3>
+      <p style="font-family:var(--display);font-size:1.1rem;font-weight:700;color:var(--primary)">${esc(prices[i])}</p>
+      <a href="contact" class="card-link">Add to Bag →</a>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head reveal" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px">
+      <div>
+        <span class="eyebrow">Just Landed</span>
+        <h1 style="font-size:var(--h1-size);margin-bottom:0">New Arrivals</h1>
+      </div>
+      <a href="${esc(copy.gallerySlug)}" class="btn btn-outline">View All →</a>
+    </div>
+    <div class="g3" style="margin-top:clamp(36px,5vw,56px)">${productsHtml}</div>
+  </div>
+</section>`;
+}
+
+function buildTeamMain(brand: string, copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
+  const photos = getPhotos(puo, fp);
+  const kws = getContentWords(puo);
+  const members = [
+    { name:'Alex Morgan',  role:'Founder & CEO',                           specialty:'Strategy & Vision'                              },
+    { name:'Jordan Kim',   role:`Head of ${kws[0] ? titleCase(kws[0]) : 'Product'}`, specialty:`${kws[0] ? titleCase(kws[0]) : 'Product'} Lead`  },
+    { name:'Sam Rivera',   role:`${kws[1] ? titleCase(kws[1]) : 'Growth'} Director`, specialty:`${kws[1] ? titleCase(kws[1]) : 'Growth'} & Scale`},
+    { name:'Morgan Chen',  role:'Client Success Lead',                     specialty:'Partnerships & Support'                         },
+  ];
+  const cardsHtml = members.map((m, i) => `
+    <div class="card reveal reveal-delay-${i % 3}" style="text-align:center">
+      <img src="${ph(photos[(fp + i + 4) % photos.length], 400, 400)}" alt="${esc(m.name)}" loading="lazy" style="width:100%;height:200px;object-fit:cover;border-radius:var(--radius);margin-bottom:16px"/>
+      <h3 style="margin-bottom:4px">${esc(m.name)}</h3>
+      <p style="color:var(--primary);font-size:var(--small-size);font-weight:500;margin-bottom:6px">${esc(m.role)}</p>
+      <p style="color:var(--muted);font-size:var(--caption-size)">${esc(m.specialty)}</p>
+    </div>`).join('');
+  return `
+<section style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">Our People</span>
+      <h1 style="font-size:var(--h1-size)">Meet the Team</h1>
+      <p>The people behind ${esc(brand)}, dedicated to your success.</p>
+    </div>
+    <div class="g4" style="margin-top:clamp(36px,5vw,56px)">${cardsHtml}</div>
+  </div>
+</section>
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <h2 class="reveal">Join Our Team</h2>
+      <p class="reveal">We&apos;re always looking for talented people to join ${esc(brand)}.</p>
+      <div class="signal-ctas reveal">
+        <a href="contact" class="btn btn-primary">Get in Touch</a>
+        <a href="about" class="btn btn-outline">About Us</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildHiddenPrimaryPage(slug: string, normIndustry: string, brand: string, copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
+  switch (slug) {
+    case 'reservations': return buildReservationsMain(brand, copy);
+    case 'demo':         return buildDemoMain(brand, copy);
+    case 'services':     return buildServicesMain(normIndustry, brand, copy, fp);
+    case 'programs':     return buildProgramsMain(brand, copy, fp);
+    case 'lookbook':     return buildLookbookMain(puo, brand, copy, fp);
+    case 'new-arrivals': return buildNewArrivalsMain(puo, brand, copy, fp);
+    default:             return buildServicesMain(normIndustry, brand, copy, fp);
+  }
+}
+
+function buildHiddenSecondaryPage(slug: string, normIndustry: string, brand: string, copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
+  switch (slug) {
+    case 'our-story':    return buildOurStoryMain(brand, copy, puo, fp);
+    case 'case-studies': return buildCaseStudiesMain(brand, copy, fp);
+    case 'process':      return buildProcessMain(normIndustry, brand, copy);
+    case 'coaches':      return buildCoachesMain(brand, copy, puo, fp);
+    case 'new-arrivals': return buildNewArrivalsMain(puo, brand, copy, fp);
+    case 'lookbook':     return buildLookbookMain(puo, brand, copy, fp);
+    case 'team':         return buildTeamMain(brand, copy, puo, fp);
+    default:             return buildTeamMain(brand, copy, puo, fp);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1732,6 +2335,13 @@ export function renderMultiPageSite(
     { key: 'contact', main: contactMain },
   ];
   if (pricingMain) routes.splice(3, 0, { key: 'pricing', main: pricingMain });
+  // Hidden pages — bundled in the SPA but NOT in navItems, so they're unreachable
+  // from the nav but reachable via section CTAs.
+  const normIndustry2 = normalizeIndustry(puo.inferredIndustry);
+  const hiddenPrimaryMain  = buildHiddenPrimaryPage(copy.hiddenPrimarySlug, normIndustry2, brand, copy, puo, fp + 5);
+  const hiddenSecondaryMain = buildHiddenSecondaryPage(copy.hiddenSecondarySlug, normIndustry2, brand, copy, puo, fp + 6);
+  routes.push({ key: copy.hiddenPrimarySlug,  main: hiddenPrimaryMain  });
+  routes.push({ key: copy.hiddenSecondarySlug, main: hiddenSecondaryMain });
   const spaDocument = buildSpaDocument(brand, navItems, copy, css, font, year, routes);
 
   // 8. Per-page standalone documents — kept for direct-URL access on published
