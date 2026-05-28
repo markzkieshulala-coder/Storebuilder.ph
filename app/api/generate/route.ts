@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt, businessName } = body;
+    const { prompt, businessName, concept } = body;
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 8) {
       return NextResponse.json(
@@ -53,10 +53,25 @@ export async function POST(req: NextRequest) {
     // Generate subdomain first so the renderer can embed correct <base href> links
     const subdomain = generateSubdomain(brandName);
 
-    console.log(`[generate] Starting pipeline for: "${brandName}" — "${prompt.slice(0, 80)}"`);
+    // If Gemini analysis was passed from /api/analyze, prepend structured hints to the
+    // raw prompt so the deterministic parser has explicit niche/style/mood signals.
+    let effectivePrompt = prompt.trim();
+    if (concept && typeof concept === "object" && concept.rawNiche) {
+      const hint = [
+        concept.rawNiche && `niche: ${concept.rawNiche}`,
+        concept.designStyle && `design style: ${concept.designStyle}`,
+        concept.visualMood && `visual mood: ${concept.visualMood}`,
+        concept.personality && `personality: ${concept.personality}`,
+        concept.tone && `tone: ${concept.tone}`,
+        concept.colorHint && `color palette: ${concept.colorHint}`,
+      ].filter(Boolean).join(", ");
+      effectivePrompt = `[${hint}] ${effectivePrompt}`;
+    }
+
+    console.log(`[generate] Starting pipeline for: "${brandName}" — "${effectivePrompt.slice(0, 120)}"`);
 
     // Run the in-process orchestration engine (no external AI calls)
-    const result = await generateWebsite(prompt.trim(), brandName, subdomain);
+    const result = await generateWebsite(effectivePrompt, brandName, subdomain);
 
     console.log(`[generate] Pipeline complete. Pages: ${Object.keys(result.pages).length}, score: ${result.score}`);
 
