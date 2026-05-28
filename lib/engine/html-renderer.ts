@@ -58,6 +58,38 @@ function ph(id: string, w: number, h: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// ICONS — clean inline line-SVGs (no emoji) so output stays premium
+// ─────────────────────────────────────────────────────────────────
+
+function svgIcon(inner: string): string {
+  return `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+}
+
+// Generic, niche-agnostic premium feature icons.
+const ICON_SVGS: string[] = [
+  svgIcon('<path d="M13 2 4 14h7l-1 8 10-12h-7z"/>'),                                              // bolt
+  svgIcon('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'),                       // target
+  svgIcon('<path d="M12 3l7 3v6c0 4.2-3 7.4-7 9-4-1.6-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/>'),  // shield-check
+  svgIcon('<path d="M3 20h18"/><path d="M6 20V11M11 20V5M16 20v-7M21 20v-4"/>'),                   // bar chart
+  svgIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/>'), // globe
+  svgIcon('<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'),                              // layers
+  svgIcon('<circle cx="12" cy="12" r="9"/><path d="M16 8l-2.2 6.2L7.8 16 10 9.8z"/>'),            // compass
+  svgIcon('<circle cx="12" cy="9" r="5"/><path d="M9 13.5 7 21l5-2.8L17 21l-2-7.5"/>'),            // award
+  svgIcon('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'), // grid
+  svgIcon('<path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/>'),                                    // trending-up
+  svgIcon('<path d="M12 2l2.4 5.8L20 9l-4.5 4 1.3 6.2L12 16l-4.8 3.2L8.5 13 4 9l5.6-1.2z"/>'),     // spark/star outline
+  svgIcon('<path d="M20 7 9 18l-5-5"/>'),                                                          // check
+];
+
+// Contextual icons used for contact details.
+const ICON_MAIL = svgIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>');
+const ICON_PHONE = svgIcon('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L20 13l1 5v1a2 2 0 0 1-2 2 16 16 0 0 1-15-15 2 2 0 0 1 2-2z"/>');
+const ICON_PIN = svgIcon('<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>');
+const ICON_CLOCK = svgIcon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+const STAR_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.8.7-5 4.6 1.4 6.7L12 17.8 5.9 20.3l1.4-6.7-5-4.6 6.8-.7z"/></svg>';
+const STARS_5 = `<span style="display:inline-flex;gap:3px">${STAR_SVG.repeat(5)}</span>`;
+
+// ─────────────────────────────────────────────────────────────────
 // NICHE DETECTION (backward compat)
 // ─────────────────────────────────────────────────────────────────
 
@@ -512,7 +544,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const featureHeading = pick(featureHeadings, fp + 5);
 
   // Features — driven by extracted keywords
-  const ICONS = ['⚡','🎯','🔒','📊','🌐','💡','🚀','🛠️','✨','🔄','💎','🤝','📱','🎨','⚙️','🏆'];
+  const ICONS = ICON_SVGS;
 
   // Feature link target: route to gallery slug for portfolio/ecommerce, about for showcase, contact otherwise
   const featureLinkMap: Record<string, string> = {
@@ -557,9 +589,9 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // Pad to 3 with generic feature descriptions if needed
   while (allKwFeatures.length < 3) {
     const defaults = [
-      { icon: '⚡', title: 'Peak Performance', desc: `Our ${mainKw} approach delivers measurable results from day one.`, href: featureHref },
-      { icon: '🔒', title: 'Trusted Quality', desc: `Every aspect of ${brand} is built on a foundation of quality and trust.`, href: 'about' },
-      { icon: '🌐', title: 'Proven Results', desc: `Hundreds of clients have already experienced the ${brand} difference.`, href: featureHref },
+      { icon: ICON_SVGS[9], title: 'Peak Performance', desc: `Our ${mainKw} approach delivers measurable results from day one.`, href: featureHref },
+      { icon: ICON_SVGS[2], title: 'Trusted Quality', desc: `Every aspect of ${brand} is built on a foundation of quality and trust.`, href: 'about' },
+      { icon: ICON_SVGS[7], title: 'Proven Results', desc: `Hundreds of clients have already experienced the ${brand} difference.`, href: featureHref },
     ];
     allKwFeatures.push(defaults[allKwFeatures.length % defaults.length]);
   }
@@ -567,15 +599,15 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Stats
   const statBanks: Record<string, Array<{ number: string; label: string }>> = {
-    technology: [{number:'10K+',label:'Active Users'},{number:'99.9%',label:'Uptime SLA'},{number:'4.9★',label:'User Rating'},{number:'<100ms',label:'Response Time'}],
+    technology: [{number:'10K+',label:'Active Users'},{number:'99.9%',label:'Uptime SLA'},{number:'4.9/5',label:'User Rating'},{number:'<100ms',label:'Response Time'}],
     ecommerce:  [{number:'50K+',label:'Products'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'120+',label:'Countries'}],
     portfolio:  [{number:'200+',label:'Projects'},{number:'8+',label:'Years Experience'},{number:'50+',label:'Clients'},{number:'15+',label:'Awards'}],
     photography:[{number:'200+',label:'Shoots'},{number:'12+',label:'Years'},{number:'50+',label:'Clients'},{number:'15+',label:'Awards'}],
-    fashion:    [{number:'120+',label:'Pieces'},{number:'4.9★',label:'Reviews'},{number:'30+',label:'Collections'},{number:'90+',label:'Stockists'}],
-    sports:     [{number:'500+',label:'Athletes'},{number:'100+',label:'Championships'},{number:'5★',label:'Coaching'},{number:'20+',label:'Sports'}],
-    food:       [{number:'200+',label:'Menu Items'},{number:'4.9★',label:'Reviews'},{number:'10+',label:'Years Open'},{number:'Daily',label:'Fresh Ingredients'}],
+    fashion:    [{number:'120+',label:'Pieces'},{number:'4.9/5',label:'Reviews'},{number:'30+',label:'Collections'},{number:'90+',label:'Stockists'}],
+    sports:     [{number:'500+',label:'Athletes'},{number:'100+',label:'Championships'},{number:'5/5',label:'Coaching'},{number:'20+',label:'Sports'}],
+    food:       [{number:'200+',label:'Menu Items'},{number:'4.9/5',label:'Reviews'},{number:'10+',label:'Years Open'},{number:'Daily',label:'Fresh Ingredients'}],
     agency:     [{number:'300+',label:'Clients'},{number:'$50M+',label:'Revenue Generated'},{number:'10+',label:'Years'},{number:'50+',label:'Experts'}],
-    general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5★',label:'Rating'}],
+    general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5/5',label:'Rating'}],
   };
   const stats = (statBanks[normIndustry] || statBanks.general).slice(0, 4);
 
@@ -1201,7 +1233,7 @@ function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
   // Testimonials / cards
   const testimHtml = copy.testimonials.map(t => `
     <div class="testimonial-card reveal">
-      <div class="testimonial-stars">★★★★★</div>
+      <div class="testimonial-stars">${STARS_5}</div>
       <blockquote class="testimonial-quote">"${esc(t.quote)}"</blockquote>
       <div class="testimonial-author">
         <div class="testimonial-avatar">${t.name.charAt(0)}</div>
@@ -1436,10 +1468,10 @@ function renderContactPageHtml(puo: PromptUnderstandingObject, brand: string, na
     </div>
     <div class="contact-form-grid" style="margin-top:clamp(36px,5vw,56px)">
       <div class="contact-info reveal">
-        <div class="contact-detail"><span class="contact-detail-icon">📧</span><span>hello@${esc(brand.toLowerCase().replace(/[^a-z0-9]/g,''))}.com</span></div>
-        <div class="contact-detail"><span class="contact-detail-icon">📞</span><span>+1 (555) 000-0000</span></div>
-        <div class="contact-detail"><span class="contact-detail-icon">📍</span><span>Available worldwide</span></div>
-        <div class="contact-detail"><span class="contact-detail-icon">⏰</span><span>Mon–Fri, 9am–6pm</span></div>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_MAIL}</span><span>hello@${esc(brand.toLowerCase().replace(/[^a-z0-9]/g,''))}.com</span></div>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_PHONE}</span><span>+1 (555) 000-0000</span></div>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_PIN}</span><span>Available worldwide</span></div>
+        <div class="contact-detail"><span class="contact-detail-icon">${ICON_CLOCK}</span><span>Mon–Fri, 9am–6pm</span></div>
       </div>
       <form class="reveal">
         <div><label>Full Name</label><input type="text" name="name" placeholder="Your name" required/></div>

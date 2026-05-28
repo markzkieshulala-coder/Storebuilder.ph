@@ -402,6 +402,62 @@ function extractEntities(prompt: string): ExtractedEntity[] {
 // INFERENCE ENGINE
 // ───────────────────────────────────────────────────────────────
 
+// Niche-appropriate design defaults. These are applied ONLY as fallbacks when
+// the prompt gives no explicit signal for a dimension — any explicit user word
+// (e.g. "dark", "luxury", "minimal") still wins. This lets a bare "ramen
+// restaurant" prompt render warm/organic without hallucinating over an explicit
+// "dark luxury ramen restaurant".
+interface NicheDefaults {
+  visualMood?: VisualMood;
+  designStyle?: DesignStyle;
+  websitePersonality?: WebsitePersonality;
+  businessTone?: BusinessTone;
+  conversionStyle?: ConversionStyle;
+  layoutDirection?: LayoutDirection;
+  imageDirection?: ImageDirection;
+  compositionExpectation?: CompositionExpectation;
+}
+
+const NICHE_DEFAULT_GROUPS: Array<{ match: string[]; defaults: NicheDefaults }> = [
+  { match: ["food", "restaurant", "cafe", "coffee", "bakery", "bistro", "diner", "brewery", "dining"],
+    defaults: { visualMood: "warm", designStyle: "organic", websitePersonality: "friendly", businessTone: "casual", conversionStyle: "story-driven", imageDirection: "photography-heavy" } },
+  { match: ["technology", "tech", "software", "saas", "startup", "ai", "crypto", "blockchain", "fintech"],
+    defaults: { designStyle: "startup", visualMood: "light", websitePersonality: "innovative", businessTone: "technical", conversionStyle: "product-first", layoutDirection: "saas", compositionExpectation: "bento", imageDirection: "data-visualization" } },
+  { match: ["gaming"],
+    defaults: { designStyle: "cyberpunk", visualMood: "dark", websitePersonality: "bold", imageDirection: "abstract-visuals" } },
+  { match: ["fashion", "streetwear", "apparel", "clothing", "boutique", "beauty"],
+    defaults: { designStyle: "editorial", websitePersonality: "bold", businessTone: "casual", conversionStyle: "product-first", layoutDirection: "e-commerce", imageDirection: "photography-heavy", compositionExpectation: "magazine" } },
+  { match: ["ecommerce", "retail"],
+    defaults: { designStyle: "minimal", websitePersonality: "bold", conversionStyle: "product-first", layoutDirection: "e-commerce", imageDirection: "photography-heavy" } },
+  { match: ["photography", "photographer", "portfolio", "art"],
+    defaults: { designStyle: "minimal", websitePersonality: "sophisticated", conversionStyle: "story-driven", layoutDirection: "portfolio", imageDirection: "photography-heavy", compositionExpectation: "magazine" } },
+  { match: ["design", "architecture", "interior", "studio"],
+    defaults: { designStyle: "minimal", websitePersonality: "sophisticated", layoutDirection: "portfolio", imageDirection: "photography-heavy", compositionExpectation: "asymmetric" } },
+  { match: ["sports", "athletic", "fitness", "gym", "crossfit", "workout"],
+    defaults: { visualMood: "vibrant", designStyle: "industrial", websitePersonality: "energetic", businessTone: "disruptive", imageDirection: "photography-heavy" } },
+  { match: ["law", "legal", "finance", "consulting", "accounting", "insurance"],
+    defaults: { designStyle: "corporate", visualMood: "light", websitePersonality: "authoritative", businessTone: "authoritative", conversionStyle: "trust-first" } },
+  { match: ["agency", "marketing", "advertising", "branding"],
+    defaults: { designStyle: "editorial", websitePersonality: "bold", businessTone: "disruptive", conversionStyle: "story-driven", compositionExpectation: "asymmetric" } },
+  { match: ["health", "wellness", "yoga", "meditation", "spa", "salon", "medical"],
+    defaults: { designStyle: "minimal", visualMood: "light", websitePersonality: "calm", businessTone: "empathetic", conversionStyle: "trust-first" } },
+  { match: ["travel", "hotel", "resort"],
+    defaults: { designStyle: "cinematic", visualMood: "vibrant", websitePersonality: "energetic", conversionStyle: "story-driven", imageDirection: "photography-heavy" } },
+  { match: ["music", "entertainment"],
+    defaults: { designStyle: "artistic", visualMood: "dark", websitePersonality: "bold", imageDirection: "photography-heavy" } },
+  { match: ["education"],
+    defaults: { visualMood: "light", websitePersonality: "friendly", businessTone: "accessible", conversionStyle: "consultative" } },
+  { match: ["nonprofit"],
+    defaults: { visualMood: "warm", websitePersonality: "friendly", businessTone: "empathetic", conversionStyle: "story-driven" } },
+];
+
+function nicheDefaults(industry: string): NicheDefaults {
+  for (const group of NICHE_DEFAULT_GROUPS) {
+    if (group.match.includes(industry)) return group.defaults;
+  }
+  return {};
+}
+
 function inferIndustry(entities: ExtractedEntity[], keywords: string[]): string {
   const industryEntities = entities.filter((e) => e.type === "industry");
   if (industryEntities.length > 0) {
@@ -1231,24 +1287,29 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
     // 3. Keyword extraction
     const keywords = tokenizePrompt(prompt).filter((k) => k.length > 3);
 
+    // 3b. Infer niche first so it can supply design defaults for any dimension
+    //     the user did not explicitly specify (explicit vocabulary still wins).
+    const industry = inferIndustry(entities, keywords);
+    const nd = nicheDefaults(industry);
+
     // 4. Sentiment (simple polarity from matched tokens)
     const sentiments = matches
       .filter((m) => m.token.polarity !== "neutral")
       .map((m) => ({ word: m.token.terms[0], score: m.token.polarity === "positive" ? 1 : -1 }));
 
-    // 5. Resolve all directions
-    const visualMood = pickHighest<VisualMood>(aggregated, "visualMood", "neutral");
-    const designStyle = pickHighest<DesignStyle>(aggregated, "designStyle", "minimal");
-    const websitePersonality = pickHighest<WebsitePersonality>(aggregated, "websitePersonality", "friendly");
+    // 5. Resolve all directions — niche default → global default fallback chain
+    const visualMood = pickHighest<VisualMood>(aggregated, "visualMood", nd.visualMood ?? "neutral");
+    const designStyle = pickHighest<DesignStyle>(aggregated, "designStyle", nd.designStyle ?? "minimal");
+    const websitePersonality = pickHighest<WebsitePersonality>(aggregated, "websitePersonality", nd.websitePersonality ?? "friendly");
     const visualDensity = pickHighest<VisualDensity>(aggregated, "visualDensity", "balanced");
     const modernityLevel = pickHighest<ModernityLevel>(aggregated, "modernityLevel", "modern");
-    const businessTone = pickHighest<BusinessTone>(aggregated, "businessTone", "professional");
-    const conversionStyle = pickHighest<ConversionStyle>(aggregated, "conversionStyle", "trust-first");
-    const layoutDirection = pickHighest<LayoutDirection>(aggregated, "layoutDirection", "landing");
+    const businessTone = pickHighest<BusinessTone>(aggregated, "businessTone", nd.businessTone ?? "professional");
+    const conversionStyle = pickHighest<ConversionStyle>(aggregated, "conversionStyle", nd.conversionStyle ?? "trust-first");
+    const layoutDirection = pickHighest<LayoutDirection>(aggregated, "layoutDirection", nd.layoutDirection ?? "landing");
     const animationExpectation = pickHighest<AnimationExpectation>(aggregated, "animationExpectation", "subtle");
-    const compositionType = pickHighest<CompositionExpectation>(aggregated, "compositionExpectation", "centered");
+    const compositionType = pickHighest<CompositionExpectation>(aggregated, "compositionExpectation", nd.compositionExpectation ?? "centered");
     const interactionPrimary = pickHighest<InteractionExpectation>(aggregated, "interactionExpectation", "hover-reactive");
-    const imageDirection = pickHighest<ImageDirection>(aggregated, "imageDirection", "mixed-media");
+    const imageDirection = pickHighest<ImageDirection>(aggregated, "imageDirection", nd.imageDirection ?? "mixed-media");
     const brandingDirection = pickHighest<BrandingDirection>(aggregated, "brandingDirection", "logo-centric");
 
     // 6. Apply negations
@@ -1268,7 +1329,6 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
     const shadows = generateShadows(designStyle, visualMood);
     const animation = generateAnimation(animationExpectation, designStyle, websitePersonality);
     const layout = generateLayout(layoutDirection, designStyle, visualDensity);
-    const industry = inferIndustry(entities, keywords);
     const audience = inferAudience(entities);
     const ux = generateUX(layoutDirection, businessTone, conversionStyle, industry, audience);
     const pageStructure = generatePageStructure(layoutDirection, designStyle, websitePersonality, visualDensity);
