@@ -1354,7 +1354,7 @@ function renderNode(node: LayoutNode, ctx: RenderCtx, counters: Record<string, n
 // PAGE-SPECIFIC SECTION OVERRIDES
 // ─────────────────────────────────────────────────────────────────
 
-function renderAboutPage(puo: PromptUnderstandingObject, graph: LayoutGraph, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+function buildAboutMain(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, fp: number): string {
   const photos = getPhotos(puo, fp);
   const photo1 = photos[fp % photos.length];
   const photo2 = photos[(fp + 1) % photos.length];
@@ -1410,14 +1410,18 @@ ${renderStripSection({ type:'strip', variant:'stats-row' } as LayoutNode, { puo,
     </div>
   </div>
 </section>`;
+  return main;
+}
 
+function renderAboutPage(puo: PromptUnderstandingObject, graph: LayoutGraph, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+  const main = buildAboutMain(puo, brand, navItems, copy, fp);
   const nav = buildNav(brand, navItems, 'about');
   const footer = buildFooter(brand, navItems, copy, year);
   const head = buildHead(brand, 'About', copy.aboutBody, font, css, base);
   return `${head}<body>${nav}<main>${main}</main>${footer}${PAGE_JS}</body></html>`;
 }
 
-function renderGalleryPageHtml(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: SiteCopy, fp: number): string {
   const photos = getPhotos(puo, fp);
   const galleryItems = Array.from({ length: 9 }, (_, i) => {
     const photoId = photos[(fp + i + 2) % photos.length];
@@ -1450,15 +1454,19 @@ function renderGalleryPageHtml(puo: PromptUnderstandingObject, brand: string, na
     </div>
   </div>
 </section>`;
+  return main;
+}
 
+function renderGalleryPageHtml(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+  const main = buildGalleryMain(puo, brand, copy, fp);
   const nav = buildNav(brand, navItems, copy.gallerySlug);
   const footer = buildFooter(brand, navItems, copy, year);
   const head = buildHead(brand, copy.galleryHeading, copy.heroSub, font, css, base);
   return `${head}<body>${nav}<main>${main}</main>${footer}${PAGE_JS}</body></html>`;
 }
 
-function renderContactPageHtml(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
-  const main = `
+function buildContactMain(brand: string, copy: SiteCopy): string {
+  return `
 <section style="padding-top:140px">
   <div class="wrap">
     <div class="sec-head reveal">
@@ -1473,7 +1481,7 @@ function renderContactPageHtml(puo: PromptUnderstandingObject, brand: string, na
         <div class="contact-detail"><span class="contact-detail-icon">${ICON_PIN}</span><span>Available worldwide</span></div>
         <div class="contact-detail"><span class="contact-detail-icon">${ICON_CLOCK}</span><span>Mon–Fri, 9am–6pm</span></div>
       </div>
-      <form class="reveal">
+      <form class="reveal" onsubmit="event.preventDefault();this.innerHTML='<p style=&quot;padding:24px 0&quot;>Thanks — your message has been received. We&apos;ll be in touch shortly.</p>';">
         <div><label>Full Name</label><input type="text" name="name" placeholder="Your name" required/></div>
         <div><label>Email Address</label><input type="email" name="email" placeholder="you@email.com" required/></div>
         <div><label>Subject</label><input type="text" name="subject" placeholder="How can we help?"/></div>
@@ -1483,14 +1491,17 @@ function renderContactPageHtml(puo: PromptUnderstandingObject, brand: string, na
     </div>
   </div>
 </section>`;
+}
 
+function renderContactPageHtml(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+  const main = buildContactMain(brand, copy);
   const nav = buildNav(brand, navItems, 'contact');
   const footer = buildFooter(brand, navItems, copy, year);
   const head = buildHead(brand, 'Contact', copy.contactSub, font, css, base);
   return `${head}<body>${nav}<main>${main}</main>${footer}${PAGE_JS}</body></html>`;
 }
 
-function renderPricingPageHtml(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+function buildPricingMain(copy: SiteCopy): string {
   if (!copy.pricingPlans) return '';
 
   const plansHtml = copy.pricingPlans.map(p => {
@@ -1530,7 +1541,12 @@ function renderPricingPageHtml(puo: PromptUnderstandingObject, brand: string, na
     </div>
   </div>
 </section>`;
+  return main;
+}
 
+function renderPricingPageHtml(puo: PromptUnderstandingObject, brand: string, navItems: Array<{label:string;href:string}>, copy: SiteCopy, css: string, font: FontConfig, base: string, fp: number, year: number): string {
+  const main = buildPricingMain(copy);
+  if (!main) return '';
   const nav = buildNav(brand, navItems, 'pricing');
   const footer = buildFooter(brand, navItems, copy, year);
   const head = buildHead(brand, 'Pricing', 'Simple, transparent pricing', font, css, base);
@@ -1541,26 +1557,99 @@ function renderPricingPageHtml(puo: PromptUnderstandingObject, brand: string, na
 // HOMEPAGE BUILDER — driven by LayoutGraph nodes
 // ─────────────────────────────────────────────────────────────────
 
-function buildHomePage(
+function buildHomeMain(
   graph: LayoutGraph,
   puo: PromptUnderstandingObject,
   brand: string,
   navItems: Array<{ label: string; href: string }>,
   copy: SiteCopy,
-  css: string,
-  font: FontConfig,
-  base: string,
-  fp: number,
-  year: number
+  fp: number
 ): string {
   const photos = getPhotos(puo, fp);
   const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0 };
   const counters: Record<string, number> = {};
-  const sections = graph.nodes.map(node => renderNode(node, ctx, counters)).filter(Boolean).join('\n');
+  return graph.nodes.map(node => renderNode(node, ctx, counters)).filter(Boolean).join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SINGLE-DOCUMENT SPA — all pages in one self-contained document with
+// hash-based client routing. Works in preview, published, and srcDoc
+// iframes alike — no server round-trip, no publish dependency, no base href.
+// Every button switches to a genuinely different page instantly.
+// ─────────────────────────────────────────────────────────────────
+
+const SPA_ROUTER_JS = `<script>
+(function(){
+  var hdr=document.getElementById('hdr');
+  if(hdr){window.addEventListener('scroll',function(){hdr.classList.toggle('scrolled',window.scrollY>40);},{passive:true});}
+  var burger=document.getElementById('burger');
+  var mnav=document.getElementById('mnav');
+  if(burger&&mnav){burger.addEventListener('click',function(){mnav.classList.toggle('open');});}
+
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');}});
+  },{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
+
+  var routes={};
+  document.querySelectorAll('.route').forEach(function(el){routes[el.getAttribute('data-route')]=el;});
+
+  function norm(href){
+    if(href==null) return null;
+    href=String(href).trim();
+    if(/^(https?:|mailto:|tel:|javascript:)/i.test(href)) return null;
+    href=href.replace(/^#/,'').replace(/^\\.\\//,'').replace(/^\\//,'').replace(/\\/$/,'');
+    if(href===''||href==='.'||href==='index'||href==='index.html'||href==='home') return 'home';
+    return href;
+  }
+  function setActive(route){
+    document.querySelectorAll('.nav-links a,.mobile-nav a').forEach(function(a){
+      a.classList.toggle('active', norm(a.getAttribute('href'))===route);
+    });
+  }
+  function show(route){
+    if(!routes[route]) route='home';
+    Object.keys(routes).forEach(function(k){
+      var on=k===route;
+      routes[k].style.display=on?'block':'none';
+      if(on) routes[k].querySelectorAll('.reveal').forEach(function(el){el.classList.add('in');});
+    });
+    setActive(route);
+    if(mnav) mnav.classList.remove('open');
+    window.scrollTo(0,0);
+  }
+
+  document.addEventListener('click',function(e){
+    var a=e.target&&e.target.closest?e.target.closest('a'):null; if(!a) return;
+    var r=norm(a.getAttribute('href')); if(r===null) return;
+    if(routes[r]||r==='home'){ e.preventDefault(); var h=(r==='home'?'':'#'+r); if(location.hash!==h){location.hash=h;} else {show(r);} }
+  });
+  window.addEventListener('hashchange',function(){ show(norm(location.hash)||'home'); });
+
+  // Initial render: animate the first visible route via the observer.
+  document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el);});
+  var initial=norm(location.hash)||'home';
+  if(initial!=='home'){ show(initial); } else { setActive('home'); }
+})();
+</script>`;
+
+function buildSpaDocument(
+  brand: string,
+  navItems: Array<{ label: string; href: string }>,
+  copy: SiteCopy,
+  css: string,
+  font: FontConfig,
+  year: number,
+  routes: Array<{ key: string; main: string }>
+): string {
   const nav = buildNav(brand, navItems, '.');
   const footer = buildFooter(brand, navItems, copy, year);
-  const head = buildHead(brand, 'Home', copy.heroSub, font, css, base);
-  return `${head}<body>${nav}<main>${sections}</main>${footer}${PAGE_JS}</body></html>`;
+  // No <base href> — navigation is fully client-side via hash routing.
+  const head = buildHead(brand, 'Home', copy.heroSub, font, css, '');
+  const routeStyle = `<style>.route{display:none}.route:first-child{display:block}</style>`;
+  const routeDivs = routes
+    .map((r, i) => `<div class="route" data-route="${esc(r.key)}" style="display:${i === 0 ? 'block' : 'none'}">${r.main}</div>`)
+    .join('\n');
+  return `${head}${routeStyle}<body>${nav}<main id="app">${routeDivs}</main>${footer}${SPA_ROUTER_JS}</body></html>`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1626,22 +1715,32 @@ export function renderMultiPageSite(
   const font = getFontConfig(puo);
   const css  = buildCSSFromPUO(puo, font);
 
-  // 6. Generate each page with its own independent LayoutGraph
+  // 6. Generate each page's main content (own graph / context per page)
+  const homeMain    = buildHomeMain(rootGraph, puo, brand, navItems, copy, fp);
+  const aboutMain   = buildAboutMain(puo, brand, navItems, copy, fp + 1);
+  const galleryMain = buildGalleryMain(puo, brand, copy, fp + 2);
+  const contactMain = buildContactMain(brand, copy);
+  const pricingMain = copy.pricingPlans ? buildPricingMain(copy) : '';
+
+  // 7. Primary document = self-contained SPA (all pages, client-side routing).
+  //    This is what gets stored in htmlContent and served everywhere, so every
+  //    button navigates to a real different page with no server/publish dependency.
+  const routes: Array<{ key: string; main: string }> = [
+    { key: 'home', main: homeMain },
+    { key: 'about', main: aboutMain },
+    { key: gallerySlug, main: galleryMain },
+    { key: 'contact', main: contactMain },
+  ];
+  if (pricingMain) routes.splice(3, 0, { key: 'pricing', main: pricingMain });
+  const spaDocument = buildSpaDocument(brand, navItems, copy, css, font, year, routes);
+
+  // 8. Per-page standalone documents — kept for direct-URL access on published
+  //    sites (served by the [section] route). Navigation primarily uses the SPA.
   const pages: Record<string, string> = {};
-
-  // Home: use root graph (driven by prompt)
-  pages['/'] = buildHomePage(rootGraph, puo, brand, navItems, copy, css, font, base, fp, year);
-
-  // About: own graph seeded with page context
+  pages['/'] = spaDocument;
   pages['/about'] = renderAboutPage(puo, composePageGraph(puo, 'about', fp), brand, navItems, copy, css, font, base, fp + 1, year);
-
-  // Gallery: own graph
   pages[`/${gallerySlug}`] = renderGalleryPageHtml(puo, brand, navItems, copy, css, font, base, fp + 2, year);
-
-  // Contact: own graph
   pages['/contact'] = renderContactPageHtml(puo, brand, navItems, copy, css, font, base, fp + 3, year);
-
-  // Pricing (conditional)
   if (copy.pricingPlans) {
     pages['/pricing'] = renderPricingPageHtml(puo, brand, navItems, copy, css, font, base, fp + 4, year);
   }
@@ -1650,7 +1749,7 @@ export function renderMultiPageSite(
     pages,
     nav: navItems,
     gallerySlug,
-    primaryPage: pages['/'],
+    primaryPage: spaDocument,
   };
 }
 
