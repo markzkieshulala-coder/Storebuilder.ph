@@ -262,7 +262,7 @@ const ENTITY_PATTERNS: Array<{ type: string; regex: RegExp; normalizer: (match: 
   },
   {
     type: "industry",
-    regex: /\b(fashion|streetwear|apparel|clothing|technology|tech|software|health|fitness|crossfit|gym|workout|finance|fintech|food|restaurant|cafe|coffee|bakery|bistro|diner|brewery|sports|athletic|travel|hotel|resort|education|automotive|music|entertainment|gaming|art|photography|photographer|law|legal|consulting|marketing|advertising|saas|ecommerce|retail|boutique|beauty|salon|spa|wellness|yoga|meditation|crypto|blockchain|startup|agency|studio|design|architecture|interior|nonprofit|portfolio)\b/gi,
+    regex: /\b(fashion|streetwear|apparel|clothing|technology|tech|software|health|fitness|crossfit|gym|workout|pilates|yoga|boxing|hiit|bodybuilding|finance|fintech|food|restaurant|cafe|coffee|espresso|barista|latte|cappuccino|boba|smoothie|ramen|sushi|pizza|burger|barbecue|bakery|bistro|diner|brewery|bar|brunch|sports|athletic|travel|hotel|resort|education|automotive|music|entertainment|gaming|art|photography|photographer|videography|film|law|legal|consulting|marketing|advertising|saas|ecommerce|retail|boutique|beauty|salon|spa|wellness|meditation|massage|tattoo|barbershop|barber|grooming|nail|dental|dentist|clinic|therapy|crypto|blockchain|startup|agency|studio|design|architecture|interior|illustration|nonprofit|portfolio)\b/gi,
     normalizer: (m) => m.toLowerCase(),
   },
   {
@@ -458,9 +458,12 @@ function nicheDefaults(industry: string): NicheDefaults {
   return {};
 }
 
-// Umbrella terms that should lose to a more specific niche word when both appear
-// (e.g. "tech studio for a coffee brand" → coffee, not tech/studio).
-const GENERIC_INDUSTRY = new Set(["tech", "technology", "retail", "studio", "design", "art", "software", "startup", "agency"]);
+// Umbrella terms that lose to a more specific niche when both appear in the prompt.
+// e.g. "a tech startup for a ramen restaurant" → ramen wins over tech/startup/restaurant.
+const GENERIC_INDUSTRY = new Set([
+  "tech", "technology", "retail", "studio", "design", "art", "software", "startup",
+  "agency", "food", "sports", "fitness", "health", "education", "business", "fashion",
+]);
 
 function inferIndustry(entities: ExtractedEntity[], keywords: string[]): string {
   const industryEntities = entities.filter((e) => e.type === "industry");

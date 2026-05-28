@@ -179,9 +179,8 @@ function DashboardContent() {
     setGenerationStep(0);
     setAnalysisSteps(["Analyzing your prompt…"]);
     try {
-      // PHASE 1 — understand the prompt and form a clear visual concept first.
+      // PHASE 1 — understand the prompt and display the concept.
       let steps = GENERATION_STEPS;
-      let geminiConcept: any = null;
       try {
         const aRes = await fetch("/api/analyze", {
           method: "POST",
@@ -192,9 +191,6 @@ function DashboardContent() {
           const aData = await aRes.json();
           if (Array.isArray(aData.steps) && aData.steps.length) steps = aData.steps;
           if (aData.concept) setConcept(aData.concept);
-          // The raw analyzer concept drives generation so the built site matches
-          // exactly what the analysis phase displayed.
-          if (aData.geminiConcept) geminiConcept = aData.geminiConcept;
         }
       } catch {
         // Analysis is best-effort — fall back to the generic step labels.
@@ -202,15 +198,12 @@ function DashboardContent() {
       setAnalysisSteps(steps);
 
       // PHASE 2 — kick off generation in parallel with the concept walkthrough.
-      // Pass the same analyzer concept so the renderer builds the understood site.
+      // /api/generate calls buildUnderstanding with the same prompt, producing
+      // the identical PUO that drove the analysis display.
       const genPromise = fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          businessName: businessName.trim(),
-          concept: geminiConcept,
-        }),
+        body: JSON.stringify({ prompt: prompt.trim(), businessName: businessName.trim() }),
       });
 
       // Walk through the understanding steps over ~16s so the user sees the

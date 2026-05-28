@@ -53,8 +53,14 @@ function rotate<T>(arr: T[], by: number): T[] {
   return arr.slice(n).concat(arr.slice(0, n));
 }
 
-function ph(id: string, w: number, h: number): string {
-  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
+// Builds an Unsplash image URL.
+// - If `ref` starts with `?` it's a keyword query → source.unsplash.com (relevant images).
+// - Otherwise it's a raw Unsplash photo ID → images.unsplash.com (deterministic).
+function ph(ref: string, w: number, h: number): string {
+  if (ref.startsWith('?')) {
+    return `https://source.unsplash.com/${w}x${h}/${ref}`;
+  }
+  return `https://images.unsplash.com/photo-${ref}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -380,66 +386,81 @@ footer{background:color-mix(in srgb,var(--bg) 70%,var(--surf));border-top:1px so
 // PHOTO BANK — keyed by visual mood + industry
 // ─────────────────────────────────────────────────────────────────
 
-const PHOTOS_BY_MOOD: Record<string, string[]> = {
-  dark:     ['1546519638-68e109498ffc','1551963831-d3b034eda6c1','1507003211169-0a1dd7228f2d','1478720568477-152d9b92543f'],
-  dramatic: ['1519861531473-9200262188bf','1574629810360-7efbbe195018','1516466723360-e8a869c7b0ea','1547891654-e332f33f5571'],
-  vibrant:  ['1559339352-11d035aa65de','1568992687947-868a62a9f521','1505740420928-5e560c06d30e','1504173010664-32509aeebb62'],
-  warm:     ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445'],
-  cold:     ['1460925895917-afdab827c52f','1551434678-e076c223a692','1496181133206-80ce9b88a853','1504384308090-c894fdcc538d'],
-  ethereal: ['1452587925148-ce544e77e70d','1493863641943-9b68992a8d07','1533461502717-83f69c69e1a3','1481627834876-b7833e8f5cf1'],
-  light:    ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1497366216548-37526070297c'],
-  neutral:  ['1542744173-8e7e53415bb0','1519090347852-b6fa5e2fe0b9','1454165804606-c3d57bc86b40','1531973576160-7125cd663d86'],
-};
-
-const PHOTOS_BY_INDUSTRY: Record<string, string[]> = {
-  sports:       ['1546519638-68e109498ffc','1574629810360-7efbbe195018','1519861531473-9200262188bf','1574623452334-1e0ac2b3ccb4'],
-  food:         ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445'],
-  photography:  ['1452587925148-ce544e77e70d','1581291518857-4d27a4f0e37a','1517048676732-d65bc937f952','1492551557933-34265f7af79e'],
-  technology:   ['1551434678-e076c223a692','1460925895917-afdab827c52f','1504384308090-c894fdcc538d','1556761175-5973dc0f32e7'],
-  fashion:      ['1483985988355-763728e1935b','1490481651871-ab68de25d43d','1441986300917-64674bd600d8','1525507119028-ed4c629a60a3'],
-  ecommerce:    ['1523275335684-37898b6baf30','1542291026-7eec264c27ff','1553062407-98eeb64c6a62','1491553895911-0055eca6402d'],
-  portfolio:    ['1497366216548-37526070297c','1497366811353-6870744d04b2','1522202176988-66273c2fd55f','1544717305-2782549b5bd6'],
-  agency:       ['1556761175-5973dc0f32e7','1542744173-8e7e53415bb0','1497215842964-222b430dc094','1531403009284-440f080d1e12'],
-  general:      ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1542744173-8e7e53415bb0'],
-};
-
-// Maps raw inferredIndustry values (from entity regex) → canonical bank keys.
-// Keeps photos and copy locked to the prompt's real niche instead of falling to "general".
+// Maps raw inferredIndustry values → canonical copy/stat bank keys.
 const INDUSTRY_KEY_MAP: Record<string, string> = {
-  food: 'food', restaurant: 'food', cafe: 'food', coffee: 'food', bakery: 'food', dining: 'food', bistro: 'food', diner: 'food', brewery: 'food',
-  sports: 'sports', fitness: 'sports', gym: 'sports', athletic: 'sports', workout: 'sports', crossfit: 'sports',
-  technology: 'technology', tech: 'technology', saas: 'technology', software: 'technology', startup: 'technology',
-  ai: 'technology', crypto: 'technology', blockchain: 'technology', fintech: 'technology', gaming: 'technology',
-  photography: 'photography', photographer: 'photography',
-  fashion: 'fashion', beauty: 'fashion', apparel: 'fashion', clothing: 'fashion', streetwear: 'fashion', boutique: 'fashion',
+  // Food & beverage — specific sub-niches map to 'food' for copy banks
+  food: 'food', restaurant: 'food', cafe: 'food', coffee: 'food', bakery: 'food',
+  dining: 'food', bistro: 'food', diner: 'food', brewery: 'food', bar: 'food',
+  ramen: 'food', sushi: 'food', pizza: 'food', burger: 'food', barbecue: 'food',
+  espresso: 'food', barista: 'food', boba: 'food', smoothie: 'food', brunch: 'food',
+  // Sports & fitness — specific sub-niches map to 'sports'
+  sports: 'sports', fitness: 'sports', gym: 'sports', athletic: 'sports',
+  workout: 'sports', crossfit: 'sports', pilates: 'sports', yoga: 'sports',
+  boxing: 'sports', martial: 'sports', hiit: 'sports', bodybuilding: 'sports',
+  // Technology
+  technology: 'technology', tech: 'technology', saas: 'technology', software: 'technology',
+  startup: 'technology', ai: 'technology', crypto: 'technology', blockchain: 'technology',
+  fintech: 'technology', gaming: 'technology',
+  // Photography & creative
+  photography: 'photography', photographer: 'photography', film: 'photography', videography: 'photography',
+  // Fashion & beauty
+  fashion: 'fashion', beauty: 'fashion', apparel: 'fashion', clothing: 'fashion',
+  streetwear: 'fashion', boutique: 'fashion', salon: 'fashion', tattoo: 'fashion',
+  barbershop: 'fashion', barber: 'fashion', grooming: 'fashion', nail: 'fashion',
+  // E-commerce
   ecommerce: 'ecommerce', retail: 'ecommerce', shop: 'ecommerce', store: 'ecommerce', product: 'ecommerce',
-  portfolio: 'portfolio', art: 'portfolio', design: 'portfolio', architecture: 'portfolio', interior: 'portfolio',
-  agency: 'agency', marketing: 'agency', consulting: 'agency', advertising: 'agency', branding: 'agency', studio: 'agency',
+  // Portfolio & design
+  portfolio: 'portfolio', art: 'portfolio', design: 'portfolio', architecture: 'portfolio',
+  interior: 'portfolio', illustration: 'portfolio',
+  // Agency & marketing
+  agency: 'agency', marketing: 'agency', consulting: 'agency', advertising: 'agency',
+  branding: 'agency', studio: 'agency', pr: 'agency',
+  // Wellness & health
+  spa: 'wellness', wellness: 'wellness', meditation: 'wellness', massage: 'wellness',
+  therapy: 'wellness', dental: 'wellness', dentist: 'wellness', clinic: 'wellness',
+  // Legal & professional
+  law: 'professional', legal: 'professional', nonprofit: 'professional',
+  // Hospitality
+  hotel: 'hospitality', resort: 'hospitality', travel: 'hospitality',
 };
 
 function normalizeIndustry(raw: string): string {
   return INDUSTRY_KEY_MAP[raw] || 'general';
 }
 
-// Closest visually-compatible niche, used to widen the photo set without going off-theme.
-const RELATED_INDUSTRY: Record<string, string> = {
-  photography: 'portfolio',
-  portfolio: 'photography',
-  fashion: 'ecommerce',
-  ecommerce: 'fashion',
-  agency: 'technology',
-};
+// Keyword → Unsplash Source query string. Photos are pulled by the actual
+// subject of the prompt, not a static bank.
+// Format: `?keyword1,keyword2,qualifier` — fed to source.unsplash.com/{W}x{H}/
+function buildPhotoQuery(subjects: string[], moodQ: string): string {
+  return `?${encodeURIComponent(subjects.join(',') + moodQ)}`;
+}
 
 function getPhotos(puo: PromptUnderstandingObject, _fp: number): string[] {
-  const key = normalizeIndustry(puo.inferredIndustry);
-  if (key !== 'general') {
-    // Lock every image to the prompt's niche — never blend in generic mood stock.
-    const primary = PHOTOS_BY_INDUSTRY[key] || PHOTOS_BY_INDUSTRY.general;
-    const related = RELATED_INDUSTRY[key] ? PHOTOS_BY_INDUSTRY[RELATED_INDUSTRY[key]] : [];
-    return [...new Set([...primary, ...related])];
-  }
-  // No specific niche → mood photos give visual coherence for generic business sites.
-  return PHOTOS_BY_MOOD[puo.visualMood] || PHOTOS_BY_INDUSTRY.general;
+  const words = getContentWords(puo);                    // real content nouns from prompt
+  const rawIndustry = puo.inferredIndustry.toLowerCase();
+  const isDark = ['dark', 'dramatic', 'contrast'].includes(puo.visualMood);
+  const moodQ = isDark ? ',dark,moody' : puo.visualMood === 'warm' ? ',warm,cozy'
+    : puo.visualMood === 'ethereal' ? ',dreamy,light' : '';
+
+  // Subjects: content words from the prompt come first (most specific),
+  // then the raw industry slug (e.g. "ramen", "crossfit", "espresso").
+  const s0 = words[0] || rawIndustry;
+  const s1 = words[1] || rawIndustry;
+  const s2 = words[2] || normalizeIndustry(rawIndustry);
+  const combined = [s0, s1].filter(Boolean).join(',');
+
+  return [
+    buildPhotoQuery([s0, s1], moodQ),                  // hero — most specific match
+    buildPhotoQuery([combined, 'interior'], moodQ),     // split section — interior
+    buildPhotoQuery([s0], moodQ),                       // feature tile
+    buildPhotoQuery([s1, s2], moodQ),                   // gallery 1
+    buildPhotoQuery([s0, 'detail'], ''),                 // gallery 2 — close-up detail
+    buildPhotoQuery([rawIndustry], moodQ),              // gallery 3 — niche generic
+    buildPhotoQuery([s1, 'lifestyle'], ''),              // gallery 4 — lifestyle
+    buildPhotoQuery([s2], moodQ),                       // about page
+    buildPhotoQuery([s0, s2], ''),                      // team / secondary
+    buildPhotoQuery([combined], moodQ),                 // CTA background
+  ];
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -509,8 +530,21 @@ function getContentWords(puo: PromptUnderstandingObject): string[] {
 // Human-readable subject for a niche, used as the headline anchor when the prompt
 // has no distinctive content noun of its own. Reads naturally in copy patterns.
 const NICHE_SUBJECT: Record<string, string> = {
-  food: 'Flavour', sports: 'Performance', technology: 'Innovation', photography: 'Imagery',
-  fashion: 'Style', ecommerce: 'Shopping', portfolio: 'Craft', agency: 'Strategy', general: 'Excellence',
+  food: 'Flavour', restaurant: 'Cuisine', cafe: 'Coffee', coffee: 'Coffee',
+  ramen: 'Ramen', sushi: 'Sushi', pizza: 'Pizza', burger: 'Burgers', bakery: 'Pastry',
+  espresso: 'Espresso', barista: 'Coffee', boba: 'Boba', brunch: 'Brunch', bar: 'Cocktails',
+  sports: 'Performance', gym: 'Training', fitness: 'Fitness', crossfit: 'CrossFit',
+  yoga: 'Yoga', pilates: 'Pilates', boxing: 'Boxing', wellness: 'Wellness',
+  technology: 'Innovation', saas: 'Software', startup: 'Technology',
+  photography: 'Imagery', videography: 'Film',
+  fashion: 'Style', streetwear: 'Streetwear', beauty: 'Beauty', salon: 'Styling',
+  tattoo: 'Ink', barbershop: 'Grooming', barber: 'Grooming',
+  ecommerce: 'Shopping', retail: 'Products',
+  portfolio: 'Craft', art: 'Art', design: 'Design', architecture: 'Architecture',
+  agency: 'Strategy', marketing: 'Marketing', consulting: 'Consulting',
+  spa: 'Wellness', massage: 'Relaxation', dental: 'Care', therapy: 'Healing',
+  hotel: 'Hospitality', travel: 'Experience',
+  general: 'Excellence',
 };
 
 function titleCase(s: string): string {
@@ -529,9 +563,12 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const gallerySlug = detectGallerySlug(puo);
   const hiddenCfg = getHiddenPageConfig(normIndustry);
 
-  // Derive headline descriptors. The prompt's own content noun wins; otherwise a
-  // natural niche subject is used (never the raw industry slug like "ecommerce").
-  const nicheSubject = NICHE_SUBJECT[normIndustry] || (industry !== 'general' ? titleCase(industry) : 'Excellence');
+  // Derive headline descriptors. The prompt's own content noun wins (most specific);
+  // then the specific industry slug subject ("ramen" → "Ramen"); then the normalized
+  // niche subject ("food" → "Flavour"). Never falls through to a generic word.
+  const rawSubject = NICHE_SUBJECT[industry] || (industry !== 'general' ? titleCase(industry) : null);
+  const normSubject = NICHE_SUBJECT[normIndustry] || null;
+  const nicheSubject = rawSubject || normSubject || 'Excellence';
   const mainKw = kws[0] ? titleCase(kws[0]) : nicheSubject;
   const secKw  = kws[1] ? titleCase(kws[1]) : nicheSubject !== 'Experience' ? 'Experience' : 'Quality';
   const thirdKw = kws[2] ? titleCase(kws[2]) : 'Innovation';

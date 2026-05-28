@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateWebsite } from "@/lib/engine";
-import { buildUnderstanding, type AnalyzerConcept } from "@/lib/engine/understanding";
+import { buildUnderstanding } from "@/lib/engine/understanding";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,10 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    // `concept` is the raw analyzer (Gemini) understanding produced by /api/analyze.
-    const { prompt, businessName, concept } = body as {
-      prompt?: string; businessName?: string; concept?: AnalyzerConcept | null;
-    };
+    const { prompt, businessName } = body as { prompt?: string; businessName?: string };
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 8) {
       return NextResponse.json(
@@ -58,10 +55,9 @@ export async function POST(req: NextRequest) {
     // Generate subdomain first so the renderer can embed correct <base href> links
     const subdomain = generateSubdomain(brandName);
 
-    // Build the ONE canonical understanding (same call /api/analyze made) and
-    // thread it straight into the engine. The renderer uses this verbatim
-    // instead of re-parsing, so the site matches the concept the user was shown.
-    const understanding = buildUnderstanding(cleanPrompt, concept);
+    // Build the canonical understanding — same function /api/analyze calls,
+    // so the concept the user sees and the site that gets built are identical.
+    const understanding = buildUnderstanding(cleanPrompt);
 
     console.log(`[generate] Pipeline for "${brandName}" — niche="${understanding.inferredIndustry}" mood="${understanding.visualMood}" style="${understanding.designStyle}"`);
 
