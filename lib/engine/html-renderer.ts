@@ -47,6 +47,12 @@ function pick<T>(arr: readonly T[], seed: number): T {
   return arr[Math.abs(seed) % arr.length];
 }
 
+function rotate<T>(arr: T[], by: number): T[] {
+  if (arr.length === 0) return arr;
+  const n = ((by % arr.length) + arr.length) % arr.length;
+  return arr.slice(n).concat(arr.slice(0, n));
+}
+
 function ph(id: string, w: number, h: number): string {
   return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
 }
@@ -358,19 +364,50 @@ const PHOTOS_BY_INDUSTRY: Record<string, string[]> = {
   food:         ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445'],
   photography:  ['1452587925148-ce544e77e70d','1581291518857-4d27a4f0e37a','1517048676732-d65bc937f952','1492551557933-34265f7af79e'],
   technology:   ['1551434678-e076c223a692','1460925895917-afdab827c52f','1504384308090-c894fdcc538d','1556761175-5973dc0f32e7'],
-  saas:         ['1551434678-e076c223a692','1496181133206-80ce9b88a853','1460925895917-afdab827c52f','1531403009284-440f080d1e12'],
   fashion:      ['1483985988355-763728e1935b','1490481651871-ab68de25d43d','1441986300917-64674bd600d8','1525507119028-ed4c629a60a3'],
   ecommerce:    ['1523275335684-37898b6baf30','1542291026-7eec264c27ff','1553062407-98eeb64c6a62','1491553895911-0055eca6402d'],
-  design:       ['1497366216548-37526070297c','1497366811353-6870744d04b2','1522202176988-66273c2fd55f','1544717305-2782549b5bd6'],
-  fitness:      ['1574629810360-7efbbe195018','1518611012144-8b3ccec0fb77','1517649763962-0c623066013b','1552674605-db6ffd4facb5'],
+  portfolio:    ['1497366216548-37526070297c','1497366811353-6870744d04b2','1522202176988-66273c2fd55f','1544717305-2782549b5bd6'],
+  agency:       ['1556761175-5973dc0f32e7','1542744173-8e7e53415bb0','1497215842964-222b430dc094','1531403009284-440f080d1e12'],
   general:      ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1542744173-8e7e53415bb0'],
 };
 
-function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
-  const byIndustry = PHOTOS_BY_INDUSTRY[puo.inferredIndustry] || PHOTOS_BY_INDUSTRY.general;
-  const byMood = PHOTOS_BY_MOOD[puo.visualMood] || PHOTOS_BY_MOOD.neutral;
-  // Interleave by fingerprint
-  return fp % 2 === 0 ? [...byIndustry, ...byMood] : [...byMood, ...byIndustry];
+// Maps raw inferredIndustry values (from entity regex) → canonical bank keys.
+// Keeps photos and copy locked to the prompt's real niche instead of falling to "general".
+const INDUSTRY_KEY_MAP: Record<string, string> = {
+  food: 'food', restaurant: 'food', cafe: 'food', coffee: 'food', bakery: 'food', dining: 'food', bistro: 'food', diner: 'food', brewery: 'food',
+  sports: 'sports', fitness: 'sports', gym: 'sports', athletic: 'sports', workout: 'sports', crossfit: 'sports',
+  technology: 'technology', tech: 'technology', saas: 'technology', software: 'technology', startup: 'technology',
+  ai: 'technology', crypto: 'technology', blockchain: 'technology', fintech: 'technology', gaming: 'technology',
+  photography: 'photography', photographer: 'photography',
+  fashion: 'fashion', beauty: 'fashion', apparel: 'fashion', clothing: 'fashion', streetwear: 'fashion', boutique: 'fashion',
+  ecommerce: 'ecommerce', retail: 'ecommerce', shop: 'ecommerce', store: 'ecommerce', product: 'ecommerce',
+  portfolio: 'portfolio', art: 'portfolio', design: 'portfolio', architecture: 'portfolio', interior: 'portfolio',
+  agency: 'agency', marketing: 'agency', consulting: 'agency', advertising: 'agency', branding: 'agency', studio: 'agency',
+};
+
+function normalizeIndustry(raw: string): string {
+  return INDUSTRY_KEY_MAP[raw] || 'general';
+}
+
+// Closest visually-compatible niche, used to widen the photo set without going off-theme.
+const RELATED_INDUSTRY: Record<string, string> = {
+  photography: 'portfolio',
+  portfolio: 'photography',
+  fashion: 'ecommerce',
+  ecommerce: 'fashion',
+  agency: 'technology',
+};
+
+function getPhotos(puo: PromptUnderstandingObject, _fp: number): string[] {
+  const key = normalizeIndustry(puo.inferredIndustry);
+  if (key !== 'general') {
+    // Lock every image to the prompt's niche — never blend in generic mood stock.
+    const primary = PHOTOS_BY_INDUSTRY[key] || PHOTOS_BY_INDUSTRY.general;
+    const related = RELATED_INDUSTRY[key] ? PHOTOS_BY_INDUSTRY[RELATED_INDUSTRY[key]] : [];
+    return [...new Set([...primary, ...related])];
+  }
+  // No specific niche → mood photos give visual coherence for generic business sites.
+  return PHOTOS_BY_MOOD[puo.visualMood] || PHOTOS_BY_INDUSTRY.general;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -391,6 +428,8 @@ interface SiteCopy {
   aboutHeading: string;
   aboutBody: string;
   aboutBullets: string[];
+  missionHeading: string;
+  missionBody: string;
   galleryHeading: string;
   gallerySlug: string;
   contactHeading: string;
@@ -416,6 +455,7 @@ function titleCase(s: string): string {
 function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number): SiteCopy {
   const kws = getContentWords(puo);
   const industry = puo.inferredIndustry;
+  const normIndustry = normalizeIndustry(industry);
   const mood = puo.visualMood;
   const personality = puo.websitePersonality;
   const tone = puo.businessTone;
@@ -483,30 +523,35 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const featureHref = featureLinkMap[direction] || (gallerySlug !== 'gallery' ? gallerySlug : 'about');
 
   const FEATURE_SUFFIXES_BY_INDUSTRY: Record<string, string[]> = {
-    'food': ['Experience','Craft','Tradition','Flavour','Quality','Freshness','Recipe','Story'],
-    'sports': ['Performance','Training','Edge','Power','Speed','Technique','Results','Program'],
-    'technology': ['Engine','Platform','Suite','Intelligence','API','Dashboard','Flow','System'],
-    'photography': ['Portfolio','Gallery','Shoot','Vision','Style','Process','Collection','Work'],
-    'fashion': ['Collection','Look','Style','Season','Edit','Drop','Range','Line'],
-    'saas': ['Engine','Suite','Platform','Hub','Intelligence','Dashboard','API','Flow'],
-    'general': ['System','Suite','Hub','Platform','Edge','Solution','Flow','Intelligence'],
+    food:        ['Experience','Craft','Tradition','Flavour','Quality','Freshness','Recipe','Story'],
+    sports:      ['Performance','Training','Edge','Power','Speed','Technique','Results','Program'],
+    technology:  ['Engine','Platform','Suite','Intelligence','API','Dashboard','Flow','System'],
+    photography: ['Portfolio','Gallery','Shoot','Vision','Style','Process','Collection','Work'],
+    fashion:     ['Collection','Look','Style','Season','Edit','Drop','Range','Line'],
+    ecommerce:   ['Collection','Selection','Range','Shop','Bestsellers','Edit','Picks','Store'],
+    portfolio:   ['Showcase','Project','Vision','Process','Series','Collection','Work','Study'],
+    agency:      ['Strategy','Campaign','Brand','Studio','Approach','System','Method','Craft'],
+    general:     ['System','Suite','Hub','Platform','Edge','Solution','Flow','Intelligence'],
   };
-  const suffixes = FEATURE_SUFFIXES_BY_INDUSTRY[industry] || FEATURE_SUFFIXES_BY_INDUSTRY.general;
+  const suffixes = FEATURE_SUFFIXES_BY_INDUSTRY[normIndustry] || FEATURE_SUFFIXES_BY_INDUSTRY.general;
 
-  const FEATURE_DESC_BY_INDUSTRY: Record<string, string> = {
-    'food': `Authentic ${kws[0] || mainKw} crafted with passion and served with pride.`,
-    'sports': `Elevate your ${kws[0] || mainKw} performance with expert-level training and coaching.`,
-    'technology': `Powerful ${kws[0] || mainKw} capabilities built for modern engineering teams.`,
-    'photography': `Capturing the essence of ${kws[0] || mainKw} through a unique visual perspective.`,
-    'fashion': `Curated ${kws[0] || mainKw} pieces that define your individual style.`,
-    'saas': `Streamline your ${kws[0] || mainKw} workflow with intelligent automation and analytics.`,
-    'general': `Exceptional ${kws[0] || mainKw} services tailored to your specific needs.`,
+  const FEATURE_DESC_BY_INDUSTRY: Record<string, (kw: string) => string> = {
+    food:        (kw) => `Authentic ${kw} crafted with passion and served with pride.`,
+    sports:      (kw) => `Elevate your ${kw} performance with expert-level training and coaching.`,
+    technology:  (kw) => `Powerful ${kw} capabilities built for modern engineering teams.`,
+    photography: (kw) => `Capturing the essence of ${kw} through a refined visual perspective.`,
+    fashion:     (kw) => `Curated ${kw} pieces that define your individual style.`,
+    ecommerce:   (kw) => `A seamless ${kw} shopping experience, from first browse to checkout.`,
+    portfolio:   (kw) => `A showcase of ${kw} work crafted with attention to every detail.`,
+    agency:      (kw) => `Strategic ${kw} solutions that move your brand forward.`,
+    general:     (kw) => `Exceptional ${kw} tailored to your specific needs.`,
   };
+  const descFor = FEATURE_DESC_BY_INDUSTRY[normIndustry] || FEATURE_DESC_BY_INDUSTRY.general;
 
   const allKwFeatures = kws.slice(0, 6).map((kw, i) => ({
     icon: ICONS[(fp + i) % ICONS.length],
     title: `${titleCase(kw)} ${pick(suffixes, fp + i)}`,
-    desc: `${titleCase(kw)} ${FEATURE_DESC_BY_INDUSTRY[industry] || `capabilities designed specifically for ${industry} professionals.`}`,
+    desc: descFor(kw),
     href: featureHref,
   }));
   // Pad to 3 with generic feature descriptions if needed
@@ -522,15 +567,17 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Stats
   const statBanks: Record<string, Array<{ number: string; label: string }>> = {
-    saas:       [{number:'10K+',label:'Active Users'},{number:'99.9%',label:'Uptime SLA'},{number:'4.9★',label:'User Rating'},{number:'<100ms',label:'Response Time'}],
+    technology: [{number:'10K+',label:'Active Users'},{number:'99.9%',label:'Uptime SLA'},{number:'4.9★',label:'User Rating'},{number:'<100ms',label:'Response Time'}],
     ecommerce:  [{number:'50K+',label:'Products'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'120+',label:'Countries'}],
     portfolio:  [{number:'200+',label:'Projects'},{number:'8+',label:'Years Experience'},{number:'50+',label:'Clients'},{number:'15+',label:'Awards'}],
+    photography:[{number:'200+',label:'Shoots'},{number:'12+',label:'Years'},{number:'50+',label:'Clients'},{number:'15+',label:'Awards'}],
+    fashion:    [{number:'120+',label:'Pieces'},{number:'4.9★',label:'Reviews'},{number:'30+',label:'Collections'},{number:'90+',label:'Stockists'}],
     sports:     [{number:'500+',label:'Athletes'},{number:'100+',label:'Championships'},{number:'5★',label:'Coaching'},{number:'20+',label:'Sports'}],
     food:       [{number:'200+',label:'Menu Items'},{number:'4.9★',label:'Reviews'},{number:'10+',label:'Years Open'},{number:'Daily',label:'Fresh Ingredients'}],
     agency:     [{number:'300+',label:'Clients'},{number:'$50M+',label:'Revenue Generated'},{number:'10+',label:'Years'},{number:'50+',label:'Experts'}],
     general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5★',label:'Rating'}],
   };
-  const stats = (statBanks[industry] || statBanks.general).slice(0, 4);
+  const stats = (statBanks[normIndustry] || statBanks.general).slice(0, 4);
 
   // Testimonials — vary by industry for authenticity
   const TESTIMONIAL_ROLES: Record<string, string[]> = {
@@ -539,10 +586,12 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     technology: ['CTO, TechCorp','Head of Engineering, BuildFast','Lead Developer, DataFlow','VP Product, ScaleUp'],
     photography:['Art Director, Studio9','Creative Director, Brand Co','Marketing Lead, Vision Co','Publisher, Photo Weekly'],
     fashion:    ['Fashion Editor','Style Consultant','Brand Manager','Loyal Customer'],
-    saas:       ['CEO, TechCorp','Head of Operations, ScaleUp','Founder, BuildFast','Product Manager, DataFlow'],
+    ecommerce:  ['Verified Buyer','Repeat Customer','Brand Partner','First-time Shopper'],
+    portfolio:  ['Art Director, Studio9','Creative Director, Brand Co','Gallery Curator','Editorial Lead'],
+    agency:     ['CMO, GrowthCo','Brand Director, ScaleUp','Founder, BuildFast','Head of Marketing, DataFlow'],
     general:    ['CEO, GrowthCo','Operations Director, ScaleUp','Founder, BuildFast','Product Lead, DataFlow'],
   };
-  const roles = TESTIMONIAL_ROLES[industry] || TESTIMONIAL_ROLES.general;
+  const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
 
   const TESTIMONIAL_QUOTES: Record<string, string[]> = {
     food:       [
@@ -555,13 +604,38 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       `The ${mainKw} program at ${brand} is world-class. I've trained everywhere — this is the best.`,
       `Incredible ${mainKw} coaching. My technique improved dramatically in just weeks.`,
     ],
+    technology: [
+      `${brand} transformed how our team handles ${mainKw}. The results speak for themselves.`,
+      `We've tried every tool out there — nothing matches what ${brand} delivers for ${secKw}.`,
+      `Our ${mainKw} metrics improved by 3x within the first month of using ${brand}.`,
+    ],
+    photography:[
+      `${brand} captured exactly the ${mainKw} vision we had in mind. Stunning work.`,
+      `Every frame ${brand} delivers is gallery-worthy. The ${secKw} is unmatched.`,
+      `Working with ${brand} on our ${mainKw} shoot was effortless and inspiring.`,
+    ],
+    fashion:    [
+      `${brand} has become my go-to for ${mainKw}. Every piece feels considered.`,
+      `The ${mainKw} collection from ${brand} is unlike anything else out there.`,
+      `${brand} understands ${secKw} better than any label I've worked with.`,
+    ],
+    ecommerce:  [
+      `Ordering ${mainKw} from ${brand} was seamless — fast shipping and beautiful packaging.`,
+      `${brand} is the only place I shop for ${mainKw} now. Quality every single time.`,
+      `The ${secKw} selection at ${brand} keeps me coming back month after month.`,
+    ],
+    agency:     [
+      `${brand} reimagined our ${mainKw} from the ground up. Our brand has never looked sharper.`,
+      `The ${brand} team treated our ${mainKw} like their own. The results were undeniable.`,
+      `Our ${secKw} engagement tripled after partnering with ${brand}.`,
+    ],
     general:    [
       `${brand} completely transformed our ${mainKw} operations. The results are undeniable.`,
       `Nothing compares to what ${brand} delivers. Our ${secKw} metrics improved by 3x.`,
       `The ${mainKw} experience with ${brand} is unmatched. Every team should use this.`,
     ],
   };
-  const quotes = TESTIMONIAL_QUOTES[industry] || TESTIMONIAL_QUOTES.general;
+  const quotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
   const names = ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'];
   const testimonials = names.map((name, i) => ({
     quote: quotes[i] || quotes[0],
@@ -579,9 +653,13 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     `Transparent, honest, always improving`,
   ];
 
+  // Mission — distinct from the About story so stage + split sections never clone.
+  const missionHeading = pick([`Our Approach`, `Why ${brand}`, `Built Different`, `What Drives Us`, `The ${brand} Difference`], fp + 4);
+  const missionBody = `Every detail at ${brand} is intentional. We pair deep ${mainKw} expertise with an obsession for ${secKw}, crafting an experience people come back to. No shortcuts — just work we're proud to put our name on.`;
+
   // Gallery
-  const galleryLabel = { portfolio: 'Portfolio', ecommerce: 'Shop', saas: 'Features', restaurant: 'Menu', sports: 'Gallery', agency: 'Work', general: 'Gallery' };
-  const galleryHeading = `Our ${(galleryLabel[industry as keyof typeof galleryLabel] || galleryLabel.general)}`;
+  const galleryLabel: Record<string, string> = { portfolio: 'Portfolio', ecommerce: 'Shop', technology: 'Features', food: 'Menu', sports: 'Gallery', photography: 'Portfolio', fashion: 'Collection', agency: 'Work', general: 'Gallery' };
+  const galleryHeading = `Our ${(galleryLabel[normIndustry] || galleryLabel.general)}`;
 
   // Contact
   const contactHeading = `Let's Talk ${mainKw}`;
@@ -609,7 +687,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   return {
     heroHeadline, heroSub, heroTag, primaryCta, secondaryCta,
     sectionEyebrow, featureHeading, features, stats, testimonials,
-    aboutHeading, aboutBody, aboutBullets,
+    aboutHeading, aboutBody, aboutBullets, missionHeading, missionBody,
     galleryHeading, gallerySlug,
     contactHeading, contactSub, ctaHeading, ctaSub, footerTagline,
     pricingPlans,
@@ -886,6 +964,20 @@ interface RenderCtx {
   fp: number;
   pageName: string;
   navItems: Array<{ label: string; href: string }>;
+  // Shared cursor across every section that renders feature cards, so repeated
+  // feature sections (cluster/tile/frame) never show identical cards + headings.
+  featSeg: number;
+}
+
+// Returns distinct feature cards + heading/eyebrow for the Nth feature-bearing
+// section on a page, then advances the shared cursor.
+function nextFeatureSegment(ctx: RenderCtx, cols: number): { cards: SiteCopy['features']; eyebrow: string; heading: string } {
+  const seg = ctx.featSeg;
+  ctx.featSeg += 1;
+  const cards = rotate(ctx.copy.features, seg * cols);
+  const eyebrow = seg === 0 ? ctx.copy.sectionEyebrow : pick(ALT_CLUSTER_EYEBROWS, ctx.fp + seg);
+  const heading = seg === 0 ? ctx.copy.featureHeading : pick(ALT_CLUSTER_HEADINGS, ctx.fp + seg);
+  return { cards, eyebrow, heading };
 }
 
 function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolean): string {
@@ -934,13 +1026,16 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
 </section>`;
 }
 
+const ALT_CLUSTER_EYEBROWS = ['What Sets Us Apart', 'The Details', 'Our Capabilities', 'Why It Works', 'Beyond the Basics', 'Made to Last'];
+const ALT_CLUSTER_HEADINGS = ['Designed Around You', 'Crafted for Results', 'Everything in One Place', 'Built to Perform', 'The Complete Experience'];
+
 function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
-  const { copy } = ctx;
   const cols = Math.min(Math.max(node.grid.columnsDesktop || 3, 2), 4);
   const gridClass = cols === 2 ? 'g2' : cols === 4 ? 'g4' : 'g3';
+  const { cards, eyebrow, heading } = nextFeatureSegment(ctx, cols);
 
   if (node.variant === 'bento') {
-    const cardsHtml = copy.features.map((f, i) => `
+    const cardsHtml = cards.map((f, i) => `
       <div class="card reveal reveal-delay-${i % 3}">
         <div class="card-icon">${f.icon}</div>
         <h3>${esc(f.title)}</h3>
@@ -950,13 +1045,13 @@ function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): st
     return `
 <section>
   <div class="wrap">
-    <div class="sec-head reveal"><span class="eyebrow">${esc(copy.sectionEyebrow)}</span><h2>${esc(copy.featureHeading)}</h2></div>
+    <div class="sec-head reveal"><span class="eyebrow">${esc(eyebrow)}</span><h2>${esc(heading)}</h2></div>
     <div class="bento bento-2x2">${cardsHtml}</div>
   </div>
 </section>`;
   }
 
-  const cardsHtml = copy.features.slice(0, cols).map((f, i) => `
+  const cardsHtml = cards.slice(0, cols).map((f, i) => `
     <div class="card reveal reveal-delay-${i % 3}">
       <div class="card-icon">${f.icon}</div>
       <h3>${esc(f.title)}</h3>
@@ -968,8 +1063,8 @@ function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): st
 <section>
   <div class="wrap">
     <div class="sec-head${idx % 3 === 0 ? ' centered' : ''} reveal">
-      <span class="eyebrow">${esc(copy.sectionEyebrow)}</span>
-      <h2>${esc(copy.featureHeading)}</h2>
+      <span class="eyebrow">${esc(eyebrow)}</span>
+      <h2>${esc(heading)}</h2>
       <p>Built for performance. Designed for you.</p>
     </div>
     <div class="${gridClass}">${cardsHtml}</div>
@@ -1127,15 +1222,16 @@ function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
 }
 
 function renderTileSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
-  const { copy, photos, fp } = ctx;
-  const items = copy.features.map((f, i) => {
+  const { photos, fp } = ctx;
+  const { cards, eyebrow, heading } = nextFeatureSegment(ctx, 3);
+  const items = cards.map((f, i) => {
     const photo = photos[(fp + i + 4) % photos.length];
     return `
     <div class="card reveal reveal-delay-${i % 3}">
       <img src="${ph(photo, 600, 300)}" alt="${esc(f.title)}" loading="lazy" style="border-radius:var(--radius-sm);margin-bottom:16px;width:100%;height:180px;object-fit:cover"/>
       <h3>${esc(f.title)}</h3>
       <p>${esc(f.desc)}</p>
-      <a href="contact" class="card-link">Explore →</a>
+      <a href="${esc(f.href)}" class="card-link">Explore →</a>
     </div>`;
   }).join('');
 
@@ -1143,8 +1239,8 @@ function renderTileSection(node: LayoutNode, ctx: RenderCtx, idx: number): strin
 <section>
   <div class="wrap">
     <div class="sec-head${idx % 2 ? '' : ' centered'} reveal">
-      <span class="eyebrow">Explore</span>
-      <h2>${esc(copy.featureHeading)}</h2>
+      <span class="eyebrow">${esc(eyebrow)}</span>
+      <h2>${esc(heading)}</h2>
     </div>
     <div class="g3">${items}</div>
   </div>
@@ -1162,9 +1258,9 @@ function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
         <div class="split-text">
           <div class="sec-head">
             <span class="eyebrow">Featured</span>
-            <h2>${esc(copy.aboutHeading)}</h2>
+            <h2>${esc(copy.missionHeading)}</h2>
           </div>
-          <p class="split-body">${esc(copy.aboutBody)}</p>
+          <p class="split-body">${esc(copy.missionBody)}</p>
           <a href="about" class="btn btn-primary">${esc(copy.secondaryCta)}</a>
         </div>
         <div class="split-media">
@@ -1177,8 +1273,8 @@ function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
 }
 
 function renderFrameSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
-  const { copy } = ctx;
-  const cards = copy.features.slice(0, 2).map((f, i) => `
+  const { cards: feats, heading } = nextFeatureSegment(ctx, 2);
+  const cards = feats.slice(0, 2).map((f, i) => `
     <div class="card reveal reveal-delay-${i}">
       <div class="card-icon">${f.icon}</div>
       <h3>${esc(f.title)}</h3>
@@ -1189,7 +1285,7 @@ function renderFrameSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
 <section>
   <div class="wrap">
     <div class="frame-block reveal">
-      <div class="sec-head"><span class="eyebrow">Highlight</span><h2>${esc(copy.sectionEyebrow)}</h2></div>
+      <div class="sec-head"><span class="eyebrow">Highlight</span><h2>${esc(heading)}</h2></div>
       <div class="g2" style="margin-top:28px">${cards}</div>
     </div>
   </div>
@@ -1269,7 +1365,7 @@ function renderAboutPage(puo: PromptUnderstandingObject, graph: LayoutGraph, bra
     <div class="g4">${teamAvatars}</div>
   </div>
 </section>
-${renderStripSection({ type:'strip', variant:'stats-row' } as LayoutNode, { puo, copy, photos, fp, pageName:'about', navItems })}
+${renderStripSection({ type:'strip', variant:'stats-row' } as LayoutNode, { puo, copy, photos, fp, pageName:'about', navItems, featSeg: 0 })}
 <section class="signal-section">
   <div class="wrap">
     <div class="signal-inner">
@@ -1426,7 +1522,7 @@ function buildHomePage(
   year: number
 ): string {
   const photos = getPhotos(puo, fp);
-  const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems };
+  const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0 };
   const counters: Record<string, number> = {};
   const sections = graph.nodes.map(node => renderNode(node, ctx, counters)).filter(Boolean).join('\n');
   const nav = buildNav(brand, navItems, '.');
