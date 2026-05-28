@@ -13,6 +13,7 @@
 import type { ISharedContext } from './core/types';
 import { parsePrompt } from './prompt-engine';
 import { composeLayout } from './layout-composer';
+import { diversifyLayout } from './diversity-engine';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 
@@ -1276,7 +1277,11 @@ export function renderMultiPageSite(
 
   // 2. Generate root layout graph — unique section ordering per prompt
   const rootResult = composeLayout(buildComposerInput(puo));
-  const rootGraph = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
+  const composedRoot = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
+  // Diversity pass: compare against generation history and mutate the structure
+  // (ordering, hierarchy, composition, rhythm, spacing, arrangement) if it is too
+  // similar to a previous generation, then register it for future comparisons.
+  const rootGraph = diversifyLayout(prompt, composedRoot, puo).graph;
 
   // 3. Build site copy from PUO
   const copy = buildSiteCopy(puo, brand, fp);
@@ -1303,8 +1308,9 @@ export function renderMultiPageSite(
   // Home: use root graph (driven by prompt)
   pages['/'] = buildHomePage(rootGraph, puo, brand, navItems, copy, css, font, base, fp, year);
 
-  // About: own graph seeded with page context
-  pages['/about'] = renderAboutPage(puo, composePageGraph(puo, 'about', fp), brand, navItems, copy, css, font, base, fp + 1, year);
+  // About: own graph seeded with page context, then diversified vs. history
+  const aboutGraph = diversifyLayout(`${prompt} | about`, composePageGraph(puo, 'about', fp), puo).graph;
+  pages['/about'] = renderAboutPage(puo, aboutGraph, brand, navItems, copy, css, font, base, fp + 1, year);
 
   // Gallery: own graph
   pages[`/${gallerySlug}`] = renderGalleryPageHtml(puo, brand, navItems, copy, css, font, base, fp + 2, year);
