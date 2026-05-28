@@ -15,6 +15,8 @@ import { parsePrompt } from './prompt-engine';
 import { composeLayout } from './layout-composer';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
+import { checkDiversity, registerGeneration } from './diversity-engine';
+import type { DiversityEngineInput } from './diversity-engine';
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -418,6 +420,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const personality = puo.websitePersonality;
   const tone = puo.businessTone;
   const direction = puo.layout.direction;
+  // gallerySlug declared early so feature hrefs can reference it
+  const gallerySlug = detectGallerySlug(puo);
 
   // Derive headline descriptors from keywords
   const mainKw = kws[0] ? titleCase(kws[0]) : industry !== 'general' ? titleCase(industry) : 'Excellence';
@@ -469,18 +473,48 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Features — driven by extracted keywords
   const ICONS = ['⚡','🎯','🔒','📊','🌐','💡','🚀','🛠️','✨','🔄','💎','🤝','📱','🎨','⚙️','🏆'];
+
+  // Feature link target: route to gallery slug for portfolio/ecommerce, about for showcase, contact otherwise
+  const featureLinkMap: Record<string, string> = {
+    'portfolio': gallerySlug, 'e-commerce': gallerySlug, 'showcase': gallerySlug,
+    'editorial': gallerySlug, 'saas': 'contact', 'dashboard': 'contact',
+    'lead-gen': 'contact', 'landing': 'contact',
+  };
+  const featureHref = featureLinkMap[direction] || (gallerySlug !== 'gallery' ? gallerySlug : 'about');
+
+  const FEATURE_SUFFIXES_BY_INDUSTRY: Record<string, string[]> = {
+    'food': ['Experience','Craft','Tradition','Flavour','Quality','Freshness','Recipe','Story'],
+    'sports': ['Performance','Training','Edge','Power','Speed','Technique','Results','Program'],
+    'technology': ['Engine','Platform','Suite','Intelligence','API','Dashboard','Flow','System'],
+    'photography': ['Portfolio','Gallery','Shoot','Vision','Style','Process','Collection','Work'],
+    'fashion': ['Collection','Look','Style','Season','Edit','Drop','Range','Line'],
+    'saas': ['Engine','Suite','Platform','Hub','Intelligence','Dashboard','API','Flow'],
+    'general': ['System','Suite','Hub','Platform','Edge','Solution','Flow','Intelligence'],
+  };
+  const suffixes = FEATURE_SUFFIXES_BY_INDUSTRY[industry] || FEATURE_SUFFIXES_BY_INDUSTRY.general;
+
+  const FEATURE_DESC_BY_INDUSTRY: Record<string, string> = {
+    'food': `Authentic ${kws[0] || mainKw} crafted with passion and served with pride.`,
+    'sports': `Elevate your ${kws[0] || mainKw} performance with expert-level training and coaching.`,
+    'technology': `Powerful ${kws[0] || mainKw} capabilities built for modern engineering teams.`,
+    'photography': `Capturing the essence of ${kws[0] || mainKw} through a unique visual perspective.`,
+    'fashion': `Curated ${kws[0] || mainKw} pieces that define your individual style.`,
+    'saas': `Streamline your ${kws[0] || mainKw} workflow with intelligent automation and analytics.`,
+    'general': `Exceptional ${kws[0] || mainKw} services tailored to your specific needs.`,
+  };
+
   const allKwFeatures = kws.slice(0, 6).map((kw, i) => ({
     icon: ICONS[(fp + i) % ICONS.length],
-    title: `${titleCase(kw)} ${pick(['Engine','System','Suite','Hub','Intelligence','Platform','Flow','Edge'] as const, fp + i)}`,
-    desc: `Powerful ${kw} capabilities designed for modern teams. Built to scale with your needs and deliver results.`,
-    href: 'contact',
+    title: `${titleCase(kw)} ${pick(suffixes, fp + i)}`,
+    desc: `${titleCase(kw)} ${FEATURE_DESC_BY_INDUSTRY[industry] || `capabilities designed specifically for ${industry} professionals.`}`,
+    href: featureHref,
   }));
   // Pad to 3 with generic feature descriptions if needed
   while (allKwFeatures.length < 3) {
     const defaults = [
-      { icon: '⚡', title: 'Lightning Performance', desc: 'Optimized for speed and reliability. Your operations never slow down.', href: 'contact' },
-      { icon: '🔒', title: 'Enterprise Security', desc: 'Bank-grade security and compliance built into every layer.', href: 'contact' },
-      { icon: '🌐', title: 'Global Reach', desc: 'Serve users anywhere in the world with zero latency.', href: 'contact' },
+      { icon: '⚡', title: 'Peak Performance', desc: `Our ${mainKw} approach delivers measurable results from day one.`, href: featureHref },
+      { icon: '🔒', title: 'Trusted Quality', desc: `Every aspect of ${brand} is built on a foundation of quality and trust.`, href: 'about' },
+      { icon: '🌐', title: 'Proven Results', desc: `Hundreds of clients have already experienced the ${brand} difference.`, href: featureHref },
     ];
     allKwFeatures.push(defaults[allKwFeatures.length % defaults.length]);
   }
@@ -498,14 +532,42 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   };
   const stats = (statBanks[industry] || statBanks.general).slice(0, 4);
 
-  // Testimonials
-  const testimonialBanks: Array<{ quote: string; name: string; role: string }> = [
-    { quote: `${brand} completely transformed how we approach ${mainKw}. The results speak for themselves.`, name: 'Alex Chen', role: 'CEO, TechCorp' },
-    { quote: `We've tried many solutions, but nothing comes close to what ${brand} delivers for ${secKw}.`, name: 'Sarah Miller', role: 'Head of Operations, ScaleUp' },
-    { quote: `The ${mainKw} experience with ${brand} is unmatched. Highly recommend for any serious team.`, name: 'Marcus Johnson', role: 'Founder, BuildFast' },
-    { quote: `Incredible platform. Our ${mainKw} metrics improved by 3x within the first month.`, name: 'Priya Patel', role: 'Product Manager, DataFlow' },
-  ];
-  const testimonials = testimonialBanks.slice(0, 3);
+  // Testimonials — vary by industry for authenticity
+  const TESTIMONIAL_ROLES: Record<string, string[]> = {
+    food:       ['Regular Guest','Food Critic','Local Resident','Weekly Visitor'],
+    sports:     ['Competitive Athlete','Personal Trainer','Team Coach','Amateur Enthusiast'],
+    technology: ['CTO, TechCorp','Head of Engineering, BuildFast','Lead Developer, DataFlow','VP Product, ScaleUp'],
+    photography:['Art Director, Studio9','Creative Director, Brand Co','Marketing Lead, Vision Co','Publisher, Photo Weekly'],
+    fashion:    ['Fashion Editor','Style Consultant','Brand Manager','Loyal Customer'],
+    saas:       ['CEO, TechCorp','Head of Operations, ScaleUp','Founder, BuildFast','Product Manager, DataFlow'],
+    general:    ['CEO, GrowthCo','Operations Director, ScaleUp','Founder, BuildFast','Product Lead, DataFlow'],
+  };
+  const roles = TESTIMONIAL_ROLES[industry] || TESTIMONIAL_ROLES.general;
+
+  const TESTIMONIAL_QUOTES: Record<string, string[]> = {
+    food:       [
+      `The atmosphere and food quality at ${brand} is something I look forward to every week.`,
+      `${brand} has the best ${mainKw} I've had. Nothing else even comes close.`,
+      `Every visit to ${brand} feels special. The ${secKw} is outstanding.`,
+    ],
+    sports:     [
+      `${brand} completely elevated my ${mainKw} performance. My results have never been better.`,
+      `The ${mainKw} program at ${brand} is world-class. I've trained everywhere — this is the best.`,
+      `Incredible ${mainKw} coaching. My technique improved dramatically in just weeks.`,
+    ],
+    general:    [
+      `${brand} completely transformed our ${mainKw} operations. The results are undeniable.`,
+      `Nothing compares to what ${brand} delivers. Our ${secKw} metrics improved by 3x.`,
+      `The ${mainKw} experience with ${brand} is unmatched. Every team should use this.`,
+    ],
+  };
+  const quotes = TESTIMONIAL_QUOTES[industry] || TESTIMONIAL_QUOTES.general;
+  const names = ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'];
+  const testimonials = names.map((name, i) => ({
+    quote: quotes[i] || quotes[0],
+    name,
+    role: roles[i] || roles[0],
+  }));
 
   // About
   const aboutHeading = `The ${brand} Story`;
@@ -518,7 +580,6 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   ];
 
   // Gallery
-  const gallerySlug = detectGallerySlug(puo);
   const galleryLabel = { portfolio: 'Portfolio', ecommerce: 'Shop', saas: 'Features', restaurant: 'Menu', sports: 'Gallery', agency: 'Work', general: 'Gallery' };
   const galleryHeading = `Our ${(galleryLabel[industry as keyof typeof galleryLabel] || galleryLabel.general)}`;
 
@@ -563,6 +624,130 @@ function detectGallerySlug(puo: PromptUnderstandingObject): string {
   if (industry === 'food' || industry === 'restaurant') return 'menu';
   if (industry === 'sports' || industry === 'fitness') return 'gallery';
   return 'gallery';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DIVERSITY ENGINE INPUT BUILDER — bridges LayoutGraph + PUO to fingerprinter
+// ─────────────────────────────────────────────────────────────────
+
+function buildDiversityInput(prompt: string, graph: LayoutGraph, puo: PromptUnderstandingObject): DiversityEngineInput {
+  const cp = puo.visual.colorPalette;
+  const colorPalette: Record<string, string> = {
+    primary: cp.primary,
+    secondary: cp.secondary,
+    accent: cp.accent,
+    background: cp.background,
+    surface: cp.surface,
+    text: cp.text,
+    muted: cp.muted,
+    border: cp.border,
+    ...cp.derived,
+  };
+
+  return {
+    prompt,
+    layoutGraph: {
+      nodes: graph.nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        variant: n.variant,
+        depth: n.depth,
+        density: n.density,
+        visualWeight: n.visualWeight,
+        rhythm: n.rhythm,
+        span: n.span,
+        height: n.height,
+        composition: {
+          balance: n.composition.balance,
+          tension: n.composition.tension,
+          primaryAxis: n.composition.primaryAxis,
+          focalPoints: n.composition.focalPoints.map(fp => ({ x: fp.x, y: fp.y })),
+          negativeSpaceRatio: n.composition.negativeSpaceRatio,
+          alignment: n.composition.alignment,
+        },
+        grid: {
+          type: n.grid.type,
+          columns: n.grid.columns,
+          gap: n.grid.gap,
+          autoFlow: n.grid.autoFlow,
+          alignment: n.grid.alignment,
+        },
+        spacing: {
+          before: n.spacing.before,
+          after: n.spacing.after,
+          internal: n.spacing.internal,
+          rhythm: n.spacing.rhythm,
+        },
+        zIndex: n.zIndex,
+        mediaPlacement: n.mediaPlacement,
+        ctaPlacement: n.ctaPlacement,
+        children: n.children,
+      })),
+      edges: graph.edges.map(e => ({
+        from: e.from,
+        to: e.to,
+        type: e.type,
+        weight: e.weight,
+        spacingMultiplier: e.spacingMultiplier,
+      })),
+      complexity: graph.complexity,
+      hasNesting: graph.hasNesting,
+      maxDepth: graph.maxDepth,
+      nodeCount: graph.nodeCount,
+      compositionProfile: graph.compositionProfile,
+      flowProfile: {
+        direction: graph.flowProfile.direction,
+        scrollBehavior: graph.flowProfile.scrollBehavior,
+        sectionTransitions: graph.flowProfile.sectionTransitions,
+        readingPattern: graph.flowProfile.readingPattern,
+      },
+      gridSystem: {
+        baseUnit: graph.gridSystem.baseUnit,
+        maxWidth: graph.gridSystem.maxWidth,
+        gutter: graph.gridSystem.gutter,
+        columnCount: graph.gridSystem.columnCount,
+        behavior: graph.gridSystem.behavior,
+      },
+      spacingRhythm: {
+        pattern: graph.spacingRhythm.pattern,
+        base: graph.spacingRhythm.base,
+        ratio: graph.spacingRhythm.ratio,
+        values: graph.spacingRhythm.values,
+      },
+      visualHierarchy: {
+        levels: graph.visualHierarchy.levels,
+        dominantElement: graph.visualHierarchy.dominantElement,
+        rhythm: graph.visualHierarchy.rhythm,
+        progression: graph.visualHierarchy.progression,
+      },
+    },
+    visualSystem: {
+      colorPalette,
+      typography: {
+        family: {
+          heading: puo.visual.typography.family.heading,
+          body: puo.visual.typography.family.body,
+          mono: puo.visual.typography.family.mono,
+        },
+        scale: puo.visual.typography.scale,
+        weight: puo.visual.typography.weight,
+        letterSpacing: {
+          heading: puo.visual.typography.letterSpacing.heading,
+          body: puo.visual.typography.letterSpacing.body,
+        },
+      },
+      borderRadius: { style: puo.visual.borderRadius.style },
+      shadows: { style: puo.visual.shadows.style },
+      spacing: {
+        unit: puo.visual.spacing.unit,
+        section: puo.visual.spacing.section,
+        container: puo.visual.spacing.container,
+        gutter: puo.visual.spacing.gutter,
+        gridGap: puo.visual.spacing.gridGap,
+        scale: puo.visual.spacing.scale,
+      },
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1276,7 +1461,23 @@ export function renderMultiPageSite(
 
   // 2. Generate root layout graph — unique section ordering per prompt
   const rootResult = composeLayout(buildComposerInput(puo));
-  const rootGraph = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
+  let rootGraph = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
+
+  // 2b. Diversity check — mutate if too similar to recent generations
+  const divInput = buildDiversityInput(prompt, rootGraph, puo);
+  const divResult = checkDiversity(divInput);
+  if (!divResult.isDiverse && divResult.report.exceedsThreshold) {
+    // Re-compose with mutation salt to produce a structurally different layout
+    const mutationSalt = ` [m${divResult.report.recommendedMutationStrategies.slice(0, 2).join('-')}]`;
+    const saltedPuo: PromptUnderstandingObject = {
+      ...puo,
+      originalPrompt: puo.originalPrompt + mutationSalt,
+    };
+    const remixed = composeLayout(buildComposerInput(saltedPuo));
+    if (remixed.success) rootGraph = remixed.graph;
+  }
+  // Register this generation in diversity history
+  registerGeneration(prompt, divResult.fingerprint);
 
   // 3. Build site copy from PUO
   const copy = buildSiteCopy(puo, brand, fp);

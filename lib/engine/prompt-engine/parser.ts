@@ -399,6 +399,232 @@ function extractEntities(prompt: string): ExtractedEntity[] {
 }
 
 // ───────────────────────────────────────────────────────────────
+// SEMANTIC EXPANDER — domain clusters → implied design directions
+// ───────────────────────────────────────────────────────────────
+
+interface SemanticCluster {
+  triggers: string[];
+  implications: Array<{ category: string; weight: number }>;
+}
+
+const SEMANTIC_CLUSTERS: SemanticCluster[] = [
+  // Food & Restaurant
+  { triggers: ['ramen', 'restaurant', 'cafe', 'coffee', 'bistro', 'dining', 'bakery', 'kitchen', 'eatery', 'grill', 'sushi', 'brunch', 'pizzeria', 'diner', 'brasserie', 'patisserie', 'dessert', 'cocktail', 'bar', 'pub'],
+    implications: [
+      { category: 'visualMood:warm', weight: 0.85 },
+      { category: 'designStyle:organic', weight: 0.65 },
+      { category: 'businessTone:casual', weight: 0.65 },
+      { category: 'websitePersonality:friendly', weight: 0.75 },
+      { category: 'imageDirection:photography-heavy', weight: 0.90 },
+    ]
+  },
+  // Luxury / High-end
+  { triggers: ['luxury', 'exclusive', 'vip', 'elite', 'bespoke', 'couture', 'artisan', 'handcrafted', 'concierge', 'prestige', 'haute'],
+    implications: [
+      { category: 'designStyle:luxury', weight: 0.95 },
+      { category: 'businessTone:luxury', weight: 0.90 },
+      { category: 'websitePersonality:elegant', weight: 0.95 },
+      { category: 'modernityLevel:timeless', weight: 0.65 },
+    ]
+  },
+  // Tech / SaaS / Software
+  { triggers: ['saas', 'software', 'platform', 'dashboard', 'api', 'startup', 'productivity', 'workflow', 'automation', 'analytics', 'artificial intelligence', 'machine learning', 'data'],
+    implications: [
+      { category: 'designStyle:startup', weight: 0.75 },
+      { category: 'visualMood:light', weight: 0.60 },
+      { category: 'businessTone:technical', weight: 0.65 },
+      { category: 'websitePersonality:innovative', weight: 0.85 },
+      { category: 'layoutDirection:saas', weight: 0.85 },
+      { category: 'compositionExpectation:bento', weight: 0.55 },
+    ]
+  },
+  // Fashion / Clothing
+  { triggers: ['fashion', 'clothing', 'apparel', 'streetwear', 'outfit', 'collection', 'jersey', 'sneaker', 'footwear', 'accessory', 'jewelry', 'garment', 'boutique', 'couture'],
+    implications: [
+      { category: 'designStyle:editorial', weight: 0.75 },
+      { category: 'visualMood:contrast', weight: 0.55 },
+      { category: 'websitePersonality:bold', weight: 0.75 },
+      { category: 'imageDirection:photography-heavy', weight: 0.95 },
+      { category: 'layoutDirection:e-commerce', weight: 0.75 },
+    ]
+  },
+  // Sports / Athletic
+  { triggers: ['sports', 'athletic', 'fitness', 'gym', 'workout', 'basketball', 'football', 'soccer', 'training', 'athlete', 'crossfit', 'running', 'cycling', 'hoops', 'nba'],
+    implications: [
+      { category: 'visualMood:vibrant', weight: 0.75 },
+      { category: 'businessTone:disruptive', weight: 0.65 },
+      { category: 'websitePersonality:energetic', weight: 0.95 },
+      { category: 'imageDirection:photography-heavy', weight: 0.85 },
+    ]
+  },
+  // Photography / Portfolio / Creative
+  { triggers: ['photographer', 'photography', 'portfolio', 'gallery', 'cinematography', 'filmmaker', 'illustrator', 'creative director', 'art director'],
+    implications: [
+      { category: 'designStyle:minimal', weight: 0.65 },
+      { category: 'visualMood:muted', weight: 0.55 },
+      { category: 'websitePersonality:artistic', weight: 0.85 },
+      { category: 'imageDirection:photography-heavy', weight: 1.0 },
+      { category: 'layoutDirection:portfolio', weight: 0.95 },
+      { category: 'compositionExpectation:magazine', weight: 0.65 },
+    ]
+  },
+  // Law / Legal / Finance
+  { triggers: ['law', 'legal', 'lawyer', 'attorney', 'firm', 'counsel', 'litigation', 'compliance', 'finance', 'financial', 'investment', 'banking', 'accounting', 'tax', 'insurance'],
+    implications: [
+      { category: 'designStyle:corporate', weight: 0.85 },
+      { category: 'visualMood:light', weight: 0.65 },
+      { category: 'businessTone:authoritative', weight: 0.95 },
+      { category: 'websitePersonality:authoritative', weight: 0.95 },
+      { category: 'modernityLevel:classic', weight: 0.75 },
+      { category: 'conversionStyle:trust-first', weight: 0.90 },
+    ]
+  },
+  // Health / Medical / Wellness
+  { triggers: ['health', 'medical', 'clinic', 'hospital', 'doctor', 'therapy', 'wellness', 'mental health', 'dentist', 'pharmacy', 'healthcare', 'spa', 'yoga', 'meditation'],
+    implications: [
+      { category: 'designStyle:minimal', weight: 0.70 },
+      { category: 'visualMood:light', weight: 0.75 },
+      { category: 'businessTone:empathetic', weight: 0.85 },
+      { category: 'websitePersonality:trustworthy', weight: 0.85 },
+      { category: 'conversionStyle:trust-first', weight: 0.85 },
+    ]
+  },
+  // Real Estate
+  { triggers: ['real estate', 'property', 'realty', 'homes', 'apartments', 'rental', 'mortgage', 'agent', 'broker', 'listing', 'housing', 'development'],
+    implications: [
+      { category: 'designStyle:premium', weight: 0.75 },
+      { category: 'businessTone:professional', weight: 0.75 },
+      { category: 'websitePersonality:trustworthy', weight: 0.85 },
+      { category: 'imageDirection:photography-heavy', weight: 0.95 },
+    ]
+  },
+  // Music / Entertainment / Nightlife
+  { triggers: ['music', 'band', 'artist', 'album', 'concert', 'tour', 'entertainment', 'dj', 'producer', 'label', 'nightclub', 'lounge', 'festival', 'venue'],
+    implications: [
+      { category: 'designStyle:artistic', weight: 0.85 },
+      { category: 'visualMood:dark', weight: 0.70 },
+      { category: 'websitePersonality:bold', weight: 0.85 },
+      { category: 'imageDirection:photography-heavy', weight: 0.85 },
+      { category: 'motionDirection:continuous', weight: 0.65 },
+    ]
+  },
+  // E-commerce / Shopping
+  { triggers: ['shop', 'store', 'ecommerce', 'products', 'buy', 'cart', 'checkout', 'merchandise', 'retail', 'marketplace'],
+    implications: [
+      { category: 'layoutDirection:e-commerce', weight: 0.95 },
+      { category: 'conversionStyle:product-first', weight: 0.85 },
+      { category: 'imageDirection:photography-heavy', weight: 0.85 },
+    ]
+  },
+  // Creative Agency / Studio
+  { triggers: ['agency', 'marketing', 'advertising', 'branding', 'creative studio', 'design studio', 'production', 'strategy', 'consulting'],
+    implications: [
+      { category: 'designStyle:editorial', weight: 0.65 },
+      { category: 'visualMood:contrast', weight: 0.55 },
+      { category: 'businessTone:disruptive', weight: 0.75 },
+      { category: 'websitePersonality:bold', weight: 0.75 },
+      { category: 'conversionStyle:story-driven', weight: 0.75 },
+    ]
+  },
+  // Education / Learning
+  { triggers: ['education', 'school', 'university', 'course', 'learning', 'training', 'coaching', 'tutor', 'academy', 'bootcamp', 'e-learning'],
+    implications: [
+      { category: 'visualMood:light', weight: 0.75 },
+      { category: 'businessTone:accessible', weight: 0.75 },
+      { category: 'websitePersonality:friendly', weight: 0.85 },
+      { category: 'conversionStyle:consultative', weight: 0.75 },
+    ]
+  },
+  // Cyberpunk / Web3 / Dark Tech
+  { triggers: ['cyberpunk', 'hacker', 'cyber', 'blockchain', 'crypto', 'defi', 'web3', 'nft', 'metaverse', 'neural'],
+    implications: [
+      { category: 'designStyle:cyberpunk', weight: 0.95 },
+      { category: 'visualMood:dark', weight: 0.95 },
+      { category: 'websitePersonality:rebellious', weight: 0.75 },
+      { category: 'modernityLevel:cutting-edge', weight: 0.85 },
+      { category: 'imageDirection:abstract-visuals', weight: 0.75 },
+    ]
+  },
+  // Nature / Eco / Organic
+  { triggers: ['nature', 'eco', 'sustainable', 'green', 'environmental', 'plant', 'garden', 'natural', 'herbal', 'organic', 'vegan', 'zero waste'],
+    implications: [
+      { category: 'designStyle:organic', weight: 0.85 },
+      { category: 'visualMood:warm', weight: 0.65 },
+      { category: 'businessTone:empathetic', weight: 0.65 },
+      { category: 'websitePersonality:friendly', weight: 0.75 },
+      { category: 'imageDirection:photography-heavy', weight: 0.75 },
+    ]
+  },
+  // Architecture / Interior / Construction
+  { triggers: ['architecture', 'interior', 'construction', 'renovation', 'builder', 'contractor', 'space planning', 'residential', 'commercial'],
+    implications: [
+      { category: 'designStyle:minimal', weight: 0.75 },
+      { category: 'imageDirection:photography-heavy', weight: 0.85 },
+      { category: 'websitePersonality:sophisticated', weight: 0.75 },
+      { category: 'layoutDirection:portfolio', weight: 0.75 },
+    ]
+  },
+  // Non-profit / Social Impact
+  { triggers: ['nonprofit', 'charity', 'foundation', 'social', 'cause', 'volunteer', 'donate', 'ngo', 'mission', 'impact', 'humanitarian'],
+    implications: [
+      { category: 'businessTone:empathetic', weight: 0.85 },
+      { category: 'conversionStyle:story-driven', weight: 0.85 },
+      { category: 'websitePersonality:friendly', weight: 0.85 },
+      { category: 'visualMood:warm', weight: 0.55 },
+    ]
+  },
+  // Travel / Hospitality
+  { triggers: ['travel', 'hotel', 'resort', 'tourism', 'destination', 'booking', 'vacation', 'airbnb', 'hostel', 'lodge', 'retreat', 'cruise'],
+    implications: [
+      { category: 'designStyle:cinematic', weight: 0.75 },
+      { category: 'imageDirection:photography-heavy', weight: 0.95 },
+      { category: 'websitePersonality:energetic', weight: 0.70 },
+      { category: 'conversionStyle:story-driven', weight: 0.75 },
+      { category: 'visualMood:vibrant', weight: 0.65 },
+    ]
+  },
+  // Gaming / Esports
+  { triggers: ['gaming', 'game', 'esports', 'competitive', 'streamer', 'twitch', 'discord', 'clan', 'guild'],
+    implications: [
+      { category: 'designStyle:cyberpunk', weight: 0.70 },
+      { category: 'visualMood:dark', weight: 0.75 },
+      { category: 'websitePersonality:aggressive', weight: 0.75 },
+      { category: 'modernityLevel:cutting-edge', weight: 0.75 },
+      { category: 'imageDirection:3d-rendered', weight: 0.60 },
+    ]
+  },
+  // Personal Brand / Coach / Speaker
+  { triggers: ['coach', 'speaker', 'consultant', 'advisor', 'mentor', 'expert', 'thought leader', 'personal brand'],
+    implications: [
+      { category: 'websitePersonality:authoritative', weight: 0.80 },
+      { category: 'businessTone:professional', weight: 0.75 },
+      { category: 'conversionStyle:consultative', weight: 0.80 },
+      { category: 'imageDirection:photography-heavy', weight: 0.75 },
+    ]
+  },
+];
+
+function expandSemantics(prompt: string, aggregated: Record<string, { score: number; examples: string[] }>): void {
+  const lp = prompt.toLowerCase();
+  for (const cluster of SEMANTIC_CLUSTERS) {
+    let activated = false;
+    for (const trigger of cluster.triggers) {
+      if (lp.includes(trigger)) { activated = true; break; }
+    }
+    if (!activated) continue;
+    for (const impl of cluster.implications) {
+      if (!aggregated[impl.category]) {
+        aggregated[impl.category] = { score: 0, examples: [] };
+      }
+      aggregated[impl.category].score += impl.weight;
+      if (!aggregated[impl.category].examples.includes(cluster.triggers[0])) {
+        aggregated[impl.category].examples.push(cluster.triggers[0]);
+      }
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────
 // INFERENCE ENGINE
 // ───────────────────────────────────────────────────────────────
 
@@ -1224,6 +1450,9 @@ export function parsePrompt(prompt: string, config: ParserConfig = DEFAULT_PARSE
     // 1. Token matching
     const matches = findTokenMatches(prompt);
     const aggregated = aggregateMatches(matches);
+
+    // 1.5. Semantic expansion — domain clusters boost implied design directions
+    expandSemantics(prompt, aggregated);
 
     // 2. Entity extraction
     const entities = extractEntities(prompt);
