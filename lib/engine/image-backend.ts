@@ -35,9 +35,10 @@ const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
 const IMAGE_GEN_ENABLED = process.env.IMAGE_GEN_ENABLED === '1' || process.env.IMAGE_GEN_ENABLED === 'true';
 // Per-image generation budget (ms). Keeps the whole request within API maxDuration.
 const PER_IMAGE_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS || 25000);
-// How many DISTINCT images to generate per site (reused across sections). Kept
-// small so a request stays within time budget even on modest GPUs.
-const DISTINCT_IMAGES = Number(process.env.IMAGE_GEN_COUNT || 6);
+// How many DISTINCT images to surface per site (reused across sections). The
+// keyless curated path is free, so default to a wider set for variety; when the
+// self-hosted generator is enabled, lower IMAGE_GEN_COUNT to stay within budget.
+const DISTINCT_IMAGES = Number(process.env.IMAGE_GEN_COUNT || 12);
 
 const CACHE_DIR = path.join(process.cwd(), 'public', 'generated');
 const PUBLIC_PREFIX = '/generated';

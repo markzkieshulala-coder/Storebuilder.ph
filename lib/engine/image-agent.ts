@@ -170,44 +170,93 @@ const NICHE_PHOTOS: Record<string, string[]> = {
 function nicheKey(puo: PromptUnderstandingObject): string {
   const raw = puo.inferredIndustry.toLowerCase();
   if (NICHE_PHOTOS[raw]) return raw;
-  // map common synonyms to broad banks
-  const M: Record<string, string> = {
-    restaurant: 'food', dining: 'food', bistro: 'food', cafe: 'food', coffee: 'food', brunch: 'food',
-    fitness: 'sports', gym: 'sports', crossfit: 'sports', workout: 'sports', yoga: 'sports', pilates: 'sports', boxing: 'sports',
-    saas: 'technology', software: 'technology', startup: 'technology', ai: 'technology', tech: 'technology',
-    beauty: 'fashion', apparel: 'fashion', clothing: 'fashion', streetwear: 'fashion', salon: 'fashion', barbershop: 'fashion',
-    retail: 'ecommerce', shop: 'ecommerce', store: 'ecommerce',
-    art: 'portfolio', design: 'portfolio', architecture: 'portfolio',
-    marketing: 'agency', consulting: 'agency', branding: 'agency', studio: 'agency',
-    spa: 'wellness', massage: 'wellness', meditation: 'wellness', therapy: 'wellness', dental: 'wellness', clinic: 'wellness',
-    law: 'professional', legal: 'professional',
-    hotel: 'hospitality', resort: 'hospitality', travel: 'hospitality',
-    photographer: 'photography', film: 'photography', videography: 'photography',
+  return NICHE_SYNONYM[raw] || 'general';
+}
+
+// Broad-niche synonym map (shared by nicheKey + the candidate-pool builder).
+const NICHE_SYNONYM: Record<string, string> = {
+  restaurant: 'food', dining: 'food', bistro: 'food', cafe: 'food', coffee: 'food', brunch: 'food',
+  espresso: 'food', ramen: 'food', sushi: 'food', pizza: 'food', burger: 'food', bakery: 'food', bar: 'food',
+  fitness: 'sports', gym: 'sports', crossfit: 'sports', workout: 'sports', boxing: 'sports',
+  yoga: 'wellness', pilates: 'sports', spa: 'wellness', massage: 'wellness', meditation: 'wellness', therapy: 'wellness', dental: 'wellness', clinic: 'wellness',
+  saas: 'technology', software: 'technology', startup: 'technology', ai: 'technology', tech: 'technology',
+  beauty: 'fashion', apparel: 'fashion', clothing: 'fashion', streetwear: 'fashion', salon: 'fashion', barbershop: 'fashion',
+  retail: 'ecommerce', shop: 'ecommerce', store: 'ecommerce',
+  art: 'portfolio', design: 'portfolio', architecture: 'portfolio',
+  marketing: 'agency', consulting: 'agency', branding: 'agency', studio: 'agency',
+  law: 'professional', legal: 'professional',
+  hotel: 'hospitality', resort: 'hospitality', travel: 'hospitality',
+  photographer: 'photography', film: 'photography', videography: 'photography',
+};
+
+// Sub-niches that are visually compatible and can be pooled together to widen
+// the candidate set (so two coffee sites don't show the identical 6 photos).
+const RELATED_SUBNICHE: Record<string, string[]> = {
+  coffee: ['coffee', 'cafe', 'espresso'],
+  cafe: ['cafe', 'coffee', 'espresso'],
+  espresso: ['espresso', 'coffee', 'cafe'],
+  ramen: ['ramen', 'sushi'],
+  sushi: ['sushi', 'ramen'],
+  pizza: ['pizza', 'burger'],
+  burger: ['burger', 'pizza'],
+  gym: ['gym', 'crossfit'],
+  crossfit: ['crossfit', 'gym'],
+  yoga: ['yoga', 'spa'],
+  spa: ['spa', 'yoga'],
+};
+
+// Deterministic seeded shuffle (Mulberry32 + Fisher–Yates). Same seed → same
+// order, but different prompts (different seeds) → genuinely different orders,
+// so two sites in the same niche don't surface the identical photo set.
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = arr.slice();
+  let s = seed >>> 0;
+  const rng = () => {
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  return M[raw] || 'general';
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 /**
  * Return an ordered list of REAL Unsplash photo IDs that match the prompt's
  * actual subject — sub-niche first (coffee→coffee), then broad niche, then
- * general. Deterministically rotated so each brand gets a different start.
+ * general. The candidate pool is WIDENED with related sub-niches and the broad
+ * niche bank, then deterministically SHUFFLED by the prompt fingerprint so each
+ * brand/prompt surfaces a genuinely different set of on-niche photographs.
  */
 export function curatedPhotoIds(puo: PromptUnderstandingObject): string[] {
-  // 1) sub-niche from a content keyword
+  const fp = fnv(puo.originalPrompt);
+  const pool = new Set<string>();
+
+  // 1) sub-niche from a content keyword (most specific), widened by related kin.
+  let subKey = '';
   for (const kw of puo.extractedKeywords) {
     const k = kw.toLowerCase();
-    if (SUBNICHE_PHOTOS[k]) return rotateIds(SUBNICHE_PHOTOS[k], puo);
+    if (SUBNICHE_PHOTOS[k]) { subKey = k; break; }
   }
   const raw = puo.inferredIndustry.toLowerCase();
-  if (SUBNICHE_PHOTOS[raw]) return rotateIds(SUBNICHE_PHOTOS[raw], puo);
-  // 2) broad niche
-  return rotateIds(NICHE_PHOTOS[nicheKey(puo)] || NICHE_PHOTOS.general, puo);
-}
+  if (!subKey && SUBNICHE_PHOTOS[raw]) subKey = raw;
 
-function rotateIds(ids: string[], puo: PromptUnderstandingObject): string[] {
-  const fp = fnv(puo.originalPrompt);
-  const n = ids.length ? Math.abs(fp) % ids.length : 0;
-  return ids.slice(n).concat(ids.slice(0, n));
+  if (subKey) {
+    const related = RELATED_SUBNICHE[subKey] || [subKey];
+    for (const r of related) (SUBNICHE_PHOTOS[r] || []).forEach(id => pool.add(id));
+    // Add the broad niche bank too, for additional on-theme variety.
+    const broad = NICHE_SYNONYM[subKey] || (NICHE_PHOTOS[subKey] ? subKey : '');
+    if (broad && NICHE_PHOTOS[broad]) NICHE_PHOTOS[broad].forEach(id => pool.add(id));
+  } else {
+    // 2) broad niche only.
+    (NICHE_PHOTOS[nicheKey(puo)] || NICHE_PHOTOS.general).forEach(id => pool.add(id));
+  }
+
+  if (pool.size === 0) NICHE_PHOTOS.general.forEach(id => pool.add(id));
+  return seededShuffle(Array.from(pool), fp);
 }
 
 /**

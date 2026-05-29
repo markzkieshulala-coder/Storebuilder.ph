@@ -346,6 +346,21 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 @media(max-width:768px){.gallery-grid.uniform,.gallery-grid.masonry,.gallery-grid.panorama{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.gallery-grid.uniform,.gallery-grid.masonry,.gallery-grid.panorama{grid-template-columns:1fr}}
 
+/* PRODUCT / MENU GRID — real items with name, description, price */
+.product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
+@media(max-width:900px){.product-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.product-grid{grid-template-columns:1fr}}
+.product-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s}
+.product-card:hover{transform:translateY(-6px);box-shadow:0 24px 56px -16px rgba(0,0,0,.28)}
+.product-media{aspect-ratio:4/3;overflow:hidden}
+.product-media img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--ease)}
+.product-card:hover .product-media img{transform:scale(1.06)}
+.product-body{padding:clamp(16px,2vw,22px);display:flex;flex-direction:column;gap:8px}
+.product-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.product-name{font-size:var(--h3-size);margin:0}
+.product-price{font-family:var(--display);font-weight:var(--weight-heading);color:var(--primary);white-space:nowrap}
+.product-desc{color:var(--muted);font-size:var(--small-size);line-height:1.6;margin:0}
+
 /* CTA SIGNAL SECTION */
 .signal-section{padding:clamp(72px,10vw,130px) 0;text-align:center}
 .signal-inner{background:color-mix(in srgb,var(--primary) 7%,var(--surf));border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);border-radius:var(--radius-lg);padding:clamp(48px,7vw,90px) clamp(24px,5vw,72px);max-width:720px;margin:0 auto}
@@ -615,6 +630,9 @@ interface SiteCopy {
   ctaSub: string;
   footerTagline: string;
   pricingPlans: Array<{ name: string; price: string; period: string; desc: string; features: string[]; featured: boolean }> | null;
+  faqs: Array<{ q: string; a: string }>;
+  products: Array<{ name: string; desc: string; price: string }> | null;
+  productEyebrow: string;
   hiddenPrimarySlug: string;
   hiddenSecondarySlug: string;
   hiddenPrimaryCtaLabel: string;
@@ -720,6 +738,10 @@ interface SubNicheCopyBank {
   primaryCta: string;
   secondaryCta: string;
   contactSub?: string;
+  ctaSub?: string;
+  faqs?: Array<{ q: string; a: string }>;
+  products?: Array<{ name: string; desc: string; price: string }>;
+  productEyebrow?: string;
 }
 
 const SUBNICHE_COPY_BANK: Record<string, SubNicheCopyBank> = {
@@ -1213,6 +1235,221 @@ function resolveSubNicheCopy(puo: PromptUnderstandingObject): SubNicheCopyBank |
   return SUBNICHE_COPY_BANK[raw] || null;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// PRODUCT / MENU BANKS — real items with name, description, and price.
+// Used to render a genuine Menu/Products/Shop grid (not just a photo
+// gallery) for niches where customers browse purchasable items.
+// ─────────────────────────────────────────────────────────────────
+
+interface ProductBank { eyebrow: string; items: Array<{ name: string; desc: string; price: string }>; }
+
+const SUBNICHE_PRODUCTS: Record<string, ProductBank> = {
+  coffee: { eyebrow: 'Our Menu', items: [
+    { name: 'Espresso', desc: 'A rich, full-bodied double shot with a thick golden crema.', price: '$3.50' },
+    { name: 'Cappuccino', desc: 'Equal parts espresso, steamed milk, and velvety microfoam.', price: '$4.50' },
+    { name: 'Caffè Latte', desc: 'Smooth espresso with steamed milk and a light layer of foam.', price: '$4.75' },
+    { name: 'Flat White', desc: 'Ristretto shots topped with silky steamed milk — coffee-forward.', price: '$4.50' },
+    { name: 'Iced Coffee', desc: 'Slow-steeped and served over ice for a crisp, refreshing cup.', price: '$4.25' },
+    { name: 'Cold Brew', desc: 'Steeped 18 hours for a smooth, naturally sweet, low-acid finish.', price: '$5.00' },
+    { name: 'Pour-Over', desc: 'Single-origin beans brewed by hand to highlight delicate notes.', price: '$5.50' },
+    { name: 'Butter Croissant', desc: 'Flaky, golden, and baked fresh in-house every morning.', price: '$3.75' },
+  ] },
+  cafe: { eyebrow: 'Our Menu', items: [
+    { name: 'Flat White', desc: 'Ristretto shots topped with silky steamed milk — coffee-forward.', price: '$4.50' },
+    { name: 'Avocado Toast', desc: 'Sourdough, smashed avocado, chilli, and a soft poached egg.', price: '$11.00' },
+    { name: 'Breakfast Bowl', desc: 'Eggs, greens, roasted veg, and house dressing — all day.', price: '$13.50' },
+    { name: 'Almond Croissant', desc: 'Buttery croissant filled with frangipane and toasted almonds.', price: '$4.25' },
+    { name: 'Iced Latte', desc: 'House espresso over cold milk and ice — smooth and refreshing.', price: '$4.75' },
+    { name: 'Seasonal Cake', desc: 'A rotating slice baked fresh — ask about today\'s selection.', price: '$5.50' },
+  ] },
+  espresso: { eyebrow: 'Our Menu', items: [
+    { name: 'Single Espresso', desc: 'A precise single shot pulled to highlight origin character.', price: '$3.00' },
+    { name: 'Double Espresso', desc: 'Two shots of intense, balanced espresso with rich crema.', price: '$3.75' },
+    { name: 'Cortado', desc: 'Equal espresso and warm milk — bold but beautifully smooth.', price: '$4.00' },
+    { name: 'Macchiato', desc: 'Espresso "stained" with a dollop of textured milk foam.', price: '$3.75' },
+    { name: 'Flat White', desc: 'Ristretto shots with silky microfoam — intensely coffee-forward.', price: '$4.50' },
+    { name: 'Ristretto', desc: 'A short, concentrated extraction — sweeter and more intense.', price: '$3.50' },
+  ] },
+  ramen: { eyebrow: 'Our Menu', items: [
+    { name: 'Tonkotsu Ramen', desc: '18-hour pork broth, chashu, soft egg, scallion, and nori.', price: '$16.00' },
+    { name: 'Shoyu Ramen', desc: 'Soy-based clear broth with chicken, bamboo, and fresh noodles.', price: '$15.00' },
+    { name: 'Miso Ramen', desc: 'Rich fermented-miso broth, corn, butter, and ground pork.', price: '$15.50' },
+    { name: 'Spicy Tantanmen', desc: 'Sesame-chilli broth with minced pork and a fiery oil finish.', price: '$16.50' },
+    { name: 'Vegetable Ramen', desc: 'Kombu-shiitake broth with seasonal vegetables and tofu.', price: '$14.50' },
+    { name: 'Gyoza (6 pc)', desc: 'Pan-fried pork-and-cabbage dumplings with dipping sauce.', price: '$7.00' },
+  ] },
+  sushi: { eyebrow: 'Our Menu', items: [
+    { name: 'Chef\'s Omakase', desc: 'An 8–12 piece journey through today\'s finest catch.', price: '$65.00' },
+    { name: 'Salmon Nigiri (2 pc)', desc: 'Fresh salmon over hand-pressed seasoned rice.', price: '$7.00' },
+    { name: 'Tuna Sashimi', desc: 'Five slices of premium daily-sourced bluefin tuna.', price: '$14.00' },
+    { name: 'Dragon Roll', desc: 'Eel and cucumber topped with avocado and unagi glaze.', price: '$16.00' },
+    { name: 'Spicy Tuna Roll', desc: 'Diced tuna, chilli mayo, and cucumber, finished with sesame.', price: '$12.00' },
+    { name: 'Miso Soup', desc: 'Traditional dashi and miso with tofu, wakame, and scallion.', price: '$4.00' },
+  ] },
+  pizza: { eyebrow: 'Our Menu', items: [
+    { name: 'Margherita', desc: 'San Marzano tomato, fresh mozzarella, basil, olive oil.', price: '$14.00' },
+    { name: 'Marinara', desc: 'Tomato, garlic, oregano, and olive oil — no cheese, all flavour.', price: '$12.00' },
+    { name: 'Diavola', desc: 'Spicy salami, mozzarella, tomato, and a chilli-oil finish.', price: '$16.00' },
+    { name: 'Quattro Formaggi', desc: 'Mozzarella, gorgonzola, fontina, and parmesan.', price: '$17.00' },
+    { name: 'Prosciutto & Rocket', desc: 'Cured ham, fresh rocket, and shaved parmesan after the bake.', price: '$18.00' },
+    { name: 'Funghi', desc: 'Wild mushrooms, mozzarella, thyme, and truffle oil.', price: '$16.50' },
+  ] },
+  burger: { eyebrow: 'Our Menu', items: [
+    { name: 'The Classic', desc: 'Fresh-ground patty, cheddar, lettuce, tomato, house sauce.', price: '$12.00' },
+    { name: 'Double Smash', desc: 'Two smashed patties, American cheese, pickles, onions.', price: '$15.00' },
+    { name: 'Bacon BBQ', desc: 'Smoked bacon, cheddar, crispy onions, and smoky BBQ sauce.', price: '$15.50' },
+    { name: 'Mushroom Swiss', desc: 'Sautéed mushrooms, melted swiss, and garlic aioli.', price: '$14.50' },
+    { name: 'Plant-Based', desc: 'House veggie patty, vegan cheese, and all the trimmings.', price: '$14.00' },
+    { name: 'Hand-Cut Fries', desc: 'Skin-on fries with our signature seasoning blend.', price: '$5.00' },
+  ] },
+  bakery: { eyebrow: 'Fresh Today', items: [
+    { name: 'Sourdough Loaf', desc: 'Naturally leavened, slow-fermented, with a crackling crust.', price: '$8.00' },
+    { name: 'Butter Croissant', desc: 'Flaky, golden, and laminated by hand each morning.', price: '$3.75' },
+    { name: 'Pain au Chocolat', desc: 'Buttery layers wrapped around rich dark chocolate batons.', price: '$4.25' },
+    { name: 'Cinnamon Roll', desc: 'Soft, spiced, and finished with a cream-cheese glaze.', price: '$4.50' },
+    { name: 'Fruit Danish', desc: 'Seasonal fruit on a vanilla custard pastry base.', price: '$4.75' },
+    { name: 'Custom Cake', desc: 'Made to order for birthdays, weddings, and celebrations.', price: 'From $45' },
+  ] },
+  bar: { eyebrow: 'Cocktail List', items: [
+    { name: 'Old Fashioned', desc: 'Bourbon, demerara, and aromatic bitters over a clear cube.', price: '$14.00' },
+    { name: 'Negroni', desc: 'Equal parts gin, Campari, and sweet vermouth, orange twist.', price: '$13.00' },
+    { name: 'Espresso Martini', desc: 'Vodka, coffee liqueur, and a fresh shot of espresso.', price: '$15.00' },
+    { name: 'Margarita', desc: 'Blanco tequila, lime, and orange liqueur with a salt rim.', price: '$13.00' },
+    { name: 'House Negroni Sbagliato', desc: 'Campari and vermouth lengthened with sparkling wine.', price: '$14.00' },
+    { name: 'Seasonal Signature', desc: 'Ask your bartender about tonight\'s house creation.', price: '$16.00' },
+  ] },
+};
+
+const NICHE_PRODUCTS: Record<string, ProductBank> = {
+  food: { eyebrow: 'Our Menu', items: [
+    { name: 'Chef\'s Signature', desc: 'Our most-loved dish, crafted from the freshest seasonal produce.', price: '$24.00' },
+    { name: 'Starter Selection', desc: 'A rotating plate of house starters to begin your meal.', price: '$12.00' },
+    { name: 'Daily Special', desc: 'Ask your server about today\'s freshly prepared special.', price: '$22.00' },
+    { name: 'House Dessert', desc: 'A handmade sweet finish, changed with the season.', price: '$9.00' },
+    { name: 'Seasonal Plate', desc: 'Built around what\'s best at the market this week.', price: '$20.00' },
+    { name: 'Sharing Board', desc: 'A generous selection designed for the table to share.', price: '$26.00' },
+  ] },
+  ecommerce: { eyebrow: 'Featured Products', items: [
+    { name: 'Best Seller', desc: 'Our most popular product, loved by thousands of customers.', price: '$49.00' },
+    { name: 'New Arrival', desc: 'Fresh in this season — premium quality, limited stock.', price: '$59.00' },
+    { name: 'Editor\'s Pick', desc: 'Hand-selected by our team for exceptional quality and value.', price: '$45.00' },
+    { name: 'Bundle Set', desc: 'Everything you need in one carefully curated package.', price: '$89.00' },
+    { name: 'Premium Edition', desc: 'Our top-tier offering with elevated materials and finish.', price: '$79.00' },
+    { name: 'Essentials Kit', desc: 'The everyday staples, thoughtfully sourced and built to last.', price: '$39.00' },
+  ] },
+  fashion: { eyebrow: 'The Collection', items: [
+    { name: 'Signature Coat', desc: 'Tailored from premium wool with a clean, timeless silhouette.', price: '$320.00' },
+    { name: 'Everyday Knit', desc: 'Soft, breathable, and cut for an effortless modern fit.', price: '$120.00' },
+    { name: 'Tailored Trouser', desc: 'A refined straight-leg trouser in a versatile mid-weight.', price: '$160.00' },
+    { name: 'Classic Shirt', desc: 'Crisp, structured, and finished with mother-of-pearl buttons.', price: '$110.00' },
+    { name: 'Leather Accessory', desc: 'Full-grain leather, hand-finished and built to age beautifully.', price: '$95.00' },
+    { name: 'Limited Edition', desc: 'A small-run piece from our latest seasonal drop.', price: '$240.00' },
+  ] },
+};
+
+function resolveProducts(puo: PromptUnderstandingObject, normIndustry: string): ProductBank | null {
+  for (const kw of puo.extractedKeywords) {
+    const k = kw.toLowerCase();
+    if (SUBNICHE_PRODUCTS[k]) return SUBNICHE_PRODUCTS[k];
+  }
+  const raw = puo.inferredIndustry.toLowerCase();
+  if (SUBNICHE_PRODUCTS[raw]) return SUBNICHE_PRODUCTS[raw];
+  return NICHE_PRODUCTS[normIndustry] || null;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FAQ BANKS — niche-specific questions. A coffee shop never shows
+// "Is there a free plan available?" — it shows hours, ordering, etc.
+// ─────────────────────────────────────────────────────────────────
+
+const NICHE_FAQ: Record<string, Array<{ q: string; a: string }>> = {
+  food: [
+    { q: 'Do you take reservations?', a: 'Yes — you can book a table through our contact page or by giving us a call. Walk-ins are always welcome too.' },
+    { q: 'What are your opening hours?', a: 'We\'re open seven days a week. Check our contact section for today\'s hours — we\'re here morning through evening.' },
+    { q: 'Do you cater to dietary requirements?', a: 'Absolutely. We offer vegetarian, vegan, and gluten-free options, and our team is happy to accommodate allergies.' },
+    { q: 'Can I order for takeaway or delivery?', a: 'Yes — order ahead for pickup, and delivery is available through our partners in the local area.' },
+  ],
+  sports: [
+    { q: 'Do I need experience to join?', a: 'Not at all. Our programs scale to every level, and our coaches will guide you from your very first session.' },
+    { q: 'What should I bring to my first class?', a: 'Just comfortable training clothes, a water bottle, and a willingness to work. We\'ll handle the rest.' },
+    { q: 'Are there flexible membership options?', a: 'Yes — we offer monthly, class-pack, and annual memberships so you can train on your terms.' },
+    { q: 'Do you offer personal training?', a: 'We do. One-on-one coaching is available for anyone who wants a fully personalised program.' },
+  ],
+  wellness: [
+    { q: 'How do I book a session?', a: 'You can book directly through our contact page or by calling us. We recommend booking ahead for popular times.' },
+    { q: 'What should I expect on my first visit?', a: 'Arrive a few minutes early so we can welcome you, understand your needs, and make sure you\'re fully comfortable.' },
+    { q: 'Do you offer packages or memberships?', a: 'Yes — we offer single sessions, multi-session packages, and memberships for regular guests.' },
+    { q: 'Can I request a specific therapist or class?', a: 'Of course. Let us know your preference when booking and we\'ll do our best to accommodate you.' },
+  ],
+  photography: [
+    { q: 'How do I book a shoot?', a: 'Reach out through our contact page with a few details about your project and we\'ll get back to you within 24 hours.' },
+    { q: 'What\'s your turnaround time?', a: 'Proofs are typically delivered within 24–48 hours, with final edited images following shortly after.' },
+    { q: 'Do you travel for shoots?', a: 'Yes — we shoot on location locally and can travel further afield for the right project.' },
+    { q: 'Can we discuss the concept beforehand?', a: 'Absolutely. Every project starts with a conversation to align on vision, style, and deliverables.' },
+  ],
+  fashion: [
+    { q: 'What is your sizing and fit like?', a: 'Each product page includes a detailed size guide. If you\'re between sizes, our team is happy to advise.' },
+    { q: 'What is your returns policy?', a: 'We offer easy 30-day returns on unworn items. Bespoke and made-to-order pieces are final sale.' },
+    { q: 'Do you ship internationally?', a: 'Yes — we ship worldwide, with rates and delivery times calculated at checkout.' },
+    { q: 'Do you offer styling advice?', a: 'We do. Book a personal styling consultation and we\'ll help you build pieces that work for your life.' },
+  ],
+  ecommerce: [
+    { q: 'How long does shipping take?', a: 'Standard orders ship within 1–2 business days, with delivery typically in 3–5 days depending on location.' },
+    { q: 'What is your return policy?', a: 'We offer hassle-free 30-day returns. If you\'re not happy, send it back for a full refund.' },
+    { q: 'Do you ship internationally?', a: 'Yes — we ship to most countries, with shipping costs calculated at checkout.' },
+    { q: 'How can I track my order?', a: 'You\'ll receive a tracking link by email as soon as your order leaves our warehouse.' },
+  ],
+  agency: [
+    { q: 'How do we start working together?', a: 'It begins with a discovery call to understand your goals, followed by a tailored proposal and scope.' },
+    { q: 'What is your typical project timeline?', a: 'Timelines vary by scope, but most engagements run between four and twelve weeks from kickoff to delivery.' },
+    { q: 'Do you work with our existing team?', a: 'Absolutely. We integrate seamlessly with in-house teams and can lead or support as needed.' },
+    { q: 'How do you measure success?', a: 'We define clear KPIs at the outset and report against them throughout the engagement.' },
+  ],
+  portfolio: [
+    { q: 'Are you available for new projects?', a: 'Yes — reach out through the contact page and let\'s talk about what you have in mind.' },
+    { q: 'What is your process like?', a: 'Every project starts with understanding your goals, followed by concepts, refinement, and delivery.' },
+    { q: 'Do you work remotely?', a: 'I work with clients both locally and remotely, collaborating however suits your team best.' },
+    { q: 'How do we get started?', a: 'Send a short brief through the contact form and I\'ll get back to you to discuss next steps.' },
+  ],
+  hospitality: [
+    { q: 'How do I make a booking?', a: 'You can book directly through our contact page or by calling our front desk — we\'re here to help.' },
+    { q: 'What are your check-in times?', a: 'Check-in is from mid-afternoon and check-out is late morning. Early check-in is subject to availability.' },
+    { q: 'Do you offer amenities and services?', a: 'Yes — from dining to concierge, we offer a full range of services to make your stay seamless.' },
+    { q: 'Is parking available?', a: 'On-site and nearby parking options are available. Contact us ahead of your visit for details.' },
+  ],
+  technology: [
+    { q: 'How do I get started?', a: 'Getting started is easy — sign up, follow the guided onboarding, and you\'ll be up and running in minutes.' },
+    { q: 'Is there a free plan available?', a: 'Yes, we offer a free plan with core features so you can try the platform before upgrading.' },
+    { q: 'Can I cancel at any time?', a: 'Absolutely. There are no long-term contracts — change or cancel your plan whenever you like.' },
+    { q: 'Do you offer customer support?', a: 'We provide support through chat and email, with priority and dedicated support on higher plans.' },
+  ],
+  general: [
+    { q: 'How do I get in touch?', a: 'The fastest way is through our contact page — we respond to every enquiry within 24 hours.' },
+    { q: 'Where are you located?', a: 'You\'ll find our full address and opening hours in the contact section below.' },
+    { q: 'What makes you different?', a: 'We pair genuine expertise with a relentless focus on quality and a service experience people remember.' },
+    { q: 'Do you offer consultations?', a: 'Yes — reach out and we\'ll be happy to discuss exactly how we can help you.' },
+  ],
+};
+
+function resolveFaqs(normIndustry: string): Array<{ q: string; a: string }> {
+  return NICHE_FAQ[normIndustry] || NICHE_FAQ.general;
+}
+
+// Niche-appropriate CTA subline (replaces the SaaS "no credit card required").
+const CTA_SUB_BY_NICHE: Record<string, string> = {
+  food: 'Reserve your table or stop by today — we can\'t wait to welcome you.',
+  sports: 'Book your first session today and feel the difference real coaching makes.',
+  wellness: 'Book your treatment today and give yourself the rest you deserve.',
+  photography: 'Tell us about your project — we\'ll bring your vision to life.',
+  fashion: 'Explore the collection and find pieces made to last.',
+  ecommerce: 'Browse the collection and enjoy fast, free shipping on every order.',
+  agency: 'Let\'s talk about your goals and build something that moves the needle.',
+  portfolio: 'Have a project in mind? Let\'s create something exceptional together.',
+  hospitality: 'Book your stay today and experience hospitality done right.',
+  technology: 'Get started in minutes. No credit card required.',
+  general: 'Get in touch today — we\'d love to hear from you.',
+};
+
 function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number): SiteCopy {
   const kws = getContentWords(puo);
   const industry = puo.inferredIndustry;
@@ -1467,7 +1704,13 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // CTA
   const ctaHeadings = [`Ready to Experience ${mainKw}?`, `Start Your ${mainKw} Journey`, `Join Thousands of ${mainKw} Leaders`, `Transform Your ${mainKw} Today`];
   const ctaHeading = subNiche?.ctaHeading || pick(ctaHeadings, fp + 9);
-  const ctaSub = `Get started in minutes. No credit card required.`;
+  const ctaSub = subNiche?.ctaSub || CTA_SUB_BY_NICHE[normIndustry] || CTA_SUB_BY_NICHE.general;
+
+  // FAQ + product/menu content — niche-specific, resolved from the banks above.
+  const faqs = subNiche?.faqs || resolveFaqs(normIndustry);
+  const productBank = resolveProducts(puo, normIndustry);
+  const products = productBank?.items || null;
+  const productEyebrow = productBank?.eyebrow || 'Featured';
 
   // Footer tagline
   const footerTaglines = [`${mainKw} made powerful.`, `Building the future of ${mainKw}.`, `Your ${mainKw} platform.`, `${brand} — where ${mainKw} meets ${secKw}.`];
@@ -1489,7 +1732,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     aboutHeading, aboutBody, aboutBullets, missionHeading, missionBody,
     galleryHeading, gallerySlug,
     contactHeading, contactSub, ctaHeading, ctaSub, footerTagline,
-    pricingPlans,
+    pricingPlans, faqs, products, productEyebrow,
     hiddenPrimarySlug:    hiddenCfg.primary.slug,
     hiddenSecondarySlug:  hiddenCfg.secondary.slug,
     hiddenPrimaryCtaLabel:   hiddenCfg.primary.ctaLabel,
@@ -1949,6 +2192,36 @@ function renderSplitSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
 
 function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
   const { copy, photos, fp } = ctx;
+
+  // When the niche has real purchasable items (a coffee menu, a shop, a
+  // collection), render a genuine PRODUCT grid — image + name + description +
+  // price — instead of a bare photo gallery. This is what the user asked for.
+  if (copy.products && copy.products.length) {
+    const cards = copy.products.map((p, i) => {
+      const photoId = photos[(fp + i + 2) % photos.length];
+      return `<div class="product-card reveal reveal-delay-${i % 3}">
+      <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
+      <div class="product-body">
+        <div class="product-row"><h3 class="product-name">${esc(p.name)}</h3><span class="product-price">${esc(p.price)}</span></div>
+        <p class="product-desc">${esc(p.desc)}</p>
+      </div>
+    </div>`;
+    }).join('');
+    return `
+<section>
+  <div class="wrap">
+    <div class="sec-head centered reveal">
+      <span class="eyebrow">${esc(copy.productEyebrow)}</span>
+      <h2>${esc(copy.galleryHeading)}</h2>
+    </div>
+    <div class="product-grid">${cards}</div>
+    <div style="text-align:center;margin-top:clamp(28px,4vw,44px)">
+      <a href="${esc(copy.gallerySlug)}" class="btn btn-outline reveal">View Full ${esc(copy.productEyebrow.replace(/^Our\s+/i,''))} →</a>
+    </div>
+  </div>
+</section>`;
+  }
+
   const variant = node.variant as string;
   const gridClass = variant === 'filmstrip' ? 'filmstrip' : variant === 'panorama' ? 'panorama' : variant === 'masonry' ? 'masonry' : 'uniform';
   const count = gridClass === 'filmstrip' ? 6 : 6;
@@ -2011,13 +2284,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
 function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
   const { copy } = ctx;
   if (node.variant === 'accordion') {
-    const faqs = [
-      { q: `How do I get started with ${ctx.puo.inferredIndustry !== 'general' ? ctx.puo.inferredIndustry : 'the platform'}?`, a: `Getting started is easy. Simply click the "${copy.primaryCta}" button and follow our quick onboarding process.` },
-      { q: 'Is there a free plan available?', a: 'Yes! We offer a free plan with core features so you can try before committing to a paid plan.' },
-      { q: 'Can I cancel at any time?', a: 'Absolutely. There are no long-term contracts. You can cancel or change your plan at any time.' },
-      { q: 'Do you offer customer support?', a: 'We provide 24/7 support through chat and email. Enterprise plans include a dedicated account manager.' },
-    ];
-    const items = faqs.map(f => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('');
+    const items = copy.faqs.map(f => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('');
     return `
 <section>
   <div class="wrap">
@@ -2220,23 +2487,41 @@ function renderAboutPage(puo: PromptUnderstandingObject, graph: LayoutGraph, bra
 
 function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: SiteCopy, fp: number): string {
   const photos = getPhotos(puo, fp);
-  const galleryItems = Array.from({ length: 9 }, (_, i) => {
-    const photoId = photos[(fp + i + 2) % photos.length];
-    const hs = [320, 380, 280, 350, 400, 300];
-    const h = hs[i % hs.length];
-    return `<div class="gallery-item reveal">
+
+  // Real product/menu grid when the niche has purchasable items.
+  let body: string;
+  if (copy.products && copy.products.length) {
+    const cards = copy.products.map((p, i) => {
+      const photoId = photos[(fp + i + 2) % photos.length];
+      return `<div class="product-card reveal reveal-delay-${i % 3}">
+      <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
+      <div class="product-body">
+        <div class="product-row"><h3 class="product-name">${esc(p.name)}</h3><span class="product-price">${esc(p.price)}</span></div>
+        <p class="product-desc">${esc(p.desc)}</p>
+      </div>
+    </div>`;
+    }).join('');
+    body = `<div class="product-grid">${cards}</div>`;
+  } else {
+    const galleryItems = Array.from({ length: 9 }, (_, i) => {
+      const photoId = photos[(fp + i + 2) % photos.length];
+      const hs = [320, 380, 280, 350, 400, 300];
+      const h = hs[i % hs.length];
+      return `<div class="gallery-item reveal">
       <img src="${ph(photoId, 600, h)}" alt="${esc(copy.galleryHeading)} item ${i+1}" loading="lazy"/>
     </div>`;
-  }).join('');
+    }).join('');
+    body = `<div class="gallery-grid masonry" style="grid-auto-rows:220px">${galleryItems}</div>`;
+  }
 
   const main = `
 <section style="padding-top:140px">
   <div class="wrap">
     <div class="sec-head centered reveal">
-      <span class="eyebrow">${esc(copy.galleryHeading.replace(/^Our\s+/i, '') || 'Showcase')}</span>
+      <span class="eyebrow">${esc(copy.productEyebrow || copy.galleryHeading.replace(/^Our\s+/i, '') || 'Showcase')}</span>
       <h1 style="font-size:var(--h1-size)">${esc(copy.galleryHeading)}</h1>
     </div>
-    <div class="gallery-grid masonry" style="grid-auto-rows:220px">${galleryItems}</div>
+    ${body}
   </div>
 </section>
 <section class="signal-section">
@@ -2933,7 +3218,26 @@ function buildHomeMain(
   const photos = getPhotos(puo, fp);
   const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0 };
   const counters: Record<string, number> = {};
-  return graph.nodes.map(node => renderNode(node, ctx, counters)).filter(Boolean).join('\n');
+
+  // Singleton sections that must render at most once per page. The layout graph
+  // can emit two galleries or two FAQ/testimonial blocks; rendering both reads
+  // as a duplicate section. We keep the first occurrence and drop later repeats.
+  const seenKinds = new Set<string>();
+  const sectionKind = (node: LayoutNode): string | null => {
+    if (node.type === 'gallery') return 'gallery';
+    if (node.type === 'list') return node.variant === 'accordion' ? 'faq' : 'testimonials';
+    if (node.type === 'strip') return 'strip';
+    return null; // hero/cluster/tile/stage/frame/split/signal may repeat (varied content)
+  };
+
+  return graph.nodes.map(node => {
+    const kind = sectionKind(node);
+    if (kind) {
+      if (seenKinds.has(kind)) return '';
+      seenKinds.add(kind);
+    }
+    return renderNode(node, ctx, counters);
+  }).filter(Boolean).join('\n');
 }
 
 // ─────────────────────────────────────────────────────────────────
