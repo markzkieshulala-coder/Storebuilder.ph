@@ -148,8 +148,42 @@ const FONT_MAP: Record<string, FontConfig> = {
   material:      { href:'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap', display:"'Roboto',system-ui,sans-serif", body:"'Roboto',system-ui,sans-serif" },
 };
 
+// Niche-driven font overrides — applied when the design style is generic
+// (minimal/flat/corporate/etc.) so the typography reflects the actual industry
+// instead of a style keyword that wasn't explicitly requested.
+const NICHE_FONT_OVERRIDE: Record<string, string> = {
+  // Food & beverage → warm organic serif
+  coffee:'organic',cafe:'organic',espresso:'organic',ramen:'organic',sushi:'organic',
+  pizza:'organic',bakery:'organic',bar:'organic',brunch:'organic',restaurant:'organic',
+  dining:'organic',bistro:'organic',food:'organic',burger:'organic',
+  // Sports & fitness → bold athletic condensed
+  gym:'brutalist',crossfit:'brutalist',fitness:'brutalist',sports:'brutalist',boxing:'brutalist',
+  // Wellness → refined luxury serif
+  yoga:'luxury',spa:'luxury',wellness:'luxury',meditation:'luxury',pilates:'luxury',massage:'luxury',
+  // Photography & creative → artistic sans
+  photography:'artistic',photographer:'artistic',videography:'artistic',art:'artistic',illustration:'artistic',
+  // Agency & branding → artistic
+  agency:'artistic',marketing:'artistic',branding:'artistic',studio:'artistic',
+  // Fashion & beauty → editorial high-fashion serif
+  fashion:'editorial',beauty:'editorial',streetwear:'editorial',boutique:'editorial',
+  // Technology & SaaS → futuristic clean sans
+  technology:'futuristic',saas:'futuristic',startup:'futuristic',ai:'futuristic',fintech:'futuristic',
+  // Gaming/crypto → cyberpunk
+  gaming:'cyberpunk',crypto:'cyberpunk',
+  // Portfolio & design → clean minimal
+  portfolio:'minimal',design:'minimal',architecture:'minimal',
+  // E-commerce → startup/outfit
+  ecommerce:'startup',retail:'startup',
+};
+const GENERIC_STYLES = new Set(['minimal','flat','corporate','enterprise','material','neumorphism','startup']);
 function getFontConfig(puo: PromptUnderstandingObject): FontConfig {
-  return FONT_MAP[puo.designStyle] || FONT_MAP['minimal'];
+  const style = puo.designStyle;
+  const industry = puo.inferredIndustry.toLowerCase();
+  if (GENERIC_STYLES.has(style)) {
+    const nicheFont = NICHE_FONT_OVERRIDE[industry];
+    if (nicheFont && FONT_MAP[nicheFont]) return FONT_MAP[nicheFont];
+  }
+  return FONT_MAP[style] || FONT_MAP['minimal'];
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -663,6 +697,522 @@ function titleCase(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// ─────────────────────────────────────────────────────────────────
+// SUB-NICHE COPY BANKS — deeply niche-specific content so a coffee
+// shop sounds like a coffee shop, not a SaaS tool with "coffee"
+// substituted in. Keyed by the raw sub-niche slug (same keys used
+// in SUBNICHE_PHOTOS and SUBNICHE_SCENES).
+// ─────────────────────────────────────────────────────────────────
+
+interface SubNicheCopyBank {
+  featureTitles: string[];
+  featureDescs: string[];
+  heroSubs: string[];
+  aboutBody: string;
+  aboutBullets: string[];
+  stats: Array<{ number: string; label: string }>;
+  testimonialQuotes: string[];
+  testimonialRoles: string[];
+  missionBody: string;
+  heroTag: string;
+  ctaHeading: string;
+  footerTagline: string;
+  primaryCta: string;
+  secondaryCta: string;
+  contactSub?: string;
+}
+
+const SUBNICHE_COPY_BANK: Record<string, SubNicheCopyBank> = {
+  coffee: {
+    featureTitles: ['Single Origin Espresso','Artisan Pour-Overs','Farm-to-Cup Sourcing','Signature Seasonal Blends','Expert Barista Team','Specialty Brewing Methods'],
+    featureDescs: [
+      'Rich, complex single-origin shots pulled at peak extraction — every cup tells the story of where it grew.',
+      'From V60 to Chemex — slow, deliberate, and extraordinary in every pour.',
+      'Direct-trade relationships with farms across Ethiopia, Colombia, and Guatemala.',
+      'Limited seasonal roasts crafted to highlight the best flavors of each harvest.',
+      'Our baristas train to competition level — your cup is always in expert hands.',
+      'Cold brew, siphon, AeroPress, and more — we brew for every palate.',
+    ],
+    heroSubs: [
+      'We source directly from farms, roast in small batches, and pull every shot with precision. This is coffee as it should be.',
+      'From the first crack of the roast to the last sip in your cup — every detail matters here.',
+      'Specialty coffee crafted for curious palates. Single origins, seasonal blends, and expert brewing — all under one roof.',
+    ],
+    aboutBody: 'What began as a passion for exceptional coffee has grown into a community. We source our beans directly from farmers who share our obsession with quality — from the altitude of the growing region to the temperature of your cup. Every roast is small-batch, every shot is dialed in daily.',
+    aboutBullets: ['Direct trade from origin farms','Small-batch roasting for optimal flavour','Precision extraction on every shot','Community-focused, always welcoming'],
+    stats: [{number:'12+',label:'Origins Sourced'},{number:'4.9★',label:'Guest Rating'},{number:'Daily',label:'Fresh Roasted'},{number:'100%',label:'Direct Trade'}],
+    testimonialQuotes: [
+      'The single origin pour-over here completely changed how I think about coffee. I come in three times a week.',
+      'Best espresso in the city, no contest. The baristas know their craft and it shows in every cup.',
+      'I never knew coffee could taste this good until I walked in here. Now nowhere else compares.',
+    ],
+    testimonialRoles: ['Coffee Enthusiast','Daily Regular','Specialty Coffee Convert'],
+    missionBody: 'Every coffee we serve is a conversation between farmer, roaster, and barista. We travel to origin, taste obsessively, and brew deliberately — because you deserve nothing less.',
+    heroTag: 'Specialty Coffee',
+    ctaHeading: 'Come In for a Cup',
+    footerTagline: 'Specialty coffee, brewed with intention.',
+    primaryCta: 'View Our Menu',
+    secondaryCta: 'Our Story',
+    contactSub: 'Questions about our menu, hours, or events? We\'d love to hear from you.',
+  },
+  cafe: {
+    featureTitles: ['All-Day Breakfast Menu','House-Baked Pastries','Specialty Coffee Program','Seasonal Kitchen Menu','Cozy Dine-In Space','Catering & Private Events'],
+    featureDescs: [
+      'Full breakfast served all day — eggs, toast, avocado, and everything in between.',
+      'Croissants, danishes, tarts, and loaves baked fresh every morning on-site.',
+      'A full specialty coffee menu from espresso to cold brew, all dialled in daily.',
+      'Our kitchen menu rotates with the seasons using the freshest local ingredients.',
+      'A warm, welcoming space with great natural light — your neighbourhood third place.',
+      'From intimate birthday brunches to corporate team events — we host it beautifully.',
+    ],
+    heroSubs: [
+      'Your neighbourhood café — where good coffee, great food, and a warm welcome come together every single day.',
+      'We serve breakfast all day, bake everything from scratch, and make every guest feel at home.',
+      'Come for the coffee. Stay for the food. Come back for the community.',
+    ],
+    aboutBody: 'We opened our doors because we believed every neighbourhood deserves a truly great café — one that bakes fresh every morning, sources coffee with care, and greets every guest by name. This is that place.',
+    aboutBullets: ['Baked from scratch every morning','Seasonal menu, local ingredients','Specialty coffee sourced with care','Welcoming every guest since day one'],
+    stats: [{number:'7am',label:'Opens Daily'},{number:'4.9★',label:'Guest Rating'},{number:'100%',label:'House Baked'},{number:'Seasonal',label:'Fresh Menu'}],
+    testimonialQuotes: [
+      'My office is two blocks away and I\'m here every single morning. The food and coffee are just that good.',
+      'The croissants are the best I\'ve had outside Paris. And the coffee? Exceptional.',
+      'We had our team brunch here and everyone left raving. Perfect for groups and solo visits alike.',
+    ],
+    testimonialRoles: ['Office Regular','Brunch Enthusiast','Corporate Events Client'],
+    missionBody: 'We believe a great café does more than serve food — it creates a space where people feel good. That means baking everything ourselves, sourcing thoughtfully, and welcoming everyone who walks through the door.',
+    heroTag: 'Your Neighbourhood Café',
+    ctaHeading: 'Come Say Hello',
+    footerTagline: 'Great coffee. Fresh food. Every day.',
+    primaryCta: 'See Our Menu',
+    secondaryCta: 'Book a Table',
+    contactSub: 'Questions about bookings, catering, or our menu? Get in touch — we\'re always happy to chat.',
+  },
+  espresso: {
+    featureTitles: ['Double Espresso Perfection','Signature Latte Blends','Competition-Grade Baristas','Premium Italian Roasts','Espresso-Based Specialty Drinks','Direct Trade Beans'],
+    featureDescs: [
+      'Every double shot pulled with precision — 9 bars, 93°C, golden crema every time.',
+      'Our signature lattes are built on a carefully calibrated house espresso blend.',
+      'Our team trains to barista competition standards — your shot is never an afterthought.',
+      'Premium Italian and Nordic roasts selected for complexity, balance, and crema quality.',
+      'Cortado, flat white, macchiato, ristretto — crafted exactly as intended.',
+      'Every bean sourced directly from growers who share our obsession with quality.',
+    ],
+    heroSubs: [
+      'Every shot is dialled in, every pour is precise, and every cup is made with the kind of care that shows.',
+      'We pull espresso the way it was meant to be made — with intention, expertise, and the best beans available.',
+      'From the grind to the pour, this is specialty espresso at its finest.',
+    ],
+    aboutBody: 'Espresso isn\'t just coffee — it\'s a craft. We obsess over every variable: grind size, extraction temperature, pressure, and timing. When you taste the result, you\'ll understand why every detail matters.',
+    aboutBullets: ['9-bar precision extraction','93°C optimal brew temperature','Daily grind calibration','Competition-trained baristas'],
+    stats: [{number:'9 Bar',label:'Extraction Pressure'},{number:'93°C',label:'Brew Temperature'},{number:'4.9★',label:'Guest Rating'},{number:'Daily',label:'Freshly Dialled In'}],
+    testimonialQuotes: [
+      'Best espresso I\'ve had outside Italy. The crema is incredible and the flavours are complex without being harsh.',
+      'They actually care about every shot. I watched the barista re-pull because it wasn\'t quite right. That tells you everything.',
+      'The flat white here set the standard. I\'ve been to dozens of specialty cafés — this is the one I keep coming back to.',
+    ],
+    testimonialRoles: ['Espresso Purist','Coffee Geek','Specialty Coffee Traveller'],
+    missionBody: 'Great espresso demands obsession. We bring that obsession to every extraction — sourcing the best beans, dialling in our recipe daily, and training our team to competition standards.',
+    heroTag: 'Specialty Espresso Bar',
+    ctaHeading: 'Come In for a Shot',
+    footerTagline: 'Espresso pulled with obsession.',
+    primaryCta: 'Our Menu',
+    secondaryCta: 'Our Story',
+  },
+  ramen: {
+    featureTitles: ['18-Hour Tonkotsu Broth','Handmade Fresh Noodles','Premium Chashu Pork','Seasoned Soft-Boiled Eggs','Seasonal Ramen Specials','Authentic Japanese Recipe'],
+    featureDescs: [
+      'Our tonkotsu broth simmers for 18 hours minimum — rich, milky, and layered with umami depth.',
+      'Noodles made fresh in-house daily — the right springiness and bite for every broth style.',
+      'Slow-braised chashu rolled and sliced to order — melt-in-your-mouth in every bowl.',
+      'Soy-marinated eggs cured to a perfect soft, jammy centre — a bowl essential.',
+      'Our rotating specials follow Japanese seasons — from shio summer bowls to miso winter warmers.',
+      'Every recipe researched and refined through years of study in Japan — nothing is improvised here.',
+    ],
+    heroSubs: [
+      'It starts with 18 hours of simmering bones and ends with a bowl that stops you mid-spoonful. This is ramen done right.',
+      'Handmade noodles. Real broth. Toppings sourced with care. Every bowl is worth waiting for.',
+      'We make ramen the way it\'s made in Japan — slow, patient, and with absolute commitment to the craft.',
+    ],
+    aboutBody: 'Every bowl we serve starts the night before — with pork bones and time. We don\'t use concentrates, shortcuts, or artificial anything. Our broth simmers for a minimum of 18 hours, our noodles are made fresh that morning, and our toppings are prepped with the same attention to detail you\'d find in a serious ramen-ya in Tokyo.',
+    aboutBullets: ['18-hour minimum broth simmer','Fresh noodles made daily in-house','No shortcuts, no concentrates','Authentic Japanese recipe and technique'],
+    stats: [{number:'18hr',label:'Broth Simmer Time'},{number:'4.9★',label:'Guest Rating'},{number:'Daily',label:'Noodles Made Fresh'},{number:'100%',label:'House-Made Broth'}],
+    testimonialQuotes: [
+      'This tonkotsu broth is the real deal — rich, creamy, and deeply layered. I\'ve been searching for something this good for years.',
+      'The handmade noodles alone are worth the visit. Combined with the chashu and soft egg — this is a bowl I\'ll dream about.',
+      'Best ramen outside Japan. I\'ve said that to everyone I know and they\'ve all agreed after visiting.',
+    ],
+    testimonialRoles: ['Ramen Enthusiast','Japan-Travelled Foodie','Loyal Weekly Guest'],
+    missionBody: 'Great ramen is about patience — hours of simmering, years of refining, and an unwillingness to compromise. Every bowl we serve reflects that.',
+    heroTag: 'Authentic Japanese Ramen',
+    ctaHeading: 'Come Try a Bowl',
+    footerTagline: 'Handmade. House-brewed. Always worth the wait.',
+    primaryCta: 'View Our Menu',
+    secondaryCta: 'Book a Table',
+    contactSub: 'Want to reserve a table or ask about our menu? Get in touch — we\'re always happy to hear from you.',
+  },
+  sushi: {
+    featureTitles: ['Daily Fresh Fish Delivery','Traditional Nigiri & Sashimi','Chef\'s Omakase Course','Premium Wagyu & Specialty Rolls','Curated Sake Menu','Live Sushi Counter'],
+    featureDescs: [
+      'Our fish arrives every morning — sourced from trusted suppliers and the finest seasonal catch.',
+      'Classic nigiri and sashimi prepared with Japanese technique and genuine reverence for the ingredient.',
+      'Let the chef decide — an 8 to 12-piece omakase journey through today\'s best.',
+      'A5 Wagyu, black truffle, and premium seafood — for when the occasion demands more.',
+      'Curated sake pairings from across Japan — junmai, ginjo, and daiginjo to complement every bite.',
+      'Watch every piece being crafted at our counter — the full experience, nothing hidden.',
+    ],
+    heroSubs: [
+      'From the fish market to your plate — nothing older than this morning. This is sushi with no compromise.',
+      'Traditional Japanese technique, daily-sourced fish, and a reverence for every ingredient that shows in every bite.',
+      'We serve sushi the way it deserves to be served — fresh, precise, and with complete respect for the craft.',
+    ],
+    aboutBody: 'The quality of sushi lives and dies with the freshness of the fish and the skill of the hands that prepare it. We source every piece daily, train every chef to traditional Japanese standards, and serve nothing we wouldn\'t proudly eat ourselves.',
+    aboutBullets: ['Fresh fish sourced every morning','Traditional Japanese preparation','Omakase from 8 to 12 courses','Seasonal sake pairings available'],
+    stats: [{number:'Daily',label:'Fresh Fish Sourced'},{number:'4.9★',label:'Dining Rating'},{number:'20+',label:'Varieties Served'},{number:'8–12',label:'Omakase Courses'}],
+    testimonialQuotes: [
+      'The omakase here is extraordinary — each piece more surprising and delicious than the last. One of the best meals I\'ve had.',
+      'The fish quality is exceptional. You can taste the freshness in every single piece. This is sushi done properly.',
+      'From the moment you sit at the counter you know you\'re somewhere special. The craft is evident in everything.',
+    ],
+    testimonialRoles: ['Omakase Regular','Sushi Enthusiast','Food Critic'],
+    missionBody: 'We believe great sushi is about respect — for the ingredient, for the craft, and for the guest. Every piece we serve reflects that philosophy.',
+    heroTag: 'Japanese Sushi Bar',
+    ctaHeading: 'Reserve Your Seat',
+    footerTagline: 'Freshness, craft, and reverence — in every piece.',
+    primaryCta: 'View Menu',
+    secondaryCta: 'Reserve Omakase',
+    contactSub: 'Want to book an omakase seat or enquire about private dining? Reach out — we\'d love to host you.',
+  },
+  pizza: {
+    featureTitles: ['Wood-Fired Brick Oven','Neapolitan-Style Dough','San Marzano Tomatoes','Fresh Mozzarella di Bufala','Daily Special Pies','Gluten-Free & Vegan Crust'],
+    featureDescs: [
+      'Our oven burns at 900°F — creating the char, leopard spotting, and crust that defines real Neapolitan pizza.',
+      'Our dough ferments for a minimum of 72 hours — building flavour, structure, and the signature airy crust.',
+      'Whole peeled San Marzano DOP tomatoes — crushed by hand, never cooked until the oven does the work.',
+      'Fresh buffalo mozzarella delivered weekly — creamy, milky, and made to melt at exactly the right moment.',
+      'Our daily special changes with the season and what\'s freshest — check the board when you arrive.',
+      'Great pizza should be for everyone — our GF and vegan options don\'t compromise on flavour or texture.',
+    ],
+    heroSubs: [
+      'True Neapolitan pizza — 72-hour dough, San Marzano tomatoes, fresh buffalo mozzarella, and a 900°F wood-fired oven.',
+      'We make pizza the way it\'s made in Naples — simple ingredients, exceptional quality, and an unforgiving oven.',
+      'Great pizza needs nothing more than great dough, great sauce, and great cheese — we obsess over all three.',
+    ],
+    aboutBody: 'We spent two years perfecting our dough recipe before opening our doors. The result is a 72-hour fermented base that delivers flavour, chew, and the signature Neapolitan char that only comes from doing it properly. Everything else follows from there.',
+    aboutBullets: ['900°F wood-fired brick oven','72-hour dough fermentation','San Marzano DOP tomatoes','Buffalo mozzarella delivered fresh weekly'],
+    stats: [{number:'900°F',label:'Oven Temperature'},{number:'72hr',label:'Dough Fermentation'},{number:'4.9★',label:'Guest Rating'},{number:'Daily',label:'Fresh Dough Made'}],
+    testimonialQuotes: [
+      'The crust is perfect — charred, chewy, flavourful. I\'ve been to Naples and this is as close as I\'ve found here.',
+      'Best pizza I\'ve eaten. The San Marzano sauce and buffalo mozzarella combination is unbeatable.',
+      'Wood-fired means something here. You can taste the smoke, the char, and the intention in every bite.',
+    ],
+    testimonialRoles: ['Italian Food Enthusiast','Pizza Purist','Weekly Regular'],
+    missionBody: 'Great pizza is honest food — it only works if every ingredient is the best it can be. We source that way, prepare that way, and serve it that way.',
+    heroTag: 'Authentic Neapolitan Pizza',
+    ctaHeading: 'Come Try a Slice',
+    footerTagline: 'Wood-fired. Handmade. Uncompromising.',
+    primaryCta: 'View Our Menu',
+    secondaryCta: 'Order Online',
+  },
+  burger: {
+    featureTitles: ['Fresh-Ground Daily Beef Patties','House-Baked Brioche Buns','Signature Smash Burgers','Craft Sauce Program','Premium Toppings Bar','Hand-Cut Fries & Sides'],
+    featureDescs: [
+      'Our beef is ground fresh every morning — custom blend for the perfect fat ratio and flavour.',
+      'Soft, slightly sweet brioche buns baked in-house — the perfect vehicle for our patties.',
+      'Double smash, crispy edges, maximum crust — the Maillard reaction working at its finest.',
+      'Six house-made sauces, each crafted to complement a different flavour profile.',
+      'Premium aged cheddar, caramelised onions, house pickles, and heirloom tomatoes.',
+      'Skin-on fries seasoned with our house blend — crispy outside, fluffy inside, always fresh.',
+    ],
+    heroSubs: [
+      'Ground fresh daily, smashed to order, built to be the best burger you\'ve ever had.',
+      'We care about every layer — the beef, the bun, the sauce, the toppings. The result speaks for itself.',
+      'This is what a burger should be: bold, flavourful, and built from quality you can taste in every bite.',
+    ],
+    aboutBody: 'We got into the burger business because we kept eating disappointing ones. Our approach is simple: source great beef, grind it fresh every morning, make everything in-house, and never cut corners on flavour.',
+    aboutBullets: ['Beef ground fresh every morning','Brioche buns baked in-house daily','Six house-made signature sauces','Premium toppings, never frozen'],
+    stats: [{number:'Daily',label:'Fresh-Ground Beef'},{number:'6',label:'Signature Sauces'},{number:'4.9★',label:'Guest Rating'},{number:'100%',label:'Made to Order'}],
+    testimonialQuotes: [
+      'The best burger I\'ve eaten — and I eat a lot of burgers. The smash technique and fresh-ground beef make all the difference.',
+      'The brioche bun and house sauce combination is incredible. This has become my weekly treat.',
+      'I\'ve tried every burger spot in the city. This one wins. Not even close.',
+    ],
+    testimonialRoles: ['Burger Aficionado','Weekly Regular','Food Blogger'],
+    missionBody: 'A great burger is about fresh ingredients treated with respect. We grind our beef daily, bake our buns fresh, and make every sauce from scratch because that\'s what it takes to do it properly.',
+    heroTag: 'Smash Burger Bar',
+    ctaHeading: 'Come in for a Burger',
+    footerTagline: 'Fresh. Smashed. Unforgettable.',
+    primaryCta: 'View Our Menu',
+    secondaryCta: 'Order Now',
+  },
+  bakery: {
+    featureTitles: ['Freshly Baked Every Morning','Artisan Sourdough Breads','Handcrafted Pastries & Tarts','Custom Celebration Cakes','Seasonal Specialty Menu','Gluten-Free Selection'],
+    featureDescs: [
+      'We bake from 4am every day — so when you walk in, everything is still warm from the oven.',
+      'Our sourdough starter is years old — slow fermented, properly scored, and baked in a steam-injected deck oven.',
+      'From almond croissants to seasonal tarts — every pastry is made by hand from scratch, daily.',
+      'Weddings, birthdays, and celebrations — custom cakes designed to impress and made to remember.',
+      'Our menu changes with the season — raspberry tarts in summer, spiced sticky buns in winter.',
+      'Because everyone should enjoy great baked goods — our gluten-free range doesn\'t cut corners on flavour.',
+    ],
+    heroSubs: [
+      'We start baking at 4am so you can walk in to a warm croissant, a fresh loaf, and something made just for you.',
+      'Sourdough that took years to perfect. Pastries made from scratch every morning. Cakes built to celebrate.',
+      'Real baking — real flour, real butter, real time. Everything we sell was made in this kitchen this morning.',
+    ],
+    aboutBody: 'Every morning starts before sunrise. We mix the dough, laminate the pastry, fill the tarts, and set the cakes before most people wake up. When you walk in, you get the result of that effort — still warm, full of flavour, and made with genuine care.',
+    aboutBullets: ['Baking starts at 4am every day','Sourdough starter years in the making','Every pastry laminated by hand','Custom celebration cakes available'],
+    stats: [{number:'4am',label:'Baking Starts'},{number:'4.9★',label:'Guest Rating'},{number:'Daily',label:'Baked Fresh'},{number:'100%',label:'From Scratch'}],
+    testimonialQuotes: [
+      'The almond croissant alone is worth waking up early for. I\'ve never had a better pastry from a local bakery.',
+      'The sourdough has the perfect crust and crumb. I\'ve stopped buying bread anywhere else since discovering this place.',
+      'The custom birthday cake they made for my daughter was stunning and absolutely delicious. Exceeded every expectation.',
+    ],
+    testimonialRoles: ['Morning Regular','Bread Lover','Happy Parent'],
+    missionBody: 'Great baking is about honouring the ingredients and the process — no shortcuts, no compromises. We do it properly every single morning.',
+    heroTag: 'Artisan Bakery',
+    ctaHeading: 'Come In Fresh',
+    footerTagline: 'Handmade every morning, gone by afternoon.',
+    primaryCta: 'View Our Menu',
+    secondaryCta: 'Order a Custom Cake',
+    contactSub: 'Enquiries about custom cakes, wholesale, or catering? We\'d love to hear from you.',
+  },
+  bar: {
+    featureTitles: ['Craft Cocktail Program','Premium Spirits Collection','Seasonal Signature Drinks','Live Music & Entertainment','Private Event Bookings','Curated Wine & Sake Selection'],
+    featureDescs: [
+      'Our bartenders are trained mixologists — every drink built with intention, technique, and premium ingredients.',
+      'Over 200 spirits from across the globe — whiskey, rum, agave, gin, and everything in between.',
+      'Our cocktail menu rotates seasonally — always something new, crafted with the freshest ingredients.',
+      'From jazz nights to DJ sets — live entertainment that sets the mood perfectly.',
+      'Exclusive venue hire for corporate events, private parties, and intimate gatherings.',
+      'A curated list of natural wines and premium sakes — expertly selected to pair with our menu.',
+    ],
+    heroSubs: [
+      'The kind of bar where every drink is worth ordering and every night becomes a story you\'ll be telling for years.',
+      'Premium spirits, craft cocktails, and an atmosphere that makes every visit feel like a special occasion.',
+      'From the first sip to the last — this is drinking done properly.',
+    ],
+    aboutBody: 'We built this bar around one belief: a great drink deserves a great setting, and a great setting deserves a great drink. Our team sources obsessively, trains constantly, and crafts every cocktail with the kind of care you\'ll taste in the glass.',
+    aboutBullets: ['200+ premium spirits on our shelves','Seasonally rotating cocktail menu','Certified mixology team','Private events and venue hire available'],
+    stats: [{number:'200+',label:'Spirits Available'},{number:'4.9★',label:'Guest Rating'},{number:'Seasonal',label:'Cocktail Menu'},{number:'Nightly',label:'Entertainment'}],
+    testimonialQuotes: [
+      'The cocktails here are on another level — complex, balanced, and beautiful to look at. I\'ve been to bars all over the world and this is special.',
+      'The atmosphere and the drinks are the perfect combination. Every visit feels like a proper evening out.',
+      'We hosted our company event here and the team absolutely nailed it — drinks, service, and setting were exceptional.',
+    ],
+    testimonialRoles: ['Cocktail Enthusiast','Regular Guest','Corporate Events Client'],
+    missionBody: 'We believe every drink should feel like it was made specifically for you. That means seasonal menus, obsessive sourcing, and a team that treats bartending as the craft it is.',
+    heroTag: 'Premium Cocktail Bar',
+    ctaHeading: 'Make a Reservation',
+    footerTagline: 'Crafted drinks. Unforgettable nights.',
+    primaryCta: 'View Our Menu',
+    secondaryCta: 'Book a Table',
+    contactSub: 'Interested in booking a table or hosting a private event? Get in touch and we\'ll make it happen.',
+  },
+  gym: {
+    featureTitles: ['Expert-Led Strength Classes','Personal Training Programs','Nutrition & Recovery Coaching','State-of-the-Art Equipment','Member Progress Tracking','Open Gym Access 24/7'],
+    featureDescs: [
+      'Our certified coaches lead group and individual sessions designed to build real strength, not just burn calories.',
+      'Customised programs built around your specific goals — whether that\'s your first deadlift or your next competition.',
+      'Macros, meal planning, and recovery protocols — because what happens outside the gym matters too.',
+      'Barbells, cables, machines, and cardio equipment maintained to the highest standard and always available.',
+      'Log your lifts, track your PRs, and see your progress over time — data-driven improvement.',
+      'Train on your schedule with round-the-clock access — the gym works when you do.',
+    ],
+    heroSubs: [
+      'This is where athletes are built — through expert coaching, progressive training, and an environment that demands your best.',
+      'Real strength training, expert guidance, and a community that shows up every single day. This is your gym.',
+      'We don\'t just give you a place to work out — we give you a system, a coach, and a community to get genuinely stronger.',
+    ],
+    aboutBody: 'We built this gym because we were tired of spaces that prioritised aesthetics over results. Here, everything is designed around one goal: making you measurably stronger, healthier, and more capable. Expert coaching, smart programming, and a community that keeps you accountable.',
+    aboutBullets: ['CF-L2 certified coaching team','Progressive strength programming','Nutrition and recovery support','24/7 open gym access'],
+    stats: [{number:'500+',label:'Active Members'},{number:'CF-L2',label:'Head Coach Certified'},{number:'5/5',label:'Coaching Rating'},{number:'24/7',label:'Open Access'}],
+    testimonialQuotes: [
+      'I\'ve been training here for 2 years and the progress I\'ve made is beyond anything I achieved in 5 years elsewhere. The coaching makes all the difference.',
+      'The coaches actually care about your goals and design your training around them. I hit a 100kg deadlift I didn\'t think was possible.',
+      'Best gym environment I\'ve ever been in — the community, the programming, and the coaching are all exceptional.',
+    ],
+    testimonialRoles: ['2-Year Member','Personal Training Client','Competitive Athlete'],
+    missionBody: 'Strength doesn\'t come from working harder — it comes from working smarter, with expert guidance, smart programming, and a community that holds the standard.',
+    heroTag: 'Premium Strength Gym',
+    ctaHeading: 'Start Your Training',
+    footerTagline: 'Built for athletes. Open to all.',
+    primaryCta: 'Start Training',
+    secondaryCta: 'View Programs',
+    contactSub: 'Questions about membership, programs, or personal training? We\'re here to help.',
+  },
+  crossfit: {
+    featureTitles: ['Daily CrossFit WODs','Olympic Weightlifting Program','Metcon & Endurance Training','CF-L2 Certified Coaches','Competition Prep Coaching','Open Gym & Skill Work'],
+    featureDescs: [
+      'Constantly varied, high-intensity functional movements — programmed to make you better at everything.',
+      'Clean, snatch, jerk — proper Olympic lifting technique taught from first principles by certified specialists.',
+      'AMRAPs, EMOMs, and chippers — metabolic conditioning that builds the engine to do anything.',
+      'Every coach holds Level 2 certification minimum — your movement is always in expert, qualified hands.',
+      'From your first local competition to the CrossFit Games — structured prep programs that get you ready.',
+      'Drop into open gym to work on gymnastics, barbell cycling, or skills that need focused solo practice.',
+    ],
+    heroSubs: [
+      'Every WOD is programmed to build a more complete athlete — strength, speed, power, and endurance, all in one community.',
+      'CF-L2 coaches, proven programming, and a community that cheers you to the finish line every single time.',
+      'We train together, we compete together, and we grow together. This is what CrossFit is supposed to feel like.',
+    ],
+    aboutBody: 'This box was built by athletes, for athletes. We program with intention — not just for fitness, but for real athletic development. From your first pull-up to your first competition, every stage has structured, expert-coached programming designed to take you further.',
+    aboutBullets: ['CF-L2 certified coaches minimum','Constantly varied WOD programming','Olympic lifting and gymnastics skills','Competition prep for all levels'],
+    stats: [{number:'200+',label:'Active Members'},{number:'CF-L2',label:'All Coaches Certified'},{number:'5+ yrs',label:'Affiliating'},{number:'Weekly',label:'Competition Prep'}],
+    testimonialQuotes: [
+      'I came in as a complete beginner and within 6 months I competed in my first local competition. The coaching here is incredible.',
+      'The programming is thoughtful and progressive — I\'ve set more PRs in the last year than in the previous three years combined.',
+      'Best CrossFit community I\'ve been part of. The coaches know everyone by name and genuinely care about your progress.',
+    ],
+    testimonialRoles: ['CrossFit Games Qualifier','3-Year Member','Beginner-Turned-Competitor'],
+    missionBody: 'We program for real athletic development — not just fitness. Every WOD, every cycle, and every coaching cue is designed to make you more capable than you were yesterday.',
+    heroTag: 'CrossFit Affiliate',
+    ctaHeading: 'Join the Box',
+    footerTagline: 'Strong. Fast. Capable. Together.',
+    primaryCta: 'Free Trial Class',
+    secondaryCta: 'View Programs',
+    contactSub: 'Interested in a free trial class or want to learn about our programs? Get in touch.',
+  },
+  yoga: {
+    featureTitles: ['Daily Yoga & Flow Classes','Meditation & Pranayama Sessions','Restorative & Yin Yoga','200-Hour Teacher Training','Private One-on-One Sessions','Workshops & Seasonal Retreats'],
+    featureDescs: [
+      'Morning and evening classes for all levels — from complete beginners to advanced practitioners.',
+      'Guided breathwork and meditation that reduces stress and builds presence and clarity.',
+      'Deep, slow, healing practices designed to restore the nervous system and release held tension.',
+      'A comprehensive teacher training program built on authentic lineage, anatomy, and practice philosophy.',
+      'Private sessions tailored entirely to your needs — injury recovery, deepening practice, or foundational learning.',
+      'Monthly workshops, seasonal immersions, and annual retreats that take your practice to a new depth.',
+    ],
+    heroSubs: [
+      'A practice that meets you where you are — whatever your level, your body, or your intention. This is your space.',
+      'Classes for every style, every level, and every body. Come as you are. Leave feeling transformed.',
+      'Yoga beyond the postures — movement, breath, meditation, and community, all in one place.',
+    ],
+    aboutBody: 'We created this studio to be the kind of space we always wanted to practice in — warm, inclusive, well-taught, and genuinely committed to the transformative potential of yoga. Our teachers are deeply trained and endlessly curious. Our space is designed for every stage of the practice.',
+    aboutBullets: ['20+ weekly classes for all levels','200-hour YTT program available','Restorative, yin, and vinyasa','Workshops and retreats throughout the year'],
+    stats: [{number:'20+',label:'Weekly Classes'},{number:'200hr',label:'YTT Program'},{number:'4.9★',label:'Student Rating'},{number:'All',label:'Levels Welcome'}],
+    testimonialQuotes: [
+      'I started as a complete beginner six months ago and I can already feel the difference in my body, my sleep, and my stress levels. The teachers here are exceptional.',
+      'The restorative class on Sunday evenings has become the most important hour of my week. I can\'t recommend this studio enough.',
+      'The 200-hour teacher training was life-changing. Deep, rigorous, and led with so much heart. Couldn\'t recommend it more.',
+    ],
+    testimonialRoles: ['6-Month Student','Restorative Yoga Devotee','YTT Graduate'],
+    missionBody: 'Yoga has the power to transform how you feel in your body and how you show up in your life. Our job is to create the conditions — space, teaching, and community — for that to happen.',
+    heroTag: 'Yoga & Meditation Studio',
+    ctaHeading: 'Start Your Practice',
+    footerTagline: 'Your practice. Your space. Your transformation.',
+    primaryCta: 'View Schedule',
+    secondaryCta: 'Free First Class',
+    contactSub: 'Questions about our classes, teacher training, or retreats? We\'d love to hear from you.',
+  },
+  spa: {
+    featureTitles: ['Signature Full-Body Massage','Advanced Facial Treatments','Hot Stone & Deep Tissue Therapy','Aromatherapy & Sensory Healing','Couples Wellness Packages','Day Retreat & Detox Programs'],
+    featureDescs: [
+      'Our signature 90-minute massage integrates Swedish, deep tissue, and myofascial techniques for total release.',
+      'Medical-grade facials using premium active skincare — tailored to your skin type, season, and goals.',
+      'Heated basalt stones combined with skilled pressure work — profound muscle release and full body relaxation.',
+      'Custom essential oil blends selected for your mood and intention — calming, energising, or deeply restorative.',
+      'A shared wellness journey for two — massages, facials, and a private relaxation suite for your perfect day.',
+      'A full-day sanctuary experience with steam room, plunge pool, and a carefully sequenced treatment program.',
+    ],
+    heroSubs: [
+      'A sanctuary from the relentless pace of modern life — where every treatment is crafted to restore, renew, and reconnect.',
+      'We believe rest is not a luxury — it is essential. Every treatment here gives your body and mind what they need.',
+      'Expert therapists, premium products, and a space designed for complete surrender. Your wellness starts the moment you arrive.',
+    ],
+    aboutBody: 'We opened this sanctuary with a simple belief — that genuine relaxation and expert wellness care should be beautiful, accessible, and deeply restorative. Every treatment is led by certified therapists trained in multiple modalities, using only the most carefully sourced products.',
+    aboutBullets: ['15+ treatments offered','All therapists fully certified','Natural and organic products only','Couples and group packages available'],
+    stats: [{number:'15+',label:'Treatments Offered'},{number:'4.9★',label:'Guest Rating'},{number:'Certified',label:'All Therapists'},{number:'100%',label:'Natural Products'}],
+    testimonialQuotes: [
+      'The hot stone massage was the deepest, most restorative treatment I\'ve ever experienced. I floated out of there.',
+      'The facial transformed my skin in one session. The therapist took so much care to understand my skin before beginning. Outstanding.',
+      'We came for our anniversary and the couples package was absolutely perfect. The attention to detail throughout was remarkable.',
+    ],
+    testimonialRoles: ['Wellness Regular','Skin Treatment Client','Anniversary Guest'],
+    missionBody: 'We believe that deep rest, skilled touch, and a beautiful environment have the power to restore what modern life depletes. Every treatment we offer is built on that belief.',
+    heroTag: 'Luxury Wellness Spa',
+    ctaHeading: 'Book Your Treatment',
+    footerTagline: 'Restore. Renew. Return.',
+    primaryCta: 'Book a Treatment',
+    secondaryCta: 'View All Treatments',
+    contactSub: 'Ready to book a treatment or have a question about our packages? We\'re here to help.',
+  },
+  photography: {
+    featureTitles: ['Commercial Brand Photography','Editorial Portrait Sessions','Product & Lifestyle Shoots','Event & Wedding Coverage','Advanced Post-Production','Studio Hire & Location Scouting'],
+    featureDescs: [
+      'Campaign imagery, brand storytelling, and commercial content that sells and tells your story.',
+      'Portraits that capture authenticity — from executive headshots to full editorial character studies.',
+      'Studio and location product photography that makes every item look its absolute best.',
+      'Full coverage that captures every emotion, moment, and detail — from candid to choreographed.',
+      'Advanced colour grading, skin retouching, and compositing — delivered to broadcast quality.',
+      'A fully equipped studio available for rent, with location scouting service for any vision.',
+    ],
+    heroSubs: [
+      'Every image we create is a deliberate decision — about light, framing, timing, and the story being told. That\'s the difference.',
+      'Photography that doesn\'t just document — it transforms. We create images that move, persuade, and stay with you.',
+      'From first concept to final delivery, we build every image around your vision and execute it with precision.',
+    ],
+    aboutBody: 'Photography is about far more than pressing a button — it\'s about seeing, preparing, and understanding what needs to be said. We\'ve spent years developing our eye, our technical skill, and our ability to work with any subject to create images that exceed expectations.',
+    aboutBullets: ['300+ commercial shoots completed','12+ years professional experience','24-hour proof turnaround','Fully equipped studio available'],
+    stats: [{number:'300+',label:'Shoots Completed'},{number:'12+',label:'Years Experience'},{number:'4.9★',label:'Client Rating'},{number:'24hr',label:'Proof Turnaround'}],
+    testimonialQuotes: [
+      'The campaign images they produced for our brand launch were simply outstanding — better than anything we\'d hoped for.',
+      'Our portraits captured exactly who we are as a team. The photographer\'s ability to put people at ease is exceptional.',
+      'Every product shot delivered exceeded the brief. The attention to detail and creative input were genuinely impressive.',
+    ],
+    testimonialRoles: ['Brand Director','Head of Marketing','E-commerce Director'],
+    missionBody: 'Every image we make is a chance to say something true, beautiful, and useful. We approach every brief with that responsibility and the craft to execute it properly.',
+    heroTag: 'Professional Photography',
+    ctaHeading: 'Let\'s Create Something',
+    footerTagline: 'Seeing the world. Capturing what matters.',
+    primaryCta: 'View Portfolio',
+    secondaryCta: 'Book a Shoot',
+    contactSub: 'Ready to discuss your project or book a shoot? Get in touch — we\'d love to hear what you have in mind.',
+  },
+  fashion: {
+    featureTitles: ['Curated Seasonal Collections','Sustainable & Ethical Sourcing','Signature House Designs','Limited Edition Drops','Personal Styling Consultations','Custom & Bespoke Tailoring'],
+    featureDescs: [
+      'Two collections per year — each piece designed to work across occasions and built to outlast trends.',
+      'Every fabric and manufacturer chosen for quality, transparency, and environmental responsibility.',
+      'Our in-house design team creates pieces that are distinctly our own — identifiable without being labeled.',
+      'Exclusive runs in small quantities — designed to be coveted, not commoditised.',
+      'One-on-one sessions with our stylists to find exactly what you need for your wardrobe and your life.',
+      'Tailored to your measurements and finished to couture standard — clothing that fits only you.',
+    ],
+    heroSubs: [
+      'Fashion built to last — in quality, in design, and in how it makes you feel every time you wear it.',
+      'We design for the person who wants to look exceptional without following trends. Considered, refined, and always intentional.',
+      'Every piece we make starts with the question: will this still feel right in ten years? If the answer is yes, we make it.',
+    ],
+    aboutBody: 'We started this label because we were tired of fashion that didn\'t last — in construction, in design, or in meaning. Every piece we release is considered, crafted from responsible materials, and designed to transcend seasons.',
+    aboutBullets: ['Two thoughtful collections per year','100% ethical and sustainable sourcing','In-house design team','Custom and bespoke tailoring available'],
+    stats: [{number:'2',label:'Collections per Year'},{number:'4.9★',label:'Customer Rating'},{number:'100%',label:'Ethical Sourcing'},{number:'Limited',label:'Edition Runs'}],
+    testimonialQuotes: [
+      'The quality of construction is unlike anything in this price range. I\'ve worn my jacket from their first collection almost weekly for two years.',
+      'The personal styling session was worth every minute. They understand how to dress real people for real life.',
+      'The bespoke suit they made me is the best piece of clothing I own. The fit and finish are immaculate.',
+    ],
+    testimonialRoles: ['2-Year Customer','Styling Client','Bespoke Tailoring Client'],
+    missionBody: 'We make fashion with a conscience and a perspective — believing that the most stylish thing you can do is invest in quality that endures.',
+    heroTag: 'Contemporary Fashion Label',
+    ctaHeading: 'Explore the Collection',
+    footerTagline: 'Designed to endure. Made to be worn.',
+    primaryCta: 'Shop the Collection',
+    secondaryCta: 'New Arrivals',
+    contactSub: 'Questions about sizing, bespoke orders, or styling consultations? We\'d love to help.',
+  },
+};
+
+function resolveSubNicheCopy(puo: PromptUnderstandingObject): SubNicheCopyBank | null {
+  // Check extracted keywords first (most specific signal)
+  for (const kw of puo.extractedKeywords) {
+    const k = kw.toLowerCase();
+    if (SUBNICHE_COPY_BANK[k]) return SUBNICHE_COPY_BANK[k];
+  }
+  // Fall back to inferredIndustry (raw, not normalised — preserves 'yoga', 'ramen', etc.)
+  const raw = puo.inferredIndustry.toLowerCase();
+  return SUBNICHE_COPY_BANK[raw] || null;
+}
+
 function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number): SiteCopy {
   const kws = getContentWords(puo);
   const industry = puo.inferredIndustry;
@@ -674,6 +1224,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // gallerySlug declared early so feature hrefs can reference it
   const gallerySlug = detectGallerySlug(puo);
   const hiddenCfg = getHiddenPageConfig(normIndustry);
+  // Sub-niche copy bank — deeply specific content for known sub-niches.
+  const subNiche = resolveSubNicheCopy(puo);
 
   // Derive headline descriptors. The prompt's own content noun wins (most specific);
   // then the specific industry slug subject ("ramen" → "Ramen"); then the normalized
@@ -706,7 +1258,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // subject + supporting keyword so it reads like real marketing.
   const subjectPhrase = (kws[0] ? kws[0] : nicheSubject).toLowerCase();
   const supportPhrase = (kws[1] ? kws[1] : secKw).toLowerCase();
-  const heroSubPatterns = [
+  const heroSubPatterns = subNiche?.heroSubs || [
     `Premium ${subjectPhrase} crafted for those who expect more — where ${supportPhrase} meets uncompromising quality.`,
     `Discover ${brand}: a new standard in ${subjectPhrase}, built around ${supportPhrase} and an obsession with detail.`,
     `Experience ${subjectPhrase} done right. Thoughtfully designed, expertly delivered, and made to leave an impression.`,
@@ -729,18 +1281,18 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     application: 'Launch App', showcase: 'Explore', dashboard: 'Open Dashboard',
     'multi-page': 'Get Started', 'single-page': 'Learn More',
   };
-  const primaryCta = ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
+  const primaryCta = subNiche?.primaryCta || ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
   const secByNiche: Record<string, string> = {
     food: 'Book a Table', sports: 'See Programs', technology: 'Watch Demo',
     photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
     portfolio: 'View Work', agency: 'Our Process', wellness: 'Learn More',
     hospitality: 'Explore Rooms', professional: 'Learn More',
   };
-  const secondaryCta = secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
+  const secondaryCta = subNiche?.secondaryCta || secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
 
   // Hero tag
   const heroTags = ['New Launch', 'Now Available', `${mainKw} Platform`, `${industry !== 'general' ? titleCase(industry) + ' ' : ''}Solution`, 'Trusted by Thousands', 'Award Winning', 'Free to Start'];
-  const heroTag = pick(heroTags, fp + 3);
+  const heroTag = subNiche?.heroTag || pick(heroTags, fp + 3);
 
   // Section eyebrow
   const eyebrows = ['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'The Difference', 'Built for You', 'What Sets Us Apart'];
@@ -788,12 +1340,19 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   };
   const descFor = FEATURE_DESC_BY_INDUSTRY[normIndustry] || FEATURE_DESC_BY_INDUSTRY.general;
 
-  const allKwFeatures = kws.slice(0, 6).map((kw, i) => ({
-    icon: ICONS[(fp + i) % ICONS.length],
-    title: `${titleCase(kw)} ${pick(suffixes, fp + i)}`,
-    desc: descFor(kw),
-    href: featureHref,
-  }));
+  const allKwFeatures = subNiche
+    ? subNiche.featureTitles.slice(0, 6).map((title, i) => ({
+        icon: ICONS[(fp + i) % ICONS.length],
+        title,
+        desc: subNiche.featureDescs[i] || descFor(title.toLowerCase()),
+        href: featureHref,
+      }))
+    : kws.slice(0, 6).map((kw, i) => ({
+        icon: ICONS[(fp + i) % ICONS.length],
+        title: `${titleCase(kw)} ${pick(suffixes, fp + i)}`,
+        desc: descFor(kw),
+        href: featureHref,
+      }));
   // Pad to 3 with generic feature descriptions if needed
   while (allKwFeatures.length < 3) {
     const defaults = [
@@ -817,7 +1376,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     agency:     [{number:'300+',label:'Clients'},{number:'$50M+',label:'Revenue Generated'},{number:'10+',label:'Years'},{number:'50+',label:'Experts'}],
     general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5/5',label:'Rating'}],
   };
-  const stats = (statBanks[normIndustry] || statBanks.general).slice(0, 4);
+  const stats = (subNiche?.stats || statBanks[normIndustry] || statBanks.general).slice(0, 4);
 
   // Testimonials — vary by industry for authenticity
   const TESTIMONIAL_ROLES: Record<string, string[]> = {
@@ -831,7 +1390,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     agency:     ['CMO, GrowthCo','Brand Director, ScaleUp','Founder, BuildFast','Head of Marketing, DataFlow'],
     general:    ['CEO, GrowthCo','Operations Director, ScaleUp','Founder, BuildFast','Product Lead, DataFlow'],
   };
-  const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
+  const roles = subNiche?.testimonialRoles || TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
 
   const TESTIMONIAL_QUOTES: Record<string, string[]> = {
     food:       [
@@ -875,7 +1434,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       `The ${mainKw} experience with ${brand} is unmatched. Every team should use this.`,
     ],
   };
-  const quotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
+  const quotes = subNiche?.testimonialQuotes || TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
   const names = ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'];
   const testimonials = names.map((name, i) => ({
     quote: quotes[i] || quotes[0],
@@ -885,8 +1444,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // About
   const aboutHeading = `The ${brand} Story`;
-  const aboutBody = `We built ${brand} to solve the challenges we faced with ${mainKw} every day. What started as a simple idea has grown into the platform trusted by teams worldwide. Our mission: make ${mainKw} simple, powerful, and accessible for everyone.`;
-  const aboutBullets = [
+  const aboutBody = subNiche?.aboutBody || `We built ${brand} to solve the challenges we faced with ${mainKw} every day. What started as a simple idea has grown into the platform trusted by teams worldwide. Our mission: make ${mainKw} simple, powerful, and accessible for everyone.`;
+  const aboutBullets = subNiche?.aboutBullets || [
     `${kws[0] ? titleCase(kws[0]) + '-first approach' : 'Customer-first approach'}`,
     `${kws[1] ? titleCase(kws[1]) + ' driven design' : 'Performance-driven design'}`,
     `${kws[2] ? titleCase(kws[2]) + ' at scale' : 'Built for scale from day one'}`,
@@ -895,7 +1454,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Mission — distinct from the About story so stage + split sections never clone.
   const missionHeading = pick([`Our Approach`, `Why ${brand}`, `Built Different`, `What Drives Us`, `The ${brand} Difference`], fp + 4);
-  const missionBody = `Every detail at ${brand} is intentional. We pair deep ${mainKw} expertise with an obsession for ${secKw}, crafting an experience people come back to. No shortcuts — just work we're proud to put our name on.`;
+  const missionBody = subNiche?.missionBody || `Every detail at ${brand} is intentional. We pair deep ${mainKw} expertise with an obsession for ${secKw}, crafting an experience people come back to. No shortcuts — just work we're proud to put our name on.`;
 
   // Gallery
   const galleryLabel: Record<string, string> = { portfolio: 'Portfolio', ecommerce: 'Shop', technology: 'Features', food: 'Menu', sports: 'Gallery', photography: 'Portfolio', fashion: 'Collection', agency: 'Work', general: 'Gallery' };
@@ -903,16 +1462,16 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Contact
   const contactHeading = `Let's Talk ${mainKw}`;
-  const contactSub = `Have questions about ${brand}? Ready to get started? Reach out and our team will get back to you within 24 hours.`;
+  const contactSub = subNiche?.contactSub || `Have questions about ${brand}? Ready to get started? Reach out and our team will get back to you within 24 hours.`;
 
   // CTA
   const ctaHeadings = [`Ready to Experience ${mainKw}?`, `Start Your ${mainKw} Journey`, `Join Thousands of ${mainKw} Leaders`, `Transform Your ${mainKw} Today`];
-  const ctaHeading = pick(ctaHeadings, fp + 9);
+  const ctaHeading = subNiche?.ctaHeading || pick(ctaHeadings, fp + 9);
   const ctaSub = `Get started in minutes. No credit card required.`;
 
   // Footer tagline
   const footerTaglines = [`${mainKw} made powerful.`, `Building the future of ${mainKw}.`, `Your ${mainKw} platform.`, `${brand} — where ${mainKw} meets ${secKw}.`];
-  const footerTagline = pick(footerTaglines, fp + 11);
+  const footerTagline = subNiche?.footerTagline || pick(footerTaglines, fp + 11);
 
   // Pricing plans (if saas/ecommerce)
   let pricingPlans: SiteCopy['pricingPlans'] = null;
