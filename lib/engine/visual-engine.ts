@@ -149,97 +149,133 @@ function resolveMotif(spec: VisualSpec): string {
 
 const VB = 1000;
 
-interface Ctx { r: () => number; pal: VisualPalette; dark: boolean; spec: VisualSpec; }
+interface Ctx { r: () => number; pal: VisualPalette; field: FieldColors; spec: VisualSpec; }
 
-function blob(cx: number, cy: number, rad: number, color: string, alpha: number, blur: number): string {
-  return `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${rad.toFixed(0)}" fill="${rgba(color, alpha)}" filter="url(#soft)" style="filter:url(#soft)"/>`;
+// Relative luminance 0..1
+function lum(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
-// Aurora — layered radial glows; premium default (tech, agency, saas, general)
+// Every generated image uses a DEEP, SATURATED branded field — like a real
+// photograph it is a rich full-colour rectangle, not a pale wash that blends
+// into a white page. We derive that field from the brand palette regardless of
+// whether the surrounding site is light or dark.
+interface FieldColors {
+  bgTop: string; bgBot: string;   // background gradient
+  shapeA: string; shapeB: string; shapeC: string; // depth shapes
+  glow: string;                   // bright accent glow
+  motif: string;                  // subject colour (light, high-contrast)
+  motifGlow: string;              // halo behind subject
+}
+
+function buildField(pal: VisualPalette): FieldColors {
+  // Anchor on the most saturated brand colour available.
+  const candidates = [pal.primary, pal.accent, pal.secondary].filter(Boolean);
+  // Prefer a mid/dark, saturated hue for the field base.
+  let base = candidates.find(c => lum(c) > 0.12 && lum(c) < 0.62) || pal.primary || '#2563EB';
+  if (lum(base) > 0.62) base = shade(base, -0.4);   // too light → deepen
+  if (lum(base) < 0.10) base = shade(base, 0.25);   // too dark → lift a touch
+  const bgTop = shade(base, 0.08);
+  const bgBot = shade(base, -0.5);
+  const glowSrc = pal.accent && lum(pal.accent) > 0.45 ? pal.accent : shade(pal.accent || base, 0.4);
+  return {
+    bgTop,
+    bgBot,
+    shapeA: shade(base, 0.22),
+    shapeB: shade(pal.secondary || base, -0.15),
+    shapeC: glowSrc,
+    glow: glowSrc,
+    motif: '#FFFFFF',
+    motifGlow: glowSrc,
+  };
+}
+
+function blob(cx: number, cy: number, rad: number, color: string, alpha: number): string {
+  return `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${rad.toFixed(0)}" fill="${rgba(color, alpha)}" style="filter:url(#soft)"/>`;
+}
+
+// Aurora — layered saturated glows; premium default (tech, agency, saas, general)
 function archAurora(ctx: Ctx): string {
-  const { r, pal } = ctx;
-  const cols = [pal.primary, pal.secondary, pal.accent, mix(pal.accent, pal.primary, 0.5)];
+  const { r, field } = ctx;
+  const cols = [field.shapeA, field.shapeB, field.glow, mix(field.glow, field.shapeA, 0.5)];
   let out = '';
   const n = 4 + Math.floor(r() * 2);
   for (let i = 0; i < n; i++) {
-    const cx = 120 + r() * 760;
-    const cy = 120 + r() * 760;
-    const rad = 220 + r() * 320;
-    out += blob(cx, cy, rad, cols[i % cols.length], ctx.dark ? 0.42 : 0.30, 80);
+    const cx = 120 + r() * 760, cy = 120 + r() * 760, rad = 240 + r() * 320;
+    out += blob(cx, cy, rad, cols[i % cols.length], 0.6);
   }
   return out;
 }
 
-// Mesh — overlapping translucent rings/circles for an organic gradient field
+// Mesh — overlapping rings/circles for an organic gradient field
 function archMesh(ctx: Ctx): string {
-  const { r, pal } = ctx;
-  const cols = [pal.accent, pal.primary, pal.secondary];
+  const { r, field } = ctx;
+  const cols = [field.glow, field.shapeA, field.shapeB];
   let out = '';
   for (let i = 0; i < 7; i++) {
-    const cx = r() * VB, cy = r() * VB, rad = 140 + r() * 260;
-    out += `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${rad.toFixed(0)}" fill="none" stroke="${rgba(cols[i % cols.length], ctx.dark ? 0.30 : 0.22)}" stroke-width="${(2 + r() * 3).toFixed(1)}"/>`;
+    const cx = r() * VB, cy = r() * VB, rad = 150 + r() * 280;
+    out += `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${rad.toFixed(0)}" fill="none" stroke="${rgba(cols[i % cols.length], 0.5)}" stroke-width="${(3 + r() * 5).toFixed(1)}"/>`;
   }
-  out += blob(500, 480, 360, pal.accent, ctx.dark ? 0.30 : 0.18, 80);
+  out += blob(500, 480, 380, field.glow, 0.5);
   return out;
 }
 
-// Geometric — bauhaus shapes (artistic, portfolio, fashion, editorial)
+// Geometric — bold bauhaus shapes (artistic, portfolio, fashion, editorial)
 function archGeometric(ctx: Ctx): string {
-  const { r, pal } = ctx;
-  const cols = [pal.primary, pal.accent, pal.secondary, mix(pal.accent, pal.background, 0.3)];
-  let out = blob(720, 280, 380, pal.accent, ctx.dark ? 0.35 : 0.22, 90);
+  const { r, field } = ctx;
+  const cols = [field.shapeA, field.glow, field.shapeB, mix(field.glow, field.bgTop, 0.3)];
+  let out = blob(720, 280, 400, field.glow, 0.5);
   const shapes = 5 + Math.floor(r() * 3);
   for (let i = 0; i < shapes; i++) {
     const type = Math.floor(r() * 3);
     const c = cols[i % cols.length];
-    const a = ctx.dark ? 0.5 : 0.4;
-    const x = r() * VB, y = r() * VB, s = 90 + r() * 200;
-    if (type === 0) out += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${(s / 2).toFixed(0)}" fill="${rgba(c, a)}"/>`;
-    else if (type === 1) out += `<rect x="${x.toFixed(0)}" y="${y.toFixed(0)}" width="${s.toFixed(0)}" height="${s.toFixed(0)}" rx="${(s * 0.1).toFixed(0)}" fill="${rgba(c, a)}" transform="rotate(${(r() * 45).toFixed(0)} ${(x + s / 2).toFixed(0)} ${(y + s / 2).toFixed(0)})"/>`;
-    else out += `<path d="M${x.toFixed(0)} ${y.toFixed(0)} l${s.toFixed(0)} 0 l${(-s / 2).toFixed(0)} ${(s * 0.86).toFixed(0)} z" fill="${rgba(c, a)}"/>`;
+    const x = r() * VB, y = r() * VB, s = 120 + r() * 240;
+    if (type === 0) out += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${(s / 2).toFixed(0)}" fill="${rgba(c, 0.62)}"/>`;
+    else if (type === 1) out += `<rect x="${x.toFixed(0)}" y="${y.toFixed(0)}" width="${s.toFixed(0)}" height="${s.toFixed(0)}" rx="${(s * 0.12).toFixed(0)}" fill="${rgba(c, 0.6)}" transform="rotate(${(r() * 45).toFixed(0)} ${(x + s / 2).toFixed(0)} ${(y + s / 2).toFixed(0)})"/>`;
+    else out += `<path d="M${x.toFixed(0)} ${y.toFixed(0)} l${s.toFixed(0)} 0 l${(-s / 2).toFixed(0)} ${(s * 0.86).toFixed(0)} z" fill="${rgba(c, 0.58)}"/>`;
   }
   return out;
 }
 
 // Waves — flowing bands (organic, wellness, food, hospitality)
 function archWaves(ctx: Ctx): string {
-  const { r, pal } = ctx;
-  const cols = [pal.accent, mix(pal.accent, pal.primary, 0.4), pal.secondary, pal.primary];
+  const { r, field } = ctx;
+  const cols = [field.glow, mix(field.glow, field.shapeA, 0.4), field.shapeB, field.shapeA];
   let out = '';
   const bands = 4 + Math.floor(r() * 2);
   for (let i = 0; i < bands; i++) {
-    const baseY = 200 + (i * 600) / bands + r() * 80;
-    const amp = 60 + r() * 90;
+    const baseY = 220 + (i * 620) / bands + r() * 70;
+    const amp = 70 + r() * 100;
     const c = cols[i % cols.length];
     const d = `M-50 ${baseY.toFixed(0)} C ${(VB * 0.25).toFixed(0)} ${(baseY - amp).toFixed(0)}, ${(VB * 0.5).toFixed(0)} ${(baseY + amp).toFixed(0)}, ${(VB * 0.75).toFixed(0)} ${baseY.toFixed(0)} S ${(VB + 50).toFixed(0)} ${(baseY - amp).toFixed(0)}, ${(VB + 50).toFixed(0)} ${baseY.toFixed(0)} L ${(VB + 50)} ${VB + 50} L -50 ${VB + 50} Z`;
-    out += `<path d="${d}" fill="${rgba(c, ctx.dark ? 0.28 : 0.20)}"/>`;
+    out += `<path d="${d}" fill="${rgba(c, 0.5)}"/>`;
   }
   return out;
 }
 
 // Grid — tech lattice + glow nodes (technology, saas, cyberpunk, futuristic)
 function archGrid(ctx: Ctx): string {
-  const { r, pal } = ctx;
-  let out = blob(500 + (r() - 0.5) * 300, 480, 380, pal.accent, ctx.dark ? 0.32 : 0.18, 90);
+  const { r, field } = ctx;
+  let out = blob(500 + (r() - 0.5) * 300, 480, 400, field.glow, 0.5);
   const step = 90;
   let lines = '';
   for (let x = step; x < VB; x += step) lines += `<line x1="${x}" y1="0" x2="${x}" y2="${VB}"/>`;
   for (let y = step; y < VB; y += step) lines += `<line x1="0" y1="${y}" x2="${VB}" y2="${y}"/>`;
-  out += `<g stroke="${rgba(pal.primary, ctx.dark ? 0.12 : 0.10)}" stroke-width="1.2">${lines}</g>`;
-  for (let i = 0; i < 9; i++) {
-    const gx = step * (1 + Math.floor(r() * 9));
-    const gy = step * (1 + Math.floor(r() * 9));
-    out += `<circle cx="${gx}" cy="${gy}" r="${(4 + r() * 5).toFixed(1)}" fill="${rgba(pal.accent, 0.9)}"/>`;
+  out += `<g stroke="${rgba(field.motif, 0.14)}" stroke-width="1.4">${lines}</g>`;
+  for (let i = 0; i < 11; i++) {
+    const gx = step * (1 + Math.floor(r() * 9)), gy = step * (1 + Math.floor(r() * 9));
+    out += `<circle cx="${gx}" cy="${gy}" r="${(5 + r() * 6).toFixed(1)}" fill="${rgba(field.glow, 0.95)}"/>`;
   }
   return out;
 }
 
 // Spotlight — radial focus behind the motif (food, coffee, product, photography)
 function archSpotlight(ctx: Ctx): string {
-  const { pal, r } = ctx;
-  let out = `<rect width="${VB}" height="${VB}" fill="url(#spot)"/>`;
-  out += blob(500, 430, 300, pal.accent, ctx.dark ? 0.4 : 0.24, 90);
-  out += blob(260 + r() * 480, 760, 220, pal.secondary, ctx.dark ? 0.3 : 0.18, 90);
+  const { field, r } = ctx;
+  let out = blob(500, 420, 360, field.glow, 0.55);
+  out += blob(220 + r() * 560, 800, 260, field.shapeB, 0.45);
+  out += blob(800, 180, 220, field.shapeA, 0.45);
   return out;
 }
 
@@ -260,68 +296,63 @@ function archetypePool(spec: VisualSpec): string[] {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// MAIN SVG BUILDER
+// MAIN SVG BUILDER — bold, saturated, image-like premium composition
 // ─────────────────────────────────────────────────────────────────
 
 export function generateVisualSvg(spec: VisualSpec): string {
   const r = makeRng((spec.seed >>> 0) ^ hashStr(spec.niche + '|' + spec.rawNiche + '|' + spec.role));
   const pal = spec.palette;
-  const dark = ['dark', 'dramatic', 'contrast', 'vibrant'].includes(spec.mood) ||
-    hexToRgb(pal.background).reduce((a, b) => a + b, 0) < 300;
-  const ctx: Ctx = { r, pal, dark, spec };
+  const field = buildField(pal);
+  const ctx: Ctx = { r, pal, field, spec };
 
   const pool = archetypePool(spec);
   const archName = pool[Math.floor(r() * pool.length)];
   const arch = ARCHETYPES[archName] || archAurora;
-
-  // Background gradient — deep, branded, mood-aware.
-  const bgA = spec.role === 'avatar' ? mix(pal.surface, pal.primary, dark ? 0.25 : 0.10) : pal.background;
-  const bgB = dark ? shade(mix(pal.surface, pal.primary, 0.18), -0.25) : mix(pal.surface, pal.accent, 0.06);
   const bgAngle = Math.floor(r() * 360);
 
-  // Motif treatment
+  // Subject motif — LARGE and bold so the image clearly reads as its niche.
   const motif = resolveMotif(spec);
-  const motifColor = dark ? shade(pal.accent, 0.35) : shade(pal.primary, -0.1);
-  const motifGlow = pal.accent;
-  // Place motif on a golden-ratio-ish focal point, scaled to canvas.
-  const mScale = (spec.role === 'avatar' ? 9 : spec.role === 'feature' ? 16 : 20) + r() * 6;
+  const mScale = (spec.role === 'avatar' ? 13 : spec.role === 'feature' ? 22 : 27) + r() * 5;
   const mSize = 24 * mScale;
-  const mx = (spec.role === 'avatar' ? 500 : 360 + r() * 280);
-  const my = (spec.role === 'avatar' ? 500 : 380 + r() * 240);
-  const motifStroke = (spec.role === 'avatar' ? 1.0 : 0.9);
+  const mx = (spec.role === 'avatar' ? 500 : 380 + r() * 240);
+  const my = (spec.role === 'avatar' ? 500 : 400 + r() * 200);
+  const motifStroke = spec.role === 'avatar' ? 1.1 : 1.0;
 
   const defs = `
 <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(${bgAngle} 0.5 0.5)">
-    <stop offset="0" stop-color="${bgA}"/>
-    <stop offset="1" stop-color="${bgB}"/>
+    <stop offset="0" stop-color="${field.bgTop}"/>
+    <stop offset="1" stop-color="${field.bgBot}"/>
   </linearGradient>
-  <radialGradient id="spot" cx="50%" cy="42%" r="62%">
-    <stop offset="0" stop-color="${rgba(pal.accent, dark ? 0.22 : 0.14)}"/>
-    <stop offset="1" stop-color="${rgba(pal.background, 0)}"/>
-  </radialGradient>
-  <radialGradient id="vig" cx="50%" cy="50%" r="75%">
-    <stop offset="55%" stop-color="rgba(0,0,0,0)"/>
-    <stop offset="100%" stop-color="${rgba('#000000', dark ? 0.55 : 0.18)}"/>
+  <linearGradient id="gloss" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0" stop-color="${rgba('#FFFFFF', 0.18)}"/>
+    <stop offset="0.45" stop-color="${rgba('#FFFFFF', 0)}"/>
+  </linearGradient>
+  <radialGradient id="vig" cx="50%" cy="46%" r="72%">
+    <stop offset="52%" stop-color="rgba(0,0,0,0)"/>
+    <stop offset="100%" stop-color="${rgba('#000000', 0.5)}"/>
   </radialGradient>
   <radialGradient id="halo" cx="50%" cy="50%" r="50%">
-    <stop offset="0" stop-color="${rgba(motifGlow, dark ? 0.55 : 0.35)}"/>
-    <stop offset="1" stop-color="${rgba(motifGlow, 0)}"/>
+    <stop offset="0" stop-color="${rgba(field.motifGlow, 0.85)}"/>
+    <stop offset="0.6" stop-color="${rgba(field.motifGlow, 0.25)}"/>
+    <stop offset="1" stop-color="${rgba(field.motifGlow, 0)}"/>
   </radialGradient>
-  <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="70"/></filter>
+  <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="75"/></filter>
+  <filter id="mshadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.45"/></filter>
   <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
 </defs>`;
 
   const motifLayer = `
-<g opacity="${dark ? 0.9 : 0.85}">
-  <circle cx="${mx.toFixed(0)}" cy="${my.toFixed(0)}" r="${(mSize * 0.62).toFixed(0)}" fill="url(#halo)"/>
-  <g transform="translate(${(mx - mSize / 2).toFixed(0)} ${(my - mSize / 2).toFixed(0)}) scale(${mScale.toFixed(2)})"
-     fill="none" stroke="${motifColor}" stroke-width="${motifStroke}" stroke-linecap="round" stroke-linejoin="round">
+<g opacity="0.96">
+  <circle cx="${mx.toFixed(0)}" cy="${my.toFixed(0)}" r="${(mSize * 0.66).toFixed(0)}" fill="url(#halo)"/>
+  <g filter="url(#mshadow)" transform="translate(${(mx - mSize / 2).toFixed(0)} ${(my - mSize / 2).toFixed(0)}) scale(${mScale.toFixed(2)})"
+     fill="none" stroke="${field.motif}" stroke-width="${motifStroke}" stroke-linecap="round" stroke-linejoin="round">
     ${motif}
   </g>
 </g>`;
 
-  const grainLayer = `<rect width="${VB}" height="${VB}" filter="url(#grain)" opacity="${dark ? 0.10 : 0.06}"/>`;
+  const grainLayer = `<rect width="${VB}" height="${VB}" filter="url(#grain)" opacity="0.10"/>`;
+  const glossLayer = `<rect width="${VB}" height="${VB}" fill="url(#gloss)"/>`;
   const vignetteLayer = `<rect width="${VB}" height="${VB}" fill="url(#vig)"/>`;
 
   const svg =
@@ -329,6 +360,7 @@ export function generateVisualSvg(spec: VisualSpec): string {
     defs +
     `<rect width="${VB}" height="${VB}" fill="url(#bg)"/>` +
     arch(ctx) +
+    glossLayer +
     motifLayer +
     grainLayer +
     vignetteLayer +

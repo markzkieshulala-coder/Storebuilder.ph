@@ -703,8 +703,9 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const eyebrows = ['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'The Difference', 'Built for You', 'What Sets Us Apart'];
   const sectionEyebrow = pick(eyebrows, fp + 7);
 
-  // Feature heading
-  const featureHeadings = [`Everything You Need for ${mainKw}`, `Built for ${mainKw}`, `The Complete ${mainKw} Solution`, `${mainKw} at Scale`, `Powerful ${mainKw} Tools`];
+  // Feature heading — niche-safe phrasing (avoids SaaS-only idioms like "at Scale"
+  // appearing on a coffee shop or restaurant).
+  const featureHeadings = [`Crafted for ${mainKw} Lovers`, `Built Around ${mainKw}`, `The Complete ${mainKw} Experience`, `Why Choose Our ${mainKw}`, `Everything ${mainKw}, Done Right`];
   const featureHeading = pick(featureHeadings, fp + 5);
 
   // Features — driven by extracted keywords
@@ -1630,7 +1631,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
 <section style="padding-top:140px">
   <div class="wrap">
     <div class="sec-head centered reveal">
-      <span class="eyebrow">Portfolio</span>
+      <span class="eyebrow">${esc(copy.galleryHeading.replace(/^Our\s+/i, '') || 'Showcase')}</span>
       <h1 style="font-size:var(--h1-size)">${esc(copy.galleryHeading)}</h1>
     </div>
     <div class="gallery-grid masonry" style="grid-auto-rows:220px">${galleryItems}</div>
