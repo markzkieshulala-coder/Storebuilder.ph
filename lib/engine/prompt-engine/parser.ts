@@ -691,13 +691,61 @@ const NAMED_COLOR_HEX: Record<string, string> = {
   lime:"#84CC16", turquoise:"#06B6D4", sapphire:"#2563EB", ruby:"#E11D48", mint:"#34D399",
 };
 
+// Neutrals are treated as background/scheme hints, not as the brand colour.
+const NEUTRAL_COLOR_HINTS: Record<string, "light" | "dark"> = {
+  white: "light", ivory: "light", cream: "light", beige: "light", silver: "light",
+  black: "dark", charcoal: "dark", slate: "dark", graphite: "dark",
+};
+
+function shadeHex(hex: string, amt: number): string {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const t = amt < 0 ? 0 : 255, p = Math.abs(amt);
+  r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
+  return "#" + [r, g, b].map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0")).join("");
+}
+
+// Honour explicitly-named colours as the DOMINANT brand colour (primary +
+// accent + a derived secondary), not merely the accent — so "a blue and white
+// site" actually renders blue, not a black/white site with a blue speck.
+// Neutral words (white/black/…) are interpreted as light/dark scheme hints.
 function applyExtractedColors(palette: ColorPalette, extractedColors: string[]): ColorPalette {
   if (!extractedColors || extractedColors.length === 0) return palette;
+
+  let brandHex: string | null = null;
+  let schemeHint: "light" | "dark" | null = null;
+
   for (const c of extractedColors) {
-    if (c.startsWith("#")) { palette.accent = c; return palette; }
+    if (c.startsWith("#")) { if (!brandHex) brandHex = c; continue; }
+    if (NEUTRAL_COLOR_HINTS[c]) { if (!schemeHint) schemeHint = NEUTRAL_COLOR_HINTS[c]; continue; }
     const hex = NAMED_COLOR_HEX[c];
-    if (hex) { palette.accent = hex; return palette; }
+    if (hex && !brandHex) brandHex = hex;
   }
+
+  if (brandHex) {
+    palette.primary = brandHex;
+    palette.accent = brandHex;
+    palette.secondary = shadeHex(brandHex, -0.22); // deeper shade for gradient depth
+  }
+
+  // A "white"/light scheme hint forces a clean light surface; "black"/dark forces dark.
+  if (schemeHint === "light") {
+    palette.background = "#FFFFFF";
+    palette.surface = "#F5F7FA";
+    palette.text = "#0F1419";
+    palette.muted = "#5B6470";
+    palette.border = "#E4E8EE";
+    palette.derived = { ...palette.derived, "surface-elevated": "#FFFFFF", "surface-hover": "#EEF1F5" };
+  } else if (schemeHint === "dark") {
+    palette.background = "#0A0A0B";
+    palette.surface = "#161618";
+    palette.text = "#FAFAFA";
+    palette.muted = "#8A8A93";
+    palette.border = "#262629";
+    palette.derived = { ...palette.derived, "surface-elevated": "#1F1F23", "surface-hover": "#2A2A30" };
+  }
+
   return palette;
 }
 

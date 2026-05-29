@@ -17,6 +17,8 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
+import { generateVisualDataUri } from './visual-engine';
+import type { VisualPalette, VisualRole } from './visual-engine';
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -53,8 +55,15 @@ function rotate<T>(arr: T[], by: number): T[] {
   return arr.slice(n).concat(arr.slice(0, n));
 }
 
-function ph(id: string, w: number, h: number): string {
-  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
+// Image source. The values produced by getPhotos() are self-contained
+// `data:image/svg+xml,...` URIs from the in-process generative visual engine —
+// no external image host. ph() simply passes those through (the w/h are encoded
+// in the SVG viewBox + CSS object-fit). Legacy plain IDs still resolve to
+// Unsplash for backward compatibility, but the engine no longer emits them.
+function ph(idOrUri: string, w: number, h: number): string {
+  if (!idOrUri) return '';
+  if (idOrUri.startsWith('data:') || idOrUri.startsWith('<svg')) return idOrUri;
+  return `https://images.unsplash.com/photo-${idOrUri}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -476,55 +485,42 @@ function normalizeIndustry(raw: string): string {
   return INDUSTRY_KEY_MAP[raw] || 'general';
 }
 
-// Curated Unsplash photo ID banks — all IDs verified to work with images.unsplash.com/photo-{id}
-const PHOTOS_BY_MOOD: Record<string, string[]> = {
-  dark:     ['1546519638-68e109498ffc','1551963831-d3b034eda6c1','1507003211169-0a1dd7228f2d','1478720568477-152d9b92543f','1555274175-6cbf6f3b137b','1517604931442-7e0c8ed2963c'],
-  dramatic: ['1519861531473-9200262188bf','1574629810360-7efbbe195018','1516466723360-e8a869c7b0ea','1547891654-e332f33f5571','1492691527719-9d1e7e7c14f3','1506929562872-bb421503ef21'],
-  vibrant:  ['1559339352-11d035aa65de','1568992687947-868a62a9f521','1505740420928-5e560c06d30e','1504173010664-32509aeebb62','1533167649-7c5e9c6e9a46','1518770660439-4636190af475'],
-  warm:     ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445','1495195129352-aeb325a55b65','1540189549-5c5aa0b0da51'],
-  cold:     ['1460925895917-afdab827c52f','1551434678-e076c223a692','1496181133206-80ce9b88a853','1504384308090-c894fdcc538d','1518770660439-4636190af475','1451187580459-43490279c0fa'],
-  ethereal: ['1452587925148-ce544e77e70d','1493863641943-9b68992a8d07','1533461502717-83f69c69e1a3','1481627834876-b7833e8f5cf1','1465146344425-f00d5f5c8f07','1524785106558-ddbdb7788d0e'],
-  light:    ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1497366216548-37526070297c','1524758631624-e2822132143e','1495195129352-aeb325a55b65'],
-  neutral:  ['1542744173-8e7e53415bb0','1519090347852-b6fa5e2fe0b9','1454165804606-c3d57bc86b40','1531973576160-7125cd663d86','1497366216548-37526070297c','1497215842964-222b430dc094'],
-};
-const PHOTOS_BY_INDUSTRY: Record<string, string[]> = {
-  sports:      ['1546519638-68e109498ffc','1574629810360-7efbbe195018','1519861531473-9200262188bf','1574623452334-1e0ac2b3ccb4','1534438327743-e8f9a5736c99','1576678927484-cc907957088c'],
-  food:        ['1517248135467-4c7edcad34c4','1414235077428-338989a2e8c0','1466978913421-da2e5dbfca53','1567620905732-2d1ec7ab7445','1555244162-af5a7e0d12bb','1504674900247-0877df9cc836'],
-  photography: ['1452587925148-ce544e77e70d','1581291518857-4d27a4f0e37a','1517048676732-d65bc937f952','1492551557933-34265f7af79e','1504703552179-6b32d9f5e310','1551316179-ef83f3bf93a5'],
-  technology:  ['1551434678-e076c223a692','1460925895917-afdab827c52f','1504384308090-c894fdcc538d','1556761175-5973dc0f32e7','1518770660439-4636190af475','1519389950473-47ba0277781c'],
-  fashion:     ['1483985988355-763728e1935b','1490481651871-ab68de25d43d','1441986300917-64674bd600d8','1525507119028-ed4c629a60a3','1509631179647-0177331693ae','1562157873-818bc0726f68'],
-  ecommerce:   ['1523275335684-37898b6baf30','1542291026-7eec264c27ff','1553062407-98eeb64c6a62','1491553895911-0055eca6402d','1556742400-b75a4bbdd8e7','1515886657613-9f3515b0c78f'],
-  portfolio:   ['1497366216548-37526070297c','1497366811353-6870744d04b2','1522202176988-66273c2fd55f','1544717305-2782549b5bd6','1541462608143-67571c6738dd','1534670007418-5a73bcb45b52'],
-  agency:      ['1556761175-5973dc0f32e7','1542744173-8e7e53415bb0','1497215842964-222b430dc094','1531403009284-440f080d1e12','1550399504-8953b4a95c4e','1454165804606-c3d57bc86b40'],
-  wellness:    ['1506126613408-eca07ce68773','1545205597-3d9d02c29597','1518611012118-696072aa579a','1571019614242-c5c5dee9f50b','1536623975707-c4b3b2af565d','1544367654-5d8a7d0e0a7a'],
-  professional:['1454165804606-c3d57bc86b40','1542744173-8e7e53415bb0','1531973576160-7125cd663d86','1497215842964-222b430dc094','1519090347852-b6fa5e2fe0b9','1507003211169-0a1dd7228f2d'],
-  hospitality: ['1566073771259-470de1bed68c','1520250497591-112f2f40a3f4','1571896349842-33c89424de2d','1469474968028-56623f02e42e','1540541338537-c7d3649e94d3','1527529482837-4698179dc6ce'],
-  general:     ['1486406146926-c627a92ad1ab','1497215842964-222b430dc094','1507679799987-c73779587ccf','1542744173-8e7e53415bb0','1519090347852-b6fa5e2fe0b9','1531973576160-7125cd663d86'],
-};
+// ─────────────────────────────────────────────────────────────────
+// IMAGE SOURCE — in-process generative visual engine (no third-party API).
+// Every visual is synthesized from the SAME understanding object that drives
+// the layout + copy, so the niche, palette, mood, and style of each image
+// always match the website. Returns self-contained data:image/svg+xml URIs.
+// ─────────────────────────────────────────────────────────────────
+
+// Map a slot index to a visual ROLE so heroes/galleries/features each get an
+// appropriately-composed visual while staying coherent with the brand.
+const SLOT_ROLES: VisualRole[] = ['hero', 'split', 'feature', 'gallery', 'product', 'gallery', 'feature', 'split', 'cta', 'gallery', 'product', 'feature'];
 
 function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
-  const rawIndustry = puo.inferredIndustry.toLowerCase();
-  const normI = normalizeIndustry(rawIndustry);
-  const mood = puo.visualMood as string;
+  const cp = puo.visual.colorPalette;
+  const palette: VisualPalette = {
+    primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
+    background: cp.background, surface: cp.surface, text: cp.text, muted: cp.muted,
+  };
+  const base = {
+    palette,
+    mood: puo.visualMood as string,
+    style: puo.designStyle as string,
+    niche: normalizeIndustry(puo.inferredIndustry.toLowerCase()),
+    rawNiche: puo.inferredIndustry.toLowerCase(),
+    keywords: getContentWords(puo),
+  };
 
-  const industryBank = PHOTOS_BY_INDUSTRY[normI] || PHOTOS_BY_INDUSTRY.general;
-  const moodBank = PHOTOS_BY_MOOD[mood] || PHOTOS_BY_MOOD.neutral;
-
-  // Interleave industry + mood photos so every section gets visually coherent imagery
-  const combined: string[] = [];
-  const max = Math.max(industryBank.length, moodBank.length);
-  for (let i = 0; i < max; i++) {
-    if (i < industryBank.length) combined.push(industryBank[i]);
-    if (i < moodBank.length) combined.push(moodBank[i]);
+  // Generate a coherent SET of distinct visuals — each slot varies by seed +
+  // role for variety, while niche/palette/mood stay constant for coherence.
+  const COUNT = 12;
+  const out: string[] = [];
+  for (let i = 0; i < COUNT; i++) {
+    const role = SLOT_ROLES[i % SLOT_ROLES.length];
+    const seed = (Math.abs(fp) ^ (i * 0x9E3779B1)) >>> 0;
+    out.push(generateVisualDataUri({ ...base, seed, role }));
   }
-
-  // Remove duplicates while preserving order
-  const seen = new Set<string>();
-  const unique = combined.filter(id => { if (seen.has(id)) return false; seen.add(id); return true; });
-
-  // Rotate by fp so each brand gets a different photo starting point
-  const n = unique.length ? (Math.abs(fp) % unique.length) : 0;
-  return unique.slice(n).concat(unique.slice(0, n));
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -579,6 +575,11 @@ const STYLE_WORDS = new Set([
   // web meta words
   'website','site','page','pages','landing','homepage','layout','design','designs','style','styles','theme','color','colors','colour','font','fonts','typography',
   'build','create','make','generate','want','need','please','with','that','this','for','the','and','have','has','look','feel','vibe','using','about',
+  'scheme','palette','brand','branding','theme','visual','texture','pattern','motif','gradient',
+  // color names — these are captured as palette tokens, never as content nouns
+  'red','blue','green','yellow','orange','purple','pink','black','white','gray','grey','brown','cyan','magenta','teal',
+  'indigo','violet','gold','silver','beige','navy','maroon','olive','lime','turquoise','lavender','peach','cream',
+  'charcoal','slate','ivory','mint','coral','amber','rose','zinc','stone','emerald','sapphire','ruby','topaz',
   // industry entity nouns (these are niche classifiers, not distinctive content nouns)
   'restaurant','shop','store','studio','brand','boutique','agency','firm','company','business','cafe','bar','salon',
   'clinic','gym','club','space','venue','place','spot','concept','market','collective','office','practice','center','centre',
@@ -669,11 +670,20 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const headlines = headlinePatterns[personality] || headlinePatterns['bold'];
   const heroHeadline = pick(headlines, fp);
 
-  // Sub from ux.primaryGoal or prompt
-  const rawPrompt = puo.originalPrompt;
-  const heroSub = rawPrompt.length > 40
-    ? rawPrompt.replace(/^(build|create|make|design|generate|a |an |the )/gi, '').trim().slice(0, 140).replace(/[.!?]*$/, '.')
-    : puo.ux.primaryGoal;
+  // Hero subtitle — a crafted, benefit-led sentence. We deliberately DO NOT echo
+  // the raw prompt back (that leaks meta-instructions like "modern, clean website
+  // with Facebook colors" into the page). Instead we compose copy from the niche
+  // subject + supporting keyword so it reads like real marketing.
+  const subjectPhrase = (kws[0] ? kws[0] : nicheSubject).toLowerCase();
+  const supportPhrase = (kws[1] ? kws[1] : secKw).toLowerCase();
+  const heroSubPatterns = [
+    `Premium ${subjectPhrase} crafted for those who expect more — where ${supportPhrase} meets uncompromising quality.`,
+    `Discover ${brand}: a new standard in ${subjectPhrase}, built around ${supportPhrase} and an obsession with detail.`,
+    `Experience ${subjectPhrase} done right. Thoughtfully designed, expertly delivered, and made to leave an impression.`,
+    `${brand} brings ${subjectPhrase} and ${supportPhrase} together into one seamless, elevated experience.`,
+    `Where ${subjectPhrase} becomes an experience. Refined, considered, and crafted for you.`,
+  ];
+  const heroSub = pick(heroSubPatterns, fp + 2);
 
   // CTA text by layout direction
   const ctaMap: Record<string, string> = {
