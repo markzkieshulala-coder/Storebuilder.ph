@@ -19,10 +19,17 @@ import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { PromptUnderstandingObject } from './prompt-engine';
-import { buildImagePrompt } from './image-agent';
+import { buildImagePrompt, buildSearchQuery, curatedPhotoIds } from './image-agent';
 import type { ImageRole, ImagePromptSpec } from './image-agent';
 import { generateVisualDataUri } from './visual-engine';
 import type { VisualPalette } from './visual-engine';
+
+// Optional stock-photo search keys. When set, the engine fetches REAL photos
+// matched to the prompt's exact subject. When absent, it uses the curated
+// keyless Unsplash CDN library (still real photos, matched by sub-niche).
+const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY || '';
+const PEXELS_KEY = process.env.PEXELS_API_KEY || '';
+const SEARCH_TIMEOUT = Number(process.env.IMAGE_SEARCH_TIMEOUT_MS || 8000);
 
 const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
 const IMAGE_GEN_ENABLED = process.env.IMAGE_GEN_ENABLED === '1' || process.env.IMAGE_GEN_ENABLED === 'true';
@@ -106,40 +113,86 @@ function svgFallback(puo: PromptUnderstandingObject, role: ImageRole, seed: numb
   });
 }
 
+// Build a sized real-photo URL from a curated Unsplash CDN id.
+function curatedUrl(id: string, w = 1200, h = 800): string {
+  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
+}
+
+// Keyword search against Unsplash (if a key is configured). Returns a real CDN
+// photo URL matched to the query, or null.
+async function searchUnsplash(query: string, seed: number): Promise<string | null> {
+  if (!UNSPLASH_KEY) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SEARCH_TIMEOUT);
+  try {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&orientation=landscape&content_filter=high`,
+      { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` }, signal: ctrl.signal },
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { results?: Array<{ urls?: { regular?: string; raw?: string } }> };
+    const list = data.results || [];
+    if (!list.length) return null;
+    const pick = list[Math.abs(seed) % list.length];
+    return pick?.urls?.regular || pick?.urls?.raw || null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
+// Keyword search against Pexels (if a key is configured).
+async function searchPexels(query: string, seed: number): Promise<string | null> {
+  if (!PEXELS_KEY) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SEARCH_TIMEOUT);
+  try {
+    const res = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=20&orientation=landscape`,
+      { headers: { Authorization: PEXELS_KEY }, signal: ctrl.signal },
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { photos?: Array<{ src?: { large2x?: string; large?: string } }> };
+    const list = data.photos || [];
+    if (!list.length) return null;
+    const pick = list[Math.abs(seed) % list.length];
+    return pick?.src?.large2x || pick?.src?.large || null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
 /**
- * Produce the full image set for a site. Each entry is either a real generated
- * photo (served from /generated/...) or an SVG data-URI fallback. Always returns
- * a usable array — never throws.
+ * Produce the full image set for a site. Returns REAL photographs by default
+ * (keyword-searched when an API key is set, otherwise the curated sub-niche
+ * Unsplash CDN library), the self-hosted generator when enabled, and the
+ * SVG engine only as a last resort. Always returns a usable array — never throws.
  */
 export async function generateSiteImages(puo: PromptUnderstandingObject, fp: number): Promise<string[]> {
   const results: string[] = [];
+  const curated = curatedPhotoIds(puo);   // ordered real-photo ids matched to the niche
 
   for (let i = 0; i < DISTINCT_IMAGES; i++) {
     const role = SLOT_ROLES[i % SLOT_ROLES.length];
-    const spec = buildImagePrompt(puo, role, i);
     const seed = (Math.abs(fp) ^ (i * 0x9e3779b1)) >>> 0;
 
-    // 1) cached real image?
-    const key = hashSpec(spec);
-    const cachedFile = path.join(CACHE_DIR, `${key}.png`);
-
+    // 1) Self-hosted generator (most specific) — only when explicitly enabled.
     if (IMAGE_GEN_ENABLED) {
       try {
-        if (await fileExists(cachedFile)) {
-          results.push(`${PUBLIC_PREFIX}/${key}.png`);
-          continue;
-        }
+        const spec = buildImagePrompt(puo, role, i);
+        const key = hashSpec(spec);
+        if (await fileExists(path.join(CACHE_DIR, `${key}.png`))) { results.push(`${PUBLIC_PREFIX}/${key}.png`); continue; }
         const b64 = await callLocalGenerator(spec);
-        if (b64) {
-          results.push(await persist(b64, key));
-          continue;
-        }
-      } catch {
-        /* fall through to SVG */
-      }
+        if (b64) { results.push(await persist(b64, key)); continue; }
+      } catch { /* fall through */ }
     }
 
-    // 2) deterministic SVG fallback (self-contained, always works)
+    // 2) Keyword stock search (exact subject match) when a key is configured.
+    try {
+      const q = buildSearchQuery(puo, i);
+      const found = (await searchUnsplash(q, seed)) || (await searchPexels(q, seed));
+      if (found) { results.push(found); continue; }
+    } catch { /* fall through */ }
+
+    // 3) Curated real-photo library (keyless, reliable, sub-niche matched).
+    if (curated.length) { results.push(curatedUrl(curated[i % curated.length])); continue; }
+
+    // 4) SVG art — last resort only.
     results.push(svgFallback(puo, role, seed));
   }
 

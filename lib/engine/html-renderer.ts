@@ -19,6 +19,7 @@ import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
 import { generateVisualDataUri } from './visual-engine';
 import type { VisualPalette, VisualRole } from './visual-engine';
+import { curatedPhotoIds } from './image-agent';
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -508,35 +509,43 @@ const SLOT_ROLES: VisualRole[] = ['hero', 'split', 'feature', 'gallery', 'produc
 let INJECTED_IMAGES: string[] | null = null;
 
 function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
-  // When real generated photos are supplied, use them verbatim (cycled to the
-  // number of slots the sections expect). Falls through to SVG art otherwise.
+  const NEED = 12;
+
+  // 1) Real photos resolved by the async image pipeline (keyword search / curated
+  //    library / self-hosted generator), injected by renderMultiPageSite.
   if (INJECTED_IMAGES && INJECTED_IMAGES.length > 0) {
     const src = INJECTED_IMAGES;
-    const NEED = 12;
     const out: string[] = [];
     const start = Math.abs(fp) % src.length;
     for (let i = 0; i < NEED; i++) out.push(src[(start + i) % src.length]);
     return out;
   }
+
+  // 2) No injection (direct/sync render): use the curated REAL-photo library,
+  //    matched to the niche/sub-niche. ph() turns these ids into Unsplash CDN
+  //    URLs. This guarantees real photos even without the async pipeline.
+  const ids = curatedPhotoIds(puo);
+  if (ids.length) {
+    const out: string[] = [];
+    const start = Math.abs(fp) % ids.length;
+    for (let i = 0; i < NEED; i++) out.push(ids[(start + i) % ids.length]);
+    return out;
+  }
+
+  // 3) Absolute last resort: deterministic SVG art (self-contained).
   const cp = puo.visual.colorPalette;
   const palette: VisualPalette = {
     primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
     background: cp.background, surface: cp.surface, text: cp.text, muted: cp.muted,
   };
   const base = {
-    palette,
-    mood: puo.visualMood as string,
-    style: puo.designStyle as string,
+    palette, mood: puo.visualMood as string, style: puo.designStyle as string,
     niche: normalizeIndustry(puo.inferredIndustry.toLowerCase()),
     rawNiche: puo.inferredIndustry.toLowerCase(),
     keywords: getContentWords(puo),
   };
-
-  // Generate a coherent SET of distinct visuals — each slot varies by seed +
-  // role for variety, while niche/palette/mood stay constant for coherence.
-  const COUNT = 12;
   const out: string[] = [];
-  for (let i = 0; i < COUNT; i++) {
+  for (let i = 0; i < NEED; i++) {
     const role = SLOT_ROLES[i % SLOT_ROLES.length];
     const seed = (Math.abs(fp) ^ (i * 0x9E3779B1)) >>> 0;
     out.push(generateVisualDataUri({ ...base, seed, role }));
