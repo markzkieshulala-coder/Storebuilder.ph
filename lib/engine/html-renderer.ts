@@ -122,8 +122,8 @@ export function detectNiche(prompt: string): Niche {
 interface FontConfig { href: string; display: string; body: string }
 
 const FONT_MAP: Record<string, FontConfig> = {
-  minimal:       { href:'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap', display:"'Inter',system-ui,sans-serif", body:"'Inter',system-ui,sans-serif" },
-  flat:          { href:'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap', display:"'Inter',system-ui,sans-serif", body:"'Inter',system-ui,sans-serif" },
+  minimal:       { href:'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@300;400;500;600&display=swap', display:"'Sora',system-ui,sans-serif", body:"'Inter',system-ui,sans-serif" },
+  flat:          { href:'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap', display:"'Space Grotesk',system-ui,sans-serif", body:"'Inter',system-ui,sans-serif" },
   editorial:     { href:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Jost:wght@300;400;500&display=swap', display:"'Cormorant Garamond',Georgia,serif", body:"'Jost',system-ui,sans-serif" },
   luxury:        { href:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Jost:wght@300;400;500&display=swap', display:"'Cormorant Garamond',Georgia,serif", body:"'Jost',system-ui,sans-serif" },
   premium:       { href:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Jost:wght@300;400;500&display=swap', display:"'Cormorant Garamond',Georgia,serif", body:"'Jost',system-ui,sans-serif" },
@@ -138,7 +138,7 @@ const FONT_MAP: Record<string, FontConfig> = {
   cinematic:     { href:'https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600&display=swap', display:"'Syne',system-ui,sans-serif", body:"'Inter',system-ui,sans-serif" },
   glassmorphism: { href:'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap', display:"'Plus Jakarta Sans',system-ui,sans-serif", body:"'Plus Jakarta Sans',system-ui,sans-serif" },
   neumorphism:   { href:'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap', display:"'Plus Jakarta Sans',system-ui,sans-serif", body:"'Plus Jakarta Sans',system-ui,sans-serif" },
-  corporate:     { href:'https://fonts.googleapis.com/css2?family=Merriweather:wght@700;900&family=Source+Sans+3:wght@400;500;600&display=swap', display:"'Merriweather',Georgia,serif", body:"'Source Sans 3',system-ui,sans-serif" },
+  corporate:     { href:'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap', display:"'Fraunces',Georgia,serif", body:"'Inter',system-ui,sans-serif" },
   organic:       { href:'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500&display=swap', display:"'Fraunces',Georgia,serif", body:"'DM Sans',system-ui,sans-serif" },
   industrial:    { href:'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500&display=swap', display:"'Barlow Condensed',sans-serif", body:"'Barlow',sans-serif" },
   vaporwave:     { href:'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap', display:"'Outfit',system-ui,sans-serif", body:"'Outfit',system-ui,sans-serif" },
@@ -178,10 +178,14 @@ function buildCSSFromPUO(puo: PromptUnderstandingObject, font: FontConfig): stri
   --shadow:${sh.md};--shadow-lg:${sh.lg};--shadow-sm:${sh.sm};
   --grad:linear-gradient(135deg,${cp.primary},${cp.secondary});
   --pad:${sp.section};--container:${sp.container};--gutter:${sp.gutter};--gap:${sp.gridGap};
-  --hero-size:${ty.scale.hero};--h1-size:${ty.scale.h1};--h2-size:${ty.scale.h2};--h3-size:${ty.scale.h3};
+  /* Premium responsive display scale — big, confident headlines that scale with the
+     viewport instead of a fixed 4rem. This is the single biggest driver of an
+     "ultra-premium" feel. */
+  --hero-size:clamp(2.9rem,6.2vw,5.6rem);--h1-size:clamp(2.4rem,4.6vw,4.2rem);
+  --h2-size:clamp(1.85rem,3.3vw,3rem);--h3-size:clamp(1.3rem,1.8vw,1.65rem);
   --body-size:${ty.scale.body};--small-size:${ty.scale.small};--caption-size:${ty.scale.caption};
   --weight-heading:${ty.weight.heading};--weight-body:${ty.weight.body};
-  --leading-heading:${ty.lineHeight.heading};--leading-body:${ty.lineHeight.body};
+  --leading-heading:1.05;--leading-body:${ty.lineHeight.body};
   --tracking-heading:${ty.letterSpacing.heading};
   --dur:${an.duration.normal};--dur-fast:${an.duration.fast};--ease:${an.easing.default};
 }
