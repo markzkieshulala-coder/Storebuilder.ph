@@ -55,14 +55,16 @@ function rotate<T>(arr: T[], by: number): T[] {
   return arr.slice(n).concat(arr.slice(0, n));
 }
 
-// Image source. The values produced by getPhotos() are self-contained
-// `data:image/svg+xml,...` URIs from the in-process generative visual engine —
-// no external image host. ph() simply passes those through (the w/h are encoded
-// in the SVG viewBox + CSS object-fit). Legacy plain IDs still resolve to
-// Unsplash for backward compatibility, but the engine no longer emits them.
+// Image source. getPhotos() emits one of:
+//   - a real generated photo path from the self-hosted generator (e.g. /generated/x.png)
+//   - a data:image/svg+xml URI from the in-process SVG engine (fallback)
+//   - (legacy) a bare Unsplash photo id
+// ph() passes real URLs / paths / data-URIs straight through; only a bare id is
+// expanded to an Unsplash URL (kept for backward-compat; the engine no longer
+// emits those).
 function ph(idOrUri: string, w: number, h: number): string {
   if (!idOrUri) return '';
-  if (idOrUri.startsWith('data:') || idOrUri.startsWith('<svg')) return idOrUri;
+  if (/^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
   return `https://images.unsplash.com/photo-${idOrUri}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
 }
 
@@ -496,7 +498,22 @@ function normalizeIndustry(raw: string): string {
 // appropriately-composed visual while staying coherent with the brand.
 const SLOT_ROLES: VisualRole[] = ['hero', 'split', 'feature', 'gallery', 'product', 'gallery', 'feature', 'split', 'cta', 'gallery', 'product', 'feature'];
 
+// Pre-generated REAL images from the self-hosted image generator, injected by
+// renderMultiPageSite. Safe as module state because the render is fully
+// synchronous (no awaits), so no two renders interleave between set and clear.
+let INJECTED_IMAGES: string[] | null = null;
+
 function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
+  // When real generated photos are supplied, use them verbatim (cycled to the
+  // number of slots the sections expect). Falls through to SVG art otherwise.
+  if (INJECTED_IMAGES && INJECTED_IMAGES.length > 0) {
+    const src = INJECTED_IMAGES;
+    const NEED = 12;
+    const out: string[] = [];
+    const start = Math.abs(fp) % src.length;
+    for (let i = 0; i < NEED; i++) out.push(src[(start + i) % src.length]);
+    return out;
+  }
   const cp = puo.visual.colorPalette;
   const palette: VisualPalette = {
     primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
@@ -685,15 +702,28 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   ];
   const heroSub = pick(heroSubPatterns, fp + 2);
 
-  // CTA text by layout direction
+  // CTA text — NICHE first (so a coffee shop says "View Menu", not "Get Started"),
+  // then fall back to layout direction, then a safe default.
+  const ctaByNiche: Record<string, string> = {
+    food: 'View Menu', sports: 'Start Training', technology: 'Start Free Trial',
+    photography: 'View Portfolio', fashion: 'Shop the Collection', ecommerce: 'Shop Now',
+    portfolio: 'View Work', agency: 'Start a Project', wellness: 'Book a Session',
+    hospitality: 'Book Your Stay', professional: 'Get a Consultation',
+  };
   const ctaMap: Record<string, string> = {
     'e-commerce': 'Shop Now', saas: 'Start Free Trial', 'lead-gen': 'Get Started Free',
     landing: 'Get Started', portfolio: 'View My Work', editorial: 'Read More',
     application: 'Launch App', showcase: 'Explore', dashboard: 'Open Dashboard',
     'multi-page': 'Get Started', 'single-page': 'Learn More',
   };
-  const primaryCta = ctaMap[direction] || 'Get Started';
-  const secondaryCta = pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More', 'Watch Demo'] as const, fp + 1);
+  const primaryCta = ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
+  const secByNiche: Record<string, string> = {
+    food: 'Book a Table', sports: 'See Programs', technology: 'Watch Demo',
+    photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
+    portfolio: 'View Work', agency: 'Our Process', wellness: 'Learn More',
+    hospitality: 'Explore Rooms', professional: 'Learn More',
+  };
+  const secondaryCta = secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
 
   // Hero tag
   const heroTags = ['New Launch', 'Now Available', `${mainKw} Platform`, `${industry !== 'general' ? titleCase(industry) + ' ' : ''}Solution`, 'Trusted by Thousands', 'Award Winning', 'Free to Start'];
@@ -2424,11 +2454,32 @@ export function renderMultiPageSite(
   brandName: string,
   subdomain = '',
   understanding?: PromptUnderstandingObject,
+  images?: string[],
 ): MultiPageOutput {
   const prompt = context.input.userPrompt;
   const brand  = brandName || 'Brand';
   const year   = new Date().getFullYear();
   const base   = subdomain ? `/sites/${subdomain}/` : '';
+
+  // Inject the real generated photos (if any) for the duration of this fully
+  // synchronous render. Cleared in finally so nothing leaks to the next render.
+  INJECTED_IMAGES = images && images.length ? images : null;
+  try {
+    return renderMultiPageSiteInner(context, brand, subdomain, base, year, prompt, understanding);
+  } finally {
+    INJECTED_IMAGES = null;
+  }
+}
+
+function renderMultiPageSiteInner(
+  context: ISharedContext,
+  brand: string,
+  subdomain: string,
+  base: string,
+  year: number,
+  prompt: string,
+  understanding?: PromptUnderstandingObject,
+): MultiPageOutput {
 
   // 1. Use the canonical analyzer-resolved understanding when supplied, so the
   //    render matches the concept the user was shown. Only re-parse as a

@@ -43,3 +43,6 @@ prisma/migrations/
 # editor
 .vscode/
 .idea/
+
+# Self-hosted image generator cache
+public/generated/*.png

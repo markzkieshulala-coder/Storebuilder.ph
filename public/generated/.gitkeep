@@ -1,0 +1,2 @@
+# Generated images are cached here at runtime by the self-hosted image engine.
+# The cached PNGs are not committed; this file just keeps the folder in git.

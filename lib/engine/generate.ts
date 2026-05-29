@@ -1,8 +1,16 @@
 import { createOrchestrator } from './bootstrap';
 import { renderMultiPageSite, detectNiche } from './html-renderer';
+import { generateSiteImages } from './image-backend';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';
+import { parsePrompt } from './prompt-engine';
+
+function fnv(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
 
 export interface EngineGenerationResult {
   /** Primary page HTML — stored in htmlContent for backward-compat */
@@ -46,7 +54,22 @@ export async function generateWebsite(
     throw new Error(`Pipeline failed: ${context.errors.map((e) => e.message).join('; ')}`);
   }
 
-  const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding);
+  // Generate the site's images with the self-hosted image engine (image-agent
+  // builds niche-specific prompts; image-backend calls your local generator and
+  // caches the results, falling back to in-process SVG art when it isn't running).
+  const puo = understanding ?? (() => {
+    const r = parsePrompt(prompt);
+    return r.success ? r.object : parsePrompt('modern professional website').object;
+  })();
+  const fp = fnv((brandName || 'Brand') + '|' + prompt);
+  let images: string[] = [];
+  try {
+    images = await generateSiteImages(puo, fp);
+  } catch (err) {
+    console.warn('[generate] image generation failed, using SVG fallback:', (err as Error)?.message);
+  }
+
+  const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, images);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   return {
