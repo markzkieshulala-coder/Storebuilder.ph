@@ -64,7 +64,7 @@ export async function generateWebsite(
   const fp = fnv((brandName || 'Brand') + '|' + prompt);
   let images: string[] = [];
   try {
-    images = await generateSiteImages(puo, fp);
+    images = await generateSiteImages(puo, fp, brandName);
   } catch (err) {
     console.warn('[generate] image provider failed, rendering without images:', (err as Error)?.message);
   }

@@ -57,21 +57,36 @@ unified pipeline:
 The whole path is synchronous, in-process, and dependency-free, so `next build`
 stays green offline.
 
-### Images: pluggable provider (no built-in image engine)
-The website generator does **not** produce any imagery itself. All in-house image
-engines were removed — the SVG "visual engine" (`visual-engine.ts`), the canvas
-scene renderer (`canvas-engine.ts`), the diffusion backend (`image-backend.ts`),
-the cache (`image-cache.ts`), the prompt builder (`image-agent.ts`), and the
-neutral placeholder (`placeholder.ts`).
+### Images: Website Image Engine (integrated as one system)
+Real, niche-matched photos are produced by the **Website Image Engine**, vendored
+in-repo at `lib/engine/image-engine/` and run as part of the same pipeline:
+- `image-engine/analyze.ts` infers niche / audience / tone / style / visual-mode /
+  palette from the prompt.
+- `image-engine/engine.ts` (`WebsiteImageEngine.generate`) plans N distinct assets
+  (hero / feature / background / detail / product / lifestyle), builds rich SD
+  prompts (variation pools + strong negative prompt + preset steps/cfg), calls the
+  local Stable Diffusion server, writes PNGs to `public/generated/`, and keeps a
+  repetition-guard memory (`public/generated/.image-engine-memory.json`) so
+  visuals don't repeat across sites.
+- `image-engine/backend/automatic1111.ts` POSTs `/sdapi/v1/txt2img` (the same SD
+  server `tools/image-generator` runs on `:7860`).
 
-Images now come from a single seam: `lib/engine/image-provider.ts` →
-`generateSiteImages(puo, fp): Promise<string[]>`. It is awaited once per site in
-`generate.ts`, and the returned URLs/data-URIs are injected into the renderer and
-distributed across the image slots (hero, split, gallery, product cards, CTA).
-**Wire your own TypeScript/Next.js image generator inside that function.** It
-returns `[]` by default; when empty, every image slot renders as a neutral CSS
-gradient placeholder (a transparent pixel over `linear-gradient(--surf,--bg)`),
-so sites never look broken and contact no third-party source.
+`lib/engine/image-provider.ts` is the single bridge: `generateSiteImages(puo, fp,
+brandName)` builds the engine request from the resolved PUO (prompt, palette,
+mood, industry → brand context), runs the engine, and maps the written files to
+public `/generated/*.png` URLs that `generate.ts` injects into the renderer
+(hero, split, gallery, product cards, CTA). It is bounded by a total timeout
+(`IMAGE_ENGINE_TIMEOUT_MS`, default 180s) and a graceful fallback: if the SD
+server is offline/slow or `IMAGE_GEN_ENABLED=0`, it returns `[]` and every slot
+renders a neutral CSS gradient placeholder (transparent pixel over
+`linear-gradient(--surf,--bg)`) — so site generation never hangs or breaks. No
+third-party image source is contacted; only your own local SD server.
+
+Env: `IMAGE_GEN_URL` (default `http://127.0.0.1:7860`), `IMAGE_GEN_ENABLED`,
+`IMAGE_GEN_COUNT` (1–8, default 6), `IMAGE_GEN_PRESET` (balanced|premium|fast),
+`IMAGE_ENGINE_TIMEOUT_MS`. The earlier in-house illustration engines
+(`visual-engine.ts`, `canvas-engine.ts`, `image-backend.ts`, `image-cache.ts`,
+`image-agent.ts`, `placeholder.ts`) were removed.
 
 The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site —
 including understanding the prompt — requires no external LLM, no API key, and no
