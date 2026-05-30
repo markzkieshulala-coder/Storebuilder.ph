@@ -222,16 +222,20 @@ type SceneFn = (r: () => number, field: FieldColors, pal: VisualPalette, seed: n
 type Drink = 'espresso' | 'cappuccino' | 'iced' | 'frappe' | 'tea' | 'pastry' | 'beans' | 'pourover' | 'cup';
 function detectDrink(subject: string): Drink {
   const s = (subject || '').toLowerCase();
+  // Baked goods — check first to avoid "espresso brownie" routing to espresso
   if (/pastr|croissant|cake|cookie|muffin|donut|doughnut|snack|scone|bagel|sandwich|toast|brownie|waffle|pie/.test(s)) return 'pastry';
-  // Coffee concepts that aren't a poured drink — show beans / bag scene
-  if (/\bbean|farm[\s-]to|farm.to.cup|harvest|sourcing|direct.trade|single.origin|small.batch|roastery/.test(s)) return 'beans';
-  // Pour-over / drip equipment scene
-  if (/pour.?over|v60|chemex|drip|filter brew|aeropress|manual brew|brew method|artisan brew/.test(s)) return 'pourover';
+  // Specific drink types take priority — a "single origin espresso" IS an espresso, not a beans bag
   if (/frapp|frappe|smoothie|shake|blended|whipped|milkshake/.test(s)) return 'frappe';
-  if (/iced|cold[\s-]?brew|iced coffee|iced latte|cold coffee|frozen/.test(s)) return 'iced';
+  if (/iced|cold[\s-]?brew|iced latte|cold coffee|frozen/.test(s)) return 'iced';
   if (/espresso|macchiato|ristretto|cortado|doppio/.test(s)) return 'espresso';
   if (/\btea\b|matcha|chai|herbal/.test(s)) return 'tea';
-  if (/cappuccino|latte|mocha|flat white|americano|coffee|brew|roast|drink/.test(s)) return 'cappuccino';
+  if (/cappuccino|latte|mocha|flat white|americano/.test(s)) return 'cappuccino';
+  // Pour-over / brewing equipment scene — after drink types so "drip coffee" can match cappuccino first
+  if (/pour.?over|v60|chemex|aeropress|manual brew|brew method|artisan brew/.test(s)) return 'pourover';
+  // Coffee concepts without an explicit drink type — sourcing, beans, roastery → bag of beans scene
+  if (/\bbean|farm[\s-]to|harvest|sourcing|direct.trade|small.batch|roastery/.test(s)) return 'beans';
+  // Generic "coffee", "brew", "roast" → cappuccino cup as the default hot drink
+  if (/coffee|brew|roast|drink/.test(s)) return 'cappuccino';
   return 'cup';
 }
 
@@ -276,14 +280,15 @@ function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, se
   if (drink === 'pourover') { drawPourOver(p, r, cx, tableY, uid); return p.join(''); }
 
   // Hot drink in a ceramic cup (cappuccino / latte / espresso / tea / generic).
-  drawHotCup(p, r, cx, tableY, uid, drink, seed);
+  // warmOnly=true: restrict to earthy/warm ceramic glazes appropriate for a coffee shop.
+  drawHotCup(p, r, cx, tableY, uid, drink, seed, true);
   return p.join('');
 }
 
 // Hot ceramic cup on a saucer with steam, foam, and scattered beans.
 // Cups are drawn large (360-420px wide) so the object fills the frame like a
 // real close-up product photograph rather than a small icon on a background.
-function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, uid: number, drink: Drink, seed = 0): void {
+function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, uid: number, drink: Drink, seed = 0, warmOnly = false): void {
   const espresso = drink === 'espresso';
   const cupW = espresso ? 260 : 380;
   const cupH = espresso ? 210 : 310;
@@ -294,16 +299,22 @@ function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, ui
     : { a: '#e8d5b0', b: '#c8b48c', c: '#a89060' };
   const liquid = drink === 'tea' ? '#7a9a3a' : '#2d1204';
 
-  // Ceramic color palette — each cup gets a distinct glaze so repeated cup types look different
-  const ceramics = [
+  // Warm ceramics: coffee/food/wellness niches — earthy, inviting.
+  // Full set: also includes matte black and navy for bar/tech niches.
+  const warmCeramics = [
     { mid: '#faf7f4', lo: '#b8b0a8', hi: '#dcd6d0', rim0: '#e8e2dc', rim1: '#c0b8b0' }, // classic white
-    { mid: '#1a1a1a', lo: '#0a0a0a', hi: '#303030', rim0: '#383838', rim1: '#181818' }, // matte black
     { mid: '#b05a3a', lo: '#7a3220', hi: '#d07050', rim0: '#c86848', rim1: '#8a4030' }, // terracotta
     { mid: '#8aaa88', lo: '#5a7a58', hi: '#b0c8ae', rim0: '#9ab898', rim1: '#6a8868' }, // sage green
-    { mid: '#3a5a8a', lo: '#1a3060', hi: '#6080b0', rim0: '#4a6a9a', rim1: '#2a4070' }, // navy blue
     { mid: '#f0e8d0', lo: '#d0c0a0', hi: '#fffae8', rim0: '#e8dcbc', rim1: '#c0b090' }, // cream
+    { mid: '#c8a878', lo: '#9a7448', hi: '#e8c898', rim0: '#d8b888', rim1: '#a88858' }, // warm tan
   ];
-  const cer = ceramics[((seed >> 0) % ceramics.length + ceramics.length) % ceramics.length];
+  const allCeramics = [
+    ...warmCeramics,
+    { mid: '#1a1a1a', lo: '#0a0a0a', hi: '#303030', rim0: '#383838', rim1: '#181818' }, // matte black
+    { mid: '#3a5a8a', lo: '#1a3060', hi: '#6080b0', rim0: '#4a6a9a', rim1: '#2a4070' }, // navy blue
+  ];
+  const pool = warmOnly ? warmCeramics : allCeramics;
+  const cer = pool[((seed >> 0) % pool.length + pool.length) % pool.length];
 
   p.push(`<ellipse cx="${cx}" cy="${tableY - 2}" rx="${cupW / 2 + 20}" ry="16" fill="rgba(0,0,0,0.42)" filter="url(#blur-sm)"/>`);
 
