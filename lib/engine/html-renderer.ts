@@ -2384,10 +2384,10 @@ function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
 }
 
 function renderTileSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
-  const { photos, fp } = ctx;
+  const { fp } = ctx;
   const { cards, eyebrow, heading } = nextFeatureSegment(ctx, 3);
   const items = cards.map((f, i) => {
-    const photo = photos[(fp + i + 4) % photos.length];
+    const photo = productPhoto(ctx.puo, f.title, fp, i + 4);
     return `
     <div class="card reveal reveal-delay-${i % 3}">
       <img src="${ph(photo, 600, 300)}" alt="${esc(f.title)}" loading="lazy" style="border-radius:var(--radius-sm);margin-bottom:16px;width:100%;height:180px;object-fit:cover"/>

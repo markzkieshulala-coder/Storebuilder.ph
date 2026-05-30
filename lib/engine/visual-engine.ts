@@ -219,10 +219,14 @@ type SceneFn = (r: () => number, field: FieldColors, pal: VisualPalette, seed: n
 
 // Detect the specific coffee-shop item so each menu card renders a DIFFERENT,
 // recognizable drink/food — espresso ≠ iced coffee ≠ frappuccino ≠ pastry.
-type Drink = 'espresso' | 'cappuccino' | 'iced' | 'frappe' | 'tea' | 'pastry' | 'cup';
+type Drink = 'espresso' | 'cappuccino' | 'iced' | 'frappe' | 'tea' | 'pastry' | 'beans' | 'pourover' | 'cup';
 function detectDrink(subject: string): Drink {
   const s = (subject || '').toLowerCase();
   if (/pastr|croissant|cake|cookie|muffin|donut|doughnut|snack|scone|bagel|sandwich|toast|brownie|waffle|pie/.test(s)) return 'pastry';
+  // Coffee concepts that aren't a poured drink — show beans / bag scene
+  if (/\bbean|farm[\s-]to|farm.to.cup|harvest|sourcing|direct.trade|single.origin|small.batch|roastery/.test(s)) return 'beans';
+  // Pour-over / drip equipment scene
+  if (/pour.?over|v60|chemex|drip|filter brew|aeropress|manual brew|brew method|artisan brew/.test(s)) return 'pourover';
   if (/frapp|frappe|smoothie|shake|blended|whipped|milkshake/.test(s)) return 'frappe';
   if (/iced|cold[\s-]?brew|iced coffee|iced latte|cold coffee|frozen/.test(s)) return 'iced';
   if (/espresso|macchiato|ristretto|cortado|doppio/.test(s)) return 'espresso';
@@ -265,28 +269,41 @@ function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, se
 
   const cx = 490 + Math.floor(r() * 40) - 20;
 
-  if (drink === 'pastry') { drawPastry(p, r, cx, tableY, uid); return p.join(''); }
-  if (drink === 'iced')   { drawIcedGlass(p, r, cx, tableY, uid, false); return p.join(''); }
-  if (drink === 'frappe') { drawIcedGlass(p, r, cx, tableY, uid, true); return p.join(''); }
+  if (drink === 'pastry')   { drawPastry(p, r, cx, tableY, uid); return p.join(''); }
+  if (drink === 'iced')     { drawIcedGlass(p, r, cx, tableY, uid, false); return p.join(''); }
+  if (drink === 'frappe')   { drawIcedGlass(p, r, cx, tableY, uid, true); return p.join(''); }
+  if (drink === 'beans')    { drawCoffeeBeans(p, r, cx, tableY, uid); return p.join(''); }
+  if (drink === 'pourover') { drawPourOver(p, r, cx, tableY, uid); return p.join(''); }
 
   // Hot drink in a ceramic cup (cappuccino / latte / espresso / tea / generic).
-  drawHotCup(p, r, cx, tableY, uid, drink);
+  drawHotCup(p, r, cx, tableY, uid, drink, seed);
   return p.join('');
 }
 
 // Hot ceramic cup on a saucer with steam, foam, and scattered beans.
 // Cups are drawn large (360-420px wide) so the object fills the frame like a
 // real close-up product photograph rather than a small icon on a background.
-function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, uid: number, drink: Drink): void {
+function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, uid: number, drink: Drink, seed = 0): void {
   const espresso = drink === 'espresso';
-  const cupW = espresso ? 260 : 380;   // was 150/230 — now 60%+ of 1000px canvas
+  const cupW = espresso ? 260 : 380;
   const cupH = espresso ? 210 : 310;
   const rimRy = espresso ? 22 : 32;
-  const cy = tableY - (espresso ? 90 : 130);  // raised so large cup clears the top
+  const cy = tableY - (espresso ? 90 : 130);
   const foamCol = drink === 'tea'
-    ? { a: '#cfe8b0', b: '#a8d080', c: '#86b85e' }                       // tea → green tint
-    : { a: '#e8d5b0', b: '#c8b48c', c: '#a89060' };                      // coffee crema
+    ? { a: '#cfe8b0', b: '#a8d080', c: '#86b85e' }
+    : { a: '#e8d5b0', b: '#c8b48c', c: '#a89060' };
   const liquid = drink === 'tea' ? '#7a9a3a' : '#2d1204';
+
+  // Ceramic color palette — each cup gets a distinct glaze so repeated cup types look different
+  const ceramics = [
+    { mid: '#faf7f4', lo: '#b8b0a8', hi: '#dcd6d0', rim0: '#e8e2dc', rim1: '#c0b8b0' }, // classic white
+    { mid: '#1a1a1a', lo: '#0a0a0a', hi: '#303030', rim0: '#383838', rim1: '#181818' }, // matte black
+    { mid: '#b05a3a', lo: '#7a3220', hi: '#d07050', rim0: '#c86848', rim1: '#8a4030' }, // terracotta
+    { mid: '#8aaa88', lo: '#5a7a58', hi: '#b0c8ae', rim0: '#9ab898', rim1: '#6a8868' }, // sage green
+    { mid: '#3a5a8a', lo: '#1a3060', hi: '#6080b0', rim0: '#4a6a9a', rim1: '#2a4070' }, // navy blue
+    { mid: '#f0e8d0', lo: '#d0c0a0', hi: '#fffae8', rim0: '#e8dcbc', rim1: '#c0b090' }, // cream
+  ];
+  const cer = ceramics[((seed >> 0) % ceramics.length + ceramics.length) % ceramics.length];
 
   p.push(`<ellipse cx="${cx}" cy="${tableY - 2}" rx="${cupW / 2 + 20}" ry="16" fill="rgba(0,0,0,0.42)" filter="url(#blur-sm)"/>`);
 
@@ -295,15 +312,15 @@ function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, ui
       <stop offset="0" stop-color="#f2eee9"/><stop offset="0.6" stop-color="#dbd4cc"/><stop offset="1" stop-color="#b0a89f"/>
     </radialGradient>
     <linearGradient id="sc-cup${uid}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#b8b0a8"/><stop offset="0.12" stop-color="#dcd6d0"/>
-      <stop offset="0.40" stop-color="#faf7f4"/><stop offset="0.68" stop-color="#e5ddd6"/>
-      <stop offset="1" stop-color="#a8a098"/>
+      <stop offset="0" stop-color="${cer.lo}"/><stop offset="0.12" stop-color="${cer.hi}"/>
+      <stop offset="0.40" stop-color="${cer.mid}"/><stop offset="0.68" stop-color="${cer.hi}"/>
+      <stop offset="1" stop-color="${cer.lo}"/>
     </linearGradient>
     <linearGradient id="sc-cup-bot${uid}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="rgba(255,255,255,0)"/><stop offset="1" stop-color="rgba(0,0,0,0.14)"/>
     </linearGradient>
     <linearGradient id="sc-rim${uid}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e8e2dc"/><stop offset="1" stop-color="#c0b8b0"/>
+      <stop offset="0" stop-color="${cer.rim0}"/><stop offset="1" stop-color="${cer.rim1}"/>
     </linearGradient>
     <radialGradient id="sc-foam${uid}" cx="50%" cy="50%" r="50%">
       <stop offset="0" stop-color="${foamCol.a}"/><stop offset="0.7" stop-color="${foamCol.b}"/><stop offset="1" stop-color="${foamCol.c}"/>
@@ -423,6 +440,138 @@ function drawIcedGlass(p: string[], r: () => number, cx: number, tableY: number,
       p.push(`<circle cx="${dx.toFixed(0)}" cy="${dy.toFixed(0)}" r="${(3 + r() * 4.5).toFixed(1)}" fill="rgba(255,255,255,0.40)"/>`);
     }
   }
+}
+
+// Scattered roasted coffee beans spilling from a burlap / craft bag.
+function drawCoffeeBeans(p: string[], r: () => number, cx: number, tableY: number, uid: number): void {
+  // Craft-paper bag body
+  const bagW = 260, bagH = 340, bagX = cx - bagW / 2, bagY = tableY - bagH + 40;
+  p.push(`<defs>
+    <linearGradient id="sc-bag${uid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b08040"/><stop offset="0.45" stop-color="#d4a858"/><stop offset="1" stop-color="#8a6028"/>
+    </linearGradient>
+    <linearGradient id="sc-bag-v${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(255,255,255,0.12)"/><stop offset="1" stop-color="rgba(0,0,0,0.30)"/>
+    </linearGradient>
+  </defs>`);
+  // Bag body
+  p.push(`<rect x="${bagX}" y="${bagY + 28}" width="${bagW}" height="${bagH - 60}" rx="18" fill="url(#sc-bag${uid})"/>`);
+  p.push(`<rect x="${bagX}" y="${bagY + 28}" width="${bagW}" height="${bagH - 60}" rx="18" fill="url(#sc-bag-v${uid})"/>`);
+  // Bag fold-top crease
+  p.push(`<path d="M ${bagX + 16} ${bagY + 42} Q ${cx} ${bagY + 18} ${bagX + bagW - 16} ${bagY + 42}" fill="none" stroke="rgba(100,60,10,0.5)" stroke-width="6" stroke-linecap="round"/>`);
+  p.push(`<path d="M ${bagX + 28} ${bagY + 28} L ${bagX + bagW - 28} ${bagY + 28} L ${bagX + bagW - 14} ${bagY + 58} L ${bagX + 14} ${bagY + 58} Z" fill="#c09040" opacity="0.7"/>`);
+  // Craft label rectangle
+  p.push(`<rect x="${cx - 80}" y="${bagY + 100}" width="160" height="80" rx="8" fill="rgba(255,245,220,0.82)" stroke="rgba(120,70,20,0.4)" stroke-width="2"/>`);
+  p.push(`<rect x="${cx - 72}" y="${bagY + 108}" width="144" height="64" rx="5" fill="none" stroke="rgba(120,70,20,0.25)" stroke-width="1.5"/>`);
+  // Decorative bean illustration on label
+  for (let i = -1; i <= 1; i++) {
+    const lbx = cx + i * 34, lby = bagY + 140;
+    p.push(`<ellipse cx="${lbx}" cy="${lby}" rx="11" ry="7" fill="#4a2008"/>`);
+    p.push(`<line x1="${lbx}" y1="${lby - 6}" x2="${lbx}" y2="${lby + 6}" stroke="#1a0802" stroke-width="1.5"/>`);
+  }
+  // Burlap texture lines
+  for (let i = 0; i < 5; i++) {
+    const lx = bagX + 18 + i * (bagW - 36) / 4;
+    p.push(`<line x1="${lx}" y1="${bagY + 65}" x2="${lx + 6}" y2="${bagY + bagH - 50}" stroke="rgba(90,55,10,0.18)" stroke-width="2.5" stroke-linecap="round"/>`);
+  }
+
+  // Beans scattered on the table, spilling from the bag
+  const beanLayout = [
+    [-200, 32, -28], [210, 28, 18], [240, 62, -42],
+    [-220, 70, 35], [-110, 88, -12], [160, 78, 55],
+    [-55, 108, 28], [290, 102, -20], [-170, 118, 44],
+    [130, 120, -38], [-90, 140, 15], [210, 145, 30],
+    [-280, 58, -8], [320, 68, 22],
+  ];
+  for (const [dx, dy, ang] of beanLayout) {
+    const bx = cx + dx + (r() - 0.5) * 22, by = tableY + dy + (r() - 0.5) * 14;
+    const sz = 17 + r() * 9;
+    p.push(`<g transform="translate(${bx.toFixed(0)},${by.toFixed(0)}) rotate(${ang})">
+      <ellipse rx="${sz.toFixed(1)}" ry="${(sz * 0.56).toFixed(1)}" fill="#2d1204"/>
+      <ellipse rx="${(sz - 2).toFixed(1)}" ry="${(sz * 0.49).toFixed(1)}" fill="#3d1a08"/>
+      <line x1="0" y1="${(-(sz * 0.44)).toFixed(1)}" x2="0" y2="${(sz * 0.44).toFixed(1)}" stroke="#1a0802" stroke-width="2"/>
+    </g>`);
+  }
+  // A few beans tumbling out of the bag mouth
+  for (let i = 0; i < 4; i++) {
+    const bx = cx - 50 + i * 32 + (r() - 0.5) * 18;
+    const by = bagY + bagH - 20 + i * 14 + (r() - 0.5) * 10;
+    const sz = 13 + r() * 7;
+    const ang = r() * 60 - 30;
+    p.push(`<g transform="translate(${bx.toFixed(0)},${by.toFixed(0)}) rotate(${ang})">
+      <ellipse rx="${sz.toFixed(1)}" ry="${(sz * 0.55).toFixed(1)}" fill="#2d1204"/>
+      <ellipse rx="${(sz - 1.5).toFixed(1)}" ry="${(sz * 0.48).toFixed(1)}" fill="#3d1a08"/>
+      <line x1="0" y1="${(-(sz * 0.43)).toFixed(1)}" x2="0" y2="${(sz * 0.43).toFixed(1)}" stroke="#1a0802" stroke-width="1.5"/>
+    </g>`);
+  }
+}
+
+// V60 pour-over cone dripper over a clear glass carafe, with a slow pour arc.
+function drawPourOver(p: string[], r: () => number, cx: number, tableY: number, uid: number): void {
+  const carafeW = 200, carafeH = 320;
+  const carafeX = cx - carafeW / 2, carafeTop = tableY - carafeH;
+  const coneH = 220, coneW = 280;
+  const coneTop = carafeTop - coneH + 40;
+
+  // Shadow
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 2}" rx="185" ry="18" fill="rgba(0,0,0,0.38)" filter="url(#blur-sm)"/>`);
+
+  p.push(`<defs>
+    <linearGradient id="sc-carafe${uid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgba(255,255,255,0.28)"/>
+      <stop offset="0.5" stop-color="rgba(255,255,255,0.07)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.20)"/>
+    </linearGradient>
+    <linearGradient id="sc-coffee${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a3818"/><stop offset="1" stop-color="#2d1204"/>
+    </linearGradient>
+    <linearGradient id="sc-cone${uid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d0c8be"/><stop offset="0.35" stop-color="#f0ece8"/><stop offset="1" stop-color="#b8b0a8"/>
+    </linearGradient>
+  </defs>`);
+
+  // Carafe body (tapered glass vessel)
+  const botW = carafeW - 40;
+  p.push(`<path d="M ${cx - carafeW/2} ${carafeTop + 30} Q ${cx - carafeW/2 - 10} ${tableY - 50} ${cx - botW/2} ${tableY - 12} L ${cx + botW/2} ${tableY - 12} Q ${cx + carafeW/2 + 10} ${tableY - 50} ${cx + carafeW/2} ${carafeTop + 30} Z" fill="url(#sc-coffee${uid})" opacity="0.88"/>`);
+  p.push(`<path d="M ${cx - carafeW/2} ${carafeTop + 30} Q ${cx - carafeW/2 - 10} ${tableY - 50} ${cx - botW/2} ${tableY - 12} L ${cx + botW/2} ${tableY - 12} Q ${cx + carafeW/2 + 10} ${tableY - 50} ${cx + carafeW/2} ${carafeTop + 30} Z" fill="url(#sc-carafe${uid})"/>`);
+  // Neck
+  p.push(`<rect x="${cx - 28}" y="${carafeTop}" width="56" height="40" rx="8" fill="url(#sc-carafe${uid})" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>`);
+  // Specular streak on carafe
+  p.push(`<rect x="${cx - carafeW/2 + 18}" y="${carafeTop + 50}" width="12" height="${carafeH - 90}" rx="6" fill="rgba(255,255,255,0.28)"/>`);
+  // Carafe handle
+  const hcx = cx + carafeW/2 + 14, hcy = carafeTop + 80;
+  p.push(`<path d="M ${hcx} ${hcy} C ${hcx + 80} ${hcy} ${hcx + 80} ${hcy + 140} ${hcx} ${hcy + 140}" fill="none" stroke="#5c3a1a" stroke-width="32" stroke-linecap="round"/>`);
+  p.push(`<path d="M ${hcx} ${hcy} C ${hcx + 65} ${hcy} ${hcx + 65} ${hcy + 140} ${hcx} ${hcy + 140}" fill="none" stroke="#8a5a2a" stroke-width="22" stroke-linecap="round"/>`);
+
+  // V60 dripper cone (ceramic, sitting on top of carafe neck)
+  const coneBaseY = coneTop + coneH;
+  const coneTipY = coneTop + coneH - 18;
+  p.push(`<path d="M ${cx - coneW/2} ${coneTop + 30} L ${cx - 28} ${coneTipY} L ${cx + 28} ${coneTipY} L ${cx + coneW/2} ${coneTop + 30} Z" fill="url(#sc-cone${uid})"/>`);
+  // Cone rim
+  p.push(`<ellipse cx="${cx}" cy="${coneTop + 30}" rx="${coneW/2}" ry="22" fill="#e8e0d8" stroke="rgba(0,0,0,0.10)" stroke-width="2"/>`);
+  // Cone ridges (V60 spiral ribs)
+  for (let i = -3; i <= 3; i++) {
+    const rx0 = cx + i * (coneW / 2 - 24) / 3, ry0 = coneTop + 38;
+    const rx1 = cx + i * 18 / 3, ry1 = coneTipY - 8;
+    p.push(`<line x1="${rx0.toFixed(0)}" y1="${ry0}" x2="${rx1.toFixed(0)}" y2="${ry1}" stroke="rgba(0,0,0,0.10)" stroke-width="2.5" stroke-linecap="round"/>`);
+  }
+  // Filter paper (white triangle inside cone)
+  p.push(`<path d="M ${cx - coneW/2 + 22} ${coneTop + 44} L ${cx - 12} ${coneTipY - 4} L ${cx + 12} ${coneTipY - 4} L ${cx + coneW/2 - 22} ${coneTop + 44} Z" fill="rgba(255,252,248,0.72)"/>`);
+  // Coffee grounds in filter
+  p.push(`<path d="M ${cx - coneW/2 + 50} ${coneTop + 80} L ${cx - 14} ${coneTipY - 8} L ${cx + 14} ${coneTipY - 8} L ${cx + coneW/2 - 50} ${coneTop + 80} Z" fill="#4a2208" opacity="0.82"/>`);
+
+  // Pour arc — thin stream of water from above
+  const pourX = cx + 20;
+  const pourStart = coneTop - 120;
+  p.push(`<path d="M ${pourX + 55} ${pourStart} Q ${pourX + 30} ${pourStart + 60} ${pourX} ${coneTop + 50}" fill="none" stroke="rgba(200,220,240,0.70)" stroke-width="7" stroke-linecap="round" filter="url(#blur-xs)"/>`);
+  p.push(`<path d="M ${pourX + 55} ${pourStart} Q ${pourX + 30} ${pourStart + 60} ${pourX} ${coneTop + 50}" fill="none" stroke="rgba(255,255,255,0.50)" stroke-width="4" stroke-linecap="round"/>`);
+  // Kettle spout hint
+  p.push(`<path d="M ${pourX + 60} ${pourStart - 30} Q ${pourX + 80} ${pourStart - 10} ${pourX + 55} ${pourStart + 10}" fill="none" stroke="#b0b8c0" stroke-width="24" stroke-linecap="round"/>`);
+  p.push(`<path d="M ${pourX + 60} ${pourStart - 30} Q ${pourX + 80} ${pourStart - 10} ${pourX + 55} ${pourStart + 10}" fill="none" stroke="#d8dde2" stroke-width="16" stroke-linecap="round"/>`);
+
+  // Steam from cone
+  const stSX = cx - 20, stSY = coneTop + 24;
+  p.push(`<path d="M ${stSX} ${stSY} Q ${stSX - 18} ${stSY - 55} ${stSX + 14} ${stSY - 110}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="5" stroke-linecap="round" filter="url(#steam-f)"/>`);
 }
 
 // A pastry / baked good on a small plate.
