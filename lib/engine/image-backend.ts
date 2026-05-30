@@ -4,30 +4,26 @@
 // Produces every image for a generated site WITHOUT any third-party source.
 // No Unsplash, no Pexels, no stock-photo APIs, no shared CDN library.
 //
-// Two in-house paths, in priority order:
-//   1. Your OWN self-hosted diffusion generator (Stable Diffusion / SDXL),
-//      reachable at IMAGE_GEN_URL. Produces photoreal, niche-matched images and
-//      caches them to /public/generated. Used automatically when the service is
-//      running.
-//   2. The in-process generative VISUAL ENGINE (lib/engine/visual-engine.ts) —
-//      synthesizes premium branded SVG artwork from the same understanding that
-//      drives the layout. It is ALWAYS available, needs no network, and is seeded
-//      per (prompt-fingerprint × slot) so every image is UNIQUE — two sites in
-//      the same niche never get the same visual, and no image repeats within a
-//      site. This is the guaranteed source; the site can never break or fall back
-//      to a repeated stock photo.
+// The REAL images come from your OWN self-hosted diffusion generator (Stable
+// Diffusion / SDXL) reachable at IMAGE_GEN_URL — photoreal, niche-matched, cached
+// to /public/generated. While each photo is being produced (in the background),
+// the slot shows a neutral, on-brand gradient PLACEHOLDER from
+// lib/engine/placeholder.ts (the old illustrated "visual engine" was deleted).
+// The placeholder is a PNG written at a stable URL, so when the real photo lands
+// it overwrites that file and swaps in automatically. No site is ever blank, and
+// no third-party image source is ever contacted.
 //
 // Configure the optional self-hosted generator with IMAGE_GEN_URL (defaults to an
 // AUTOMATIC1111-compatible API at http://127.0.0.1:7860, which the reference
 // service in tools/image-generator also speaks). When it is unreachable the
-// engine transparently uses the in-process visual engine.
+// placeholders simply remain.
 // ---------------------------------------------------------------------------
 
 import type { PromptUnderstandingObject } from './prompt-engine';
 import { buildImagePrompt } from './image-agent';
 import type { ImageRole, ImagePromptSpec } from './image-agent';
-import { generateVisualDataUri } from './visual-engine';
-import type { VisualPalette } from './visual-engine';
+import { generateVisualDataUri } from './placeholder';
+import type { VisualPalette } from './placeholder';
 import { registerImage, flushImageUpgrades } from './image-cache';
 
 const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';

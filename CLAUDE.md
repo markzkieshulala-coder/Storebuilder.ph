@@ -59,14 +59,25 @@ stays green offline.
 
 ### In-house image engine (no third-party sources)
 Images are produced entirely in-house — NO Unsplash, Pexels, stock APIs, or
-shared CDN library. `lib/engine/image-backend.ts` → `generateSiteImages` uses two
-in-house paths: (1) an optional self-hosted Stable-Diffusion/SDXL generator at
-`IMAGE_GEN_URL` (auto-probed; photoreal, niche-matched; cached to
-`public/generated`), and (2) the in-process generative visual engine
-(`lib/engine/visual-engine.ts`), which is ALWAYS available, needs no network, and
-is seeded per (prompt-fingerprint × slot) so every image is unique — two
-same-niche sites never share a visual and no image repeats within a site. Set
-`IMAGE_GEN_ENABLED=0` to force the visual engine only.
+shared CDN library. The REAL photos come from an optional self-hosted
+Stable-Diffusion/SDXL generator at `IMAGE_GEN_URL` (auto-probed; photoreal,
+niche-matched; cached to `public/generated`).
+
+The flow is **instant placeholder + background swap** so sites never wait on the
+(possibly slow, CPU-bound) model:
+- `lib/engine/image-cache.ts` → `registerImage` writes a neutral, on-brand
+  gradient PNG **placeholder** from `lib/engine/placeholder.ts` to
+  `public/generated/<key>.png`, returns that stable URL, and queues the slot.
+- After the page is rendered, `startBackgroundImageUpgrade` →
+  `flushImageUpgrades` generates each real photo and **overwrites the placeholder
+  in place** (atomic rename + `<key>.real` marker). A small client script
+  (`IMG_SWAP_JS`) reloads `/generated/*` for ~2 min so the real photos swap in
+  automatically.
+
+The old illustrated "visual engine" (`visual-engine.ts`) and its canvas scene
+renderer (`canvas-engine.ts`) were **deleted**; `placeholder.ts` is their minimal
+neutral-gradient replacement (PNG so the swap works). Set `IMAGE_GEN_ENABLED=0` to
+disable the diffusion generator and keep only the neutral placeholders.
 
 The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site —
 including understanding the prompt — requires no external LLM, no API key, and no

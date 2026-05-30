@@ -17,8 +17,8 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
-import { generateVisualDataUri, hashStr } from './visual-engine';
-import type { VisualPalette, VisualRole } from './visual-engine';
+import { generateVisualDataUri, hashStr } from './placeholder';
+import type { VisualPalette, VisualRole } from './placeholder';
 import { productImage } from './image-backend';
 
 // Backward-compat re-exports
