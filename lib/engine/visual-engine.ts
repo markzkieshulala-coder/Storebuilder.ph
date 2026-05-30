@@ -235,7 +235,7 @@ function detectDrink(subject: string): Drink {
 function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, seed: number, subject: string): string {
   const p: string[] = [];
   const woodBase = '#5c3318', woodLight = '#8a5228', woodDark = '#2e1608';
-  const tableY = 640;
+  const tableY = 700;   // lower so larger cup has vertical room
   const drink = detectDrink(subject);
   const uid = (seed % 9973);   // unique gradient ids per image (avoid collisions in a multi-image page)
 
@@ -275,12 +275,14 @@ function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, se
 }
 
 // Hot ceramic cup on a saucer with steam, foam, and scattered beans.
+// Cups are drawn large (360-420px wide) so the object fills the frame like a
+// real close-up product photograph rather than a small icon on a background.
 function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, uid: number, drink: Drink): void {
   const espresso = drink === 'espresso';
-  const cupW = espresso ? 150 : 230;
-  const cupH = espresso ? 130 : 190;
-  const rimRy = espresso ? 14 : 20;
-  const cy = tableY - (espresso ? 60 : 85);
+  const cupW = espresso ? 260 : 380;   // was 150/230 — now 60%+ of 1000px canvas
+  const cupH = espresso ? 210 : 310;
+  const rimRy = espresso ? 22 : 32;
+  const cy = tableY - (espresso ? 90 : 130);  // raised so large cup clears the top
   const foamCol = drink === 'tea'
     ? { a: '#cfe8b0', b: '#a8d080', c: '#86b85e' }                       // tea → green tint
     : { a: '#e8d5b0', b: '#c8b48c', c: '#a89060' };                      // coffee crema
@@ -307,46 +309,54 @@ function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, ui
       <stop offset="0" stop-color="${foamCol.a}"/><stop offset="0.7" stop-color="${foamCol.b}"/><stop offset="1" stop-color="${foamCol.c}"/>
     </radialGradient>
   </defs>`);
-  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 32}" ry="24" fill="url(#sc-saucer${uid})"/>`);
-  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 30}" ry="22" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="1.5"/>`);
+  // Saucer — larger to match bigger cup
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 6}" rx="${cupW / 2 + 48}" ry="36" fill="url(#sc-saucer${uid})"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 6}" rx="${cupW / 2 + 46}" ry="34" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="2"/>`);
 
   const bodyTop = cy - cupH / 2 + rimRy;
-  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup${uid})"/>`);
-  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup-bot${uid})"/>`);
+  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="14" fill="url(#sc-cup${uid})"/>`);
+  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="14" fill="url(#sc-cup-bot${uid})"/>`);
   p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2}" ry="${rimRy}" fill="url(#sc-rim${uid})"/>`);
-  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="${liquid}"/>`);
-  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="url(#sc-foam${uid})" opacity="${espresso ? 0.6 : 0.9}"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 10}" ry="${rimRy - 6}" fill="${liquid}"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 10}" ry="${rimRy - 6}" fill="url(#sc-foam${uid})" opacity="${espresso ? 0.6 : 0.92}"/>`);
+  // Latte art heart/swirl at larger scale
   if (!espresso) {
-    p.push(`<path d="M ${cx - 22} ${bodyTop - 4} Q ${cx - 12} ${bodyTop - 14} ${cx} ${bodyTop - 3} Q ${cx + 12} ${bodyTop - 14} ${cx + 22} ${bodyTop - 4} Q ${cx + 8} ${bodyTop + 10} ${cx} ${bodyTop + 15} Q ${cx - 8} ${bodyTop + 10} ${cx - 22} ${bodyTop - 4} Z" fill="#f0dfc0" opacity="0.7"/>`);
+    p.push(`<path d="M ${cx - 36} ${bodyTop - 6} Q ${cx - 20} ${bodyTop - 22} ${cx} ${bodyTop - 5} Q ${cx + 20} ${bodyTop - 22} ${cx + 36} ${bodyTop - 6} Q ${cx + 14} ${bodyTop + 16} ${cx} ${bodyTop + 24} Q ${cx - 14} ${bodyTop + 16} ${cx - 36} ${bodyTop - 6} Z" fill="#f0dfc0" opacity="0.72"/>`);
   }
 
-  const hRX = cx + cupW / 2, hTY = bodyTop + 30, hBY = bodyTop + (cupH - rimRy) * 0.7;
-  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 72} ${hTY}, ${hRX + 72} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#d0c8c0" stroke-width="30" stroke-linecap="round"/>`);
-  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 60} ${hTY}, ${hRX + 60} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#f0ece8" stroke-width="22" stroke-linecap="round"/>`);
-  p.push(`<ellipse cx="${cx - cupW * 0.18}" cy="${bodyTop + 45}" rx="16" ry="40" fill="rgba(255,255,255,0.20)" filter="url(#blur-xs)"/>`);
+  // Handle — wider gap from cup for the bigger size
+  const hRX = cx + cupW / 2, hTY = bodyTop + 46, hBY = bodyTop + (cupH - rimRy) * 0.72;
+  const hBow = espresso ? 90 : 120;
+  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + hBow} ${hTY}, ${hRX + hBow} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#d0c8c0" stroke-width="40" stroke-linecap="round"/>`);
+  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + hBow - 12} ${hTY}, ${hRX + hBow - 12} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#f0ece8" stroke-width="30" stroke-linecap="round"/>`);
 
-  const steamX = [cx - 40, cx, cx + 40];
+  // Specular highlight on ceramic
+  p.push(`<ellipse cx="${cx - cupW * 0.20}" cy="${bodyTop + 70}" rx="24" ry="65" fill="rgba(255,255,255,0.20)" filter="url(#blur-xs)"/>`);
+
+  // Steam wisps — taller to use the extra headroom
+  const steamX = [cx - 65, cx, cx + 65];
   for (let i = 0; i < 3; i++) {
-    const sx = steamX[i], sy = bodyTop - rimRy - 8;
-    const sw = (r() - 0.5) * 28;
-    p.push(`<path d="M ${sx} ${sy} Q ${sx + sw} ${sy - 50} ${sx - sw} ${sy - 105} Q ${sx + sw * 0.5} ${sy - 155} ${sx} ${sy - 200}" fill="none" stroke="rgba(255,255,255,${(0.55 - i * 0.10).toFixed(2)})" stroke-width="${5 - i}" stroke-linecap="round" filter="url(#steam-f)"/>`);
+    const sx = steamX[i], sy = bodyTop - rimRy - 12;
+    const sw = (r() - 0.5) * 45;
+    p.push(`<path d="M ${sx} ${sy} Q ${sx + sw} ${sy - 80} ${sx - sw} ${sy - 170} Q ${sx + sw * 0.5} ${sy - 255} ${sx} ${sy - 320}" fill="none" stroke="rgba(255,255,255,${(0.58 - i * 0.10).toFixed(2)})" stroke-width="${7 - i * 1.5}" stroke-linecap="round" filter="url(#steam-f)"/>`);
   }
 
-  const beanData = [[-135, 38, -28], [140, 30, 18], [175, 75, -42], [-160, 82, 35], [-80, 105, -12], [110, 95, 55]];
+  // Coffee beans on table — spread wider to fill the larger frame
+  const beanData = [[-210, 30, -28], [220, 22, 18], [270, 65, -42], [-255, 70, 35], [-125, 90, -12], [175, 82, 55], [-70, 110, 28], [310, 105, -20]];
   for (const [dx, dy, ang] of beanData) {
-    const bx = cx + dx + (r() - 0.5) * 18, by = tableY + dy + (r() - 0.5) * 12, sz = 13 + r() * 5;
+    const bx = cx + dx + (r() - 0.5) * 25, by = tableY + dy + (r() - 0.5) * 15, sz = 18 + r() * 8;
     p.push(`<g transform="translate(${bx.toFixed(0)},${by.toFixed(0)}) rotate(${ang})">
       <ellipse rx="${sz.toFixed(1)}" ry="${(sz * 0.55).toFixed(1)}" fill="#2d1204"/>
-      <ellipse rx="${(sz - 1.5).toFixed(1)}" ry="${(sz * 0.48).toFixed(1)}" fill="#3d1a08"/>
-      <line x1="0" y1="${(-(sz * 0.45)).toFixed(1)}" x2="0" y2="${(sz * 0.45).toFixed(1)}" stroke="#1a0802" stroke-width="1.5"/>
+      <ellipse rx="${(sz - 2).toFixed(1)}" ry="${(sz * 0.48).toFixed(1)}" fill="#3d1a08"/>
+      <line x1="0" y1="${(-(sz * 0.45)).toFixed(1)}" x2="0" y2="${(sz * 0.45).toFixed(1)}" stroke="#1a0802" stroke-width="2"/>
     </g>`);
   }
 }
 
 // Tall clear glass — iced coffee (with ice cubes + straw) or a frappuccino
-// (with a whipped-cream dome). Distinct silhouette from the hot cup.
+// (with a whipped-cream dome). Drawn large so it fills the frame like a photo.
 function drawIcedGlass(p: string[], r: () => number, cx: number, tableY: number, uid: number, frappe: boolean): void {
-  const gW = 180, gH = 320;
+  const gW = 280, gH = 500;   // was 180×320 — now much larger
   const gTop = tableY - gH;
   const liquid = frappe ? '#b07840' : '#3a1d0a';
   const lightLiquid = frappe ? '#d8a868' : '#6a3818';
@@ -384,31 +394,33 @@ function drawIcedGlass(p: string[], r: () => number, cx: number, tableY: number,
   p.push(`<rect x="${cx - gW / 2 + 22}" y="${gTop + 14}" width="14" height="${gH - 60}" rx="7" fill="rgba(255,255,255,0.30)"/>`);
 
   if (frappe) {
-    // Whipped cream dome
+    // Whipped cream dome — scaled for the larger glass
     p.push(`<defs><radialGradient id="sc-whip${uid}" cx="42%" cy="32%" r="62%">
       <stop offset="0" stop-color="#fffdf8"/><stop offset="0.7" stop-color="#f0e8d8"/><stop offset="1" stop-color="#d8ccb8"/>
     </radialGradient></defs>`);
-    for (let i = 0; i < 4; i++) {
-      const wy = gTop - 8 - i * 26, ww = (gW / 2 + 6) - i * 16;
-      p.push(`<ellipse cx="${cx}" cy="${wy}" rx="${ww}" ry="${22 - i * 2}" fill="url(#sc-whip${uid})"/>`);
+    for (let i = 0; i < 5; i++) {
+      const wy = gTop - 10 - i * 38, ww = (gW / 2 + 8) - i * 22;
+      p.push(`<ellipse cx="${cx}" cy="${wy}" rx="${Math.max(ww, 12)}" ry="${34 - i * 3}" fill="url(#sc-whip${uid})"/>`);
     }
     // Cherry on top
-    p.push(`<circle cx="${cx}" cy="${gTop - 96}" r="16" fill="#cc2b2b"/>`);
-    p.push(`<ellipse cx="${cx - 5}" cy="${gTop - 101}" rx="5" ry="3" fill="rgba(255,255,255,0.5)"/>`);
+    p.push(`<circle cx="${cx}" cy="${gTop - 200}" r="26" fill="#cc2b2b"/>`);
+    p.push(`<ellipse cx="${cx - 8}" cy="${gTop - 210}" rx="8" ry="5" fill="rgba(255,255,255,0.5)"/>`);
     // Drizzle
-    p.push(`<path d="M ${cx - 50} ${gTop - 12} q 12 18 0 34 M ${cx + 40} ${gTop - 18} q -12 16 2 32" fill="none" stroke="#6a3818" stroke-width="4" stroke-linecap="round"/>`);
+    p.push(`<path d="M ${cx - 80} ${gTop - 20} q 18 28 0 55 M ${cx + 64} ${gTop - 28} q -18 25 2 50" fill="none" stroke="#6a3818" stroke-width="6" stroke-linecap="round"/>`);
   }
 
-  // Straw
-  const stX = cx + 34;
-  p.push(`<rect x="${stX}" y="${gTop - (frappe ? 150 : 70)}" width="14" height="${(frappe ? 220 : 230)}" rx="7" fill="${frappe ? '#e84c6a' : '#e84c6a'}" transform="rotate(10 ${stX} ${gTop})"/>`);
-  p.push(`<rect x="${stX}" y="${gTop - (frappe ? 150 : 70)}" width="5" height="${(frappe ? 220 : 230)}" rx="2.5" fill="rgba(255,255,255,0.35)" transform="rotate(10 ${stX} ${gTop})"/>`);
+  // Straw — taller for the larger glass
+  const stX = cx + 55;
+  const strawH = frappe ? 340 : 360;
+  const strawOff = frappe ? 240 : 110;
+  p.push(`<rect x="${stX - 10}" y="${gTop - strawOff}" width="20" height="${strawH}" rx="10" fill="#e84c6a" transform="rotate(8 ${stX} ${gTop})"/>`);
+  p.push(`<rect x="${stX - 10}" y="${gTop - strawOff}" width="7" height="${strawH}" rx="3.5" fill="rgba(255,255,255,0.35)" transform="rotate(8 ${stX} ${gTop})"/>`);
 
   // Condensation droplets (iced)
   if (!frappe) {
-    for (let i = 0; i < 7; i++) {
-      const dx = cx - gW / 2 + 30 + r() * (gW - 60), dy = gTop + 80 + r() * (gH - 130);
-      p.push(`<circle cx="${dx.toFixed(0)}" cy="${dy.toFixed(0)}" r="${(2.5 + r() * 3).toFixed(1)}" fill="rgba(255,255,255,0.40)"/>`);
+    for (let i = 0; i < 10; i++) {
+      const dx = cx - gW / 2 + 40 + r() * (gW - 80), dy = gTop + 110 + r() * (gH - 200);
+      p.push(`<circle cx="${dx.toFixed(0)}" cy="${dy.toFixed(0)}" r="${(3 + r() * 4.5).toFixed(1)}" fill="rgba(255,255,255,0.40)"/>`);
     }
   }
 }
@@ -1032,6 +1044,21 @@ function buildSceneLayer(spec: VisualSpec, field: FieldColors, r: () => number):
   return fn(r, field, spec.palette, seed, spec.subject || '');
 }
 
+// Niches whose scene provides its own full atmospheric background (warm cafe,
+// dark bokeh, zen garden, etc.). For these we skip the brand-palette aurora/mesh
+// archetype — it would tint every image in the brand color (e.g. Facebook blue),
+// making all product images look identical. The scene draws the atmosphere itself.
+const SCENE_OWNS_BG = new Set(['coffee', 'food', 'ramen', 'wellness', 'photography']);
+
+// Per-niche dark base background used when the scene owns the background.
+const SCENE_BG: Record<string, [string, string]> = {
+  coffee:      ['#1a0a02', '#3d1808'],
+  food:        ['#1c0f08', '#382010'],
+  ramen:       ['#120808', '#2a1010'],
+  wellness:    ['#0a1a14', '#123020'],
+  photography: ['#080808', '#181818'],
+};
+
 // ─── MAIN SVG BUILDER ─────────────────────────────────────────────────────────
 
 export function generateVisualSvg(spec: VisualSpec): string {
@@ -1040,23 +1067,33 @@ export function generateVisualSvg(spec: VisualSpec): string {
   const field = buildField(pal);
   const ctx: Ctx = { r, pal, field, spec };
 
+  const sceneKey = resolveSceneKey(spec);
+  const ownsBackground = SCENE_OWNS_BG.has(sceneKey);
+
   const pool = archetypePool(spec);
   const archName = pool[Math.floor(r() * pool.length)];
   const arch = ARCHETYPES[archName] || archAurora;
   const bgAngle = Math.floor(r() * 360);
 
+  // When the scene owns its background, use a deep niche-appropriate dark base
+  // instead of the brand-palette gradient so the rendered objects have the right
+  // photographic context (warm cafe browns, not Facebook blue).
+  const [bgTop, bgBot] = ownsBackground
+    ? (SCENE_BG[sceneKey] || ['#0a0a0a', '#1a1a1a'])
+    : [field.bgTop, field.bgBot];
+
   const defs = `<defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(${bgAngle} 0.5 0.5)">
-    <stop offset="0" stop-color="${field.bgTop}"/>
-    <stop offset="1" stop-color="${field.bgBot}"/>
+    <stop offset="0" stop-color="${bgTop}"/>
+    <stop offset="1" stop-color="${bgBot}"/>
   </linearGradient>
   <linearGradient id="gloss" x1="0" y1="0" x2="0.6" y2="1">
-    <stop offset="0" stop-color="${rgba('#FFFFFF', 0.12)}"/>
+    <stop offset="0" stop-color="${rgba('#FFFFFF', 0.10)}"/>
     <stop offset="0.40" stop-color="${rgba('#FFFFFF', 0)}"/>
   </linearGradient>
   <radialGradient id="vig" cx="50%" cy="46%" r="72%">
     <stop offset="50%" stop-color="rgba(0,0,0,0)"/>
-    <stop offset="100%" stop-color="${rgba('#000000', 0.52)}"/>
+    <stop offset="100%" stop-color="${rgba('#000000', ownsBackground ? 0.62 : 0.52)}"/>
   </radialGradient>
   <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="75"/></filter>
   <filter id="bokeh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
@@ -1077,7 +1114,9 @@ export function generateVisualSvg(spec: VisualSpec): string {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB} ${VB}" preserveAspectRatio="xMidYMid slice" width="${VB}" height="${VB}">` +
     defs +
     `<rect width="${VB}" height="${VB}" fill="url(#bg)"/>` +
-    arch(ctx) +
+    // Only layer the brand-colored atmospheric archetype for non-food niches.
+    // Food/coffee/wellness scenes draw their own background atmosphere.
+    (!ownsBackground ? arch(ctx) : '') +
     glossLayer +
     sceneMarkup +
     grainLayer +

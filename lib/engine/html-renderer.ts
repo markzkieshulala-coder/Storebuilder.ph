@@ -1782,8 +1782,10 @@ function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy 
   if (about) copy.aboutBody = about;
   if (tagline) copy.footerTagline = tagline;
   // Explicit, user-named button labels override the deterministic CTA banks.
-  if (primaryCta) { copy.primaryCta = primaryCta; copy.hiddenPrimaryCtaLabel = primaryCta; }
-  if (secondaryCta) { copy.secondaryCta = secondaryCta; copy.hiddenSecondaryCtaLabel = secondaryCta; }
+  // primaryCta/secondaryCta only: hiddenPrimaryCtaLabel is the split-section CTA
+  // (distinct from the hero), so we don't overwrite it with the hero button text.
+  if (primaryCta) copy.primaryCta = primaryCta;
+  if (secondaryCta) copy.secondaryCta = secondaryCta;
   if (heroTag) copy.heroTag = heroTag;
 
   if (Array.isArray(llm.products) && llm.products.length) {
@@ -2132,7 +2134,7 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
         <p class="lead reveal reveal-delay-2">${esc(copy.heroSub)}</p>
         <div class="hero-ctas reveal reveal-delay-3">
           <a href="${ctx.copy.gallerySlug}" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-          <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
+          <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.secondaryCta)} →</a>
         </div>
       </div>
       <div class="hero-media reveal reveal-delay-2">
@@ -2155,7 +2157,7 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
     <p class="lead reveal reveal-delay-2" style="color:${isDark||node.depth==='immersed'?'rgba(255,255,255,.8)':'var(--muted)'}">${esc(copy.heroSub)}</p>
     <div class="hero-ctas reveal reveal-delay-3">
       <a href="${ctx.copy.gallerySlug}" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-      <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="${isDark||node.depth==='immersed'?'border-color:rgba(255,255,255,.4);color:#fff':''}">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
+      <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="${isDark||node.depth==='immersed'?'border-color:rgba(255,255,255,.4);color:#fff':''}">${esc(copy.secondaryCta)} →</a>
     </div>
   </div>
 </section>`;
