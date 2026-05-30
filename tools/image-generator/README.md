@@ -22,9 +22,25 @@ prompt → understanding (PUO) ─► image-agent.ts  ─► precise photo promp
 ```
 
 If this service is **not running**, the engine automatically falls back to the
-in-process SVG visual engine, so site generation never breaks.
+in-process canvas/SVG visual engine, so site generation never breaks.
 
-## Run it
+## Run it (one command)
+
+```bash
+cd tools/image-generator
+./run.sh
+```
+
+`run.sh` creates the venv, installs PyTorch (CPU or CUDA wheel automatically),
+installs the diffusers stack, picks a hardware-appropriate model, and serves on
+`http://127.0.0.1:7860`.
+
+- **GPU detected** → `stabilityai/sdxl-turbo` (fast, up to 1024px)
+- **CPU only** → `stabilityai/sd-turbo` (512px, lighter)
+
+Override the model anytime: `MODEL_ID=stabilityai/sdxl-turbo ./run.sh`
+
+### Manual run
 
 ```bash
 cd tools/image-generator
@@ -34,8 +50,23 @@ pip install -r requirements.txt
 python server.py                      # http://127.0.0.1:7860
 ```
 
-First run downloads the model weights once (a few GB) from Hugging Face. After
-that it's fully local.
+First run downloads the model weights once (~2.5 GB for sd-turbo, ~7 GB for
+sdxl-turbo) from Hugging Face (`huggingface.co` must be reachable). After that
+it's fully local — no network needed and no third-party API at runtime.
+
+> The server hardens the reference contract with an on-disk PNG cache
+> (`.cache/`), single-flight inference locking, a `/sdapi/v1/sd-models` liveness
+> endpoint, and `/healthz`. Generated PNGs are also cached by the Next.js engine
+> in `public/generated/` keyed by prompt hash, so identical prompts render once.
+
+## Verifying the wiring without a GPU
+
+The full path — `image-agent.ts` (builds the photographic prompt) →
+`image-backend.ts` (POSTs to `/sdapi/v1/txt2img`, caches the PNG to
+`public/generated/`) → renderer (embeds `/generated/*.png`) — is independent of
+which model is loaded. You can confirm it end-to-end against any server that
+speaks the `/sdapi/v1/txt2img` contract before committing GPU time to the real
+weights.
 
 ## Enable it in the app
 

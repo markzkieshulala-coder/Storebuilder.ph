@@ -57,15 +57,15 @@ function rotate<T>(arr: T[], by: number): T[] {
 
 // Image source. getPhotos() emits one of:
 //   - a real generated photo path from the self-hosted generator (e.g. /generated/x.png)
-//   - a data:image/svg+xml URI from the in-process SVG engine (fallback)
-//   - (legacy) a bare Unsplash photo id
-// ph() passes real URLs / paths / data-URIs straight through; only a bare id is
-// expanded to an Unsplash URL (kept for backward-compat; the engine no longer
-// emits those).
-function ph(idOrUri: string, w: number, h: number): string {
+//   - a data:image/png or data:image/svg+xml URI from the in-process engine
+//   - a /generated/*.png path from the self-hosted diffusion generator
+// ph() passes real URLs / paths / data-URIs straight through. Bare ids are NOT
+// expanded to any third-party CDN — images come only from in-house sources
+// (the visual/canvas engine or your self-hosted generator), never Unsplash/etc.
+function ph(idOrUri: string, _w: number, _h: number): string {
   if (!idOrUri) return '';
   if (/^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
-  return `https://images.unsplash.com/photo-${idOrUri}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
+  return ''; // unknown bare token → no image rather than a third-party fetch
 }
 
 // ─────────────────────────────────────────────────────────────────

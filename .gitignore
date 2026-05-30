@@ -46,3 +46,8 @@ prisma/migrations/
 
 # Self-hosted image generator cache
 public/generated/*.png
+
+# Self-hosted image generator (local only — not committed)
+tools/image-generator/.venv/
+tools/image-generator/.cache/
+public/generated/
