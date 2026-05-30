@@ -26,26 +26,53 @@ in-process canvas/SVG visual engine, so site generation never breaks.
 
 ## Run it (one command)
 
+**macOS / Linux:**
 ```bash
 cd tools/image-generator
 ./run.sh
 ```
 
-`run.sh` creates the venv, installs PyTorch (CPU or CUDA wheel automatically),
-installs the diffusers stack, picks a hardware-appropriate model, and serves on
-`http://127.0.0.1:7860`.
+**Windows (PowerShell):**
+```powershell
+cd tools\image-generator
+.\run.ps1
+```
+If PowerShell says *"running scripts is disabled on this system"*, either run the
+double-clickable **`run.bat`** instead (it bypasses the policy automatically), or
+launch with:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run.ps1
+```
+
+The launcher creates the venv, installs PyTorch (CPU or CUDA wheel
+automatically), installs the diffusers stack, picks a hardware-appropriate
+model, and serves on `http://127.0.0.1:7860`.
 
 - **GPU detected** → `stabilityai/sdxl-turbo` (fast, up to 1024px)
 - **CPU only** → `stabilityai/sd-turbo` (512px, lighter)
 
-Override the model anytime: `MODEL_ID=stabilityai/sdxl-turbo ./run.sh`
+Override the model anytime:
+- macOS/Linux: `MODEL_ID=stabilityai/sdxl-turbo ./run.sh`
+- Windows: `$env:MODEL_ID="stabilityai/sdxl-turbo"; .\run.ps1`
 
-### Manual run
+### Manual run (if the launcher fails for any reason)
 
+**macOS / Linux:**
 ```bash
 cd tools/image-generator
 python -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
+source .venv/bin/activate
+pip install torch
+pip install -r requirements.txt
+python server.py                      # http://127.0.0.1:7860
+```
+
+**Windows (PowerShell):**
+```powershell
+cd tools\image-generator
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install torch
 pip install -r requirements.txt
 python server.py                      # http://127.0.0.1:7860
 ```
