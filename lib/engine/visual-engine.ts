@@ -25,11 +25,12 @@ export interface VisualSpec {
   keywords: string[];
   seed: number;
   role: VisualRole;
+  subject?: string;   // optional specific item name (e.g. a product/menu item)
 }
 
 // ─── RNG + COLOR HELPERS ─────────────────────────────────────────────────────
 
-function hashStr(s: string): number {
+export function hashStr(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
@@ -214,13 +215,29 @@ function archetypePool(spec: VisualSpec): string[] {
 // Each function draws foreground scene elements on top of the atmospheric
 // background. Objects use multi-stop gradients and layered shapes for 3D form.
 
-type SceneFn = (r: () => number, field: FieldColors, pal: VisualPalette, seed: number) => string;
+type SceneFn = (r: () => number, field: FieldColors, pal: VisualPalette, seed: number, subject: string) => string;
+
+// Detect the specific coffee-shop item so each menu card renders a DIFFERENT,
+// recognizable drink/food — espresso ≠ iced coffee ≠ frappuccino ≠ pastry.
+type Drink = 'espresso' | 'cappuccino' | 'iced' | 'frappe' | 'tea' | 'pastry' | 'cup';
+function detectDrink(subject: string): Drink {
+  const s = (subject || '').toLowerCase();
+  if (/pastr|croissant|cake|cookie|muffin|donut|doughnut|snack|scone|bagel|sandwich|toast|brownie|waffle|pie/.test(s)) return 'pastry';
+  if (/frapp|frappe|smoothie|shake|blended|whipped|milkshake/.test(s)) return 'frappe';
+  if (/iced|cold[\s-]?brew|iced coffee|iced latte|cold coffee|frozen/.test(s)) return 'iced';
+  if (/espresso|macchiato|ristretto|cortado|doppio/.test(s)) return 'espresso';
+  if (/\btea\b|matcha|chai|herbal/.test(s)) return 'tea';
+  if (/cappuccino|latte|mocha|flat white|americano|coffee|brew|roast|drink/.test(s)) return 'cappuccino';
+  return 'cup';
+}
 
 // ── Coffee / Cafe ─────────────────────────────────────────────────────────────
-function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, seed: number, subject: string): string {
   const p: string[] = [];
   const woodBase = '#5c3318', woodLight = '#8a5228', woodDark = '#2e1608';
   const tableY = 640;
+  const drink = detectDrink(subject);
+  const uid = (seed % 9973);   // unique gradient ids per image (avoid collisions in a multi-image page)
 
   // Bokeh warmth overlay in background
   const ambers = ['#d4922a', '#e8a830', '#c47f20', '#f0b84a'];
@@ -232,106 +249,200 @@ function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, se
 
   // Wood table surface
   p.push(`<defs>
-    <linearGradient id="sc-wood" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="sc-wood${uid}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${woodLight}"/>
       <stop offset="0.25" stop-color="${woodBase}"/>
       <stop offset="1" stop-color="${woodDark}"/>
     </linearGradient>
-    <filter id="sc-wood-f" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <filter id="sc-wood-f${uid}" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
       <feTurbulence type="turbulence" baseFrequency="0.012 0.22" numOctaves="4" seed="${(seed % 97) + 2}" result="noise"/>
       <feColorMatrix type="saturate" values="0.25" result="dn"/>
       <feBlend in="SourceGraphic" in2="dn" mode="overlay"/>
     </filter>
   </defs>`);
-  p.push(`<rect x="0" y="${tableY}" width="1000" height="${1000 - tableY}" fill="url(#sc-wood)" filter="url(#sc-wood-f)"/>`);
+  p.push(`<rect x="0" y="${tableY}" width="1000" height="${1000 - tableY}" fill="url(#sc-wood${uid})" filter="url(#sc-wood-f${uid})"/>`);
   p.push(`<ellipse cx="500" cy="${tableY + 5}" rx="480" ry="20" fill="${rgba(ambers[0], 0.10)}" filter="url(#bokeh)"/>`);
 
-  // Cup position
   const cx = 490 + Math.floor(r() * 40) - 20;
-  const cy = tableY - 85;
-  const cupW = 230, cupH = 190;
-  const rimRy = 20;
 
-  // Shadow
+  if (drink === 'pastry') { drawPastry(p, r, cx, tableY, uid); return p.join(''); }
+  if (drink === 'iced')   { drawIcedGlass(p, r, cx, tableY, uid, false); return p.join(''); }
+  if (drink === 'frappe') { drawIcedGlass(p, r, cx, tableY, uid, true); return p.join(''); }
+
+  // Hot drink in a ceramic cup (cappuccino / latte / espresso / tea / generic).
+  drawHotCup(p, r, cx, tableY, uid, drink);
+  return p.join('');
+}
+
+// Hot ceramic cup on a saucer with steam, foam, and scattered beans.
+function drawHotCup(p: string[], r: () => number, cx: number, tableY: number, uid: number, drink: Drink): void {
+  const espresso = drink === 'espresso';
+  const cupW = espresso ? 150 : 230;
+  const cupH = espresso ? 130 : 190;
+  const rimRy = espresso ? 14 : 20;
+  const cy = tableY - (espresso ? 60 : 85);
+  const foamCol = drink === 'tea'
+    ? { a: '#cfe8b0', b: '#a8d080', c: '#86b85e' }                       // tea → green tint
+    : { a: '#e8d5b0', b: '#c8b48c', c: '#a89060' };                      // coffee crema
+  const liquid = drink === 'tea' ? '#7a9a3a' : '#2d1204';
+
   p.push(`<ellipse cx="${cx}" cy="${tableY - 2}" rx="${cupW / 2 + 20}" ry="16" fill="rgba(0,0,0,0.42)" filter="url(#blur-sm)"/>`);
 
-  // Saucer
   p.push(`<defs>
-    <radialGradient id="sc-saucer" cx="50%" cy="30%" r="65%">
+    <radialGradient id="sc-saucer${uid}" cx="50%" cy="30%" r="65%">
       <stop offset="0" stop-color="#f2eee9"/><stop offset="0.6" stop-color="#dbd4cc"/><stop offset="1" stop-color="#b0a89f"/>
     </radialGradient>
-  </defs>`);
-  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 32}" ry="24" fill="url(#sc-saucer)"/>`);
-  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 30}" ry="22" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="1.5"/>`);
-
-  // Cup body
-  const bodyTop = cy - cupH / 2 + rimRy;
-  p.push(`<defs>
-    <linearGradient id="sc-cup" x1="0" y1="0" x2="1" y2="0">
+    <linearGradient id="sc-cup${uid}" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#b8b0a8"/><stop offset="0.12" stop-color="#dcd6d0"/>
       <stop offset="0.40" stop-color="#faf7f4"/><stop offset="0.68" stop-color="#e5ddd6"/>
       <stop offset="1" stop-color="#a8a098"/>
     </linearGradient>
-    <linearGradient id="sc-cup-bot" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="sc-cup-bot${uid}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="rgba(255,255,255,0)"/><stop offset="1" stop-color="rgba(0,0,0,0.14)"/>
     </linearGradient>
-  </defs>`);
-  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup)"/>`);
-  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup-bot)"/>`);
-
-  // Rim ellipse
-  p.push(`<defs>
-    <linearGradient id="sc-rim" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="sc-rim${uid}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#e8e2dc"/><stop offset="1" stop-color="#c0b8b0"/>
     </linearGradient>
-  </defs>`);
-  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2}" ry="${rimRy}" fill="url(#sc-rim)"/>`);
-
-  // Coffee liquid surface (dark brown)
-  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="#2d1204"/>`);
-
-  // Foam / latte art
-  p.push(`<defs>
-    <radialGradient id="sc-foam" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#e8d5b0"/><stop offset="0.7" stop-color="#c8b48c"/><stop offset="1" stop-color="#a89060"/>
+    <radialGradient id="sc-foam${uid}" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="${foamCol.a}"/><stop offset="0.7" stop-color="${foamCol.b}"/><stop offset="1" stop-color="${foamCol.c}"/>
     </radialGradient>
   </defs>`);
-  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="url(#sc-foam)" opacity="0.9"/>`);
-  // Foam heart/swirl
-  p.push(`<path d="M ${cx - 22} ${bodyTop - 4} Q ${cx - 12} ${bodyTop - 14} ${cx} ${bodyTop - 3} Q ${cx + 12} ${bodyTop - 14} ${cx + 22} ${bodyTop - 4} Q ${cx + 8} ${bodyTop + 10} ${cx} ${bodyTop + 15} Q ${cx - 8} ${bodyTop + 10} ${cx - 22} ${bodyTop - 4} Z" fill="#f0dfc0" opacity="0.75"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 32}" ry="24" fill="url(#sc-saucer${uid})"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 30}" ry="22" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="1.5"/>`);
 
-  // Handle
-  const hRX = cx + cupW / 2, hTY = bodyTop + 35, hBY = bodyTop + 135;
+  const bodyTop = cy - cupH / 2 + rimRy;
+  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup${uid})"/>`);
+  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup-bot${uid})"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2}" ry="${rimRy}" fill="url(#sc-rim${uid})"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="${liquid}"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="url(#sc-foam${uid})" opacity="${espresso ? 0.6 : 0.9}"/>`);
+  if (!espresso) {
+    p.push(`<path d="M ${cx - 22} ${bodyTop - 4} Q ${cx - 12} ${bodyTop - 14} ${cx} ${bodyTop - 3} Q ${cx + 12} ${bodyTop - 14} ${cx + 22} ${bodyTop - 4} Q ${cx + 8} ${bodyTop + 10} ${cx} ${bodyTop + 15} Q ${cx - 8} ${bodyTop + 10} ${cx - 22} ${bodyTop - 4} Z" fill="#f0dfc0" opacity="0.7"/>`);
+  }
+
+  const hRX = cx + cupW / 2, hTY = bodyTop + 30, hBY = bodyTop + (cupH - rimRy) * 0.7;
   p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 72} ${hTY}, ${hRX + 72} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#d0c8c0" stroke-width="30" stroke-linecap="round"/>`);
   p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 60} ${hTY}, ${hRX + 60} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#f0ece8" stroke-width="22" stroke-linecap="round"/>`);
-  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 48} ${hTY + 5}, ${hRX + 48} ${hBY - 5}, ${hRX} ${hBY}" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="3" stroke-linecap="round"/>`);
+  p.push(`<ellipse cx="${cx - cupW * 0.18}" cy="${bodyTop + 45}" rx="16" ry="40" fill="rgba(255,255,255,0.20)" filter="url(#blur-xs)"/>`);
 
-  // Specular highlight
-  p.push(`<ellipse cx="${cx - cupW * 0.18}" cy="${bodyTop + 55}" rx="18" ry="48" fill="rgba(255,255,255,0.20)" filter="url(#blur-xs)"/>`);
-
-  // Steam wisps
-  const steamX = [cx - 48, cx, cx + 48];
+  const steamX = [cx - 40, cx, cx + 40];
   for (let i = 0; i < 3; i++) {
     const sx = steamX[i], sy = bodyTop - rimRy - 8;
     const sw = (r() - 0.5) * 28;
-    p.push(`<path d="M ${sx} ${sy} Q ${sx + sw} ${sy - 50} ${sx - sw} ${sy - 105} Q ${sx + sw * 0.5} ${sy - 155} ${sx} ${sy - 200}" fill="none" stroke="rgba(255,255,255,${(0.60 - i * 0.10).toFixed(2)})" stroke-width="${5 - i}" stroke-linecap="round" filter="url(#steam-f)"/>`);
+    p.push(`<path d="M ${sx} ${sy} Q ${sx + sw} ${sy - 50} ${sx - sw} ${sy - 105} Q ${sx + sw * 0.5} ${sy - 155} ${sx} ${sy - 200}" fill="none" stroke="rgba(255,255,255,${(0.55 - i * 0.10).toFixed(2)})" stroke-width="${5 - i}" stroke-linecap="round" filter="url(#steam-f)"/>`);
   }
 
-  // Coffee beans on table
   const beanData = [[-135, 38, -28], [140, 30, 18], [175, 75, -42], [-160, 82, 35], [-80, 105, -12], [110, 95, 55]];
   for (const [dx, dy, ang] of beanData) {
-    const bx = cx + dx + (r() - 0.5) * 18;
-    const by = tableY + dy + (r() - 0.5) * 12;
-    const sz = 13 + r() * 5;
+    const bx = cx + dx + (r() - 0.5) * 18, by = tableY + dy + (r() - 0.5) * 12, sz = 13 + r() * 5;
     p.push(`<g transform="translate(${bx.toFixed(0)},${by.toFixed(0)}) rotate(${ang})">
       <ellipse rx="${sz.toFixed(1)}" ry="${(sz * 0.55).toFixed(1)}" fill="#2d1204"/>
       <ellipse rx="${(sz - 1.5).toFixed(1)}" ry="${(sz * 0.48).toFixed(1)}" fill="#3d1a08"/>
       <line x1="0" y1="${(-(sz * 0.45)).toFixed(1)}" x2="0" y2="${(sz * 0.45).toFixed(1)}" stroke="#1a0802" stroke-width="1.5"/>
-      <ellipse cx="${(-sz * 0.28).toFixed(1)}" cy="${(-sz * 0.22).toFixed(1)}" rx="${(sz * 0.22).toFixed(1)}" ry="${(sz * 0.13).toFixed(1)}" fill="rgba(255,255,255,0.18)"/>
     </g>`);
   }
+}
 
-  return p.join('');
+// Tall clear glass — iced coffee (with ice cubes + straw) or a frappuccino
+// (with a whipped-cream dome). Distinct silhouette from the hot cup.
+function drawIcedGlass(p: string[], r: () => number, cx: number, tableY: number, uid: number, frappe: boolean): void {
+  const gW = 180, gH = 320;
+  const gTop = tableY - gH;
+  const liquid = frappe ? '#b07840' : '#3a1d0a';
+  const lightLiquid = frappe ? '#d8a868' : '#6a3818';
+
+  // Shadow
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 2}" rx="${gW / 2 + 18}" ry="15" fill="rgba(0,0,0,0.40)" filter="url(#blur-sm)"/>`);
+
+  p.push(`<defs>
+    <linearGradient id="sc-glass${uid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgba(255,255,255,0.30)"/>
+      <stop offset="0.5" stop-color="rgba(255,255,255,0.08)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.22)"/>
+    </linearGradient>
+    <linearGradient id="sc-liq${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${lightLiquid}"/><stop offset="1" stop-color="${liquid}"/>
+    </linearGradient>
+  </defs>`);
+
+  // Liquid fill (slightly inset, tapered glass)
+  const liqTop = frappe ? gTop + 40 : gTop + 55;
+  p.push(`<path d="M ${cx - gW / 2 + 8} ${liqTop} L ${cx + gW / 2 - 8} ${liqTop} L ${cx + gW / 2 - 22} ${tableY - 12} L ${cx - gW / 2 + 22} ${tableY - 12} Z" fill="url(#sc-liq${uid})"/>`);
+
+  // Ice cubes (iced) — translucent rounded squares
+  if (!frappe) {
+    const cubes = [[-30, 90, 12], [25, 70, -18], [-5, 130, 26], [35, 150, 8], [-35, 175, -22]];
+    for (const [dx, dy, ang] of cubes) {
+      const ix = cx + dx, iy = gTop + dy, sz = 42 + r() * 14;
+      p.push(`<rect x="${(ix - sz / 2).toFixed(0)}" y="${(iy - sz / 2).toFixed(0)}" width="${sz.toFixed(0)}" height="${sz.toFixed(0)}" rx="9" fill="rgba(255,255,255,0.26)" stroke="rgba(255,255,255,0.40)" stroke-width="2" transform="rotate(${ang} ${ix.toFixed(0)} ${iy.toFixed(0)})"/>`);
+    }
+  }
+
+  // Glass body (over liquid/ice for the front pane)
+  p.push(`<path d="M ${cx - gW / 2} ${gTop} L ${cx + gW / 2} ${gTop} L ${cx + gW / 2 - 18} ${tableY - 8} L ${cx - gW / 2 + 18} ${tableY - 8} Z" fill="url(#sc-glass${uid})" stroke="rgba(255,255,255,0.45)" stroke-width="3"/>`);
+  // Vertical specular streak
+  p.push(`<rect x="${cx - gW / 2 + 22}" y="${gTop + 14}" width="14" height="${gH - 60}" rx="7" fill="rgba(255,255,255,0.30)"/>`);
+
+  if (frappe) {
+    // Whipped cream dome
+    p.push(`<defs><radialGradient id="sc-whip${uid}" cx="42%" cy="32%" r="62%">
+      <stop offset="0" stop-color="#fffdf8"/><stop offset="0.7" stop-color="#f0e8d8"/><stop offset="1" stop-color="#d8ccb8"/>
+    </radialGradient></defs>`);
+    for (let i = 0; i < 4; i++) {
+      const wy = gTop - 8 - i * 26, ww = (gW / 2 + 6) - i * 16;
+      p.push(`<ellipse cx="${cx}" cy="${wy}" rx="${ww}" ry="${22 - i * 2}" fill="url(#sc-whip${uid})"/>`);
+    }
+    // Cherry on top
+    p.push(`<circle cx="${cx}" cy="${gTop - 96}" r="16" fill="#cc2b2b"/>`);
+    p.push(`<ellipse cx="${cx - 5}" cy="${gTop - 101}" rx="5" ry="3" fill="rgba(255,255,255,0.5)"/>`);
+    // Drizzle
+    p.push(`<path d="M ${cx - 50} ${gTop - 12} q 12 18 0 34 M ${cx + 40} ${gTop - 18} q -12 16 2 32" fill="none" stroke="#6a3818" stroke-width="4" stroke-linecap="round"/>`);
+  }
+
+  // Straw
+  const stX = cx + 34;
+  p.push(`<rect x="${stX}" y="${gTop - (frappe ? 150 : 70)}" width="14" height="${(frappe ? 220 : 230)}" rx="7" fill="${frappe ? '#e84c6a' : '#e84c6a'}" transform="rotate(10 ${stX} ${gTop})"/>`);
+  p.push(`<rect x="${stX}" y="${gTop - (frappe ? 150 : 70)}" width="5" height="${(frappe ? 220 : 230)}" rx="2.5" fill="rgba(255,255,255,0.35)" transform="rotate(10 ${stX} ${gTop})"/>`);
+
+  // Condensation droplets (iced)
+  if (!frappe) {
+    for (let i = 0; i < 7; i++) {
+      const dx = cx - gW / 2 + 30 + r() * (gW - 60), dy = gTop + 80 + r() * (gH - 130);
+      p.push(`<circle cx="${dx.toFixed(0)}" cy="${dy.toFixed(0)}" r="${(2.5 + r() * 3).toFixed(1)}" fill="rgba(255,255,255,0.40)"/>`);
+    }
+  }
+}
+
+// A pastry / baked good on a small plate.
+function drawPastry(p: string[], r: () => number, cx: number, tableY: number, uid: number): void {
+  const py = tableY - 40;
+  // Plate
+  p.push(`<ellipse cx="${cx}" cy="${tableY}" rx="180" ry="30" fill="rgba(0,0,0,0.28)" filter="url(#blur-sm)"/>`);
+  p.push(`<defs>
+    <radialGradient id="sc-plate${uid}" cx="40%" cy="30%" r="65%">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#efe9e2"/><stop offset="1" stop-color="#cfc6bd"/>
+    </radialGradient>
+    <linearGradient id="sc-crust${uid}" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#e8b96a"/><stop offset="0.5" stop-color="#c8893a"/><stop offset="1" stop-color="#9c5e20"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${py + 36}" rx="175" ry="30" fill="url(#sc-plate${uid})"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${py + 36}" rx="150" ry="24" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="2"/>`);
+
+  // Croissant — layered crescent
+  p.push(`<path d="M ${cx - 120} ${py + 20} Q ${cx - 90} ${py - 55} ${cx} ${py - 48} Q ${cx + 90} ${py - 55} ${cx + 120} ${py + 20} Q ${cx + 70} ${py + 5} ${cx} ${py + 8} Q ${cx - 70} ${py + 5} ${cx - 120} ${py + 20} Z" fill="url(#sc-crust${uid})"/>`);
+  // Flaky layer seams
+  for (let i = -2; i <= 2; i++) {
+    const sx = cx + i * 38;
+    p.push(`<path d="M ${sx} ${py - 44} Q ${sx + 6} ${py - 18} ${sx} ${py + 6}" fill="none" stroke="rgba(120,70,20,0.45)" stroke-width="3" stroke-linecap="round"/>`);
+  }
+  // Glaze sheen
+  p.push(`<path d="M ${cx - 90} ${py - 38} Q ${cx} ${py - 50} ${cx + 90} ${py - 38}" fill="none" stroke="rgba(255,240,200,0.55)" stroke-width="5" stroke-linecap="round"/>`);
+  // Crumbs
+  for (let i = 0; i < 6; i++) {
+    const dx = cx + (r() - 0.5) * 280, dy = py + 30 + (r() - 0.5) * 16;
+    p.push(`<circle cx="${dx.toFixed(0)}" cy="${dy.toFixed(0)}" r="${(2 + r() * 3).toFixed(1)}" fill="#b87a32"/>`);
+  }
 }
 
 // ── Food / Restaurant ─────────────────────────────────────────────────────────
@@ -898,6 +1009,12 @@ const SCENE_FNS: Record<string, SceneFn> = {
 };
 
 function resolveSceneKey(spec: VisualSpec): string {
+  // A specific product/menu-item name is the strongest signal for the scene.
+  if (spec.subject) {
+    for (const w of spec.subject.toLowerCase().split(/[^a-z]+/)) {
+      if (w && SCENE_NICHE_MAP[w]) return SCENE_NICHE_MAP[w];
+    }
+  }
   for (const kw of spec.keywords) {
     const k = kw.toLowerCase();
     if (SCENE_NICHE_MAP[k]) return SCENE_NICHE_MAP[k];
@@ -911,8 +1028,8 @@ function resolveSceneKey(spec: VisualSpec): string {
 function buildSceneLayer(spec: VisualSpec, field: FieldColors, r: () => number): string {
   const key = resolveSceneKey(spec);
   const fn = SCENE_FNS[key] || sceneGeneral;
-  const seed = (spec.seed >>> 0) ^ hashStr(spec.niche + '|' + spec.rawNiche + '|' + spec.role);
-  return fn(r, field, spec.palette, seed);
+  const seed = (spec.seed >>> 0) ^ hashStr(spec.niche + '|' + spec.rawNiche + '|' + spec.role + '|' + (spec.subject || ''));
+  return fn(r, field, spec.palette, seed, spec.subject || '');
 }
 
 // ─── MAIN SVG BUILDER ─────────────────────────────────────────────────────────

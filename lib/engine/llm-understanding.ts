@@ -180,20 +180,26 @@ export function mergeLlmIntoPuo(puo: PromptUnderstandingObject, llm: LlmContent)
     if (bg) out.visual.colorPalette.background = bg;
   }
 
-  // Stash the rich, prompt-specific content for the renderer.
-  out.customAttributes = {
-    ...puo.customAttributes,
-    llm: {
-      brandName: llm.brandName,
-      tagline: llm.tagline,
-      heroHeadline: llm.heroHeadline,
-      heroSub: llm.heroSub,
-      about: llm.about,
-      sections: Array.isArray(llm.sections) ? llm.sections : undefined,
-      products: Array.isArray(llm.products) ? llm.products : undefined,
-      faqs: Array.isArray(llm.faqs) ? llm.faqs : undefined,
-    },
+  // Stash the rich, prompt-specific content for the renderer. Merge onto any
+  // copy the deterministic extractor already folded in (e.g. quoted hero text,
+  // explicit button labels) so the LLM refines rather than erases it — only
+  // fields the LLM actually filled overwrite the earlier values.
+  const prevLlm = ((puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm) || {};
+  const fresh: Record<string, unknown> = {
+    brandName: llm.brandName,
+    tagline: llm.tagline,
+    heroHeadline: llm.heroHeadline,
+    heroSub: llm.heroSub,
+    about: llm.about,
+    sections: Array.isArray(llm.sections) ? llm.sections : undefined,
+    products: Array.isArray(llm.products) ? llm.products : undefined,
+    faqs: Array.isArray(llm.faqs) ? llm.faqs : undefined,
   };
+  const mergedLlm: Record<string, unknown> = { ...prevLlm };
+  for (const [k, v] of Object.entries(fresh)) {
+    if (v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0)) mergedLlm[k] = v;
+  }
+  out.customAttributes = { ...puo.customAttributes, llm: mergedLlm };
 
   out.confidence = Math.max(puo.confidence, 0.9);
   return out;

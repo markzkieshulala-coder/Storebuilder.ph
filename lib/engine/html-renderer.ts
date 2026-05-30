@@ -17,7 +17,7 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
-import { generateVisualDataUri } from './visual-engine';
+import { generateVisualDataUri, hashStr } from './visual-engine';
 import type { VisualPalette, VisualRole } from './visual-engine';
 
 // Backward-compat re-exports
@@ -589,6 +589,29 @@ function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
     out.push(generateVisualDataUri({ ...base, seed, role }));
   }
   return out;
+}
+
+// Per-product image: synthesize a visual keyed to the SPECIFIC item name so each
+// menu/product card shows a DIFFERENT, on-subject picture (espresso ≠ iced coffee
+// ≠ pastry) instead of recycling the same hero photo across every card.
+function productPhoto(puo: PromptUnderstandingObject, name: string, fp: number, i: number): string {
+  const cp = puo.visual.colorPalette;
+  const palette: VisualPalette = {
+    primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
+    background: cp.background, surface: cp.surface, text: cp.text, muted: cp.muted,
+  };
+  const seed = (Math.abs(fp) ^ hashStr(name.toLowerCase()) ^ ((i + 1) * 0x9E3779B1)) >>> 0;
+  return generateVisualDataUri({
+    palette,
+    mood: puo.visualMood as string,
+    style: puo.designStyle as string,
+    niche: normalizeIndustry(puo.inferredIndustry.toLowerCase()),
+    rawNiche: puo.inferredIndustry.toLowerCase(),
+    keywords: getContentWords(puo),
+    seed,
+    role: 'product',
+    subject: name,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1740,6 +1763,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy {
   const llm = (puo.customAttributes as { llm?: {
     tagline?: string; heroHeadline?: string; heroSub?: string; about?: string;
+    primaryCta?: string; secondaryCta?: string; heroTag?: string;
     products?: Array<{ name?: string; desc?: string; price?: string }>;
     faqs?: Array<{ q?: string; a?: string }>;
   } } | undefined)?.llm;
@@ -1750,10 +1774,17 @@ function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy 
   const heroSub = str(llm.heroSub);
   const about = str(llm.about);
   const tagline = str(llm.tagline);
+  const primaryCta = str(llm.primaryCta);
+  const secondaryCta = str(llm.secondaryCta);
+  const heroTag = str(llm.heroTag);
   if (heroHeadline) copy.heroHeadline = heroHeadline;
   if (heroSub) copy.heroSub = heroSub;
   if (about) copy.aboutBody = about;
   if (tagline) copy.footerTagline = tagline;
+  // Explicit, user-named button labels override the deterministic CTA banks.
+  if (primaryCta) { copy.primaryCta = primaryCta; copy.hiddenPrimaryCtaLabel = primaryCta; }
+  if (secondaryCta) { copy.secondaryCta = secondaryCta; copy.hiddenSecondaryCtaLabel = secondaryCta; }
+  if (heroTag) copy.heroTag = heroTag;
 
   if (Array.isArray(llm.products) && llm.products.length) {
     const items = llm.products
@@ -2230,7 +2261,7 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
   // price — instead of a bare photo gallery. This is what the user asked for.
   if (copy.products && copy.products.length) {
     const cards = copy.products.map((p, i) => {
-      const photoId = photos[(fp + i + 2) % photos.length];
+      const photoId = productPhoto(ctx.puo, p.name, fp, i);
       return `<div class="product-card reveal reveal-delay-${i % 3}">
       <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
       <div class="product-body">
@@ -2524,7 +2555,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
   let body: string;
   if (copy.products && copy.products.length) {
     const cards = copy.products.map((p, i) => {
-      const photoId = photos[(fp + i + 2) % photos.length];
+      const photoId = productPhoto(puo, p.name, fp, i);
       return `<div class="product-card reveal reveal-delay-${i % 3}">
       <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
       <div class="product-body">
