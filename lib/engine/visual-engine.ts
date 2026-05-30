@@ -1,45 +1,33 @@
 // ---------------------------------------------------------------------------
-// GENERATIVE VISUAL ENGINE
+// GENERATIVE VISUAL ENGINE v2 — PHOTOREALISTIC SCENE GENERATOR
 //
-// Synthesizes premium SVG artwork entirely in-process — NO third-party image
-// APIs, NO network, NO random stock photos. Every visual is generated from the
-// same PromptUnderstandingObject that drives the layout and copy, so the niche,
-// branding, palette, mood, and style of the image always match the website.
+// Produces rich scene-based SVG artwork entirely in-process — NO third-party
+// image APIs. Every scene is built from the PromptUnderstandingObject so the
+// niche, palette, and mood always match the website.
 //
-// Output is a self-contained `data:image/svg+xml,...` URI that embeds directly
-// in the HTML — keeping the generated site fully portable (CLAUDE.md: "No
-// external assets beyond Google Fonts").
-//
-// Composition = background field + atmospheric depth layers + niche motif +
-// film grain + vignette, each driven by palette/mood/style/seed.
+// v2 change: replaces flat line-art icon approach with layered 3D scene
+// compositions — recognizable objects with proper lighting, depth, and texture.
 // ---------------------------------------------------------------------------
 
 export type VisualRole = 'hero' | 'feature' | 'gallery' | 'split' | 'avatar' | 'cta' | 'product';
 
 export interface VisualPalette {
-  primary: string;
-  secondary: string;
-  accent: string;
-  background: string;
-  surface: string;
-  text: string;
-  muted: string;
+  primary: string; secondary: string; accent: string;
+  background: string; surface: string; text: string; muted: string;
 }
 
 export interface VisualSpec {
   palette: VisualPalette;
-  mood: string;       // dark | dramatic | contrast | vibrant | warm | cold | ethereal | light | neutral | muted
-  style: string;      // minimal | luxury | cyberpunk | editorial | organic | ...
-  niche: string;      // normalized industry (food, sports, technology, ...)
-  rawNiche: string;   // specific slug (coffee, ramen, sushi, crossfit, ...)
-  keywords: string[]; // content words from the prompt
-  seed: number;       // variation seed (each slot differs)
+  mood: string;
+  style: string;
+  niche: string;
+  rawNiche: string;
+  keywords: string[];
+  seed: number;
   role: VisualRole;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DETERMINISTIC RNG + COLOR HELPERS
-// ─────────────────────────────────────────────────────────────────
+// ─── RNG + COLOR HELPERS ─────────────────────────────────────────────────────
 
 function hashStr(s: string): number {
   let h = 2166136261;
@@ -73,10 +61,9 @@ function toHex([r, g, b]: [number, number, number]): string {
 
 function rgba(hex: string, a: number): string {
   const [r, g, b] = hexToRgb(hex);
-  return `rgba(${r},${g},${b},${a})`;
+  return `rgba(${r},${g},${b},${a.toFixed(2)})`;
 }
 
-// amt > 0 lightens toward white, amt < 0 darkens toward black
 function shade(hex: string, amt: number): string {
   const [r, g, b] = hexToRgb(hex);
   const target = amt < 0 ? 0 : 255;
@@ -89,99 +76,29 @@ function mix(h1: string, h2: string, t: number): string {
   return toHex([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
 }
 
-// ─────────────────────────────────────────────────────────────────
-// NICHE MOTIFS — line-art subjects drawn in a 0 0 24 24 box.
-// These make every generated image actually READ as the website's subject.
-// ─────────────────────────────────────────────────────────────────
-
-const MOTIFS: Record<string, string> = {
-  coffee:     '<path d="M4 10h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h2.2a2.8 2.8 0 0 1 0 5.6H17"/><path d="M8 2.5c-.8 1.1-.8 2.1 0 3.2M12 2.5c-.8 1.1-.8 2.1 0 3.2"/>',
-  food:       '<path d="M6 2v20M5 2v6a2 2 0 0 0 2 0V2"/><path d="M18 2c-1.7 0-3 2.2-3 5s1.3 4.5 3 4.5V22"/>',
-  ramen:      '<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M5.5 11c2.2-2 11-2 13 0"/><path d="M13 3.5l7 4.2M15.5 2l6 4"/><path d="M9 7.5c-.7-1-.7-1.8 0-2.8M12 7.5c-.7-1-.7-1.8 0-2.8"/>',
-  sushi:      '<rect x="3" y="9" width="18" height="6" rx="3"/><path d="M3 12h18"/><circle cx="8" cy="12" r="1.4"/>',
-  pizza:      '<path d="M12 2 3 19a1 1 0 0 0 1.3 1.3L12 17l7.7 3.3A1 1 0 0 0 21 19z"/><circle cx="10" cy="9" r="1"/><circle cx="13.5" cy="12" r="1"/>',
-  bakery:     '<path d="M4 13c0-3 2-5 4-5 1.2 0 2 .8 2 2 0 1-.5 1.8-1.5 2.2M20 13c0-3-2-5-4-5-1.2 0-2 .8-2 2 0 1 .5 1.8 1.5 2.2"/><path d="M5 13h14l-1.5 6h-11z"/>',
-  bar:        '<path d="M5 3h14l-7 8z"/><path d="M12 11v8M8 21h8"/>',
-  sports:     '<path d="M6.5 6.5l11 11M4 9l2-2M4 9l2 2M4 9l-1 1M20 15l-2 2M20 15l-2-2M20 15l1-1"/><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/>',
-  yoga:       '<circle cx="12" cy="5" r="2"/><path d="M12 8v6M4 20c2-4 5-6 8-6s6 2 8 6M7 14l5 0 5 0"/>',
-  technology: '<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 2v3M14 2v3M10 19v3M14 19v3M2 10h3M2 14h3M19 10h3M19 14h3"/><rect x="10.5" y="10.5" width="3" height="3"/>',
-  photography:'<path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" transform="scale(0.85) translate(2 1.5)"/><circle cx="12" cy="12.5" r="3.4"/>',
-  fashion:    '<path d="M9 4a3 3 0 0 0 6 0"/><path d="M9 4 4 8l2.5 2.5L8 9v11h8V9l1.5 1.5L20 8z"/>',
-  ecommerce:  '<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
-  portfolio:  '<path d="M3 20l3-1 11-11-2-2L4 17z"/><path d="M14 6l2 2"/><path d="M3 20l1-3"/>',
-  agency:     '<path d="M12 2c3 2 5 5 5 9 0 2-1 4-2 5l-3 3-3-3c-1-1-2-3-2-5 0-4 2-7 5-9z"/><circle cx="12" cy="10" r="2"/><path d="M8 17l-2 4 4-2M16 17l2 4-4-2"/>',
-  wellness:   '<path d="M12 21c-4-2-7-5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4-3 7-7 9z"/><path d="M12 10v6"/>',
-  hospitality:'<path d="M3 21V9l9-5 9 5v12"/><path d="M9 21v-6h6v6"/><path d="M3 13h18"/>',
-  general:    '<path d="M12 2l2.6 6.3L21 9l-4.8 4.2L17.8 21 12 17.3 6.2 21l1.6-7.8L3 9l6.4-.7z"/>',
-};
-
-const SUBNICHE_TO_MOTIF: Record<string, string> = {
-  coffee: 'coffee', cafe: 'coffee', espresso: 'coffee', barista: 'coffee', latte: 'coffee', cappuccino: 'coffee',
-  ramen: 'ramen', noodle: 'ramen', noodles: 'ramen', pho: 'ramen',
-  sushi: 'sushi', sashimi: 'sushi', poke: 'sushi',
-  pizza: 'pizza', pizzeria: 'pizza',
-  bakery: 'bakery', pastry: 'bakery', croissant: 'bakery',
-  bar: 'bar', cocktail: 'bar', brewery: 'bar', pub: 'bar', wine: 'bar',
-  yoga: 'yoga', pilates: 'yoga', meditation: 'yoga', spa: 'wellness', massage: 'wellness',
-  gym: 'sports', crossfit: 'sports', fitness: 'sports', boxing: 'sports', workout: 'sports',
-};
-
-function resolveMotif(spec: VisualSpec): string {
-  // most specific: a content keyword that maps to a motif
-  for (const kw of spec.keywords) {
-    const k = kw.toLowerCase();
-    if (SUBNICHE_TO_MOTIF[k] && MOTIFS[SUBNICHE_TO_MOTIF[k]]) return MOTIFS[SUBNICHE_TO_MOTIF[k]];
-    if (MOTIFS[k]) return MOTIFS[k];
-  }
-  // raw niche slug
-  const raw = spec.rawNiche.toLowerCase();
-  if (SUBNICHE_TO_MOTIF[raw] && MOTIFS[SUBNICHE_TO_MOTIF[raw]]) return MOTIFS[SUBNICHE_TO_MOTIF[raw]];
-  if (MOTIFS[raw]) return MOTIFS[raw];
-  // normalized niche
-  if (MOTIFS[spec.niche]) return MOTIFS[spec.niche];
-  return MOTIFS.general;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// COMPOSITION ARCHETYPES
-// Each returns the inner artwork markup (within a 0 0 1000 1000 canvas).
-// ─────────────────────────────────────────────────────────────────
-
-const VB = 1000;
-
-interface Ctx { r: () => number; pal: VisualPalette; field: FieldColors; spec: VisualSpec; }
-
-// Relative luminance 0..1
 function lum(hex: string): number {
   const [r, g, b] = hexToRgb(hex);
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
-// Every generated image uses a DEEP, SATURATED branded field — like a real
-// photograph it is a rich full-colour rectangle, not a pale wash that blends
-// into a white page. We derive that field from the brand palette regardless of
-// whether the surrounding site is light or dark.
+// ─── FIELD COLORS (branded atmospheric base) ─────────────────────────────────
+
 interface FieldColors {
-  bgTop: string; bgBot: string;   // background gradient
-  shapeA: string; shapeB: string; shapeC: string; // depth shapes
-  glow: string;                   // bright accent glow
-  motif: string;                  // subject colour (light, high-contrast)
-  motifGlow: string;              // halo behind subject
+  bgTop: string; bgBot: string;
+  shapeA: string; shapeB: string; shapeC: string;
+  glow: string; motif: string; motifGlow: string;
 }
 
 function buildField(pal: VisualPalette): FieldColors {
-  // Anchor on the most saturated brand colour available.
   const candidates = [pal.primary, pal.accent, pal.secondary].filter(Boolean);
-  // Prefer a mid/dark, saturated hue for the field base.
   let base = candidates.find(c => lum(c) > 0.12 && lum(c) < 0.62) || pal.primary || '#2563EB';
-  if (lum(base) > 0.62) base = shade(base, -0.4);   // too light → deepen
-  if (lum(base) < 0.10) base = shade(base, 0.25);   // too dark → lift a touch
+  if (lum(base) > 0.62) base = shade(base, -0.4);
+  if (lum(base) < 0.10) base = shade(base, 0.25);
   const bgTop = shade(base, 0.08);
   const bgBot = shade(base, -0.5);
   const glowSrc = pal.accent && lum(pal.accent) > 0.45 ? pal.accent : shade(pal.accent || base, 0.4);
   return {
-    bgTop,
-    bgBot,
+    bgTop, bgBot,
     shapeA: shade(base, 0.22),
     shapeB: shade(pal.secondary || base, -0.15),
     shapeC: glowSrc,
@@ -192,10 +109,14 @@ function buildField(pal: VisualPalette): FieldColors {
 }
 
 function blob(cx: number, cy: number, rad: number, color: string, alpha: number): string {
-  return `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${rad.toFixed(0)}" fill="${rgba(color, alpha)}" style="filter:url(#soft)"/>`;
+  return `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${rad.toFixed(0)}" fill="${rgba(color, alpha)}" filter="url(#soft)"/>`;
 }
 
-// Aurora — layered saturated glows; premium default (tech, agency, saas, general)
+// ─── ATMOSPHERIC BACKGROUND ARCHETYPES (unchanged) ───────────────────────────
+
+const VB = 1000;
+interface Ctx { r: () => number; pal: VisualPalette; field: FieldColors; spec: VisualSpec; }
+
 function archAurora(ctx: Ctx): string {
   const { r, field } = ctx;
   const cols = [field.shapeA, field.shapeB, field.glow, mix(field.glow, field.shapeA, 0.5)];
@@ -208,7 +129,6 @@ function archAurora(ctx: Ctx): string {
   return out;
 }
 
-// Mesh — overlapping rings/circles for an organic gradient field
 function archMesh(ctx: Ctx): string {
   const { r, field } = ctx;
   const cols = [field.glow, field.shapeA, field.shapeB];
@@ -221,7 +141,6 @@ function archMesh(ctx: Ctx): string {
   return out;
 }
 
-// Geometric — bold bauhaus shapes (artistic, portfolio, fashion, editorial)
 function archGeometric(ctx: Ctx): string {
   const { r, field } = ctx;
   const cols = [field.shapeA, field.glow, field.shapeB, mix(field.glow, field.bgTop, 0.3)];
@@ -238,7 +157,6 @@ function archGeometric(ctx: Ctx): string {
   return out;
 }
 
-// Waves — flowing bands (organic, wellness, food, hospitality)
 function archWaves(ctx: Ctx): string {
   const { r, field } = ctx;
   const cols = [field.glow, mix(field.glow, field.shapeA, 0.4), field.shapeB, field.shapeA];
@@ -248,13 +166,12 @@ function archWaves(ctx: Ctx): string {
     const baseY = 220 + (i * 620) / bands + r() * 70;
     const amp = 70 + r() * 100;
     const c = cols[i % cols.length];
-    const d = `M-50 ${baseY.toFixed(0)} C ${(VB * 0.25).toFixed(0)} ${(baseY - amp).toFixed(0)}, ${(VB * 0.5).toFixed(0)} ${(baseY + amp).toFixed(0)}, ${(VB * 0.75).toFixed(0)} ${baseY.toFixed(0)} S ${(VB + 50).toFixed(0)} ${(baseY - amp).toFixed(0)}, ${(VB + 50).toFixed(0)} ${baseY.toFixed(0)} L ${(VB + 50)} ${VB + 50} L -50 ${VB + 50} Z`;
+    const d = `M-50 ${baseY.toFixed(0)} C ${(VB * 0.25).toFixed(0)} ${(baseY - amp).toFixed(0)}, ${(VB * 0.5).toFixed(0)} ${(baseY + amp).toFixed(0)}, ${(VB * 0.75).toFixed(0)} ${baseY.toFixed(0)} S ${(VB + 50).toFixed(0)} ${(baseY - amp).toFixed(0)}, ${(VB + 50).toFixed(0)} ${baseY.toFixed(0)} L ${VB + 50} ${VB + 50} L -50 ${VB + 50} Z`;
     out += `<path d="${d}" fill="${rgba(c, 0.5)}"/>`;
   }
   return out;
 }
 
-// Grid — tech lattice + glow nodes (technology, saas, cyberpunk, futuristic)
 function archGrid(ctx: Ctx): string {
   const { r, field } = ctx;
   let out = blob(500 + (r() - 0.5) * 300, 480, 400, field.glow, 0.5);
@@ -270,7 +187,6 @@ function archGrid(ctx: Ctx): string {
   return out;
 }
 
-// Spotlight — radial focus behind the motif (food, coffee, product, photography)
 function archSpotlight(ctx: Ctx): string {
   const { field, r } = ctx;
   let out = blob(500, 420, 360, field.glow, 0.55);
@@ -285,7 +201,6 @@ const ARCHETYPES: Record<string, ArchFn> = {
   waves: archWaves, grid: archGrid, spotlight: archSpotlight,
 };
 
-// Map style/niche → preferred archetype pool, then pick by seed for variety.
 function archetypePool(spec: VisualSpec): string[] {
   const s = spec.style, n = spec.niche;
   if (['technology', 'saas'].includes(n) || ['cyberpunk', 'futuristic', 'high-tech', 'enterprise'].includes(s)) return ['grid', 'aurora', 'mesh'];
@@ -295,9 +210,712 @@ function archetypePool(spec: VisualSpec): string[] {
   return ['aurora', 'mesh', 'geometric', 'waves'];
 }
 
-// ─────────────────────────────────────────────────────────────────
-// MAIN SVG BUILDER — bold, saturated, image-like premium composition
-// ─────────────────────────────────────────────────────────────────
+// ─── PHOTOREALISTIC SCENE BUILDERS ───────────────────────────────────────────
+// Each function draws foreground scene elements on top of the atmospheric
+// background. Objects use multi-stop gradients and layered shapes for 3D form.
+
+type SceneFn = (r: () => number, field: FieldColors, pal: VisualPalette, seed: number) => string;
+
+// ── Coffee / Cafe ─────────────────────────────────────────────────────────────
+function sceneCoffee(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const woodBase = '#5c3318', woodLight = '#8a5228', woodDark = '#2e1608';
+  const tableY = 640;
+
+  // Bokeh warmth overlay in background
+  const ambers = ['#d4922a', '#e8a830', '#c47f20', '#f0b84a'];
+  for (let i = 0; i < 9; i++) {
+    const bx = r() * 1000, by = 80 + r() * 480;
+    const br = 55 + r() * 110;
+    p.push(`<circle cx="${bx.toFixed(0)}" cy="${by.toFixed(0)}" r="${br.toFixed(0)}" fill="${rgba(ambers[i % ambers.length], 0.38 + r() * 0.22)}" filter="url(#bokeh)"/>`);
+  }
+
+  // Wood table surface
+  p.push(`<defs>
+    <linearGradient id="sc-wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${woodLight}"/>
+      <stop offset="0.25" stop-color="${woodBase}"/>
+      <stop offset="1" stop-color="${woodDark}"/>
+    </linearGradient>
+    <filter id="sc-wood-f" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="turbulence" baseFrequency="0.012 0.22" numOctaves="4" seed="${(seed % 97) + 2}" result="noise"/>
+      <feColorMatrix type="saturate" values="0.25" result="dn"/>
+      <feBlend in="SourceGraphic" in2="dn" mode="overlay"/>
+    </filter>
+  </defs>`);
+  p.push(`<rect x="0" y="${tableY}" width="1000" height="${1000 - tableY}" fill="url(#sc-wood)" filter="url(#sc-wood-f)"/>`);
+  p.push(`<ellipse cx="500" cy="${tableY + 5}" rx="480" ry="20" fill="${rgba(ambers[0], 0.10)}" filter="url(#bokeh)"/>`);
+
+  // Cup position
+  const cx = 490 + Math.floor(r() * 40) - 20;
+  const cy = tableY - 85;
+  const cupW = 230, cupH = 190;
+  const rimRy = 20;
+
+  // Shadow
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 2}" rx="${cupW / 2 + 20}" ry="16" fill="rgba(0,0,0,0.42)" filter="url(#blur-sm)"/>`);
+
+  // Saucer
+  p.push(`<defs>
+    <radialGradient id="sc-saucer" cx="50%" cy="30%" r="65%">
+      <stop offset="0" stop-color="#f2eee9"/><stop offset="0.6" stop-color="#dbd4cc"/><stop offset="1" stop-color="#b0a89f"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 32}" ry="24" fill="url(#sc-saucer)"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${tableY - 4}" rx="${cupW / 2 + 30}" ry="22" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="1.5"/>`);
+
+  // Cup body
+  const bodyTop = cy - cupH / 2 + rimRy;
+  p.push(`<defs>
+    <linearGradient id="sc-cup" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8b0a8"/><stop offset="0.12" stop-color="#dcd6d0"/>
+      <stop offset="0.40" stop-color="#faf7f4"/><stop offset="0.68" stop-color="#e5ddd6"/>
+      <stop offset="1" stop-color="#a8a098"/>
+    </linearGradient>
+    <linearGradient id="sc-cup-bot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(255,255,255,0)"/><stop offset="1" stop-color="rgba(0,0,0,0.14)"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup)"/>`);
+  p.push(`<rect x="${cx - cupW / 2}" y="${bodyTop}" width="${cupW}" height="${cupH - rimRy}" rx="10" fill="url(#sc-cup-bot)"/>`);
+
+  // Rim ellipse
+  p.push(`<defs>
+    <linearGradient id="sc-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8e2dc"/><stop offset="1" stop-color="#c0b8b0"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2}" ry="${rimRy}" fill="url(#sc-rim)"/>`);
+
+  // Coffee liquid surface (dark brown)
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="#2d1204"/>`);
+
+  // Foam / latte art
+  p.push(`<defs>
+    <radialGradient id="sc-foam" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#e8d5b0"/><stop offset="0.7" stop-color="#c8b48c"/><stop offset="1" stop-color="#a89060"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${bodyTop}" rx="${cupW / 2 - 7}" ry="${rimRy - 4}" fill="url(#sc-foam)" opacity="0.9"/>`);
+  // Foam heart/swirl
+  p.push(`<path d="M ${cx - 22} ${bodyTop - 4} Q ${cx - 12} ${bodyTop - 14} ${cx} ${bodyTop - 3} Q ${cx + 12} ${bodyTop - 14} ${cx + 22} ${bodyTop - 4} Q ${cx + 8} ${bodyTop + 10} ${cx} ${bodyTop + 15} Q ${cx - 8} ${bodyTop + 10} ${cx - 22} ${bodyTop - 4} Z" fill="#f0dfc0" opacity="0.75"/>`);
+
+  // Handle
+  const hRX = cx + cupW / 2, hTY = bodyTop + 35, hBY = bodyTop + 135;
+  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 72} ${hTY}, ${hRX + 72} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#d0c8c0" stroke-width="30" stroke-linecap="round"/>`);
+  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 60} ${hTY}, ${hRX + 60} ${hBY}, ${hRX} ${hBY}" fill="none" stroke="#f0ece8" stroke-width="22" stroke-linecap="round"/>`);
+  p.push(`<path d="M ${hRX} ${hTY} C ${hRX + 48} ${hTY + 5}, ${hRX + 48} ${hBY - 5}, ${hRX} ${hBY}" fill="none" stroke="rgba(0,0,0,0.10)" stroke-width="3" stroke-linecap="round"/>`);
+
+  // Specular highlight
+  p.push(`<ellipse cx="${cx - cupW * 0.18}" cy="${bodyTop + 55}" rx="18" ry="48" fill="rgba(255,255,255,0.20)" filter="url(#blur-xs)"/>`);
+
+  // Steam wisps
+  const steamX = [cx - 48, cx, cx + 48];
+  for (let i = 0; i < 3; i++) {
+    const sx = steamX[i], sy = bodyTop - rimRy - 8;
+    const sw = (r() - 0.5) * 28;
+    p.push(`<path d="M ${sx} ${sy} Q ${sx + sw} ${sy - 50} ${sx - sw} ${sy - 105} Q ${sx + sw * 0.5} ${sy - 155} ${sx} ${sy - 200}" fill="none" stroke="rgba(255,255,255,${(0.60 - i * 0.10).toFixed(2)})" stroke-width="${5 - i}" stroke-linecap="round" filter="url(#steam-f)"/>`);
+  }
+
+  // Coffee beans on table
+  const beanData = [[-135, 38, -28], [140, 30, 18], [175, 75, -42], [-160, 82, 35], [-80, 105, -12], [110, 95, 55]];
+  for (const [dx, dy, ang] of beanData) {
+    const bx = cx + dx + (r() - 0.5) * 18;
+    const by = tableY + dy + (r() - 0.5) * 12;
+    const sz = 13 + r() * 5;
+    p.push(`<g transform="translate(${bx.toFixed(0)},${by.toFixed(0)}) rotate(${ang})">
+      <ellipse rx="${sz.toFixed(1)}" ry="${(sz * 0.55).toFixed(1)}" fill="#2d1204"/>
+      <ellipse rx="${(sz - 1.5).toFixed(1)}" ry="${(sz * 0.48).toFixed(1)}" fill="#3d1a08"/>
+      <line x1="0" y1="${(-(sz * 0.45)).toFixed(1)}" x2="0" y2="${(sz * 0.45).toFixed(1)}" stroke="#1a0802" stroke-width="1.5"/>
+      <ellipse cx="${(-sz * 0.28).toFixed(1)}" cy="${(-sz * 0.22).toFixed(1)}" rx="${(sz * 0.22).toFixed(1)}" ry="${(sz * 0.13).toFixed(1)}" fill="rgba(255,255,255,0.18)"/>
+    </g>`);
+  }
+
+  return p.join('');
+}
+
+// ── Food / Restaurant ─────────────────────────────────────────────────────────
+function sceneFood(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const tableY = 650;
+  const warm = mix(pal.accent || '#d4922a', '#f5a020', 0.5);
+
+  // Ambient bokeh
+  for (let i = 0; i < 8; i++) {
+    p.push(`<circle cx="${(r() * 1000).toFixed(0)}" cy="${(50 + r() * 500).toFixed(0)}" r="${(45 + r() * 90).toFixed(0)}" fill="${rgba(warm, 0.3 + r() * 0.2)}" filter="url(#bokeh)"/>`);
+  }
+
+  // Table cloth
+  const tcColors = ['#f5f0eb', '#e8e0d8'];
+  p.push(`<defs>
+    <linearGradient id="sc-tc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${tcColors[0]}"/><stop offset="1" stop-color="${tcColors[1]}"/>
+    </linearGradient>
+    <filter id="sc-tc-f" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="2" seed="${(seed % 80) + 5}"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="soft-light"/>
+    </filter>
+  </defs>`);
+  p.push(`<rect x="0" y="${tableY}" width="1000" height="${1000 - tableY}" fill="url(#sc-tc)" filter="url(#sc-tc-f)"/>`);
+
+  const cx = 500, plateY = tableY - 80;
+
+  // Plate shadow
+  p.push(`<ellipse cx="${cx}" cy="${tableY + 2}" rx="175" ry="18" fill="rgba(0,0,0,0.30)" filter="url(#blur-sm)"/>`);
+
+  // Plate
+  p.push(`<defs>
+    <radialGradient id="sc-plate" cx="38%" cy="28%" r="65%">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#f4f0ec"/>
+      <stop offset="0.85" stop-color="#e0d8d0"/><stop offset="1" stop-color="#c8c0b8"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${plateY}" rx="170" ry="28" fill="url(#sc-plate)"/>`);
+  p.push(`<ellipse cx="${cx}" cy="${plateY}" rx="155" ry="24" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="2"/>`);
+  // Raised rim
+  p.push(`<ellipse cx="${cx}" cy="${plateY}" rx="140" ry="20" fill="#f8f5f2"/>`);
+
+  // Food items on plate — colorful arranged pieces
+  const foods = [
+    { dx: -45, dy: -4, rx: 38, ry: 14, color: '#c0392b', deco: '#a93226' }, // red
+    { dx: 35, dy: -5, rx: 32, ry: 12, color: '#e67e22', deco: '#d35400' }, // orange
+    { dx: -8, dy: -8, rx: 28, ry: 10, color: '#27ae60', deco: '#1e8449' }, // green
+    { dx: 50, dy: 6, rx: 24, ry: 9, color: '#f1c40f', deco: '#d4ac0d' }, // yellow
+    { dx: -55, dy: 8, rx: 20, ry: 8, color: '#8e44ad', deco: '#7d3c98' }, // purple
+  ];
+  for (const f of foods) {
+    p.push(`<ellipse cx="${cx + f.dx}" cy="${plateY + f.dy}" rx="${f.rx}" ry="${f.ry}" fill="${f.color}"/>`);
+    p.push(`<ellipse cx="${cx + f.dx - f.rx * 0.2}" cy="${plateY + f.dy - f.ry * 0.25}" rx="${f.rx * 0.4}" ry="${f.ry * 0.35}" fill="rgba(255,255,255,0.20)"/>`);
+  }
+
+  // Herb garnish
+  for (let i = 0; i < 5; i++) {
+    const gx = cx + (r() - 0.5) * 120, gy = plateY + (r() - 0.5) * 16;
+    p.push(`<ellipse cx="${gx.toFixed(0)}" cy="${gy.toFixed(0)}" rx="${(6 + r() * 5).toFixed(0)}" ry="${(3 + r() * 2).toFixed(0)}" fill="#2ecc71" transform="rotate(${(r() * 60 - 30).toFixed(0)} ${gx.toFixed(0)} ${gy.toFixed(0)})"/>`);
+  }
+
+  // Fork & knife
+  const fkX = cx - 215, knX = cx + 185;
+  p.push(`<rect x="${fkX - 3}" y="${tableY - 155}" width="6" height="140" rx="3" fill="#c0b8b0"/>`);
+  p.push(`<rect x="${knX - 3}" y="${tableY - 155}" width="6" height="140" rx="3" fill="#c0b8b0"/>`);
+  p.push(`<rect x="${knX - 5}" y="${tableY - 155}" width="10" height="45" rx="5" fill="#d0c8c0"/>`);
+  for (let i = -1; i <= 1; i++) {
+    p.push(`<line x1="${fkX + i * 4}" y1="${tableY - 155}" x2="${fkX + i * 4}" y2="${tableY - 120}" stroke="#c0b8b0" stroke-width="2.5" stroke-linecap="round"/>`);
+  }
+
+  return p.join('');
+}
+
+// ── Ramen / Asian Bowl ────────────────────────────────────────────────────────
+function sceneRamen(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const tableY = 660;
+
+  for (let i = 0; i < 7; i++) {
+    p.push(`<circle cx="${(r() * 1000).toFixed(0)}" cy="${(60 + r() * 500).toFixed(0)}" r="${(50 + r() * 100).toFixed(0)}" fill="${rgba(mix('#c0392b', '#e67e22', r()), 0.28 + r() * 0.18)}" filter="url(#bokeh)"/>`);
+  }
+
+  // Dark wood table
+  p.push(`<defs>
+    <linearGradient id="sc-dwood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2010"/><stop offset="1" stop-color="#1a0c06"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<rect x="0" y="${tableY}" width="1000" height="${1000 - tableY}" fill="url(#sc-dwood)"/>`);
+
+  const cx = 500, bowlY = tableY - 90;
+  const bowlRX = 175, bowlRY = 38;
+
+  // Bowl shadow
+  p.push(`<ellipse cx="${cx}" cy="${tableY + 2}" rx="${bowlRX + 18}" ry="20" fill="rgba(0,0,0,0.50)" filter="url(#blur-sm)"/>`);
+
+  // Bowl exterior
+  p.push(`<defs>
+    <linearGradient id="sc-bowl-ext" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1c1210"/><stop offset="0.15" stop-color="#3a2820"/>
+      <stop offset="0.5" stop-color="#4a3428"/><stop offset="0.85" stop-color="#302018"/>
+      <stop offset="1" stop-color="#180e0a"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${bowlY}" rx="${bowlRX}" ry="${bowlRY}" fill="url(#sc-bowl-ext)"/>`);
+
+  // Broth surface (inside bowl)
+  p.push(`<defs>
+    <radialGradient id="sc-broth" cx="40%" cy="30%" r="70%">
+      <stop offset="0" stop-color="#c4780a"/><stop offset="0.5" stop-color="#a0600a"/>
+      <stop offset="1" stop-color="#703808"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx}" cy="${bowlY}" rx="${bowlRX - 10}" ry="${bowlRY - 4}" fill="url(#sc-broth)"/>`);
+
+  // Noodle mass
+  const noodleY = bowlY + 2;
+  for (let i = 0; i < 6; i++) {
+    const ny = noodleY + (i - 2.5) * 5;
+    const sw = 3 + r() * 2;
+    const cx1 = 350 + r() * 80, cx2 = 550 + r() * 80;
+    p.push(`<path d="M ${cx - bowlRX * 0.7} ${ny.toFixed(0)} Q ${cx1.toFixed(0)} ${(ny - 15 + r() * 20).toFixed(0)} ${cx.toFixed(0)} ${(ny + 5 - r() * 8).toFixed(0)} Q ${cx2.toFixed(0)} ${(ny - 10 + r() * 18).toFixed(0)} ${cx + bowlRX * 0.7} ${ny.toFixed(0)}" fill="none" stroke="#e8d098" stroke-width="${sw.toFixed(1)}" stroke-linecap="round" opacity="0.82"/>`);
+  }
+
+  // Toppings
+  // Chashu (pork slice)
+  p.push(`<defs>
+    <linearGradient id="sc-chashu" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c0503a"/><stop offset="0.5" stop-color="#a03828"/><stop offset="1" stop-color="#803020"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx - 60}" cy="${bowlY - 8}" rx="38" ry="22" fill="url(#sc-chashu)" transform="rotate(-15 ${cx - 60} ${bowlY - 8})"/>`);
+  p.push(`<ellipse cx="${cx - 60}" cy="${bowlY - 10}" rx="28" ry="14" fill="${rgba('#d06048', 0.5)}" transform="rotate(-15 ${cx - 60} ${bowlY - 10})"/>`);
+
+  // Soft-boiled egg half
+  p.push(`<defs>
+    <radialGradient id="sc-egg" cx="42%" cy="35%" r="58%">
+      <stop offset="0" stop-color="#f5e8b0"/><stop offset="0.5" stop-color="#f0c850"/><stop offset="1" stop-color="#e0a030"/>
+    </radialGradient>
+    <radialGradient id="sc-egg-white" cx="42%" cy="35%" r="58%">
+      <stop offset="0" stop-color="#faf8f2"/><stop offset="1" stop-color="#e8e4d8"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<ellipse cx="${cx + 65}" cy="${bowlY - 5}" rx="30" ry="26" fill="url(#sc-egg-white)"/>`);
+  p.push(`<ellipse cx="${cx + 65}" cy="${bowlY - 5}" rx="18" ry="16" fill="url(#sc-egg)"/>`);
+
+  // Green onion
+  for (let i = 0; i < 8; i++) {
+    const ox = cx + (r() - 0.5) * 120, oy = bowlY + (r() - 0.5) * 20;
+    p.push(`<ellipse cx="${ox.toFixed(0)}" cy="${oy.toFixed(0)}" rx="${(5 + r() * 4).toFixed(0)}" ry="${(2 + r() * 1.5).toFixed(0)}" fill="#4db848" transform="rotate(${(r() * 60 - 30).toFixed(0)} ${ox.toFixed(0)} ${oy.toFixed(0)})"/>`);
+  }
+
+  // Nori sheet
+  p.push(`<rect x="${cx + 90}" y="${bowlY - 28}" width="18" height="48" rx="3" fill="#1a2a18" transform="rotate(8 ${cx + 90} ${bowlY})"/>`);
+
+  // Bowl outer rim gloss
+  p.push(`<ellipse cx="${cx - bowlRX * 0.30}" cy="${bowlY - bowlRY * 0.55}" rx="${bowlRX * 0.18}" ry="${bowlRY * 0.22}" fill="rgba(255,255,255,0.16)" filter="url(#blur-xs)"/>`);
+
+  return p.join('');
+}
+
+// ── Technology / SaaS ─────────────────────────────────────────────────────────
+function sceneTechnology(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const accent = pal.accent || '#3b82f6';
+  const glowCol = lum(accent) > 0.5 ? accent : shade(accent, 0.35);
+
+  // Floating glass panels
+  const panels = [
+    { x: 120, y: 200, w: 320, h: 210, rot: -6, alpha: 0.78 },
+    { x: 520, y: 150, w: 360, h: 250, rot: 4, alpha: 0.82 },
+    { x: 200, y: 480, w: 580, h: 200, rot: -2, alpha: 0.72 },
+  ];
+  p.push(`<defs>
+    <linearGradient id="sc-glass" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="0.5" stop-color="rgba(255,255,255,0.06)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.10)"/>
+    </linearGradient>
+  </defs>`);
+
+  for (const panel of panels) {
+    const px = panel.x, py = panel.y;
+    p.push(`<g transform="rotate(${panel.rot} ${px + panel.w / 2} ${py + panel.h / 2})">`);
+    p.push(`<rect x="${px}" y="${py}" width="${panel.w}" height="${panel.h}" rx="14" fill="${rgba(shade(pal.primary || '#1e293b', -0.2), panel.alpha)}" stroke="${rgba(glowCol, 0.35)}" stroke-width="1.5"/>`);
+    p.push(`<rect x="${px}" y="${py}" width="${panel.w}" height="${panel.h}" rx="14" fill="url(#sc-glass)"/>`);
+    // Traffic lights
+    for (let i = 0; i < 3; i++) {
+      const tlColors = ['#ff5f57', '#febc2e', '#28c840'];
+      p.push(`<circle cx="${px + 20 + i * 18}" cy="${py + 18}" r="6" fill="${tlColors[i]}"/>`);
+    }
+    // Fake code lines
+    const lineColors = [rgba(glowCol, 0.8), rgba('#f8f8f2', 0.5), rgba('#a8b8c8', 0.5), rgba(glowCol, 0.6)];
+    for (let li = 0; li < Math.floor(panel.h / 28) - 2; li++) {
+      const lw = 40 + r() * (panel.w * 0.65);
+      p.push(`<rect x="${px + 30}" y="${py + 42 + li * 26}" width="${lw.toFixed(0)}" height="7" rx="3.5" fill="${lineColors[li % lineColors.length]}"/>`);
+      if (r() > 0.45) {
+        const lw2 = 20 + r() * (panel.w * 0.4);
+        p.push(`<rect x="${px + 30 + lw + 10}" y="${py + 42 + li * 26}" width="${lw2.toFixed(0)}" height="7" rx="3.5" fill="${rgba('#f8f8f2', 0.28)}"/>`);
+      }
+    }
+    p.push(`</g>`);
+  }
+
+  // Glow nodes / data points
+  for (let i = 0; i < 14; i++) {
+    const nx = 80 + r() * 840, ny = 80 + r() * 840;
+    const nr = 3 + r() * 7;
+    p.push(`<circle cx="${nx.toFixed(0)}" cy="${ny.toFixed(0)}" r="${nr.toFixed(1)}" fill="${rgba(glowCol, 0.9)}" filter="url(#blur-xs)"/>`);
+  }
+
+  // Connection lines between panels
+  p.push(`<line x1="440" y1="305" x2="520" y2="275" stroke="${rgba(glowCol, 0.45)}" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+  p.push(`<line x1="700" y1="400" x2="680" y2="480" stroke="${rgba(glowCol, 0.35)}" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+  p.push(`<line x1="280" y1="410" x2="260" y2="480" stroke="${rgba(glowCol, 0.40)}" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+
+  // Accent glow
+  p.push(`<circle cx="500" cy="480" r="280" fill="${rgba(glowCol, 0.08)}" filter="url(#soft)"/>`);
+
+  return p.join('');
+}
+
+// ── Fitness / Sports ──────────────────────────────────────────────────────────
+function sceneFitness(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const energy = pal.accent || '#ef4444';
+  const darkFloor = shade(pal.primary || '#1a1a2e', -0.3);
+
+  // Dynamic radial energy burst
+  const burstX = 500, burstY = 520;
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const len = 180 + r() * 220;
+    const ex = burstX + Math.cos(angle) * len;
+    const ey = burstY + Math.sin(angle) * len;
+    p.push(`<line x1="${burstX}" y1="${burstY}" x2="${ex.toFixed(0)}" y2="${ey.toFixed(0)}" stroke="${rgba(energy, 0.18 + r() * 0.15)}" stroke-width="${(2 + r() * 4).toFixed(1)}" stroke-linecap="round"/>`);
+  }
+  p.push(blob(burstX, burstY, 280, energy, 0.18));
+
+  // Floor
+  p.push(`<defs>
+    <linearGradient id="sc-floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${shade(darkFloor, 0.15)}"/><stop offset="1" stop-color="${darkFloor}"/>
+    </linearGradient>
+  </defs>`);
+  p.push(`<rect x="0" y="720" width="1000" height="280" fill="url(#sc-floor)"/>`);
+  p.push(`<line x1="0" y1="720" x2="1000" y2="720" stroke="${rgba(energy, 0.35)}" stroke-width="2.5"/>`);
+
+  // Dumbbell
+  const dbCX = 490, dbCY = 620;
+  p.push(`<defs>
+    <linearGradient id="sc-metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#606060"/><stop offset="0.3" stop-color="#909090"/>
+      <stop offset="0.6" stop-color="#787878"/><stop offset="1" stop-color="#484848"/>
+    </linearGradient>
+  </defs>`);
+  // Bar
+  p.push(`<rect x="${dbCX - 150}" y="${dbCY - 8}" width="300" height="16" rx="8" fill="url(#sc-metal)"/>`);
+  // Left plate
+  for (let pl = 0; pl < 3; pl++) {
+    const px = dbCX - 150 - pl * 14;
+    const ph = 55 + pl * 12, pw = 26 - pl * 4;
+    p.push(`<rect x="${px - pw / 2}" y="${dbCY - ph / 2}" width="${pw}" height="${ph}" rx="5" fill="${shade('#505050', pl * 0.08)}" stroke="${rgba('#808080', 0.5)}" stroke-width="1.5"/>`);
+  }
+  // Right plate
+  for (let pl = 0; pl < 3; pl++) {
+    const px = dbCX + 150 + pl * 14;
+    const ph = 55 + pl * 12, pw = 26 - pl * 4;
+    p.push(`<rect x="${px - pw / 2}" y="${dbCY - ph / 2}" width="${pw}" height="${ph}" rx="5" fill="${shade('#505050', pl * 0.08)}" stroke="${rgba('#808080', 0.5)}" stroke-width="1.5"/>`);
+  }
+  // Specular on bar
+  p.push(`<rect x="${dbCX - 120}" y="${dbCY - 7}" width="240" height="5" rx="2.5" fill="rgba(255,255,255,0.20)"/>`);
+
+  // Motion lines
+  for (let i = 0; i < 5; i++) {
+    const ly = dbCY - 40 + i * 20, lx = dbCX + 160 + i * 12;
+    p.push(`<line x1="${lx}" y1="${ly}" x2="${lx + 40 + r() * 30}" y2="${ly}" stroke="${rgba(energy, 0.5 - i * 0.08)}" stroke-width="${(3 - i * 0.4).toFixed(1)}" stroke-linecap="round"/>`);
+  }
+
+  // Stat chips
+  const stats = ['REP 12', 'SET 4', '85 KG'];
+  for (let i = 0; i < stats.length; i++) {
+    const sx = 130 + i * 270, sy = 820;
+    p.push(`<rect x="${sx - 55}" y="${sy - 22}" width="110" height="44" rx="8" fill="${rgba(energy, 0.20)}" stroke="${rgba(energy, 0.60)}" stroke-width="1.5"/>`);
+    p.push(`<text x="${sx}" y="${sy + 6}" text-anchor="middle" font-family="monospace" font-size="17" fill="${rgba('#ffffff', 0.90)}" font-weight="700">${stats[i]}</text>`);
+  }
+
+  return p.join('');
+}
+
+// ── Wellness / Spa / Yoga ─────────────────────────────────────────────────────
+function sceneWellness(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const zen = mix(pal.accent || '#10b981', '#34d399', 0.4);
+  const stone = '#8a8a8a', stoneLight = '#c8c8c8', stoneDark = '#4a4a4a';
+
+  // Soft water ripples
+  for (let i = 1; i <= 5; i++) {
+    p.push(`<ellipse cx="500" cy="620" rx="${80 * i}" ry="${28 * i}" fill="none" stroke="${rgba(zen, 0.18 - i * 0.025)}" stroke-width="${3.5 - i * 0.4}"/>`);
+  }
+
+  // Water surface pool
+  p.push(`<defs>
+    <radialGradient id="sc-water" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="${mix(zen, '#1a3a48', 0.3)}"/>
+      <stop offset="0.6" stop-color="${mix(zen, '#0d2530', 0.5)}"/>
+      <stop offset="1" stop-color="${shade(pal.primary || '#0f4c5c', -0.2)}"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<ellipse cx="500" cy="650" rx="340" ry="85" fill="url(#sc-water)" opacity="0.75"/>`);
+  // Water reflection sheen
+  p.push(`<ellipse cx="460" cy="630" rx="120" ry="22" fill="${rgba('#ffffff', 0.12)}" filter="url(#blur-xs)"/>`);
+
+  // Stones (3D spheres using radial gradients)
+  const stoneData = [
+    { cx: 500, cy: 460, rx: 68, ry: 52, label: 'sc-s1' },
+    { cx: 500, cy: 390, rx: 55, ry: 42, label: 'sc-s2' },
+    { cx: 500, cy: 328, rx: 42, ry: 32, label: 'sc-s3' },
+    { cx: 400, cy: 510, rx: 48, ry: 36, label: 'sc-s4' },
+    { cx: 598, cy: 510, rx: 45, ry: 34, label: 'sc-s5' },
+  ];
+  p.push(`<defs>`);
+  for (let i = 0; i < stoneData.length; i++) {
+    const s = stoneData[i];
+    const lightness = 0.08 + i * 0.04;
+    p.push(`<radialGradient id="${s.label}" cx="35%" cy="28%" r="68%">
+      <stop offset="0" stop-color="${shade(stoneLight, lightness)}"/>
+      <stop offset="0.45" stop-color="${stone}"/>
+      <stop offset="1" stop-color="${shade(stoneDark, -0.15)}"/>
+    </radialGradient>`);
+  }
+  p.push(`</defs>`);
+  for (let i = stoneData.length - 1; i >= 0; i--) {
+    const s = stoneData[i];
+    p.push(`<ellipse cx="${s.cx}" cy="${s.cy + 6}" rx="${s.rx - 5}" ry="${Math.round(s.ry * 0.25)}" fill="rgba(0,0,0,0.25)" filter="url(#blur-xs)"/>`);
+    p.push(`<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="url(#${s.label})"/>`);
+    p.push(`<ellipse cx="${s.cx - s.rx * 0.22}" cy="${s.cy - s.ry * 0.28}" rx="${s.rx * 0.30}" ry="${s.ry * 0.22}" fill="rgba(255,255,255,0.22)" filter="url(#blur-xs)"/>`);
+  }
+
+  // Botanical leaves
+  const leafData = [[-240, -80, -35], [235, -60, 40], [-180, 80, 20], [220, 95, -28]];
+  for (const [dx, dy, rot] of leafData) {
+    const lx = 500 + dx, ly = 500 + dy;
+    p.push(`<g transform="translate(${lx},${ly}) rotate(${rot})">
+      <path d="M 0 -55 Q 38 -15 0 45 Q -38 -15 0 -55 Z" fill="${rgba(zen, 0.72)}"/>
+      <line x1="0" y1="-55" x2="0" y2="45" stroke="${rgba(shade(zen, 0.3), 0.50)}" stroke-width="1.8"/>
+    </g>`);
+  }
+
+  // Subtle incense smoke
+  for (let i = 0; i < 2; i++) {
+    const sx = 500 + (i === 0 ? -25 : 25);
+    p.push(`<path d="M ${sx} 250 Q ${sx + 18} 215 ${sx - 12} 180 Q ${sx + 10} 145 ${sx} 110" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="3" stroke-linecap="round" filter="url(#steam-f)"/>`);
+  }
+
+  return p.join('');
+}
+
+// ── Photography ───────────────────────────────────────────────────────────────
+function scenePhotography(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const accent = pal.accent || '#f59e0b';
+
+  // Bokeh balls (out-of-focus lights)
+  for (let i = 0; i < 16; i++) {
+    const bx = r() * 1000, by = r() * 700;
+    const br = 25 + r() * 70;
+    p.push(`<circle cx="${bx.toFixed(0)}" cy="${by.toFixed(0)}" r="${br.toFixed(0)}" fill="${rgba(i % 2 === 0 ? accent : shade(accent, 0.4), 0.35 + r() * 0.3)}" filter="url(#bokeh)"/>`);
+  }
+
+  // Camera body
+  const camX = 330, camY = 380, camW = 380, camH = 260;
+  p.push(`<defs>
+    <linearGradient id="sc-cam" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#383838"/><stop offset="0.4" stop-color="#282828"/>
+      <stop offset="1" stop-color="#181818"/>
+    </linearGradient>
+    <radialGradient id="sc-lens" cx="42%" cy="38%" r="58%">
+      <stop offset="0" stop-color="#606880"/><stop offset="0.3" stop-color="#303848"/>
+      <stop offset="0.7" stop-color="#181c28"/><stop offset="1" stop-color="#0c0e18"/>
+    </radialGradient>
+    <radialGradient id="sc-lens-g" cx="35%" cy="30%" r="55%">
+      <stop offset="0" stop-color="${rgba(accent, 0.35)}"/><stop offset="1" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+  </defs>`);
+  p.push(`<rect x="${camX}" y="${camY}" width="${camW}" height="${camH}" rx="18" fill="url(#sc-cam)"/>`);
+  // Grip
+  p.push(`<rect x="${camX}" y="${camY + 80}" width="80" height="${camH - 80}" rx="14" fill="#202020"/>`);
+  // Shutter button
+  p.push(`<circle cx="${camX + 68}" cy="${camY + 18}" r="14" fill="#404040"/>`);
+  p.push(`<circle cx="${camX + 68}" cy="${camY + 18}" r="9" fill="${shade(accent, -0.2)}"/>`);
+  // Mode dial
+  p.push(`<circle cx="${camX + camW - 50}" cy="${camY + 22}" r="22" fill="#303030"/>`);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    p.push(`<line x1="${camX + camW - 50 + Math.cos(a) * 14}" y1="${camY + 22 + Math.sin(a) * 14}" x2="${camX + camW - 50 + Math.cos(a) * 20}" y2="${camY + 22 + Math.sin(a) * 20}" stroke="${rgba('#808080', 0.8)}" stroke-width="2"/>`);
+  }
+  // Lens barrel
+  const lensX = camX + 155, lensY = camY + camH / 2;
+  for (let ring = 4; ring >= 0; ring--) {
+    const rr = 55 + ring * 22;
+    p.push(`<circle cx="${lensX}" cy="${lensY}" r="${rr}" fill="#${['282828', '303030', '383838', '404040', '484848'][ring]}" stroke="${rgba('#606060', 0.4)}" stroke-width="1.5"/>`);
+  }
+  p.push(`<circle cx="${lensX}" cy="${lensY}" r="55" fill="url(#sc-lens)"/>`);
+  p.push(`<circle cx="${lensX}" cy="${lensY}" r="55" fill="url(#sc-lens-g)"/>`);
+  // Lens glass reflection
+  p.push(`<ellipse cx="${lensX - 14}" cy="${lensY - 16}" rx="16" ry="12" fill="rgba(255,255,255,0.18)" filter="url(#blur-xs)"/>`);
+
+  // Viewfinder
+  p.push(`<rect x="${camX + 240}" y="${camY + 20}" width="90" height="60" rx="6" fill="#202020"/>`);
+  p.push(`<rect x="${camX + 245}" y="${camY + 25}" width="80" height="50" rx="4" fill="#0a1020"/>`);
+
+  // Lens cap nearby
+  const lcX = camX + 490, lcY = camY + camH + 60;
+  p.push(`<ellipse cx="${lcX}" cy="${lcY}" rx="48" ry="14" fill="rgba(0,0,0,0.30)" filter="url(#blur-xs)"/>`);
+  p.push(`<circle cx="${lcX}" cy="${lcY - 8}" r="52" fill="#282828"/>`);
+  p.push(`<circle cx="${lcX}" cy="${lcY - 8}" r="48" fill="#303030"/>`);
+  p.push(`<circle cx="${lcX}" cy="${lcY - 8}" r="36" fill="#202020"/>`);
+
+  return p.join('');
+}
+
+// ── Fashion / Apparel ─────────────────────────────────────────────────────────
+function sceneFashion(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const accent = pal.accent || '#ec4899';
+  const fabricBase = lum(pal.primary) > 0.5 ? shade(pal.primary, -0.15) : pal.primary;
+
+  // Soft light studio background
+  p.push(blob(500, 400, 380, mix(accent, '#ffffff', 0.5), 0.18));
+  p.push(blob(250, 600, 220, shade(accent, 0.3), 0.15));
+  p.push(blob(750, 300, 200, shade(accent, 0.2), 0.12));
+
+  // Garment — stylized dress/shirt form
+  const gCX = 500, gTY = 200;
+  p.push(`<defs>
+    <linearGradient id="sc-fabric" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="${shade(fabricBase, 0.15)}"/>
+      <stop offset="0.5" stop-color="${fabricBase}"/>
+      <stop offset="1" stop-color="${shade(fabricBase, -0.25)}"/>
+    </linearGradient>
+    <filter id="sc-fab-f" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="2" seed="${(seed % 70) + 3}"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="soft-light" result="out"/>
+      <feComposite in="out" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>`);
+
+  // Dress/shirt outline path — flowing shape
+  p.push(`<path d="M ${gCX - 55} ${gTY} C ${gCX - 65} ${gTY + 60} ${gCX - 90} ${gTY + 120} ${gCX - 140} ${gTY + 310} Q ${gCX - 160} ${gTY + 440} ${gCX - 100} ${gTY + 530} L ${gCX + 100} ${gTY + 530} Q ${gCX + 160} ${gTY + 440} ${gCX + 140} ${gTY + 310} C ${gCX + 90} ${gTY + 120} ${gCX + 65} ${gTY + 60} ${gCX + 55} ${gTY} Q ${gCX + 35} ${gTY - 20} ${gCX} ${gTY - 28} Q ${gCX - 35} ${gTY - 20} ${gCX - 55} ${gTY} Z" fill="url(#sc-fabric)" filter="url(#sc-fab-f)"/>`);
+
+  // Collar/neckline highlight
+  p.push(`<path d="M ${gCX - 35} ${gTY - 5} Q ${gCX} ${gTY + 20} ${gCX + 35} ${gTY - 5}" fill="none" stroke="${rgba('#ffffff', 0.30)}" stroke-width="3"/>`);
+
+  // Drape fold lines (fabric texture)
+  for (let i = 0; i < 5; i++) {
+    const foldX = gCX - 80 + i * 40;
+    p.push(`<path d="M ${foldX} ${gTY + 80 + i * 15} C ${foldX + (r() - 0.5) * 20} ${gTY + 180} ${foldX + (r() - 0.5) * 25} ${gTY + 300} ${foldX + (r() - 0.5) * 15} ${gTY + 430}" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>`);
+  }
+
+  // Accent details — buttons, trim
+  for (let b = 0; b < 4; b++) {
+    p.push(`<circle cx="${gCX}" cy="${gTY + 80 + b * 65}" r="5" fill="${rgba(accent, 0.90)}"/>`);
+    p.push(`<circle cx="${gCX}" cy="${gTY + 80 + b * 65}" r="3" fill="${rgba('#ffffff', 0.50)}"/>`);
+  }
+
+  // Brand label chip
+  p.push(`<rect x="${gCX - 70}" y="${gTY + 620}" width="140" height="38" rx="6" fill="${rgba(accent, 0.18)}" stroke="${rgba(accent, 0.55)}" stroke-width="1.5"/>`);
+  p.push(`<text x="${gCX}" y="${gTY + 644}" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="${rgba(accent, 0.92)}" letter-spacing="3">FASHION</text>`);
+
+  return p.join('');
+}
+
+// ── Agency / Portfolio / General ──────────────────────────────────────────────
+function sceneGeneral(r: () => number, field: FieldColors, pal: VisualPalette, seed: number): string {
+  const p: string[] = [];
+  const accent = pal.accent || field.glow;
+
+  // 3D floating cards / panels — premium minimal layout
+  const cards = [
+    { x: 130, y: 220, w: 280, h: 180, depth: 12 },
+    { x: 560, y: 160, w: 320, h: 210, depth: 16 },
+    { x: 210, y: 520, w: 240, h: 160, depth: 10 },
+    { x: 580, y: 480, w: 280, h: 200, depth: 14 },
+  ];
+
+  p.push(`<defs>
+    <linearGradient id="sc-card-g" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="rgba(255,255,255,0.22)"/>
+      <stop offset="0.5" stop-color="rgba(255,255,255,0.07)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.12)"/>
+    </linearGradient>
+  </defs>`);
+
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    const rot = (r() - 0.5) * 8;
+    const baseCol = i % 2 === 0 ? shade(pal.primary || '#1e293b', 0.05) : shade(pal.secondary || '#0f172a', -0.1);
+    p.push(`<g transform="rotate(${rot.toFixed(1)} ${c.x + c.w / 2} ${c.y + c.h / 2})">`);
+    // 3D depth edge
+    p.push(`<rect x="${c.x + c.depth}" y="${c.y + c.depth}" width="${c.w}" height="${c.h}" rx="12" fill="${shade(baseCol, -0.3)}"/>`);
+    // Card face
+    p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="12" fill="${rgba(baseCol, 0.92)}" stroke="${rgba(accent, 0.30)}" stroke-width="1.5"/>`);
+    p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="12" fill="url(#sc-card-g)"/>`);
+    // Card content mockup
+    p.push(`<rect x="${c.x + 20}" y="${c.y + 20}" width="${c.w * 0.55}" height="10" rx="5" fill="${rgba(accent, 0.7)}"/>`);
+    for (let li = 0; li < 3; li++) {
+      const lw = c.w * (0.4 + r() * 0.4);
+      p.push(`<rect x="${c.x + 20}" y="${c.y + 45 + li * 22}" width="${lw.toFixed(0)}" height="7" rx="3.5" fill="${rgba('#ffffff', 0.30)}"/>`);
+    }
+    if (c.h > 170) {
+      p.push(`<rect x="${c.x + 20}" y="${c.y + c.h - 45}" width="80" height="28" rx="7" fill="${rgba(accent, 0.25)}" stroke="${rgba(accent, 0.60)}" stroke-width="1.5"/>`);
+    }
+    p.push(`</g>`);
+  }
+
+  // Connecting arc lines between cards
+  p.push(`<path d="M 270 310 Q 420 380 560 265" fill="none" stroke="${rgba(accent, 0.30)}" stroke-width="1.5" stroke-dasharray="5 5"/>`);
+  p.push(`<path d="M 450 400 Q 520 460 580 500" fill="none" stroke="${rgba(accent, 0.25)}" stroke-width="1.5" stroke-dasharray="5 5"/>`);
+
+  // Floating metric badges
+  const metrics = ['98%', '4.9★', '200+'];
+  for (let m = 0; m < metrics.length; m++) {
+    const mx = 200 + m * 300, my = 800 + (r() - 0.5) * 40;
+    p.push(`<rect x="${mx - 45}" y="${my - 22}" width="90" height="44" rx="22" fill="${rgba(accent, 0.22)}" stroke="${rgba(accent, 0.65)}" stroke-width="1.5"/>`);
+    p.push(`<text x="${mx}" y="${my + 7}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="${rgba('#ffffff', 0.92)}">${metrics[m]}</text>`);
+  }
+
+  return p.join('');
+}
+
+// ─── SCENE DISPATCH ───────────────────────────────────────────────────────────
+
+const SCENE_NICHE_MAP: Record<string, string> = {
+  coffee: 'coffee', cafe: 'coffee', espresso: 'coffee', barista: 'coffee', latte: 'coffee',
+  cappuccino: 'coffee', boba: 'coffee',
+  food: 'food', restaurant: 'food', pizza: 'food', bakery: 'food', burger: 'food',
+  dining: 'food', catering: 'food',
+  ramen: 'ramen', sushi: 'ramen', noodle: 'ramen', pho: 'ramen', asian: 'ramen',
+  technology: 'technology', tech: 'technology', saas: 'technology', software: 'technology',
+  startup: 'technology', app: 'technology', digital: 'technology',
+  fitness: 'fitness', gym: 'fitness', crossfit: 'fitness', boxing: 'fitness',
+  sports: 'fitness', workout: 'fitness', training: 'fitness',
+  yoga: 'wellness', pilates: 'wellness', meditation: 'wellness', spa: 'wellness',
+  wellness: 'wellness', massage: 'wellness', therapy: 'wellness',
+  photography: 'photography', photographer: 'photography', studio: 'photography',
+  fashion: 'fashion', apparel: 'fashion', clothing: 'fashion', streetwear: 'fashion',
+  beauty: 'fashion', cosmetics: 'fashion',
+};
+
+const SCENE_FNS: Record<string, SceneFn> = {
+  coffee: sceneCoffee,
+  food: sceneFood,
+  ramen: sceneRamen,
+  technology: sceneTechnology,
+  fitness: sceneFitness,
+  wellness: sceneWellness,
+  photography: scenePhotography,
+  fashion: sceneFashion,
+  general: sceneGeneral,
+};
+
+function resolveSceneKey(spec: VisualSpec): string {
+  for (const kw of spec.keywords) {
+    const k = kw.toLowerCase();
+    if (SCENE_NICHE_MAP[k]) return SCENE_NICHE_MAP[k];
+  }
+  const raw = spec.rawNiche.toLowerCase();
+  if (SCENE_NICHE_MAP[raw]) return SCENE_NICHE_MAP[raw];
+  if (SCENE_NICHE_MAP[spec.niche]) return SCENE_NICHE_MAP[spec.niche];
+  return 'general';
+}
+
+function buildSceneLayer(spec: VisualSpec, field: FieldColors, r: () => number): string {
+  const key = resolveSceneKey(spec);
+  const fn = SCENE_FNS[key] || sceneGeneral;
+  const seed = (spec.seed >>> 0) ^ hashStr(spec.niche + '|' + spec.rawNiche + '|' + spec.role);
+  return fn(r, field, spec.palette, seed);
+}
+
+// ─── MAIN SVG BUILDER ─────────────────────────────────────────────────────────
 
 export function generateVisualSvg(spec: VisualSpec): string {
   const r = makeRng((spec.seed >>> 0) ^ hashStr(spec.niche + '|' + spec.rawNiche + '|' + spec.role));
@@ -310,50 +928,33 @@ export function generateVisualSvg(spec: VisualSpec): string {
   const arch = ARCHETYPES[archName] || archAurora;
   const bgAngle = Math.floor(r() * 360);
 
-  // Subject motif — LARGE and bold so the image clearly reads as its niche.
-  const motif = resolveMotif(spec);
-  const mScale = (spec.role === 'avatar' ? 13 : spec.role === 'feature' ? 22 : 27) + r() * 5;
-  const mSize = 24 * mScale;
-  const mx = (spec.role === 'avatar' ? 500 : 380 + r() * 240);
-  const my = (spec.role === 'avatar' ? 500 : 400 + r() * 200);
-  const motifStroke = spec.role === 'avatar' ? 1.1 : 1.0;
-
-  const defs = `
-<defs>
+  const defs = `<defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(${bgAngle} 0.5 0.5)">
     <stop offset="0" stop-color="${field.bgTop}"/>
     <stop offset="1" stop-color="${field.bgBot}"/>
   </linearGradient>
   <linearGradient id="gloss" x1="0" y1="0" x2="0.6" y2="1">
-    <stop offset="0" stop-color="${rgba('#FFFFFF', 0.18)}"/>
-    <stop offset="0.45" stop-color="${rgba('#FFFFFF', 0)}"/>
+    <stop offset="0" stop-color="${rgba('#FFFFFF', 0.12)}"/>
+    <stop offset="0.40" stop-color="${rgba('#FFFFFF', 0)}"/>
   </linearGradient>
   <radialGradient id="vig" cx="50%" cy="46%" r="72%">
-    <stop offset="52%" stop-color="rgba(0,0,0,0)"/>
-    <stop offset="100%" stop-color="${rgba('#000000', 0.5)}"/>
-  </radialGradient>
-  <radialGradient id="halo" cx="50%" cy="50%" r="50%">
-    <stop offset="0" stop-color="${rgba(field.motifGlow, 0.85)}"/>
-    <stop offset="0.6" stop-color="${rgba(field.motifGlow, 0.25)}"/>
-    <stop offset="1" stop-color="${rgba(field.motifGlow, 0)}"/>
+    <stop offset="50%" stop-color="rgba(0,0,0,0)"/>
+    <stop offset="100%" stop-color="${rgba('#000000', 0.52)}"/>
   </radialGradient>
   <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="75"/></filter>
-  <filter id="mshadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.45"/></filter>
+  <filter id="bokeh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
+  <filter id="blur-sm" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="9"/></filter>
+  <filter id="blur-xs" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="3.5"/></filter>
+  <filter id="steam-f" x="-80%" y="-30%" width="260%" height="160%"><feGaussianBlur stdDeviation="4.5"/></filter>
   <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+  <filter id="mshadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.45"/></filter>
 </defs>`;
 
-  const motifLayer = `
-<g opacity="0.96">
-  <circle cx="${mx.toFixed(0)}" cy="${my.toFixed(0)}" r="${(mSize * 0.66).toFixed(0)}" fill="url(#halo)"/>
-  <g filter="url(#mshadow)" transform="translate(${(mx - mSize / 2).toFixed(0)} ${(my - mSize / 2).toFixed(0)}) scale(${mScale.toFixed(2)})"
-     fill="none" stroke="${field.motif}" stroke-width="${motifStroke}" stroke-linecap="round" stroke-linejoin="round">
-    ${motif}
-  </g>
-</g>`;
-
-  const grainLayer = `<rect width="${VB}" height="${VB}" filter="url(#grain)" opacity="0.10"/>`;
+  const grainLayer = `<rect width="${VB}" height="${VB}" filter="url(#grain)" opacity="0.09"/>`;
   const glossLayer = `<rect width="${VB}" height="${VB}" fill="url(#gloss)"/>`;
   const vignetteLayer = `<rect width="${VB}" height="${VB}" fill="url(#vig)"/>`;
+
+  const sceneMarkup = buildSceneLayer(spec, field, r);
 
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB} ${VB}" preserveAspectRatio="xMidYMid slice" width="${VB}" height="${VB}">` +
@@ -361,7 +962,7 @@ export function generateVisualSvg(spec: VisualSpec): string {
     `<rect width="${VB}" height="${VB}" fill="url(#bg)"/>` +
     arch(ctx) +
     glossLayer +
-    motifLayer +
+    sceneMarkup +
     grainLayer +
     vignetteLayer +
     `</svg>`;
@@ -377,8 +978,6 @@ export function generateVisualDataUri(spec: VisualSpec): string {
   return toDataUri(generateVisualSvg(spec));
 }
 
-// Convenience: build a coherent SET of distinct visuals for one page/site.
-// All share the niche/palette/mood (coherence); seed + role vary (variety).
 export function buildVisualSet(base: Omit<VisualSpec, 'seed' | 'role'>, count: number, baseSeed: number, role: VisualRole = 'gallery'): string[] {
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
