@@ -148,17 +148,33 @@ function extractColors(text: string, lower: string, profile: NicheCopyProfile): 
 }
 
 // ── Brand-name extraction ───────────────────────────────────────────────────
-// Recognise "called X", "named X", "brand X", "for X", or a leading proper noun.
+// Recognise “called X”, “named X”, “brand X”, “for X”, or a leading proper noun.
+
+// First word of a captured phrase that should not be treated as a brand name.
+const SKIP_BRAND_FIRST = new Set([
+  "My", "Our", "Your", "The", "An", "A", "This", "That", "Their",
+  "New", "Best", "Good", "Top", "Big", "Small", "Great", "Just",
+  "Build", "Create", "Make", "Design", "Develop", "Launch", "Start",
+]);
+
 function extractBrandName(text: string): string | undefined {
   const patterns = [
-    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+["“']?([A-Z][\w&'’.-]*(?:\s+[A-Z][\w&'’.-]*){0,3})/,
-    /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+["“']?([A-Z][\w&'’.-]*(?:\s+[A-Z][\w&'’.-]*){0,3})/,
+    // Explicit: “called Rodriguez Coffee”, “named The Morning Grind”, “brand name is...”
+    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+[“”’]?([A-Z][\w&’’.-]*(?:\s+[A-Z][\w&’’.-]*){0,4})/,
+    // “for a coffee shop called The Grind”
+    /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+[“”’]?([A-Z][\w&’’.-]*(?:\s+[A-Z][\w&’’.-]*){0,4})/,
+    // “for Rodriguez Coffee Shop” — capitalized proper-noun phrase following “for”
+    /\bfor\s+([A-Z][A-Za-z&’’.-]{1,}(?:\s+[A-Z][A-Za-z&’’.-]+){0,4})(?=\s|[,.!?\n]|$)/,
+    // “[BrandName] is a [niche]” — brand stated at the start of a clause
+    /^([A-Z][A-Za-z&’’.-]{1,}(?:\s+[A-Z][A-Za-z&’’.-]+){0,3})\s+(?:is\s+a|is\s+an|—|–|-)\s+/m,
   ];
   for (const re of patterns) {
     const m = re.exec(text);
     if (m && m[1]) {
-      const name = m[1].replace(/[.,;:]$/, '').trim();
-      if (name.length >= 2 && name.length <= 40) return name;
+      const name = m[1].replace(/[.,;:!?\-\s]+$/, '').trim();
+      const firstWord = name.split(/\s+/)[0];
+      if (SKIP_BRAND_FIRST.has(firstWord)) continue;
+      if (name.length >= 2 && name.length <= 50) return name;
     }
   }
   return undefined;
@@ -249,10 +265,10 @@ function hasCue(lower: string, cues: string[]): boolean {
 // ── Copy synthesis ──────────────────────────────────────────────────────────
 // Build niche-appropriate hero/sub/tagline/about copy, substituting the brand
 // name. Explicit user copy (extracted separately) always overrides these.
-function synthesizeCopy(profile: NicheCopyProfile, brand: string, seed: number) {
+function synthesizeCopyFrom(heroes: string[], profile: NicheCopyProfile, brand: string, seed: number) {
   const sub = (s: string) => s.replace(/\{brand\}/g, brand);
   return {
-    heroHeadline: pick(profile.heroes, seed),
+    heroHeadline: sub(pick(heroes, seed)),
     heroSub: sub(pick(profile.subs, seed >> 3)),
     tagline: sub(pick(profile.taglines, seed >> 5)),
     about: sub(pick(profile.abouts, seed >> 7)),
@@ -285,14 +301,22 @@ export function understandPrompt(prompt: string): NluContent {
 
   const explicit = extractPromptCopy(prompt);          // hero/CTA/sections the user wrote
   const brandName = extractBrandName(text);
-  const brand = brandName || 'the brand';
+  // When we know the brand name, substitute it into copy. When we don't, use a
+  // placeholder that the renderer's own brand-name logic will overwrite.
+  const brand = brandName || 'We';
   // Explicit colours win. Otherwise use the niche default palette — but only when
   // the user gave no mood cue (e.g. "dark"), so we don't fight the parser's
   // mood-derived palette.
   const explicitPalette = extractColors(text, lower, profile);
   const palette = explicitPalette || (hasCue(lower, MOOD_CUES) ? undefined : profile.palette);
   const namedProducts = extractProducts(text);
-  const synth = synthesizeCopy(profile, brand, seed);
+
+  // When a brand name was found, prefer the brand-personalised hero pool so the
+  // headline feels specific to this business rather than generic niche copy.
+  const heroPool = brandName && profile.brandHeroes?.length
+    ? profile.brandHeroes
+    : profile.heroes;
+  const synth = synthesizeCopyFrom(heroPool, profile, brand, seed);
 
   // Products: prefer the user's explicit list (enriched with niche detail), else
   // the niche's representative offering.
@@ -318,10 +342,7 @@ export function understandPrompt(prompt: string): NluContent {
     heroTag: explicit?.heroTag,
     primaryCta: explicit?.primaryCta,
     secondaryCta: explicit?.secondaryCta,
-    // Only emit a synthesised about when we know the brand name, so the {brand}
-    // substitution reads naturally; otherwise the renderer's brand-aware about
-    // bank fills it using the real store name passed to the generator.
-    about: brandName ? synth.about : undefined,
+    about: synth.about,
     sections: explicit?.sections,
     products,
     faqs: profile.faqs,

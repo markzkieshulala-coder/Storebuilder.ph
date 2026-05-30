@@ -96,7 +96,9 @@ export interface NicheCopyProfile {
   personality?: WebsitePersonality;
   tone?: BusinessTone;
   // Copy templates. {brand} is substituted with the brand name.
+  // brandHeroes: used instead of heroes when a brand name was found in the prompt.
   heroes: string[];
+  brandHeroes?: string[];
   subs: string[];
   taglines: string[];
   abouts: string[];
@@ -111,6 +113,7 @@ export const NICHE_PROFILES: Record<string, NicheCopyProfile> = {
   coffee: {
     mood: 'warm', designStyle: 'organic', personality: 'friendly', tone: 'casual',
     heroes: ['Freshly Brewed, Made for You', 'Your Daily Ritual, Perfected', 'Coffee Worth Slowing Down For'],
+    brandHeroes: ['{brand} — Crafted with Care', 'Welcome to {brand}', '{brand}: Where Every Cup Counts', '{brand} — Your Neighbourhood Coffee', 'Discover {brand}'],
     subs: ['Single-origin beans, roasted in-house and poured with care every morning.', 'A neighbourhood cafe where every cup is crafted by hand.'],
     taglines: ['Brewed with love, served with care.', 'Good coffee, good company.'],
     abouts: ['{brand} began with a simple idea: that a great cup of coffee can make any day better. We source our beans ethically, roast them in small batches, and pour every drink with the kind of care you can taste.'],
@@ -131,6 +134,7 @@ export const NICHE_PROFILES: Record<string, NicheCopyProfile> = {
   restaurant: {
     mood: 'warm', designStyle: 'organic', personality: 'friendly', tone: 'casual',
     heroes: ['A Table Waiting Just for You', 'Honest Food, Made Fresh Daily', 'Where Every Meal Feels Like Home'],
+    brandHeroes: ['Welcome to {brand}', '{brand} — Honest Food, Warm Hospitality', 'Eat Well at {brand}', '{brand}: A Table for Everyone'],
     subs: ['Seasonal dishes crafted from locally sourced ingredients.', 'Come hungry, leave happy — great food and warm hospitality.'],
     taglines: ['Made fresh. Served warm.', 'Good food brings people together.'],
     abouts: ['{brand} is a kitchen built around fresh, seasonal ingredients and the belief that a shared meal is something special. Our chefs craft every plate with care, so each visit feels like coming home.'],
@@ -150,6 +154,7 @@ export const NICHE_PROFILES: Record<string, NicheCopyProfile> = {
   fitness: {
     mood: 'vibrant', designStyle: 'industrial', personality: 'energetic', tone: 'disruptive',
     heroes: ['Stronger Every Day', 'Train Hard. Live Strong.', 'Your Strongest Self Starts Here'],
+    brandHeroes: ['{brand} — Train Hard, Live Strong', 'Welcome to {brand}', '{brand}: Where Champions Are Made', 'Push Your Limits at {brand}'],
     subs: ['Coaching, community, and programming built to get you real results.', 'No gimmicks — just smart training and a crew that shows up.'],
     taglines: ['Push your limits.', 'Show up. Work hard. Repeat.'],
     abouts: ['{brand} is more than a gym — it’s a community built around getting stronger together. Our certified coaches design programming for every level, so whether it’s your first session or your thousandth, you’ll leave better than you came.'],
@@ -169,6 +174,7 @@ export const NICHE_PROFILES: Record<string, NicheCopyProfile> = {
   saas: {
     mood: 'light', designStyle: 'startup', personality: 'innovative', tone: 'technical',
     heroes: ['Ship Faster, Stress Less', 'The Platform Built for Modern Teams', 'Everything Your Team Needs, in One Place'],
+    brandHeroes: ['{brand} — Built for Modern Teams', 'Welcome to {brand}', '{brand}: Ship Faster, Scale Smarter', 'The {brand} Platform'],
     subs: ['Powerful, intuitive, and built to scale with you.', 'Automate the busywork and focus on what matters.'],
     taglines: ['Built for teams that move fast.', 'Software that works the way you do.'],
     abouts: ['{brand} helps teams do their best work with a platform that’s powerful without being complicated. We obsess over the details so you can stay focused on shipping, scaling, and growing.'],
