@@ -1291,6 +1291,16 @@ export function toDataUri(svg: string): string {
 }
 
 export function generateVisualDataUri(spec: VisualSpec): string {
+  // Use canvas-based PNG renderer for coffee/food niches — more photorealistic
+  const canvasNiches = new Set(['coffee', 'food', 'ramen', 'bakery', 'restaurant', 'wellness']);
+  const niche = spec.niche || spec.rawNiche || '';
+  if (canvasNiches.has(niche)) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { generateCanvasDataUri } = require('./canvas-engine');
+      return generateCanvasDataUri(spec);
+    } catch { /* canvas binding unavailable — fall through to SVG */ }
+  }
   return toDataUri(generateVisualSvg(spec));
 }
 

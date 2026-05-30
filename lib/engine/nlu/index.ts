@@ -160,13 +160,13 @@ const SKIP_BRAND_FIRST = new Set([
 function extractBrandName(text: string): string | undefined {
   const patterns = [
     // Explicit: “called Rodriguez Coffee”, “named The Morning Grind”, “brand name is...”
-    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+[“”’]?([A-Z][\w&’’.-]*(?:\s+[A-Z][\w&’’.-]*){0,4})/,
+    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+[“”']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
     // “for a coffee shop called The Grind”
-    /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+[“”’]?([A-Z][\w&’’.-]*(?:\s+[A-Z][\w&’’.-]*){0,4})/,
+    /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+[“”']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
     // “for Rodriguez Coffee Shop” — capitalized proper-noun phrase following “for”
-    /\bfor\s+([A-Z][A-Za-z&’’.-]{1,}(?:\s+[A-Z][A-Za-z&’’.-]+){0,4})(?=\s|[,.!?\n]|$)/,
+    /\bfor\s+([A-Z][A-Za-z&''.-]{1,}(?:\s+[A-Z][A-Za-z&''.-]+){0,4})(?=\s|[,.!?\n]|$)/,
     // “[BrandName] is a [niche]” — brand stated at the start of a clause
-    /^([A-Z][A-Za-z&’’.-]{1,}(?:\s+[A-Z][A-Za-z&’’.-]+){0,3})\s+(?:is\s+a|is\s+an|—|–|-)\s+/m,
+    /^([A-Z][A-Za-z&''.-]{1,}(?:\s+[A-Z][A-Za-z&''.-]+){0,3})\s+(?:is\s+a|is\s+an|—|–|-)\s+/m,
   ];
   for (const re of patterns) {
     const m = re.exec(text);
@@ -192,6 +192,10 @@ const LIST_CUES = [
 function extractProducts(text: string): NluProduct[] | undefined {
   const lower = text.toLowerCase();
   let bestList: string[] | null = null;
+  // Track the best list specifically from a "such as" / "including" cue since
+  // those introduce the cleanest enumerations (e.g. "drinks such as espresso,
+  // latte, cappuccino").  If we find one with ≥2 items it wins outright.
+  let suchAsList: string[] | null = null;
 
   for (const cue of LIST_CUES) {
     let from = 0;
@@ -203,14 +207,33 @@ function extractProducts(text: string): NluProduct[] | undefined {
       const tail = text.slice(idx + cue.length, idx + cue.length + 200);
       const clause = tail.split(/[.!?\n]/)[0];
       const items = splitList(clause);
-      if (items.length >= 2 && (!bestList || items.length > bestList.length)) bestList = items;
+      if (items.length >= 2) {
+        // Prefer the "such as" cue result over generic cues — it reliably
+        // follows the complete product list without extra noise.
+        if (cue === 'such as' || cue === 'including') {
+          if (!suchAsList || items.length > suchAsList.length) suchAsList = items;
+        }
+        if (!bestList || items.length > bestList.length) bestList = items;
+      }
     }
   }
-  if (!bestList) return undefined;
-  return bestList.slice(0, 8).map(name => ({ name }));
+  // A "such as / including" result takes priority when it is at least as long
+  // as the generic best — it filters out noise from other cue matches.
+  const finalList = suchAsList && suchAsList.length >= (bestList?.length ?? 0)
+    ? suchAsList
+    : bestList;
+  if (!finalList) return undefined;
+  return finalList.slice(0, 8).map(name => ({ name }));
 }
 
-// Split "A, B, C and D" / "A, B & C" into clean title-cased items.
+// Filler words that can appear at the start of a list item when a cue like
+// “drinks such as espresso, latte” fires — the tail “such as espresso, latte”
+// gets split and “such as espresso” becomes the first token.  Drop them.
+const FILLER_FIRST = new Set([
+  'such', 'including', 'like', 'and', 'or', 'but', 'also', 'plus', 'featuring',
+]);
+
+// Split “A, B, C and D” / “A, B & C” into clean title-cased items.
 function splitList(clause: string): string[] {
   const cleaned = clause.replace(/^[\s:;,–—-]+/, '');
   const parts = cleaned
@@ -221,18 +244,23 @@ function splitList(clause: string): string[] {
   for (let p of parts) {
     // Stop the list at obvious sentence continuations.
     if (/\b(with|for|that|which|to|so|because|please|on|in|at)\b/i.test(p) && p.split(/\s+/).length > 4) break;
-    p = p.replace(/^["“'’]+|["“'’.]+$/g, '').trim();
+    p = p.replace(/^[“”'']+|[“”''.]+$/g, '').trim();
     // Reject fragments that are clearly prose, keep short noun phrases.
     const words = p.split(/\s+/);
     if (!p || words.length > 4) continue;
     if (p.length < 2 || p.length > 40) continue;
+    // Skip items whose first word is a filler/connector — artefacts of cues like
+    // “such as” or “including” being included in the extracted clause tail.
+    // e.g. “drinks such as espresso, latte” → tail “ such as espresso, latte”
+    // → split yields “such as espresso” as first part → skip it.
+    if (FILLER_FIRST.has(words[0].toLowerCase())) continue;
     items.push(titleCase(p));
   }
   return items;
 }
 
 function titleCase(s: string): string {
-  return s.replace(/\w[\w'’-]*/g, w =>
+  return s.replace(/\w[\w''-]*/g, w =>
     /^(and|or|the|of|a|an|to|in|on|with|for)$/i.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)
   ).replace(/^\w/, c => c.toUpperCase());
 }
@@ -292,7 +320,7 @@ function enrichProducts(named: NluProduct[], profile: NicheCopyProfile): NluProd
  * content — there is no network path and no failure mode that yields null.
  */
 export function understandPrompt(prompt: string): NluContent {
-  const text = (prompt || '').replace(/[“”„‟″]/g, '"').replace(/[‘’‚‛′]/g, "'");
+  const text = (prompt || '').replace(/[“”„‟″]/g, '"').replace(/[''‚‛′]/g, "'");
   const lower = text.toLowerCase();
   const seed = hash(lower);
 
