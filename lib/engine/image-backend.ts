@@ -1,43 +1,44 @@
 // ---------------------------------------------------------------------------
 // IMAGE BACKEND
 //
-// Sends the image-agent's prompts to YOUR OWN self-hosted image generator
-// (Stable Diffusion / SDXL, running on your machine or server — NOT a
-// third-party API), caches the results to your own /public/generated folder,
-// and embeds them in the site.
+// Produces every image for a generated site WITHOUT any third-party source.
+// No Unsplash, no Pexels, no stock-photo APIs, no shared CDN library.
 //
-// If your local generator isn't running (or fails), it transparently falls back
-// to the deterministic in-process SVG visual engine so the site never breaks.
+// Two in-house paths, in priority order:
+//   1. Your OWN self-hosted diffusion generator (Stable Diffusion / SDXL),
+//      reachable at IMAGE_GEN_URL. Produces photoreal, niche-matched images and
+//      caches them to /public/generated. Used automatically when the service is
+//      running.
+//   2. The in-process generative VISUAL ENGINE (lib/engine/visual-engine.ts) —
+//      synthesizes premium branded SVG artwork from the same understanding that
+//      drives the layout. It is ALWAYS available, needs no network, and is seeded
+//      per (prompt-fingerprint × slot) so every image is UNIQUE — two sites in
+//      the same niche never get the same visual, and no image repeats within a
+//      site. This is the guaranteed source; the site can never break or fall back
+//      to a repeated stock photo.
 //
-// Configure the generator endpoint with the IMAGE_GEN_URL env var. The default
-// targets an AUTOMATIC1111-compatible API (`/sdapi/v1/txt2img`) at
-// http://127.0.0.1:7860, which the reference service in tools/image-generator
-// also speaks.
+// Configure the optional self-hosted generator with IMAGE_GEN_URL (defaults to an
+// AUTOMATIC1111-compatible API at http://127.0.0.1:7860, which the reference
+// service in tools/image-generator also speaks). When it is unreachable the
+// engine transparently uses the in-process visual engine.
 // ---------------------------------------------------------------------------
 
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { PromptUnderstandingObject } from './prompt-engine';
-import { buildImagePrompt, buildSearchQuery, curatedPhotoIds } from './image-agent';
+import { buildImagePrompt } from './image-agent';
 import type { ImageRole, ImagePromptSpec } from './image-agent';
 import { generateVisualDataUri } from './visual-engine';
 import type { VisualPalette } from './visual-engine';
 
-// Optional stock-photo search keys. When set, the engine fetches REAL photos
-// matched to the prompt's exact subject. When absent, it uses the curated
-// keyless Unsplash CDN library (still real photos, matched by sub-niche).
-const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY || '';
-const PEXELS_KEY = process.env.PEXELS_API_KEY || '';
-const SEARCH_TIMEOUT = Number(process.env.IMAGE_SEARCH_TIMEOUT_MS || 8000);
-
 const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
-const IMAGE_GEN_ENABLED = process.env.IMAGE_GEN_ENABLED === '1' || process.env.IMAGE_GEN_ENABLED === 'true';
+// The self-hosted generator is probed automatically. Set IMAGE_GEN_ENABLED=0 to
+// skip it entirely and always use the in-process visual engine.
+const IMAGE_GEN_DISABLED = process.env.IMAGE_GEN_ENABLED === '0' || process.env.IMAGE_GEN_ENABLED === 'false';
 // Per-image generation budget (ms). Keeps the whole request within API maxDuration.
 const PER_IMAGE_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS || 25000);
-// How many DISTINCT images to surface per site (reused across sections). The
-// keyless curated path is free, so default to a wider set for variety; when the
-// self-hosted generator is enabled, lower IMAGE_GEN_COUNT to stay within budget.
+// How many DISTINCT images to surface per site (assigned across sections).
 const DISTINCT_IMAGES = Number(process.env.IMAGE_GEN_COUNT || 12);
 
 const CACHE_DIR = path.join(process.cwd(), 'public', 'generated');
@@ -96,7 +97,8 @@ async function persist(b64: string, key: string): Promise<string> {
   return `${PUBLIC_PREFIX}/${key}.png`;
 }
 
-function svgFallback(puo: PromptUnderstandingObject, role: ImageRole, seed: number): string {
+// In-process generative visual engine — the guaranteed, always-unique source.
+function visualEngine(puo: PromptUnderstandingObject, role: ImageRole, seed: number): string {
   const cp = puo.visual.colorPalette;
   const palette: VisualPalette = {
     primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
@@ -114,87 +116,53 @@ function svgFallback(puo: PromptUnderstandingObject, role: ImageRole, seed: numb
   });
 }
 
-// Build a sized real-photo URL from a curated Unsplash CDN id.
-function curatedUrl(id: string, w = 1200, h = 800): string {
-  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80&h=${h}`;
-}
-
-// Keyword search against Unsplash (if a key is configured). Returns a real CDN
-// photo URL matched to the query, or null.
-async function searchUnsplash(query: string, seed: number): Promise<string | null> {
-  if (!UNSPLASH_KEY) return null;
+/**
+ * Quick liveness probe for the self-hosted generator so we don't pay the full
+ * per-image timeout on every slot when it isn't running.
+ */
+async function generatorAvailable(): Promise<boolean> {
+  if (IMAGE_GEN_DISABLED) return false;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), SEARCH_TIMEOUT);
+  const timer = setTimeout(() => ctrl.abort(), 1500);
   try {
-    const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&orientation=landscape&content_filter=high`,
-      { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` }, signal: ctrl.signal },
-    );
-    if (!res.ok) return null;
-    const data = await res.json() as { results?: Array<{ urls?: { regular?: string; raw?: string } }> };
-    const list = data.results || [];
-    if (!list.length) return null;
-    const pick = list[Math.abs(seed) % list.length];
-    return pick?.urls?.regular || pick?.urls?.raw || null;
-  } catch { return null; } finally { clearTimeout(timer); }
-}
-
-// Keyword search against Pexels (if a key is configured).
-async function searchPexels(query: string, seed: number): Promise<string | null> {
-  if (!PEXELS_KEY) return null;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), SEARCH_TIMEOUT);
-  try {
-    const res = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=20&orientation=landscape`,
-      { headers: { Authorization: PEXELS_KEY }, signal: ctrl.signal },
-    );
-    if (!res.ok) return null;
-    const data = await res.json() as { photos?: Array<{ src?: { large2x?: string; large?: string } }> };
-    const list = data.photos || [];
-    if (!list.length) return null;
-    const pick = list[Math.abs(seed) % list.length];
-    return pick?.src?.large2x || pick?.src?.large || null;
-  } catch { return null; } finally { clearTimeout(timer); }
+    const res = await fetch(`${IMAGE_GEN_URL}/sdapi/v1/sd-models`, { signal: ctrl.signal });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
- * Produce the full image set for a site. Returns REAL photographs by default
- * (keyword-searched when an API key is set, otherwise the curated sub-niche
- * Unsplash CDN library), the self-hosted generator when enabled, and the
- * SVG engine only as a last resort. Always returns a usable array — never throws.
+ * Produce the full image set for a site. Every image is generated in-house:
+ * the self-hosted diffusion generator when it's running, otherwise the
+ * in-process visual engine. No third-party image sources are ever contacted.
+ * Always returns a usable array — never throws, never repeats.
  */
 export async function generateSiteImages(puo: PromptUnderstandingObject, fp: number): Promise<string[]> {
   const results: string[] = [];
-  const curated = curatedPhotoIds(puo);   // ordered real-photo ids matched to the niche
+  const useGenerator = await generatorAvailable();
 
   for (let i = 0; i < DISTINCT_IMAGES; i++) {
     const role = SLOT_ROLES[i % SLOT_ROLES.length];
-    const seed = (Math.abs(fp) ^ (i * 0x9e3779b1)) >>> 0;
+    // Unique seed per (prompt × slot): different prompts AND different slots
+    // never collide, so no two sites and no two sections share a visual.
+    const seed = (Math.abs(fp) ^ ((i + 1) * 0x9e3779b1)) >>> 0;
 
-    // 1) Self-hosted generator (most specific) — only when explicitly enabled.
-    if (IMAGE_GEN_ENABLED) {
+    // 1) Self-hosted diffusion generator (photoreal, niche-matched) when live.
+    if (useGenerator) {
       try {
         const spec = buildImagePrompt(puo, role, i);
         const key = hashSpec(spec);
         if (await fileExists(path.join(CACHE_DIR, `${key}.png`))) { results.push(`${PUBLIC_PREFIX}/${key}.png`); continue; }
         const b64 = await callLocalGenerator(spec);
         if (b64) { results.push(await persist(b64, key)); continue; }
-      } catch { /* fall through */ }
+      } catch { /* fall through to the in-process engine */ }
     }
 
-    // 2) Keyword stock search (exact subject match) when a key is configured.
-    try {
-      const q = buildSearchQuery(puo, i);
-      const found = (await searchUnsplash(q, seed)) || (await searchPexels(q, seed));
-      if (found) { results.push(found); continue; }
-    } catch { /* fall through */ }
-
-    // 3) Curated real-photo library (keyless, reliable, sub-niche matched).
-    if (curated.length) { results.push(curatedUrl(curated[i % curated.length])); continue; }
-
-    // 4) SVG art — last resort only.
-    results.push(svgFallback(puo, role, seed));
+    // 2) In-process generative visual engine — always available, always unique.
+    results.push(visualEngine(puo, role, seed));
   }
 
   return results;

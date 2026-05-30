@@ -14,6 +14,7 @@
     "db:studio": "dotenv -e .env.local -- prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@auth/prisma-adapter": "^2.4.1",
     "@craftjs/core": "^0.2.9",
     "@prisma/client": "^5.18.0",

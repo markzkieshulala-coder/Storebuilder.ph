@@ -19,7 +19,6 @@ import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
 import { generateVisualDataUri } from './visual-engine';
 import type { VisualPalette, VisualRole } from './visual-engine';
-import { curatedPhotoIds } from './image-agent';
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -560,8 +559,8 @@ let INJECTED_IMAGES: string[] | null = null;
 function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
   const NEED = 12;
 
-  // 1) Real photos resolved by the async image pipeline (keyword search / curated
-  //    library / self-hosted generator), injected by renderMultiPageSite.
+  // 1) In-house images produced by the async pipeline (self-hosted diffusion
+  //    generator or the in-process visual engine), injected by renderMultiPageSite.
   if (INJECTED_IMAGES && INJECTED_IMAGES.length > 0) {
     const src = INJECTED_IMAGES;
     const out: string[] = [];
@@ -570,18 +569,8 @@ function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
     return out;
   }
 
-  // 2) No injection (direct/sync render): use the curated REAL-photo library,
-  //    matched to the niche/sub-niche. ph() turns these ids into Unsplash CDN
-  //    URLs. This guarantees real photos even without the async pipeline.
-  const ids = curatedPhotoIds(puo);
-  if (ids.length) {
-    const out: string[] = [];
-    const start = Math.abs(fp) % ids.length;
-    for (let i = 0; i < NEED; i++) out.push(ids[(start + i) % ids.length]);
-    return out;
-  }
-
-  // 3) Absolute last resort: deterministic SVG art (self-contained).
+  // 2) No injection (direct/sync render): synthesize unique branded visuals with
+  //    the in-process generative engine. No third-party image sources are used.
   const cp = puo.visual.colorPalette;
   const palette: VisualPalette = {
     primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
@@ -1726,7 +1715,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     ];
   }
 
-  return {
+  const copy: SiteCopy = {
     heroHeadline, heroSub, heroTag, primaryCta, secondaryCta,
     sectionEyebrow, featureHeading, features, stats, testimonials,
     aboutHeading, aboutBody, aboutBullets, missionHeading, missionBody,
@@ -1738,6 +1727,49 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     hiddenPrimaryCtaLabel:   hiddenCfg.primary.ctaLabel,
     hiddenSecondaryCtaLabel: hiddenCfg.secondary.ctaLabel,
   };
+
+  // LLM-authored, prompt-specific content (set by the understanding layer when
+  // ANTHROPIC_API_KEY is configured) takes precedence over the deterministic
+  // banks, so the built site reflects exactly what the user described.
+  return applyLlmCopy(copy, puo);
+}
+
+// Overlay any LLM-extracted copy (hero, tagline, about, named products, faqs)
+// from customAttributes.llm onto the deterministic SiteCopy. Each field is
+// applied only when present and non-empty; everything else is left untouched.
+function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy {
+  const llm = (puo.customAttributes as { llm?: {
+    tagline?: string; heroHeadline?: string; heroSub?: string; about?: string;
+    products?: Array<{ name?: string; desc?: string; price?: string }>;
+    faqs?: Array<{ q?: string; a?: string }>;
+  } } | undefined)?.llm;
+  if (!llm) return copy;
+
+  const str = (s: unknown): string | null => (typeof s === 'string' && s.trim() ? s.trim() : null);
+  const heroHeadline = str(llm.heroHeadline);
+  const heroSub = str(llm.heroSub);
+  const about = str(llm.about);
+  const tagline = str(llm.tagline);
+  if (heroHeadline) copy.heroHeadline = heroHeadline;
+  if (heroSub) copy.heroSub = heroSub;
+  if (about) copy.aboutBody = about;
+  if (tagline) copy.footerTagline = tagline;
+
+  if (Array.isArray(llm.products) && llm.products.length) {
+    const items = llm.products
+      .filter(p => str(p?.name))
+      .map(p => ({ name: str(p.name)!, desc: str(p.desc) || '', price: str(p.price) || '' }));
+    if (items.length) copy.products = items;
+  }
+
+  if (Array.isArray(llm.faqs) && llm.faqs.length) {
+    const faqs = llm.faqs
+      .filter(f => str(f?.q) && str(f?.a))
+      .map(f => ({ q: str(f.q)!, a: str(f.a)! }));
+    if (faqs.length) copy.faqs = faqs;
+  }
+
+  return copy;
 }
 
 function detectGallerySlug(puo: PromptUnderstandingObject): string {

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Single unified understanding — the exact same call /api/generate makes.
-    const puo = buildUnderstanding(prompt);
+    const puo = await buildUnderstanding(prompt);
     const palette = puo.visual.colorPalette;
     const sections = (puo.pageStructure || []).map((s) => s.type);
     const niche = NICHE_LABEL[puo.inferredIndustry] ?? titleCase(puo.inferredIndustry);

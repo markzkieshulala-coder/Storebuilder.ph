@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Build the canonical understanding — same function /api/analyze calls,
     // so the concept the user sees and the site that gets built are identical.
-    const understanding = buildUnderstanding(cleanPrompt);
+    const understanding = await buildUnderstanding(cleanPrompt);
 
     console.log(`[generate] Pipeline for "${brandName}" — niche="${understanding.inferredIndustry}" mood="${understanding.visualMood}" style="${understanding.designStyle}"`);
 
