@@ -1,6 +1,6 @@
 import { createOrchestrator } from './bootstrap';
 import { renderMultiPageSite, detectNiche } from './html-renderer';
-import { generateSiteImages, startBackgroundImageUpgrade } from './image-backend';
+import { generateSiteImages } from './image-provider';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';
@@ -54,9 +54,9 @@ export async function generateWebsite(
     throw new Error(`Pipeline failed: ${context.errors.map((e) => e.message).join('; ')}`);
   }
 
-  // Generate the site's images with the self-hosted image engine (image-agent
-  // builds niche-specific prompts; image-backend calls your local generator and
-  // caches the results, falling back to in-process SVG art when it isn't running).
+  // Fetch the site's images from the pluggable image provider (lib/engine/
+  // image-provider.ts — wire your own image generator in there). When it returns
+  // an empty list, every image slot renders as a neutral CSS placeholder.
   const puo = understanding ?? (() => {
     const r = parsePrompt(prompt);
     return r.success ? r.object : parsePrompt('modern professional website').object;
@@ -66,16 +66,10 @@ export async function generateWebsite(
   try {
     images = await generateSiteImages(puo, fp);
   } catch (err) {
-    console.warn('[generate] image generation failed, using SVG fallback:', (err as Error)?.message);
+    console.warn('[generate] image provider failed, rendering without images:', (err as Error)?.message);
   }
 
   const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, images);
-
-  // Upgrade every placeholder to a real diffusion photo in the BACKGROUND (after
-  // this response is sent). On CPU-only machines this keeps generation instant;
-  // the photos swap in at their stable /generated URLs as each one finishes.
-  startBackgroundImageUpgrade();
-
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   return {

@@ -57,27 +57,21 @@ unified pipeline:
 The whole path is synchronous, in-process, and dependency-free, so `next build`
 stays green offline.
 
-### In-house image engine (no third-party sources)
-Images are produced entirely in-house — NO Unsplash, Pexels, stock APIs, or
-shared CDN library. The REAL photos come from an optional self-hosted
-Stable-Diffusion/SDXL generator at `IMAGE_GEN_URL` (auto-probed; photoreal,
-niche-matched; cached to `public/generated`).
+### Images: pluggable provider (no built-in image engine)
+The website generator does **not** produce any imagery itself. All in-house image
+engines were removed — the SVG "visual engine" (`visual-engine.ts`), the canvas
+scene renderer (`canvas-engine.ts`), the diffusion backend (`image-backend.ts`),
+the cache (`image-cache.ts`), the prompt builder (`image-agent.ts`), and the
+neutral placeholder (`placeholder.ts`).
 
-The flow is **instant placeholder + background swap** so sites never wait on the
-(possibly slow, CPU-bound) model:
-- `lib/engine/image-cache.ts` → `registerImage` writes a neutral, on-brand
-  gradient PNG **placeholder** from `lib/engine/placeholder.ts` to
-  `public/generated/<key>.png`, returns that stable URL, and queues the slot.
-- After the page is rendered, `startBackgroundImageUpgrade` →
-  `flushImageUpgrades` generates each real photo and **overwrites the placeholder
-  in place** (atomic rename + `<key>.real` marker). A small client script
-  (`IMG_SWAP_JS`) reloads `/generated/*` for ~2 min so the real photos swap in
-  automatically.
-
-The old illustrated "visual engine" (`visual-engine.ts`) and its canvas scene
-renderer (`canvas-engine.ts`) were **deleted**; `placeholder.ts` is their minimal
-neutral-gradient replacement (PNG so the swap works). Set `IMAGE_GEN_ENABLED=0` to
-disable the diffusion generator and keep only the neutral placeholders.
+Images now come from a single seam: `lib/engine/image-provider.ts` →
+`generateSiteImages(puo, fp): Promise<string[]>`. It is awaited once per site in
+`generate.ts`, and the returned URLs/data-URIs are injected into the renderer and
+distributed across the image slots (hero, split, gallery, product cards, CTA).
+**Wire your own TypeScript/Next.js image generator inside that function.** It
+returns `[]` by default; when empty, every image slot renders as a neutral CSS
+gradient placeholder (a transparent pixel over `linear-gradient(--surf,--bg)`),
+so sites never look broken and contact no third-party source.
 
 The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site —
 including understanding the prompt — requires no external LLM, no API key, and no

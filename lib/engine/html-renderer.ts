@@ -17,9 +17,18 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
-import { generateVisualDataUri, hashStr } from './placeholder';
-import type { VisualPalette, VisualRole } from './placeholder';
-import { productImage } from './image-backend';
+// Image engines were removed; images come only from the pluggable image provider
+// (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
+// render as a neutral CSS placeholder.
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+// 1x1 transparent PNG — used when a slot has no image so the <img> never shows a
+// broken-image icon; the neutral gradient behind it (CSS) shows through instead.
+const TRANSPARENT_PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -56,17 +65,14 @@ function rotate<T>(arr: T[], by: number): T[] {
   return arr.slice(n).concat(arr.slice(0, n));
 }
 
-// Image source. getPhotos() emits one of:
-//   - a real generated photo path from the self-hosted generator (e.g. /generated/x.png)
-//   - a data:image/png or data:image/svg+xml URI from the in-process engine
-//   - a /generated/*.png path from the self-hosted diffusion generator
-// ph() passes real URLs / paths / data-URIs straight through. Bare ids are NOT
-// expanded to any third-party CDN — images come only from in-house sources
-// (the visual/canvas engine or your self-hosted generator), never Unsplash/etc.
+// Image source. URLs/paths/data-URIs come only from the pluggable image provider
+// (lib/engine/image-provider.ts) — wire your own image generator in there. ph()
+// passes real values straight through; anything empty/unknown becomes a
+// transparent pixel so the neutral CSS placeholder shows (never a 3rd-party CDN).
 function ph(idOrUri: string, _w: number, _h: number): string {
-  if (!idOrUri) return '';
+  if (!idOrUri) return TRANSPARENT_PX; // empty slot → transparent pixel + CSS bg
   if (/^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
-  return ''; // unknown bare token → no image rather than a third-party fetch
+  return TRANSPARENT_PX; // unknown bare token → no third-party fetch
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -229,7 +235,7 @@ html{scroll-behavior:smooth}
 body{font-family:var(--body-font);background:var(--bg);color:var(--text);line-height:var(--leading-body);-webkit-font-smoothing:antialiased;overflow-x:hidden;font-size:var(--body-size)}
 h1,h2,h3,h4,.display{font-family:var(--display);line-height:var(--leading-heading);letter-spacing:var(--tracking-heading);font-weight:var(--weight-heading);text-transform:${headingCase}}
 a{color:inherit;text-decoration:none}
-img{max-width:100%;display:block;object-fit:cover}
+img{max-width:100%;display:block;object-fit:cover;background:linear-gradient(135deg,var(--surf),var(--bg))}
 .wrap{max-width:var(--container);margin:0 auto;padding:0 var(--gutter)}
 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 section{padding:var(--pad) 0}
@@ -548,20 +554,17 @@ function normalizeIndustry(raw: string): string {
 // always match the website. Returns self-contained data:image/svg+xml URIs.
 // ─────────────────────────────────────────────────────────────────
 
-// Map a slot index to a visual ROLE so heroes/galleries/features each get an
-// appropriately-composed visual while staying coherent with the brand.
-const SLOT_ROLES: VisualRole[] = ['hero', 'split', 'feature', 'gallery', 'product', 'gallery', 'feature', 'split', 'cta', 'gallery', 'product', 'feature'];
-
-// Pre-generated REAL images from the self-hosted image generator, injected by
-// renderMultiPageSite. Safe as module state because the render is fully
-// synchronous (no awaits), so no two renders interleave between set and clear.
+// Images provided by the pluggable image provider (lib/engine/image-provider.ts),
+// injected by renderMultiPageSite. Safe as module state because the render is
+// fully synchronous (no awaits), so no two renders interleave between set/clear.
 let INJECTED_IMAGES: string[] | null = null;
 
-function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
+function getPhotos(_puo: PromptUnderstandingObject, fp: number): string[] {
   const NEED = 12;
 
-  // 1) In-house images produced by the async pipeline (self-hosted diffusion
-  //    generator or the in-process visual engine), injected by renderMultiPageSite.
+  // Distribute the provider's images across the slots. If the provider returned
+  // nothing, every slot is an empty string → ph() emits a transparent pixel and
+  // the neutral CSS placeholder shows through.
   if (INJECTED_IMAGES && INJECTED_IMAGES.length > 0) {
     const src = INJECTED_IMAGES;
     const out: string[] = [];
@@ -569,37 +572,17 @@ function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
     for (let i = 0; i < NEED; i++) out.push(src[(start + i) % src.length]);
     return out;
   }
-
-  // 2) No injection (direct/sync render): synthesize unique branded visuals with
-  //    the in-process generative engine. No third-party image sources are used.
-  const cp = puo.visual.colorPalette;
-  const palette: VisualPalette = {
-    primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
-    background: cp.background, surface: cp.surface, text: cp.text, muted: cp.muted,
-  };
-  const base = {
-    palette, mood: puo.visualMood as string, style: puo.designStyle as string,
-    niche: normalizeIndustry(puo.inferredIndustry.toLowerCase()),
-    rawNiche: puo.inferredIndustry.toLowerCase(),
-    keywords: getContentWords(puo),
-  };
-  const out: string[] = [];
-  for (let i = 0; i < NEED; i++) {
-    const role = SLOT_ROLES[i % SLOT_ROLES.length];
-    const seed = (Math.abs(fp) ^ (i * 0x9E3779B1)) >>> 0;
-    out.push(generateVisualDataUri({ ...base, seed, role }));
-  }
-  return out;
+  return new Array(NEED).fill('');
 }
 
-// Per-product image: synthesize a visual keyed to the SPECIFIC item name so each
-// menu/product card shows a DIFFERENT, on-subject picture (espresso ≠ iced coffee
-// ≠ pastry) instead of recycling the same hero photo across every card.
+// Per-product image: pick a DISTINCT image from the provider's set keyed to the
+// SPECIFIC item name, so each menu/product card shows a different picture instead
+// of recycling the hero. With no provider images, returns '' → neutral CSS block.
 function productPhoto(puo: PromptUnderstandingObject, name: string, fp: number, i: number): string {
-  const seed = (Math.abs(fp) ^ hashStr(name.toLowerCase()) ^ ((i + 1) * 0x9E3779B1)) >>> 0;
-  // Instant in-house placeholder keyed to this product name, queued for a
-  // background real-photo upgrade when the diffusion server is running.
-  return productImage(puo, name, seed);
+  const photos = getPhotos(puo, fp).filter(Boolean);
+  if (photos.length === 0) return '';
+  const idx = (Math.abs(fp) ^ hashStr(name.toLowerCase()) ^ ((i + 1) * 0x9E3779B1)) % photos.length;
+  return photos[idx];
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2062,29 +2045,6 @@ ${base ? `<base href="${esc(base)}">` : ''}
 <style>${css}</style></head>`;
 }
 
-// Background real-photo swap: /generated/* images start as instant in-house
-// placeholders and are upgraded to real diffusion photos on the server. This
-// reloads them (cache-busted, preloaded so they never blank) for ~2 minutes so
-// the finished photos appear automatically — no manual refresh needed.
-const IMG_SWAP_JS = `
-  (function(){
-    if(!document.querySelector('img[src*="/generated/"]'))return;
-    var tries=0,MAX=12;
-    function tick(){
-      tries++;
-      document.querySelectorAll('img[src*="/generated/"]').forEach(function(img){
-        var base=img.getAttribute('data-gsrc')||img.src.split('?')[0];
-        img.setAttribute('data-gsrc',base);
-        var url=base+'?v='+Date.now();
-        var pre=new Image();
-        pre.onload=function(){img.src=url;};
-        pre.src=url;
-      });
-      if(tries<MAX)setTimeout(tick,10000);
-    }
-    setTimeout(tick,8000);
-  })();`;
-
 const PAGE_JS = `<script>
 (function(){
   // Scroll-triggered header
@@ -2099,7 +2059,6 @@ const PAGE_JS = `<script>
     entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');}});
   },{threshold:0.12,rootMargin:'0px 0px -60px 0px'});
   document.querySelectorAll('.reveal').forEach(function(el){observer.observe(el);});
-  ${IMG_SWAP_JS}
 })();
 </script>`;
 
@@ -3376,7 +3335,6 @@ const SPA_ROUTER_JS = `<script>
   document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el);});
   var initial=norm(location.hash)||'home';
   if(initial!=='home'){ show(initial); } else { setActive('home'); }
-  ${IMG_SWAP_JS}
 })();
 </script>`;
 
