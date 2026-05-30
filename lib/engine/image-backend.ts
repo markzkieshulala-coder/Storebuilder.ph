@@ -38,6 +38,14 @@ const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
 const IMAGE_GEN_DISABLED = process.env.IMAGE_GEN_ENABLED === '0' || process.env.IMAGE_GEN_ENABLED === 'false';
 // Per-image generation budget (ms). Keeps the whole request within API maxDuration.
 const PER_IMAGE_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS || 25000);
+// Overall wall-clock budget for the ENTIRE image phase (ms). Once exceeded we stop
+// calling the diffusion server and finish the remaining slots with the instant
+// in-process visual engine, so generation never hangs (e.g. on a slow CPU box).
+const TOTAL_IMAGE_BUDGET = Number(process.env.IMAGE_GEN_TOTAL_MS || 90000);
+// If the diffusion server misses (times out / errors) this many times in a row we
+// give up on it for the rest of the site — a slow or unresponsive server should
+// cost at most a couple of timeouts, not one per slot.
+const MAX_GEN_FAILURES = Number(process.env.IMAGE_GEN_MAX_FAILURES || 2);
 // How many DISTINCT images to surface per site (assigned across sections).
 const DISTINCT_IMAGES = Number(process.env.IMAGE_GEN_COUNT || 12);
 
@@ -142,7 +150,9 @@ async function generatorAvailable(): Promise<boolean> {
  */
 export async function generateSiteImages(puo: PromptUnderstandingObject, fp: number): Promise<string[]> {
   const results: string[] = [];
-  const useGenerator = await generatorAvailable();
+  let useGenerator = await generatorAvailable();
+  const startedAt = Date.now();
+  let consecutiveFailures = 0;
 
   for (let i = 0; i < DISTINCT_IMAGES; i++) {
     const role = SLOT_ROLES[i % SLOT_ROLES.length];
@@ -150,15 +160,32 @@ export async function generateSiteImages(puo: PromptUnderstandingObject, fp: num
     // never collide, so no two sites and no two sections share a visual.
     const seed = (Math.abs(fp) ^ ((i + 1) * 0x9e3779b1)) >>> 0;
 
+    // Stop using the diffusion server if we've blown the overall time budget —
+    // the rest of the slots fall back to the instant visual engine so the whole
+    // request always completes promptly. (Cache hits below are still allowed.)
+    if (useGenerator && Date.now() - startedAt > TOTAL_IMAGE_BUDGET) {
+      useGenerator = false;
+    }
+
     // 1) Self-hosted diffusion generator (photoreal, niche-matched) when live.
     if (useGenerator) {
       try {
         const spec = buildImagePrompt(puo, role, i);
         const key = hashSpec(spec);
+        // Cached PNGs are free regardless of budget/failures — always use them.
         if (await fileExists(path.join(CACHE_DIR, `${key}.png`))) { results.push(`${PUBLIC_PREFIX}/${key}.png`); continue; }
         const b64 = await callLocalGenerator(spec);
-        if (b64) { results.push(await persist(b64, key)); continue; }
-      } catch { /* fall through to the in-process engine */ }
+        if (b64) {
+          consecutiveFailures = 0;
+          results.push(await persist(b64, key));
+          continue;
+        }
+        // Miss (timeout/error). After a few in a row, give up on the server so a
+        // slow/unresponsive box costs a couple of timeouts, not one per slot.
+        if (++consecutiveFailures >= MAX_GEN_FAILURES) useGenerator = false;
+      } catch {
+        if (++consecutiveFailures >= MAX_GEN_FAILURES) useGenerator = false;
+      }
     }
 
     // 2) In-process generative visual engine — always available, always unique.
