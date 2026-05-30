@@ -156,15 +156,22 @@ function resolveScene(puo: PromptUnderstandingObject): Scene {
  * Build a precise, niche-matched image prompt for one section/slot.
  * Deterministic: same (prompt, role, index) always yields the same spec.
  */
-export function buildImagePrompt(puo: PromptUnderstandingObject, role: ImageRole, index: number): ImagePromptSpec {
+export function buildImagePrompt(puo: PromptUnderstandingObject, role: ImageRole, index: number, subject?: string): ImagePromptSpec {
   const scene = resolveScene(puo);
   const grade = MOOD_GRADE[puo.visualMood] || MOOD_GRADE.neutral;
   const treatment = STYLE_TREATMENT[puo.designStyle] || STYLE_TREATMENT.minimal;
   const framing = ROLE_FRAMING[role] || ROLE_FRAMING.gallery;
 
+  // When a concrete subject is supplied (e.g. a product/feature name like
+  // "Single Origin Espresso"), anchor the photo on it while keeping the niche
+  // setting/details so the model still renders an on-topic, photoreal scene.
+  const focal = subject && subject.trim()
+    ? `a professional photograph of ${subject.trim()}, ${scene.subject}`
+    : scene.subject;
+
   // Compose the positive prompt: subject + setting + framing + grade + treatment + quality
   const prompt = [
-    scene.subject,
+    focal,
     scene.setting,
     scene.details,
     framing.framing,
@@ -173,7 +180,7 @@ export function buildImagePrompt(puo: PromptUnderstandingObject, role: ImageRole
     BASE_QUALITY,
   ].join(', ');
 
-  const seed = fnv(`${puo.originalPrompt}|${role}|${index}`) % 2_147_483_647;
+  const seed = fnv(`${puo.originalPrompt}|${role}|${index}|${subject || ''}`) % 2_147_483_647;
 
   return {
     prompt,

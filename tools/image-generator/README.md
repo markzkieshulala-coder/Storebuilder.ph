@@ -24,6 +24,18 @@ prompt → understanding (PUO) ─► image-agent.ts  ─► precise photo promp
 If this service is **not running**, the engine automatically falls back to the
 in-process canvas/SVG visual engine, so site generation never breaks.
 
+### Instant sites + background photo upgrade (great for CPU-only machines)
+
+Site generation **never waits** for the diffusion model. Every image slot is
+filled immediately with an in-house placeholder (the canvas/visual engine) at a
+stable URL like `/generated/<hash>.png`, and the page is returned at once. Then,
+**in the background**, the engine generates the real photo for each slot and
+overwrites that same file in place (an atomic write plus a `<hash>.real` marker).
+The generated page includes a small script that reloads the `/generated/*` images
+for ~2 minutes, so the **real photos swap in automatically** as they finish — no
+manual refresh, and no waiting on a slow CPU. Already-finished photos are reused
+instantly on later generations.
+
 ## Run it (one command)
 
 **macOS / Linux:**
@@ -102,18 +114,24 @@ Add to `.env.local`:
 ```
 IMAGE_GEN_ENABLED=1
 IMAGE_GEN_URL=http://127.0.0.1:7860
-# Optional tuning:
-# IMAGE_GEN_COUNT=6          # distinct images per site
-# IMAGE_GEN_STEPS=6          # diffusion steps (SDXL-Turbo: 1-6)
-# IMAGE_GEN_CFG=2            # guidance scale
-# IMAGE_GEN_TIMEOUT_MS=25000 # per-image budget
+# Optional tuning (defaults are tuned for fast turbo models):
+# IMAGE_GEN_COUNT=12          # distinct site-level images per site
+# IMAGE_GEN_STEPS=4           # diffusion steps (turbo: 1-4 is plenty)
+# IMAGE_GEN_CFG=1             # guidance scale (turbo wants ~1)
+# IMAGE_GEN_TIMEOUT_MS=120000 # per-image budget for the BACKGROUND pass
 # MODEL_ID=stabilityai/sdxl-turbo   # any diffusers text2img model
 ```
+
+Because images are upgraded in the background, the per-image timeout is generous
+(it no longer blocks the page). On a slow CPU you can lower `IMAGE_GEN_STEPS` to
+`1`–`2` and use `MODEL_ID=stabilityai/sd-turbo` for the quickest real photos.
 
 ## Hardware
 
 - **NVIDIA GPU (CUDA)** or **Apple Silicon (MPS)**: fast (sub-second to a few seconds per image with SDXL-Turbo).
-- **CPU only**: works but slow (tens of seconds per image) — keep `IMAGE_GEN_COUNT` low or pre-warm the cache.
+- **CPU only**: works but slow (tens of seconds per image). Sites still generate
+  **instantly** thanks to the background upgrade above — real photos just fill in
+  over the following minute or two. Lower `IMAGE_GEN_STEPS` for quicker results.
 
 ## Notes
 

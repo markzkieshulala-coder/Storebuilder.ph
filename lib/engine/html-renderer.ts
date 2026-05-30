@@ -19,6 +19,7 @@ import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
 import { generateVisualDataUri, hashStr } from './visual-engine';
 import type { VisualPalette, VisualRole } from './visual-engine';
+import { productImage } from './image-backend';
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -595,23 +596,10 @@ function getPhotos(puo: PromptUnderstandingObject, fp: number): string[] {
 // menu/product card shows a DIFFERENT, on-subject picture (espresso ≠ iced coffee
 // ≠ pastry) instead of recycling the same hero photo across every card.
 function productPhoto(puo: PromptUnderstandingObject, name: string, fp: number, i: number): string {
-  const cp = puo.visual.colorPalette;
-  const palette: VisualPalette = {
-    primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
-    background: cp.background, surface: cp.surface, text: cp.text, muted: cp.muted,
-  };
   const seed = (Math.abs(fp) ^ hashStr(name.toLowerCase()) ^ ((i + 1) * 0x9E3779B1)) >>> 0;
-  return generateVisualDataUri({
-    palette,
-    mood: puo.visualMood as string,
-    style: puo.designStyle as string,
-    niche: normalizeIndustry(puo.inferredIndustry.toLowerCase()),
-    rawNiche: puo.inferredIndustry.toLowerCase(),
-    keywords: getContentWords(puo),
-    seed,
-    role: 'product',
-    subject: name,
-  });
+  // Instant in-house placeholder keyed to this product name, queued for a
+  // background real-photo upgrade when the diffusion server is running.
+  return productImage(puo, name, seed);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2074,6 +2062,29 @@ ${base ? `<base href="${esc(base)}">` : ''}
 <style>${css}</style></head>`;
 }
 
+// Background real-photo swap: /generated/* images start as instant in-house
+// placeholders and are upgraded to real diffusion photos on the server. This
+// reloads them (cache-busted, preloaded so they never blank) for ~2 minutes so
+// the finished photos appear automatically — no manual refresh needed.
+const IMG_SWAP_JS = `
+  (function(){
+    if(!document.querySelector('img[src*="/generated/"]'))return;
+    var tries=0,MAX=12;
+    function tick(){
+      tries++;
+      document.querySelectorAll('img[src*="/generated/"]').forEach(function(img){
+        var base=img.getAttribute('data-gsrc')||img.src.split('?')[0];
+        img.setAttribute('data-gsrc',base);
+        var url=base+'?v='+Date.now();
+        var pre=new Image();
+        pre.onload=function(){img.src=url;};
+        pre.src=url;
+      });
+      if(tries<MAX)setTimeout(tick,10000);
+    }
+    setTimeout(tick,8000);
+  })();`;
+
 const PAGE_JS = `<script>
 (function(){
   // Scroll-triggered header
@@ -2088,6 +2099,7 @@ const PAGE_JS = `<script>
     entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');}});
   },{threshold:0.12,rootMargin:'0px 0px -60px 0px'});
   document.querySelectorAll('.reveal').forEach(function(el){observer.observe(el);});
+  ${IMG_SWAP_JS}
 })();
 </script>`;
 
@@ -3364,6 +3376,7 @@ const SPA_ROUTER_JS = `<script>
   document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el);});
   var initial=norm(location.hash)||'home';
   if(initial!=='home'){ show(initial); } else { setActive('home'); }
+  ${IMG_SWAP_JS}
 })();
 </script>`;
 

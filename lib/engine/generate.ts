@@ -1,6 +1,6 @@
 import { createOrchestrator } from './bootstrap';
 import { renderMultiPageSite, detectNiche } from './html-renderer';
-import { generateSiteImages } from './image-backend';
+import { generateSiteImages, startBackgroundImageUpgrade } from './image-backend';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';
@@ -70,6 +70,12 @@ export async function generateWebsite(
   }
 
   const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, images);
+
+  // Upgrade every placeholder to a real diffusion photo in the BACKGROUND (after
+  // this response is sent). On CPU-only machines this keeps generation instant;
+  // the photos swap in at their stable /generated URLs as each one finishes.
+  startBackgroundImageUpgrade();
+
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   return {

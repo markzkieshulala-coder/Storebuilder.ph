@@ -1291,10 +1291,12 @@ export function toDataUri(svg: string): string {
 }
 
 export function generateVisualDataUri(spec: VisualSpec): string {
-  // Use canvas-based PNG renderer for coffee/food niches — more photorealistic
-  const canvasNiches = new Set(['coffee', 'food', 'ramen', 'bakery', 'restaurant', 'wellness']);
-  const niche = spec.niche || spec.rawNiche || '';
-  if (canvasNiches.has(niche)) {
+  // Use canvas-based PNG renderer for coffee/food niches — more photorealistic.
+  // Substring match so both normalized ("coffee") and raw ("coffee shop") niche
+  // strings route to the PNG path (PNG output is what enables the bg photo swap).
+  const canvasNiches = ['coffee', 'food', 'ramen', 'bakery', 'restaurant', 'wellness'];
+  const niche = `${spec.niche || ''} ${spec.rawNiche || ''}`.toLowerCase();
+  if (canvasNiches.some(n => niche.includes(n))) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { generateCanvasDataUri } = require('./canvas-engine');

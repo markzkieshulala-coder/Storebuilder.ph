@@ -23,45 +23,25 @@
 // engine transparently uses the in-process visual engine.
 // ---------------------------------------------------------------------------
 
-import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
-import path from 'path';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import { buildImagePrompt } from './image-agent';
 import type { ImageRole, ImagePromptSpec } from './image-agent';
 import { generateVisualDataUri } from './visual-engine';
 import type { VisualPalette } from './visual-engine';
+import { registerImage, flushImageUpgrades } from './image-cache';
 
 const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
 // The self-hosted generator is probed automatically. Set IMAGE_GEN_ENABLED=0 to
 // skip it entirely and always use the in-process visual engine.
 const IMAGE_GEN_DISABLED = process.env.IMAGE_GEN_ENABLED === '0' || process.env.IMAGE_GEN_ENABLED === 'false';
-// Per-image generation budget (ms). Keeps the whole request within API maxDuration.
-const PER_IMAGE_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS || 25000);
-// Overall wall-clock budget for the ENTIRE image phase (ms). Once exceeded we stop
-// calling the diffusion server and finish the remaining slots with the instant
-// in-process visual engine, so generation never hangs (e.g. on a slow CPU box).
-const TOTAL_IMAGE_BUDGET = Number(process.env.IMAGE_GEN_TOTAL_MS || 90000);
-// If the diffusion server misses (times out / errors) this many times in a row we
-// give up on it for the rest of the site — a slow or unresponsive server should
-// cost at most a couple of timeouts, not one per slot.
-const MAX_GEN_FAILURES = Number(process.env.IMAGE_GEN_MAX_FAILURES || 2);
-// How many DISTINCT images to surface per site (assigned across sections).
+// Per-image generation budget (ms) for the BACKGROUND upgrade pass. Generous, as
+// it no longer blocks the page response — the user already has their site.
+const PER_IMAGE_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS || 120000);
+// How many DISTINCT site-level images to surface (assigned across sections).
 const DISTINCT_IMAGES = Number(process.env.IMAGE_GEN_COUNT || 12);
-
-const CACHE_DIR = path.join(process.cwd(), 'public', 'generated');
-const PUBLIC_PREFIX = '/generated';
 
 // Slot → role mapping (mirrors the renderer's section ordering).
 const SLOT_ROLES: ImageRole[] = ['hero', 'split', 'feature', 'gallery', 'product', 'cta'];
-
-function hashSpec(spec: ImagePromptSpec): string {
-  return createHash('sha1').update(`${spec.prompt}|${spec.negative}|${spec.seed}|${spec.width}x${spec.height}`).digest('hex').slice(0, 24);
-}
-
-async function fileExists(p: string): Promise<boolean> {
-  try { await fs.access(p); return true; } catch { return false; }
-}
 
 /**
  * Call the local AUTOMATIC1111-compatible generator. Returns a base64 PNG
@@ -80,8 +60,8 @@ async function callLocalGenerator(spec: ImagePromptSpec): Promise<string | null>
         seed: spec.seed,
         width: spec.width,
         height: spec.height,
-        steps: Number(process.env.IMAGE_GEN_STEPS || 6),   // SDXL-Turbo style: few steps
-        cfg_scale: Number(process.env.IMAGE_GEN_CFG || 2),
+        steps: Number(process.env.IMAGE_GEN_STEPS || 4),   // turbo models: few steps
+        cfg_scale: Number(process.env.IMAGE_GEN_CFG || 1),
         sampler_name: process.env.IMAGE_GEN_SAMPLER || 'Euler a',
       }),
       signal: ctrl.signal,
@@ -97,16 +77,8 @@ async function callLocalGenerator(spec: ImagePromptSpec): Promise<string | null>
   }
 }
 
-/** Save a base64 PNG to the public cache and return its public URL. */
-async function persist(b64: string, key: string): Promise<string> {
-  await fs.mkdir(CACHE_DIR, { recursive: true });
-  const file = path.join(CACHE_DIR, `${key}.png`);
-  await fs.writeFile(file, Buffer.from(b64, 'base64'));
-  return `${PUBLIC_PREFIX}/${key}.png`;
-}
-
 // In-process generative visual engine — the guaranteed, always-unique source.
-function visualEngine(puo: PromptUnderstandingObject, role: ImageRole, seed: number): string {
+function visualEngine(puo: PromptUnderstandingObject, role: ImageRole, seed: number, subject?: string): string {
   const cp = puo.visual.colorPalette;
   const palette: VisualPalette = {
     primary: cp.primary, secondary: cp.secondary, accent: cp.accent,
@@ -121,12 +93,13 @@ function visualEngine(puo: PromptUnderstandingObject, role: ImageRole, seed: num
     keywords: puo.extractedKeywords.map(k => k.toLowerCase()),
     seed,
     role,
+    subject,
   });
 }
 
 /**
- * Quick liveness probe for the self-hosted generator so we don't pay the full
- * per-image timeout on every slot when it isn't running.
+ * Quick liveness probe for the self-hosted generator so the background pass can
+ * skip work entirely when the diffusion server isn't running.
  */
 async function generatorAvailable(): Promise<boolean> {
   if (IMAGE_GEN_DISABLED) return false;
@@ -143,16 +116,14 @@ async function generatorAvailable(): Promise<boolean> {
 }
 
 /**
- * Produce the full image set for a site. Every image is generated in-house:
- * the self-hosted diffusion generator when it's running, otherwise the
- * in-process visual engine. No third-party image sources are ever contacted.
- * Always returns a usable array — never throws, never repeats.
+ * Produce the full site-level image set. Returns INSTANTLY: every slot gets an
+ * in-house placeholder (the generative visual engine) written to the public
+ * cache, and — when the self-hosted diffusion server is running — is queued for
+ * a background real-photo upgrade (see startBackgroundImageUpgrade). Never
+ * throws, never repeats, never contacts a third-party source.
  */
 export async function generateSiteImages(puo: PromptUnderstandingObject, fp: number): Promise<string[]> {
   const results: string[] = [];
-  let useGenerator = await generatorAvailable();
-  const startedAt = Date.now();
-  let consecutiveFailures = 0;
 
   for (let i = 0; i < DISTINCT_IMAGES; i++) {
     const role = SLOT_ROLES[i % SLOT_ROLES.length];
@@ -160,39 +131,40 @@ export async function generateSiteImages(puo: PromptUnderstandingObject, fp: num
     // never collide, so no two sites and no two sections share a visual.
     const seed = (Math.abs(fp) ^ ((i + 1) * 0x9e3779b1)) >>> 0;
 
-    // Stop using the diffusion server if we've blown the overall time budget —
-    // the rest of the slots fall back to the instant visual engine so the whole
-    // request always completes promptly. (Cache hits below are still allowed.)
-    if (useGenerator && Date.now() - startedAt > TOTAL_IMAGE_BUDGET) {
-      useGenerator = false;
-    }
-
-    // 1) Self-hosted diffusion generator (photoreal, niche-matched) when live.
-    if (useGenerator) {
-      try {
-        const spec = buildImagePrompt(puo, role, i);
-        const key = hashSpec(spec);
-        // Cached PNGs are free regardless of budget/failures — always use them.
-        if (await fileExists(path.join(CACHE_DIR, `${key}.png`))) { results.push(`${PUBLIC_PREFIX}/${key}.png`); continue; }
-        const b64 = await callLocalGenerator(spec);
-        if (b64) {
-          consecutiveFailures = 0;
-          results.push(await persist(b64, key));
-          continue;
-        }
-        // Miss (timeout/error). After a few in a row, give up on the server so a
-        // slow/unresponsive box costs a couple of timeouts, not one per slot.
-        if (++consecutiveFailures >= MAX_GEN_FAILURES) useGenerator = false;
-      } catch {
-        if (++consecutiveFailures >= MAX_GEN_FAILURES) useGenerator = false;
-      }
-    }
-
-    // 2) In-process generative visual engine — always available, always unique.
-    results.push(visualEngine(puo, role, seed));
+    const visual = visualEngine(puo, role, seed);
+    // The SD spec to upgrade this slot to a real photo (used by the bg pass).
+    const spec = buildImagePrompt(puo, role, i);
+    // registerImage writes the instant placeholder + queues the upgrade; for
+    // non-PNG visuals it just returns the inline data uri (no swap).
+    results.push(registerImage(visual, spec));
   }
 
   return results;
+}
+
+/**
+ * Generate an in-house product/feature image keyed to a specific NAME (e.g.
+ * "Single Origin Espresso"). Returns instantly with a placeholder and queues the
+ * real-photo upgrade. Called from the synchronous renderer.
+ */
+export function productImage(puo: PromptUnderstandingObject, name: string, seed: number): string {
+  const visual = visualEngine(puo, 'product', seed, name);
+  const spec = buildImagePrompt(puo, 'product', seed, name);
+  return registerImage(visual, spec);
+}
+
+/**
+ * Fire-and-forget the background real-photo upgrade. Call AFTER the site HTML
+ * has been produced. If the diffusion server isn't running this is a no-op
+ * (placeholders remain). Safe to call on every generation; never throws.
+ */
+export function startBackgroundImageUpgrade(): void {
+  void (async () => {
+    try {
+      if (!(await generatorAvailable())) return;
+      await flushImageUpgrades(callLocalGenerator);
+    } catch { /* background best-effort */ }
+  })();
 }
 
 export { DISTINCT_IMAGES };
