@@ -9,6 +9,8 @@ const nextConfig = {
         "three",
         "@react-three/fiber",
         "@react-three/drei",
+        // Native .node binary — webpack cannot bundle it; Node loads it at runtime
+        "@napi-rs/canvas",
       ];
     }
     return config;
