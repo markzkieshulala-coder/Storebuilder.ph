@@ -4,13 +4,14 @@
 // Reads the user's prompt the way a human would and pulls out the copy they
 // EXPLICITLY asked for — the hero headline they quoted, the exact button labels
 // they named, an explicit tagline, and the sections they listed. This runs with
-// NO network and NO API key, so the engine honors the user's own words whether
-// or not the optional LLM understanding pass is enabled.
+// NO network and NO API key.
 //
-// The result is folded into the same `customAttributes.llm` channel the renderer
-// already consumes (see html-renderer `applyLlmCopy`), so explicit prompt copy
-// overrides the deterministic copy banks. When the LLM pass also runs, its
-// richer output refines these values further.
+// This is a sub-module of the in-house NLU engine (lib/engine/nlu): the NLU calls
+// extractPromptCopy() to capture the user's exact words, then layers its
+// niche-aware synthesis underneath. The result reaches the renderer through the
+// `customAttributes.llm` channel (see html-renderer `applyLlmCopy`), so explicit
+// prompt copy always overrides the deterministic copy banks. No external AI is
+// involved at any point.
 // ---------------------------------------------------------------------------
 
 import type { PromptUnderstandingObject } from './prompt-engine';

@@ -1751,14 +1751,15 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     hiddenSecondaryCtaLabel: hiddenCfg.secondary.ctaLabel,
   };
 
-  // LLM-authored, prompt-specific content (set by the understanding layer when
-  // ANTHROPIC_API_KEY is configured) takes precedence over the deterministic
-  // banks, so the built site reflects exactly what the user described.
+  // Prompt-specific content produced by the in-house NLU engine takes precedence
+  // over the deterministic banks, so the built site reflects exactly what the
+  // user described. (Channel name kept as `llm` for renderer compatibility.)
   return applyLlmCopy(copy, puo);
 }
 
-// Overlay any LLM-extracted copy (hero, tagline, about, named products, faqs)
-// from customAttributes.llm onto the deterministic SiteCopy. Each field is
+// Overlay the in-house NLU's prompt-specific copy (hero, tagline, about, named
+// products, faqs) from customAttributes.llm onto the deterministic SiteCopy.
+// Each field is
 // applied only when present and non-empty; everything else is left untouched.
 function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy {
   const llm = (puo.customAttributes as { llm?: {

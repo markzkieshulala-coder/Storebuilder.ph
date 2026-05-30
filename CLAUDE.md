@@ -25,22 +25,37 @@ external API is required to build a site.
 - Generated sites are served via iframe through `app/sites/[subdomain]` and
   `app/preview/[id]`.
 
-### Unified LLM understanding (optional, key-gated)
+### In-house NLU understanding (zero external AI, one process)
+Prompt comprehension is 100% in-house and runs in the SAME process as the
+generator — there is NO external AI of any kind (no Claude, OpenAI, Google/Gemini,
+or Ollama) and NO network call anywhere in the understand→generate path.
+
 `lib/engine/understanding.ts` → `buildUnderstanding(prompt)` is the single source
-of truth for prompt comprehension, called by BOTH `/api/analyze` and
-`/api/generate`. It always produces a deterministic `PromptUnderstandingObject`
-(PUO) via `parsePrompt`. When `ANTHROPIC_API_KEY` is set, it additionally runs a
-single Claude pass (`lib/engine/llm-understanding.ts`) that reads the WHOLE
-prompt — precise sub-niche, named products/dishes, explicit hero copy, requested
-sections, brand voice, color cues — and folds the result back into the PUO
-(`mergeLlmIntoPuo`): it refines `inferredIndustry`/`extractedKeywords`/mood/style/
-tone/palette and stashes prompt-specific copy under `customAttributes.llm`, which
-`html-renderer.ts` (`applyLlmCopy`) overlays onto the deterministic copy banks.
-The Anthropic SDK is loaded via dynamic `import()` and the call has graceful
-timeout/error fallback, so with no key (or offline) the engine behaves exactly as
-the deterministic parser and `next build` stays green. Model is configurable via
-`LLM_MODEL` (default `claude-opus-4-8`). The LLM only sharpens understanding —
-the rendering engine remains deterministic and in-process.
+of truth, called by BOTH `/api/analyze` and `/api/generate`, so the concept the
+user previews and the site that gets built come from identical logic. It runs a
+unified pipeline:
+
+1. **In-house NLU** (`lib/engine/nlu/`) — `understandPrompt(prompt)` reads the
+   WHOLE prompt with rule + lexicon logic: it detects the precise (sub-)niche,
+   the brand name, the colours the user named, the hero headline and button
+   labels they wrote (via the `prompt-copy` sub-module), the products/services
+   they listed, and the sections they requested — then synthesises any on-brand
+   copy the prompt left implicit from the niche profile lexicon
+   (`lib/engine/nlu/lexicon.ts`). It suppresses its own niche defaults for any
+   design dimension the user spoke to explicitly, so explicit words always win.
+2. **Deterministic parser** (`lib/engine/prompt-engine`) — fed the NLU's niche as
+   an override plus the salient keywords, it computes the full design-token set
+   (palette, typography, layout, motion); explicit design words in the prompt
+   still win here too.
+3. **Fold** (`lib/engine/nlu/fold.ts`) — `foldNluIntoPuo` layers the NLU's rich,
+   prompt-specific content onto the PUO's `customAttributes.llm` channel (the name
+   is retained for renderer compatibility), which `html-renderer.ts`
+   (`applyLlmCopy`) overlays onto the deterministic copy banks. It also fills any
+   design dimension the parser left at its generic fallback (e.g. for niches the
+   parser carries no defaults for) and applies explicit/niche colours.
+
+The whole path is synchronous, in-process, and dependency-free, so `next build`
+stays green offline.
 
 ### In-house image engine (no third-party sources)
 Images are produced entirely in-house — NO Unsplash, Pexels, stock APIs, or
@@ -53,9 +68,9 @@ is seeded per (prompt-fingerprint × slot) so every image is unique — two
 same-niche sites never share a visual and no image repeats within a site. Set
 `IMAGE_GEN_ENABLED=0` to force the visual engine only.
 
-The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site
-requires no external LLM; `@anthropic-ai/sdk` is an OPTIONAL enhancement used only
-for the prompt-understanding pass when `ANTHROPIC_API_KEY` is configured.
+The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site —
+including understanding the prompt — requires no external LLM, no API key, and no
+network. There is no Anthropic/OpenAI/Google SDK in the dependency tree.
 
 ### Scope note
 The uploaded engine archive also contains ~250 auxiliary "rich" modules
