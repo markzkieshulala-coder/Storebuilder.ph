@@ -10,7 +10,11 @@
 #   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 # or launch with:  powershell -ExecutionPolicy Bypass -File .\run.ps1
 
-$ErrorActionPreference = "Stop"
+# NOTE: we deliberately do NOT use $ErrorActionPreference = "Stop". Native tools
+# like python/pip routinely write to stderr (tracebacks for a missing module,
+# pip notices), and "Stop" turns any stderr write into a terminating error that
+# aborts the script mid-setup. We check $LASTEXITCODE explicitly instead.
+$ErrorActionPreference = "Continue"
 Set-Location -Path $PSScriptRoot
 
 $Port = if ($env:PORT) { $env:PORT } else { "7860" }
@@ -64,16 +68,28 @@ if (-not (Test-Path $VenvPy)) {
 $HasCuda = $false
 if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) { $HasCuda = $true }
 
-# 3) install torch (only if missing)
-& $VenvPy -c "import torch" 2>$null
+# 3) install torch (only if missing). The import probe is EXPECTED to fail the
+# first time (torch absent) — merge stderr into stdout so the traceback does not
+# look like a PowerShell error, and decide purely on the exit code.
+& $VenvPy -c "import torch" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
   Write-Host "[run] installing PyTorch (this can take a few minutes)..."
-  & $VenvPy -m pip install --upgrade pip --quiet
-  & $VenvPy -m pip install torch --quiet
+  & $VenvPy -m pip install --upgrade pip
+  & $VenvPy -m pip install torch
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "[run] PyTorch install failed. See the pip output above." -ForegroundColor Red
+    Write-Host "      Most common cause: a Python version torch has no wheel for." -ForegroundColor Yellow
+    Write-Host "      Use Python 3.13 (you can check with: $Py --version)." -ForegroundColor Yellow
+    exit 1
+  }
 }
 
 Write-Host "[run] installing diffusers stack..."
-& $VenvPy -m pip install diffusers transformers accelerate safetensors fastapi "uvicorn[standard]" pydantic pillow --quiet
+& $VenvPy -m pip install diffusers transformers accelerate safetensors fastapi "uvicorn[standard]" pydantic pillow
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "[run] dependency install failed. See the pip output above." -ForegroundColor Red
+  exit 1
+}
 
 # 4) pick a model unless the user set MODEL_ID
 if (-not $env:MODEL_ID) {
