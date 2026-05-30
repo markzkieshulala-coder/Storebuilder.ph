@@ -15,15 +15,35 @@ Set-Location -Path $PSScriptRoot
 
 $Port = if ($env:PORT) { $env:PORT } else { "7860" }
 
-# Find a Python launcher
+function Show-PythonHelp {
+  Write-Host ""
+  Write-Host "  Could not find a REAL Python install." -ForegroundColor Red
+  Write-Host "  (The Windows 'python' you have is just a Microsoft Store stub.)" -ForegroundColor Red
+  Write-Host ""
+  Write-Host "  Fix it in 2 steps:" -ForegroundColor Yellow
+  Write-Host "    1. Install Python 3.10+ from https://www.python.org/downloads/"
+  Write-Host "       -> on the FIRST installer screen, TICK 'Add python.exe to PATH'."
+  Write-Host "    2. Close and reopen this terminal, then run .\run.ps1 again."
+  Write-Host ""
+  Write-Host "  If it still says 'not found', disable the stub:" -ForegroundColor Yellow
+  Write-Host "    Settings > Apps > Advanced app settings > App execution aliases"
+  Write-Host "    -> turn OFF python.exe and python3.exe."
+  Write-Host ""
+}
+
+# Find a REAL Python (the Microsoft Store stub answers `python` but is not real:
+# it prints 'Python was not found' and exits non-zero, so we verify --version).
 $Py = $null
-foreach ($cand in @("python", "py", "python3")) {
-  if (Get-Command $cand -ErrorAction SilentlyContinue) { $Py = $cand; break }
+foreach ($cand in @("py", "python", "python3")) {
+  if (-not (Get-Command $cand -ErrorAction SilentlyContinue)) { continue }
+  $ver = (& $cand --version 2>&1 | Out-String).Trim()
+  if ($LASTEXITCODE -eq 0 -and $ver -match "Python\s+3\.") { $Py = $cand; break }
 }
 if (-not $Py) {
-  Write-Error "Python not found. Install Python 3.10+ from https://www.python.org/downloads/ (check 'Add to PATH')."
+  Show-PythonHelp
   exit 1
 }
+Write-Host "[run] using $Py ($((& $Py --version 2>&1 | Out-String).Trim()))"
 
 # 1) venv
 if (-not (Test-Path ".venv")) {
@@ -31,6 +51,14 @@ if (-not (Test-Path ".venv")) {
   & $Py -m venv .venv
 }
 $VenvPy = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+
+# Verify the venv interpreter actually exists (it won't if Python was a stub).
+if (-not (Test-Path $VenvPy)) {
+  Write-Host "[run] virtualenv was not created correctly (removing partial .venv)." -ForegroundColor Red
+  if (Test-Path ".venv") { Remove-Item -Recurse -Force ".venv" }
+  Show-PythonHelp
+  exit 1
+}
 
 # 2) detect hardware
 $HasCuda = $false
