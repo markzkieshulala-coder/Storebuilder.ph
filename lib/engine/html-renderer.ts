@@ -26,21 +26,56 @@ function hashStr(s: string): number {
   return h >>> 0;
 }
 
-// Gradient pair sets — picked by slot index so each placeholder looks distinct
-// even when the same W×H is repeated (hero vs gallery vs product cards).
-const PH_STOPS = [
-  ['#2a2a42','#1a1a2e'],['#1e2d3d','#0f1923'],['#2d2040','#1a0f2a'],
-  ['#1a2e2a','#0f1e1a'],['#2e2010','#1e1408'],['#2a1a2e','#180f20'],
-];
+// Placeholder theme — set per-render from the resolved palette (setPlaceholderTheme)
+// so empty image slots are BRAND-tinted and clearly intentional, not flat dark
+// voids. Defaults are a tasteful neutral until a render sets the real palette.
+let _phPrimary = '#6366f1';
+let _phAccent = '#22d3ee';
+let _phBg = '#0a0a0c';
+let _phDark = true;
 
-// Return a visible SVG gradient placeholder — never a transparent pixel, never a
-// third-party URL. Each W×H pair gets its own properly-sized SVG so object-fit:cover
-// scales it correctly, and the gradient pair is varied by slot to avoid repetition.
+function setPlaceholderTheme(primary: string, accent: string, bg: string, dark: boolean): void {
+  if (primary) _phPrimary = primary;
+  if (accent) _phAccent = accent;
+  if (bg) _phBg = bg;
+  _phDark = dark;
+}
+
+// Return a visible, branded SVG placeholder — never a transparent pixel, never a
+// third-party URL. Each W×H pair gets a properly-sized SVG (so object-fit:cover
+// scales it), tinted with the brand primary→accent over the page background, with
+// a soft radial glow and a faint centered image glyph so the slot reads as
+// intentional art while real photos are unavailable. Varied per slot by index.
 let _phIdx = 0;
 function ph(idOrUri: string, w: number, h: number): string {
   if (idOrUri && /^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
-  const [c1, c2] = PH_STOPS[(_phIdx++) % PH_STOPS.length];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#p)"/></svg>`;
+  const i = _phIdx++;
+  // Alternate gradient direction/emphasis per slot so repeated sizes differ.
+  const flip = i % 2 === 1;
+  const [x1, y1, x2, y2] = flip ? [1, 0, 0, 1] : [0, 0, 1, 1];
+  const glow = i % 3 === 0 ? _phAccent : _phPrimary;
+  const glyphStroke = _phDark ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.18)';
+  const gx = w / 2;
+  const gy = h / 2;
+  const r = Math.min(w, h) * 0.16;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+    `<defs>` +
+    `<linearGradient id="g" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">` +
+    `<stop offset="0%" stop-color="${_phPrimary}"/>` +
+    `<stop offset="55%" stop-color="${_phBg}"/>` +
+    `<stop offset="100%" stop-color="${_phAccent}"/></linearGradient>` +
+    `<radialGradient id="r" cx="${flip ? 0.7 : 0.3}" cy="0.32" r="0.75">` +
+    `<stop offset="0%" stop-color="${glow}" stop-opacity="0.45"/>` +
+    `<stop offset="100%" stop-color="${glow}" stop-opacity="0"/></radialGradient></defs>` +
+    `<rect width="${w}" height="${h}" fill="url(#g)"/>` +
+    `<rect width="${w}" height="${h}" fill="url(#r)"/>` +
+    // Faint centered "image" glyph (frame + sun + mountain) so the slot reads as a photo placeholder.
+    `<g fill="none" stroke="${glyphStroke}" stroke-width="${Math.max(2, r * 0.06)}" stroke-linejoin="round">` +
+    `<rect x="${gx - r}" y="${gy - r * 0.75}" width="${r * 2}" height="${r * 1.5}" rx="${r * 0.12}"/>` +
+    `<circle cx="${gx - r * 0.45}" cy="${gy - r * 0.2}" r="${r * 0.18}"/>` +
+    `<path d="M${gx - r} ${gy + r * 0.55} L${gx - r * 0.2} ${gy - r * 0.05} L${gx + r * 0.25} ${gy + r * 0.3} L${gx + r} ${gy - r * 0.25}"/>` +
+    `</g></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -77,6 +112,70 @@ function rotate<T>(arr: T[], by: number): T[] {
   if (arr.length === 0) return arr;
   const n = ((by % arr.length) + arr.length) % arr.length;
   return arr.slice(n).concat(arr.slice(0, n));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// COLOR / CONTRAST GUARD
+// The single most important correctness layer for legibility: no matter what
+// palette the parser produced or what brand/background colors the NLU folded in,
+// text must contrast its background. (The #1 bug: a light-theme palette whose
+// `text` stayed dark after the NLU overrode `background` to a dark brand color —
+// producing dark-on-dark headings everywhere except the hero, which had an inline
+// #fff hack.) These helpers derive readable text/muted/accent values from the
+// ACTUAL background luminance, so every render is legible by construction.
+// ─────────────────────────────────────────────────────────────────
+
+type RGB = [number, number, number];
+
+function hexToRgb(hex: string): RGB | null {
+  if (typeof hex !== 'string') return null;
+  let h = hex.trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(h)) h = h.split('').map((c) => c + c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex([r, g, b]: RGB): string {
+  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+
+// WCAG relative luminance (0 = black, 1 = white).
+function relLuminance([r, g, b]: RGB): number {
+  const ch = [r, g, b].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+function contrastRatio(a: RGB, b: RGB): number {
+  const la = relLuminance(a);
+  const lb = relLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+function mix(a: RGB, b: RGB, t: number): RGB {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+// Mix `fg` toward white or black (whichever opposes the background) by the
+// smallest amount that reaches `targetRatio` against `bg`. Preserves hue when a
+// little nudge suffices; falls back to near-white / near-black when needed.
+function ensureContrast(fg: RGB, bg: RGB, targetRatio: number): RGB {
+  if (contrastRatio(fg, bg) >= targetRatio) return fg;
+  const pole: RGB = relLuminance(bg) < 0.5 ? [255, 255, 255] : [10, 10, 12];
+  let best = fg;
+  for (let t = 0.1; t <= 1.0001; t += 0.1) {
+    best = mix(fg, pole, t);
+    if (contrastRatio(best, bg) >= targetRatio) break;
+  }
+  return best;
+}
+
+function isDarkBg(hex: string): boolean {
+  const rgb = hexToRgb(hex);
+  return rgb ? relLuminance(rgb) < 0.42 : false;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -207,21 +306,45 @@ function buildCSSFromPUO(puo: PromptUnderstandingObject, font: FontConfig): stri
   const br = puo.visual.borderRadius;
   const sh = puo.visual.shadows;
   const an = puo.motion;
-  const isDark = ['dark','dramatic','contrast'].includes(puo.visualMood);
+
+  // Derive theme + readable colors from the ACTUAL background, not the mood flag.
+  // This guarantees legibility even when the NLU folded a brand background color
+  // into a palette whose text/muted were tuned for the opposite theme.
+  const bgRgb = hexToRgb(cp.background) ?? [10, 10, 12];
+  const isDark = isDarkBg(cp.background);
+  // Body text: aim for a strong ratio (≥ 8) → effectively near-white on dark,
+  // near-black on light. Falls back to the palette's own text if it already passes.
+  const textRgb = ensureContrast(hexToRgb(cp.text) ?? (isDark ? [245, 245, 247] : [17, 17, 19]), bgRgb, 8);
+  // Muted/secondary text: dimmer but still readable (ratio ≥ 4.5, WCAG AA body).
+  const mutedRgb = ensureContrast(hexToRgb(cp.muted) ?? mix(textRgb, bgRgb, 0.45), bgRgb, 4.5);
+  // Primary, when used AS TEXT (eyebrows, links, list bullets, icons), must be
+  // legible too. Gradients/buttons keep the raw cp.primary via --grad below.
+  const primaryRgb = ensureContrast(hexToRgb(cp.primary) ?? [99, 102, 241], bgRgb, 3.2);
+  const secondaryRgb = ensureContrast(hexToRgb(cp.secondary) ?? primaryRgb, bgRgb, 3.2);
+  const textColor = rgbToHex(textRgb);
+  const mutedColor = rgbToHex(mutedRgb);
+  const primaryColor = rgbToHex(primaryRgb);
+  // Gradient used for TEXT clipping (.grad headings, stat numbers) must contrast
+  // the background; the raw cp gradient (--grad) stays for button/badge fills.
+  const gradText = `linear-gradient(135deg,${primaryColor},${rgbToHex(secondaryRgb)})`;
 
   const headingCase = ['brutalist','cinematic','industrial'].includes(puo.designStyle) ? 'uppercase' : 'none';
   const headingTracking = puo.designStyle === 'luxury' || puo.designStyle === 'editorial' ? '-0.02em' : puo.designStyle === 'brutalist' ? '0.04em' : '-0.015em';
   const btnShape = br.style === 'sharp' ? '0' : br.style === 'pill' ? '9999px' : br.md;
-  const borderColor = isDark ? 'rgba(255,255,255,.12)' : cp.border;
+  const borderColor = isDark ? 'rgba(255,255,255,.14)' : cp.border;
+
+  // Make image-slot placeholders brand-aware and visibly intentional (not the
+  // old flat dark voids). See ph() / setPlaceholderTheme().
+  setPlaceholderTheme(cp.primary, cp.accent || cp.secondary, cp.background, isDark);
 
   return `
 :root{
-  --bg:${cp.background};--surf:${cp.surface};--text:${cp.text};--muted:${cp.muted};
-  --bdr:${borderColor};--primary:${cp.primary};--secondary:${cp.secondary};--accent:${cp.accent};
+  --bg:${cp.background};--surf:${cp.surface};--text:${textColor};--muted:${mutedColor};
+  --bdr:${borderColor};--primary:${primaryColor};--secondary:${cp.secondary};--accent:${cp.accent};
   --display:${font.display};--body-font:${font.body};
   --radius:${br.md};--radius-lg:${br.lg};--radius-sm:${br.sm};
   --shadow:${sh.md};--shadow-lg:${sh.lg};--shadow-sm:${sh.sm};
-  --grad:linear-gradient(135deg,${cp.primary},${cp.secondary});
+  --grad:linear-gradient(135deg,${cp.primary},${cp.secondary});--grad-text:${gradText};
   --pad:${sp.section};--container:${sp.container};--gutter:${sp.gutter};--gap:${sp.gridGap};
   /* Premium responsive display scale — big, confident headlines that scale with the
      viewport instead of a fixed 4rem. This is the single biggest driver of an
@@ -241,7 +364,7 @@ h1,h2,h3,h4,.display{font-family:var(--display);line-height:var(--leading-headin
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block;object-fit:cover;background:linear-gradient(135deg,var(--surf),var(--bg))}
 .wrap{max-width:var(--container);margin:0 auto;padding:0 var(--gutter)}
-.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.grad{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent}
 section{padding:var(--pad) 0}
 
 /* BUTTONS */
@@ -322,7 +445,7 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 .strip-section{padding:clamp(28px,3.5vw,48px) 0;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr)}
 .stat-row{display:flex;justify-content:space-around;flex-wrap:wrap;gap:24px 16px}
 .stat-item{text-align:center}
-.stat-number{font-family:var(--display);font-size:clamp(1.8rem,3.5vw,3rem);font-weight:var(--weight-heading);background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
+.stat-number{font-family:var(--display);font-size:clamp(1.8rem,3.5vw,3rem);font-weight:var(--weight-heading);background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
 .stat-label{font-size:var(--caption-size);color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.06em}
 
 /* MARQUEE STRIP */
