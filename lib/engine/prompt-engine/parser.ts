@@ -510,9 +510,25 @@ function generateColorPalette(
   mood: VisualMood,
   style: DesignStyle,
   personality: WebsitePersonality,
-  entities: ExtractedEntity[]
+  entities: ExtractedEntity[],
+  seed = 0
 ): ColorPalette {
   const extractedColors = entities.filter((e) => e.type === "color" || e.type === "hex_color").map((e) => e.value);
+
+  // When the user named NO colour, give this specific prompt its own colour
+  // identity within the mood family: a bounded, deterministic hue rotation +
+  // subtle sat/light nudge of the accent (and a re-derived secondary). This is
+  // what stops two same-niche sites from sharing the exact same palette. If the
+  // user DID name a colour, applyExtractedColors overrides it below, so explicit
+  // intent always wins.
+  const varyPalette = (p: ColorPalette): ColorPalette => {
+    if (extractedColors.length > 0 || !seed) return p;
+    const hueDeg = ((seed % 71) - 35) + ((seed >> 7) % 13) - 6;   // ~ -41°..+41°
+    const satMul = 0.88 + ((seed >> 11) % 28) / 100;              // 0.88..1.15
+    const lightAdd = (((seed >> 5) % 11) - 5) / 100;              // -0.05..+0.05
+    const accent = adjustColor(p.accent, hueDeg, satMul, lightAdd);
+    return { ...p, accent, secondary: adjustColor(accent, -14, 0.95, -0.06) };
+  };
 
   const palettes: Record<string, ColorPalette> = {
     // Dark moods
@@ -637,20 +653,20 @@ function generateColorPalette(
   let key = `${mood}-${style}`;
   if (palettes[key]) {
     const p = palettes[key];
-    return applyExtractedColors({ ...p, derived: { ...p.derived } }, extractedColors);
+    return applyExtractedColors(varyPalette({ ...p, derived: { ...p.derived } }), extractedColors);
   }
 
   // Style-specific fallback within the same mood family
   key = `${mood}-minimal`;
   if (palettes[key]) {
     const p = palettes[key];
-    return applyExtractedColors({ ...p, derived: { ...p.derived } }, extractedColors);
+    return applyExtractedColors(varyPalette({ ...p, derived: { ...p.derived } }), extractedColors);
   }
 
   // Mood-based synthesis — guarantees the palette honours the requested mood
   // instead of silently collapsing to a light theme.
   const synthesized = synthesizePaletteForMood(mood, style);
-  return applyExtractedColors(synthesized, extractedColors);
+  return applyExtractedColors(varyPalette(synthesized), extractedColors);
 }
 
 // Anchor palette per visual mood. Used whenever no exact mood-style combo exists,
@@ -704,6 +720,44 @@ function shadeHex(hex: string, amt: number): string {
   const t = amt < 0 ? 0 : 255, p = Math.abs(amt);
   r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
   return "#" + [r, g, b].map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0")).join("");
+}
+
+// ── HSL helpers for prompt-seeded palette variation ───────────────────────────
+// Used to give each prompt its OWN colour identity within a mood family, so two
+// same-niche sites don't share the exact same accent. Pure, deterministic.
+function hexToHsl(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let hh = 0; const l = (max + min) / 2; const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === r) hh = ((g - b) / d) % 6;
+    else if (max === g) hh = (b - r) / d + 2;
+    else hh = (r - g) / d + 4;
+    hh *= 60; if (hh < 0) hh += 360;
+  }
+  return [hh, s, l];
+}
+function hslToHex(hh: number, s: number, l: number): string {
+  hh = ((hh % 360) + 360) % 360; s = Math.max(0, Math.min(1, s)); l = Math.max(0, Math.min(1, l));
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((hh / 60) % 2) - 1)), m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (hh < 60) [r, g, b] = [c, x, 0]; else if (hh < 120) [r, g, b] = [x, c, 0];
+  else if (hh < 180) [r, g, b] = [0, c, x]; else if (hh < 240) [r, g, b] = [0, x, c];
+  else if (hh < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+  return "#" + [r, g, b].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, "0")).join("");
+}
+// Rotate hue + nudge saturation/lightness, preserving the colour's character.
+function adjustColor(hex: string, hueDeg: number, satMul: number, lightAdd: number): string {
+  const [h, s, l] = hexToHsl(hex);
+  return hslToHex(h + hueDeg, s * satMul, l + lightAdd);
+}
+function paletteSeedFor(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
 }
 
 // Honour explicitly-named colours as the DOMINANT brand colour (primary +
@@ -1512,7 +1566,7 @@ export function parsePrompt(
     }
 
     // 7. Generate derived configurations
-    const colorPalette = generateColorPalette(visualMood, designStyle, websitePersonality, paletteEntities);
+    const colorPalette = generateColorPalette(visualMood, designStyle, websitePersonality, paletteEntities, paletteSeedFor(prompt));
     const typography = generateTypography(designStyle, websitePersonality, visualDensity);
     const spacing = generateSpacing(designStyle, visualDensity);
     const borderRadius = generateBorderRadius(designStyle);

@@ -269,8 +269,11 @@ export interface DiversityEngineConfig {
 
 export const DEFAULT_CONFIG: DiversityEngineConfig = {
   historySize: 100,
-  similarityThreshold: 0.75,
-  maxMutationIterations: 3,
+  // Tightened from 0.75 → 0.62 so near-duplicate skeletons (e.g. two same-niche
+  // prompts whose sections are merely reshuffled) are flagged and mutated instead
+  // of slipping through as "diverse enough".
+  similarityThreshold: 0.62,
+  maxMutationIterations: 4,
   autoMutate: true,
 
   dimensionWeights: {
@@ -285,21 +288,21 @@ export const DEFAULT_CONFIG: DiversityEngineConfig = {
   },
 
   dimensionThresholds: {
-    layout: 0.75,
-    visualHierarchy: 0.80,
-    typography: 0.85,
-    spacing: 0.80,
-    composition: 0.75,
-    structure: 0.80,
-    pageRhythm: 0.90,
-    componentArrangement: 0.90,
+    layout: 0.62,
+    visualHierarchy: 0.72,
+    typography: 0.80,
+    spacing: 0.72,
+    composition: 0.65,
+    structure: 0.68,
+    pageRhythm: 0.85,
+    componentArrangement: 0.85,
   },
 
   severityThresholds: {
-    minor: 0.70,
-    moderate: 0.80,
-    major: 0.90,
-    extreme: 0.95,
+    minor: 0.62,
+    moderate: 0.74,
+    major: 0.85,
+    extreme: 0.93,
   },
 
   strategyWeights: {},

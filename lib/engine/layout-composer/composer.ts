@@ -806,36 +806,68 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
     nodes.push(createStripNode(seed, 0, "trust"));
   }
 
-  // ── 3. CONTENT SEQUENCE ── (procedurally assembled)
+  // ── 3. CONTENT SEQUENCE ── (assembled from a PROMPT-WEIGHTED bag, so two
+  //    prompts — even in the same niche — get materially different section
+  //    compositions, not the same fixed 7 types reshuffled.)
   const contentNodes: LayoutNode[] = [];
-  const nodeTypePool: Array<(s: CompositionSeed, i: number, r: string) => LayoutNode> = [
-    (s, i, r) => createClusterNode(s, i, r),
-    (s, i, r) => createStageNode(s, i, r),
-    (s, i, r) => createSplitNode(s, i, r),
-    (s, i, r) => createGalleryNode(s, i, r),
-    (s, i, r) => createTileNode(s, i, r),
-    (s, i, r) => createFrameNode(s, i, r),
-    (s, i, r) => createListNode(s, i, r),
-  ];
+  type NodeFactory = (s: CompositionSeed, i: number, r: string) => LayoutNode;
+  const factories: Record<string, NodeFactory> = {
+    cluster: (s, i, r) => createClusterNode(s, i, r),
+    stage:   (s, i, r) => createStageNode(s, i, r),
+    split:   (s, i, r) => createSplitNode(s, i, r),
+    gallery: (s, i, r) => createGalleryNode(s, i, r),
+    tile:    (s, i, r) => createTileNode(s, i, r),
+    frame:   (s, i, r) => createFrameNode(s, i, r),
+    list:    (s, i, r) => createListNode(s, i, r),
+  };
+  const typeKeys = Object.keys(factories);
 
-  // Determine how many content sections based on complexity
-  const contentCountMap = { simple: 2, moderate: 3, complex: 5, rich: 7 };
-  const targetContent = contentCountMap[complexity] ?? 3;
+  // Per-section affinity by design style + layout direction. Visual niches lean
+  // on gallery/stage/frame; product niches on gallery/tile; app/SaaS on
+  // cluster/list. A per-pick rng jitter keeps every bag prompt-specific.
+  const style = p.designStyle || "";
+  const dir = p.layoutDirection || "";
+  const visualStyle = /editorial|artistic|cinematic|luxury|minimal/.test(style);
+  const productDir = /e-commerce|showcase|portfolio/.test(dir);
+  const appDir = /saas|application|dashboard|landing|lead-gen/.test(dir);
+  const baseWeights: Record<string, number> = {
+    cluster: appDir ? 1.6 : 1.0,
+    stage:   visualStyle ? 1.3 : 0.9,
+    split:   1.1,
+    gallery: productDir || visualStyle ? 1.7 : 0.8,
+    tile:    productDir ? 1.6 : 1.0,
+    frame:   visualStyle ? 1.3 : 0.9,
+    list:    appDir ? 1.4 : 1.0,
+  };
 
-  // Add variety: shuffle the order of node types
-  const shuffledPool = shuffle(rng, [...nodeTypePool]);
+  // How many content sections — a PROMPT-SEEDED value inside the complexity band,
+  // not one fixed number per niche, so section COUNT also varies prompt-to-prompt.
+  const contentRange: Record<string, [number, number]> = {
+    simple: [2, 3], moderate: [3, 5], complex: [5, 7], rich: [6, 9],
+  };
+  const [loCount, hiCount] = contentRange[complexity] ?? [3, 5];
+  const targetContent = loCount + Math.floor(rng() * (hiCount - loCount + 1));
 
+  // Weighted picking with per-use decay + no immediate repeats: varied yet able to
+  // feature a favored type twice (with a different variant) when the bag warrants.
+  const liveWeights: Record<string, number> = { ...baseWeights };
+  let lastKey = "";
   for (let i = 0; i < targetContent; i++) {
-    const nodeFactory = shuffledPool[i % shuffledPool.length];
-    const node = nodeFactory(seed, i, `content-${i}`);
+    const opts = typeKeys
+      .filter((k) => k !== lastKey)
+      .map((k) => ({ value: k, weight: Math.max(0.05, liveWeights[k] * (0.85 + rng() * 0.3)) }));
+    const key = weightedPick(rng, opts);
+    liveWeights[key] *= 0.45; // decay so the sequence keeps moving across types
+    lastKey = key;
+    const node = factories[key](seed, i, `content-${i}`);
 
-    // Some nodes may be nested (children)
+    // Some nodes may be nested (children) — child types drawn freely from the bag.
     if (rng() < nestingProbability) {
       const childCount = Math.floor(rng() * 2) + 1;
       node.children = [];
       for (let j = 0; j < childCount; j++) {
-        const childFactory = shuffledPool[(i + j + 1) % shuffledPool.length];
-        const child = childFactory(seed, j, `nested-${i}-${j}`);
+        const childKey = pick(rng, typeKeys);
+        const child = factories[childKey](seed, j, `nested-${i}-${j}`);
         child.span = "inset";
         child.depth = "elevated";
         node.children.push(child);
