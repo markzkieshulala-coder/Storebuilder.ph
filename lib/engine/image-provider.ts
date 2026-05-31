@@ -25,10 +25,10 @@ const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
 // Set IMAGE_GEN_ENABLED=0 to skip generation entirely and render neutral placeholders.
 const IMAGE_GEN_DISABLED = process.env.IMAGE_GEN_ENABLED === '0' || process.env.IMAGE_GEN_ENABLED === 'false';
 // How many distinct images to generate per site (engine caps at 8).
-const IMAGE_COUNT = Math.min(8, Math.max(1, Number(process.env.IMAGE_GEN_COUNT || 6)));
-// Total wall-clock budget for the whole image phase. On a slow CPU, exceeding
-// this falls back to placeholders rather than blocking the page.
-const TOTAL_BUDGET_MS = Number(process.env.IMAGE_ENGINE_TIMEOUT_MS || 180000);
+const IMAGE_COUNT = Math.min(8, Math.max(1, Number(process.env.IMAGE_GEN_COUNT || 4)));
+// Total wall-clock budget for the whole image phase. Defaults to 60s; raise via
+// IMAGE_ENGINE_TIMEOUT_MS if your SD server is slow (CPU machines need more time).
+const TOTAL_BUDGET_MS = Number(process.env.IMAGE_ENGINE_TIMEOUT_MS || 60000);
 
 const PUBLIC_DIR = path.join(process.cwd(), 'public');
 
@@ -77,7 +77,7 @@ export async function generateSiteImages(
     brand: brandFromPuo(puo, brandName),
     assetCount: IMAGE_COUNT,
     outputDir: path.join(PUBLIC_DIR, 'generated'),
-    modelPreset: (process.env.IMAGE_GEN_PRESET as 'balanced' | 'premium' | 'fast') || 'premium',
+    modelPreset: (process.env.IMAGE_GEN_PRESET as 'balanced' | 'premium' | 'fast') || 'fast',
     backend: { type: 'automatic1111', apiUrl: IMAGE_GEN_URL },
   };
   if (brandName) request.siteName = brandName;

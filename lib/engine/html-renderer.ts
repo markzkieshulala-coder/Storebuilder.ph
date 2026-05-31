@@ -26,9 +26,23 @@ function hashStr(s: string): number {
   return h >>> 0;
 }
 
-// 1x1 transparent PNG — used when a slot has no image so the <img> never shows a
-// broken-image icon; the neutral gradient behind it (CSS) shows through instead.
-const TRANSPARENT_PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+// Gradient pair sets — picked by slot index so each placeholder looks distinct
+// even when the same W×H is repeated (hero vs gallery vs product cards).
+const PH_STOPS = [
+  ['#2a2a42','#1a1a2e'],['#1e2d3d','#0f1923'],['#2d2040','#1a0f2a'],
+  ['#1a2e2a','#0f1e1a'],['#2e2010','#1e1408'],['#2a1a2e','#180f20'],
+];
+
+// Return a visible SVG gradient placeholder — never a transparent pixel, never a
+// third-party URL. Each W×H pair gets its own properly-sized SVG so object-fit:cover
+// scales it correctly, and the gradient pair is varied by slot to avoid repetition.
+let _phIdx = 0;
+function ph(idOrUri: string, w: number, h: number): string {
+  if (idOrUri && /^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
+  const [c1, c2] = PH_STOPS[(_phIdx++) % PH_STOPS.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#p)"/></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
 
 // Backward-compat re-exports
 export type Niche = 'sports'|'restaurant'|'portfolio'|'ecommerce'|'saas'|'agency'|'business';
@@ -63,16 +77,6 @@ function rotate<T>(arr: T[], by: number): T[] {
   if (arr.length === 0) return arr;
   const n = ((by % arr.length) + arr.length) % arr.length;
   return arr.slice(n).concat(arr.slice(0, n));
-}
-
-// Image source. URLs/paths/data-URIs come only from the pluggable image provider
-// (lib/engine/image-provider.ts) — wire your own image generator in there. ph()
-// passes real values straight through; anything empty/unknown becomes a
-// transparent pixel so the neutral CSS placeholder shows (never a 3rd-party CDN).
-function ph(idOrUri: string, _w: number, _h: number): string {
-  if (!idOrUri) return TRANSPARENT_PX; // empty slot → transparent pixel + CSS bg
-  if (/^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
-  return TRANSPARENT_PX; // unknown bare token → no third-party fetch
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -3377,6 +3381,7 @@ export function renderMultiPageSite(
   // Inject the real generated photos (if any) for the duration of this fully
   // synchronous render. Cleared in finally so nothing leaks to the next render.
   INJECTED_IMAGES = images && images.length ? images : null;
+  _phIdx = 0; // reset placeholder color cycle so renders are deterministic
   try {
     return renderMultiPageSiteInner(context, brand, subdomain, base, year, prompt, understanding);
   } finally {
