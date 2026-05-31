@@ -174,8 +174,9 @@ export function extractPromptCopy(prompt: string): ExtractedPromptCopy | null {
       .split(/\s*,\s*|\s+and\s+|\s*&\s*|\s*\/\s*/i)
       .map((s) => s.replace(/^(?:a|an|our|the|including|like|such as|for|and|plus|also)\s+/i, '').trim())
       .filter(Boolean);
-  // a) "sections (for|like|including|:) A, B, and C"
-  const listMatch = text.match(/\b(?:sections?|pages?)\s+(?:for|like|including|such as|that\s+(?:include|cover)|:|of)\s+([^.!?\n]+)/i);
+  // a) "sections (for|like|including|:) A, B, and C"  — the cue/colon may follow
+  //    the word with no space ("Sections: a, b, c").
+  const listMatch = text.match(/\b(?:sections?|pages?)\b\s*(?:[:=]|for|like|including|such as|that\s+(?:include|cover)|of)\s+([^.!?\n]+)/i);
   if (listMatch) splitSecList(listMatch[1]).forEach(addSection);
   // b) Individual "X section" (e.g. "an About section, a Pricing section").
   const reSec = /\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\s+section\b/g;

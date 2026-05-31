@@ -593,6 +593,10 @@ form label{font-size:.88rem;font-weight:500;margin-bottom:3px;display:block;colo
 form input,form textarea,form select{width:100%;padding:11px 15px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--radius);color:var(--text);font-family:var(--body-font);font-size:var(--body-size);transition:border-color .2s,box-shadow .2s}
 form input:focus,form textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 15%,transparent)}
 form textarea{min-height:130px;resize:vertical}
+/* Newsletter signup — inline email + button, centered under the heading */
+.newsletter-form{display:flex;flex-direction:row;gap:10px;max-width:460px;margin:22px auto 0;flex-wrap:wrap;justify-content:center}
+.newsletter-form input{flex:1;min-width:220px}
+.newsletter-form .btn{flex-shrink:0}
 
 /* PRICING */
 .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
@@ -2295,6 +2299,8 @@ interface RenderCtx {
   // Shared cursor across every section that renders feature cards, so repeated
   // feature sections (cluster/tile/frame) never show identical cards + headings.
   featSeg: number;
+  // The resolved brand name, for sections that name the business directly.
+  brandName: string;
 }
 
 // Returns distinct feature cards + heading/eyebrow for the Nth feature-bearing
@@ -2648,6 +2654,170 @@ function renderFoldSection(): string {
   return `<div style="height:clamp(32px,4vw,56px)"></div>`;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// ON-DEMAND SECTIONS — rendered when the user explicitly LISTS a section the
+// default page doesn't already include (e.g. "newsletter signup", "our team").
+// These mirror the styling of the built-in sections so an injected section is
+// indistinguishable from a composed one.
+// ─────────────────────────────────────────────────────────────────
+
+function renderNewsletterSection(ctx: RenderCtx): string {
+  const { copy, brandName } = ctx;
+  return `
+<section class="newsletter-section signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <span class="eyebrow">Stay in the Loop</span>
+      <h2 class="reveal">Join the ${esc(brandName)} List</h2>
+      <p class="reveal">${esc(copy.ctaSub || 'Be the first to hear about new arrivals, stories, and members-only offers.')}</p>
+      <form class="newsletter-form reveal" onsubmit="return false">
+        <input type="email" placeholder="you@example.com" aria-label="Email address" required/>
+        <button type="submit" class="btn btn-primary">${esc(copy.primaryCta && copy.primaryCta.length <= 16 ? copy.primaryCta : 'Subscribe')}</button>
+      </form>
+    </div>
+  </div>
+</section>`;
+}
+
+function renderTeamSection(ctx: RenderCtx): string {
+  const { photos, fp, brandName } = ctx;
+  const brand = brandName || 'our studio';
+  // Role-titled cards (never "Team Member 1") so an injected team section reads
+  // like real staff. Roles adapt loosely to the niche register.
+  const roles = ['Founder & Director', 'Creative Lead', 'Head of Operations', 'Client Success'];
+  const cards = roles.map((role, i) => `
+    <div class="card reveal reveal-delay-${i % 3}" style="text-align:center">
+      <img src="${ph(photos[(fp + i + 5) % Math.max(1, photos.length)] || '', 480, 480)}" alt="${esc(role)} at ${esc(brand)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius);margin-bottom:14px"/>
+      <h3 style="font-size:var(--h3-size)">${esc(role)}</h3>
+      <p style="font-size:var(--small-size);color:var(--muted)">${esc(brand)}</p>
+    </div>`).join('');
+  return `
+<section>
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">Our Team</span><h2>The People Behind ${esc(brand)}</h2></div>
+    <div class="g4">${cards}</div>
+  </div>
+</section>`;
+}
+
+function renderContactBandSection(ctx: RenderCtx): string {
+  const { copy } = ctx;
+  return `
+<section class="signal-section">
+  <div class="wrap">
+    <div class="signal-inner">
+      <span class="eyebrow">Get in Touch</span>
+      <h2 class="reveal">${esc(copy.contactHeading)}</h2>
+      <p class="reveal">${esc(copy.contactSub)}</p>
+      <div class="signal-ctas reveal">
+        <a href="contact" class="btn btn-primary">${esc(copy.primaryCta)}</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+// Map a free-text section name the user listed → a canonical injectable kind.
+function canonicalSectionKind(raw: string): string | null {
+  const s = String(raw || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  const table: Array<[RegExp, string]> = [
+    [/news\s*letter|subscribe|sign\s*up|signup|mailing list|email list/, 'newsletter'],
+    [/testimonial|review|what (people|clients|customers) say/, 'testimonials'],
+    [/faq|frequently asked|questions/, 'faq'],
+    [/stat|metric|number|impact|by the numbers/, 'stats'],
+    [/team|staff|coaches|trainers|people|crew|founders?/, 'team'],
+    [/pricing|plans|packages|membership|tiers?|rates/, 'pricing'],
+    [/menu|products?|shop|store|catalog|collection|lookbook|new arrivals/, 'products'],
+    [/gallery|portfolio|showcase|work|photos|moments/, 'gallery'],
+    [/about|story|heritage|journey|mission|values|who we are/, 'story'],
+    [/feature|benefit|why (us|choose)|what we (offer|do)|services|offerings|how it works|class(es)?|programs?|courses?|lessons?|sessions?|workouts?|treatments?/, 'features'],
+    [/contact|get in touch|reach us|location|find us|visit/, 'contact'],
+    [/cta|call to action/, 'cta'],
+  ];
+  for (const [re, kind] of table) if (re.test(s)) return kind;
+  return null;
+}
+
+// Detect which canonical kinds a chunk of already-rendered HTML contains, so we
+// only INJECT a requested section when the composed page didn't already cover it.
+function detectPresentKinds(html: string): Set<string> {
+  const present = new Set<string>();
+  const add = (re: RegExp, kind: string) => { if (re.test(html)) present.add(kind); };
+  add(/newsletter-section/, 'newsletter');
+  add(/testimonial-card/, 'testimonials');
+  add(/faq-list/, 'faq');
+  add(/stat-number/, 'stats');
+  add(/People Behind|Our Team/, 'team');
+  add(/price-grid/, 'pricing');
+  add(/product-grid|product-card/, 'products');
+  add(/gallery-grid/, 'gallery');
+  add(/split-section/, 'story');
+  add(/card-icon/, 'features');
+  add(/Get in Touch|contact-detail|<form/, 'contact');
+  add(/signal-section/, 'cta');
+  return present;
+}
+
+// Render an injected section for a canonical kind, reusing the built-in section
+// renderers so it matches the rest of the page. Guarded by the caller.
+function renderInjectedKind(kind: string, ctx: RenderCtx, counters: Record<string, number>): string {
+  const bump = (t: string) => (counters[t] = (counters[t] || 0) + 1) - 1;
+  switch (kind) {
+    case 'newsletter':   return renderNewsletterSection(ctx);
+    case 'team':         return renderTeamSection(ctx);
+    case 'contact':      return renderContactBandSection(ctx);
+    case 'testimonials': return renderListSection({ type: 'list', variant: 'testimonials' } as LayoutNode, ctx);
+    case 'faq':          return renderListSection({ type: 'list', variant: 'accordion' } as LayoutNode, ctx);
+    case 'stats':        return renderStripSection({ type: 'strip', variant: 'stats-row' } as LayoutNode, ctx);
+    case 'gallery':      return renderGallerySection({ type: 'gallery', variant: 'masonry' } as LayoutNode, ctx);
+    case 'products':     return renderGallerySection({ type: 'gallery', variant: 'uniform' } as LayoutNode, ctx);
+    case 'story':        return renderSplitSection({ type: 'split', variant: 'equal' } as LayoutNode, ctx, bump('split'));
+    case 'features':     return renderClusterSection({ type: 'cluster', variant: 'grid', grid: { columnsDesktop: 3 } } as unknown as LayoutNode, ctx, bump('cluster'));
+    case 'pricing':      return renderPricingSection(ctx);
+    default:             return '';
+  }
+}
+
+// Compact INLINE pricing section (just the tier grid + heading) — distinct from
+// buildPricingMain, which is the full standalone /pricing page. Used when a user
+// lists "pricing" as a section so it sits cleanly inside the home page.
+function renderPricingSection(ctx: RenderCtx): string {
+  const plans = ctx.copy.pricingPlans || genericPricingPlans(ctx.copy);
+  const cards = plans.map((p) => {
+    const feats = p.features.map((f) => `<li><span class="price-check">✓</span> ${esc(f)}</li>`).join('');
+    return `
+    <div class="price-card${p.featured ? ' featured' : ''}">
+      ${p.featured ? '<div class="price-badge">Most Popular</div>' : ''}
+      <div class="price-name">${esc(p.name)}</div>
+      <div class="price-desc">${esc(p.desc)}</div>
+      <div class="price-amount">${esc(p.price)}</div>
+      <div class="price-period">${esc(p.period)}</div>
+      <ul class="price-features">${feats}</ul>
+      <a href="contact" class="btn ${p.featured ? 'btn-primary' : 'btn-outline'}" style="width:100%;justify-content:center">${esc(ctx.copy.primaryCta || 'Choose Plan')}</a>
+    </div>`;
+  }).join('');
+  return `
+<section>
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">Pricing</span><h2>Simple, Transparent Pricing</h2></div>
+    <div class="price-grid reveal">${cards}</div>
+  </div>
+</section>`;
+}
+
+// A clean 3-tier pricing set, synthesised when the user EXPLICITLY asks for a
+// pricing section but the niche carries no authored plans. Generic but polished
+// — a real starting point rather than an empty slot.
+function genericPricingPlans(copy: SiteCopy): NonNullable<SiteCopy['pricingPlans']> {
+  const cta = copy.primaryCta || 'Get Started';
+  return [
+    { name: 'Starter', price: '$29', period: '/mo', desc: 'Everything you need to begin.', features: ['Core features', 'Email support', 'Up to 3 projects', 'Monthly updates'], featured: false },
+    { name: 'Professional', price: '$79', period: '/mo', desc: 'For teams ready to scale.', features: ['Everything in Starter', 'Priority support', 'Unlimited projects', 'Advanced analytics', 'Custom branding'], featured: true },
+    { name: 'Enterprise', price: 'Custom', period: '', desc: 'Tailored to your organisation.', features: ['Everything in Professional', 'Dedicated manager', 'Custom integrations', 'SLA & onboarding', `Talk to us — ${cta}`], featured: false },
+  ];
+}
+
 // Dispatch to the right renderer
 function renderNode(node: LayoutNode, ctx: RenderCtx, counters: Record<string, number>): string {
   const type = node.type;
@@ -2717,7 +2887,7 @@ function buildAboutMain(puo: PromptUnderstandingObject, brand: string, navItems:
     <div class="g4">${teamAvatars}</div>
   </div>
 </section>
-${renderStripSection({ type:'strip', variant:'stats-row' } as LayoutNode, { puo, copy, photos, fp, pageName:'about', navItems, featSeg: 0 })}
+${renderStripSection({ type:'strip', variant:'stats-row' } as LayoutNode, { puo, copy, photos, fp, pageName:'about', navItems, featSeg: 0, brandName: brand })}
 <section class="signal-section">
   <div class="wrap">
     <div class="signal-inner">
@@ -3472,7 +3642,7 @@ function buildHomeMain(
   fp: number
 ): string {
   const photos = getPhotos(puo, fp);
-  const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0 };
+  const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0, brandName: brand };
   const counters: Record<string, number> = {};
 
   // Singleton sections that must render at most once per page. The layout graph
@@ -3499,7 +3669,7 @@ function buildHomeMain(
     return m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase() || null;
   };
 
-  return graph.nodes.map(node => {
+  const rendered = graph.nodes.map(node => {
     const kind = sectionKind(node);
     if (kind) {
       if (seenKinds.has(kind)) return '';
@@ -3512,7 +3682,44 @@ function buildHomeMain(
       seenHeadings.add(h);
     }
     return html;
-  }).filter(Boolean).join('\n');
+  }).filter(Boolean);
+
+  // ── ON-DEMAND SECTION INJECTION ──────────────────────────────────────────
+  // If the user EXPLICITLY listed sections in their prompt, make sure each one
+  // actually appears. We only inject a section the composed page didn't already
+  // cover (e.g. "newsletter signup", "our team"), so the page structure adapts
+  // to the exact request instead of being a fixed template.
+  const requested = ((puo.customAttributes as { llm?: { sections?: unknown } } | undefined)?.llm?.sections);
+  if (Array.isArray(requested) && requested.length) {
+    const present = detectPresentKinds(rendered.join('\n'));
+    const wanted: string[] = [];
+    for (const raw of requested) {
+      const kind = canonicalSectionKind(String(raw));
+      if (kind && kind !== 'cta' && !present.has(kind) && !wanted.includes(kind)) wanted.push(kind);
+    }
+    const injected: string[] = [];
+    for (const kind of wanted) {
+      let html = '';
+      try { html = renderInjectedKind(kind, ctx, counters); } catch { html = ''; }
+      if (!html) continue;
+      const h = headingOf(html);
+      if (h && seenHeadings.has(h)) continue;
+      if (h) seenHeadings.add(h);
+      present.add(kind);
+      injected.push(html);
+    }
+    if (injected.length) {
+      // Slot the new sections in just before the closing CTA (the last
+      // signal-section), so the page still ends on its call-to-action.
+      let insertAt = rendered.length;
+      for (let i = rendered.length - 1; i >= 0; i--) {
+        if (/signal-section/.test(rendered[i])) { insertAt = i; break; }
+      }
+      rendered.splice(insertAt, 0, ...injected);
+    }
+  }
+
+  return rendered.join('\n');
 }
 
 // ─────────────────────────────────────────────────────────────────
