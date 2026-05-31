@@ -412,9 +412,14 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 .hero{position:relative;overflow:hidden;padding-top:72px}
 .hero-inner{padding:clamp(72px,11vw,140px) 0 clamp(56px,8vw,110px)}
 .hero-fullbleed{min-height:100vh;display:flex;align-items:center}
-.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-bg{position:absolute;inset:0;z-index:0;background:linear-gradient(135deg,${cp.primary}cc,${cp.accent||cp.secondary}88,${cp.background})}
 .hero-bg img{width:100%;height:100%;object-fit:cover}
-.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,.6) 60%,var(--bg) 100%)}
+/* Dim real photos so text stays readable, but leave SVG/data-URI placeholders at full brightness */
+.hero-bg img:not([src^="data:"]){filter:brightness(${isDark ? '0.65' : '0.80'});transform:scale(1.03);transition:transform 8s ease-out}
+/* Overlay: heavy for real photos (text must be readable over any photo content),
+   very light for placeholder (the gradient background IS the design) */
+.hero-bg:has(img:not([src^="data:"]))::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,.6) 60%,var(--bg) 100%)}
+.hero-bg:not(:has(img:not([src^="data:"]), img[src=""]))::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,var(--bg) 100%)}
 .hero-content{position:relative;z-index:1}
 .hero-tag{display:inline-flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--primary) 12%,transparent);border:1px solid color-mix(in srgb,var(--primary) 30%,transparent);color:var(--primary);padding:5px 13px;border-radius:9999px;font-size:.82rem;font-weight:600;margin-bottom:20px;text-transform:uppercase;letter-spacing:.06em}
 .hero h1{font-size:var(--hero-size);margin-bottom:20px;max-width:880px}
@@ -603,9 +608,8 @@ header.scrolled{background:rgba(0,0,0,0.72);backdrop-filter:blur(24px);-webkit-b
 .signal-inner{box-shadow:0 8px 40px rgba(0,0,0,.08)}
 `}
 
-/* Cinematic hero depth layer */
+/* Cinematic hero depth layer — only on real photos, not on data: placeholders */
 .hero-fullbleed .hero-bg::before{content:'';position:absolute;inset:0;z-index:1;background:radial-gradient(ellipse at 25% 60%,${cp.primary}28 0%,transparent 65%)}
-.hero-bg img{filter:brightness(${isDark ? '0.65' : '0.80'});transform:scale(1.03);transition:transform 8s ease-out}
 
 /* Premium stat numbers — gradient shimmer */
 .stat-number{background:linear-gradient(90deg,${cp.primary},${cp.secondary},${cp.accent},${cp.primary});background-size:300% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 4s linear infinite}
