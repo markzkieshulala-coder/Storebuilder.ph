@@ -57,40 +57,45 @@ unified pipeline:
 The whole path is synchronous, in-process, and dependency-free, so `next build`
 stays green offline.
 
-### Images: Website Image Engine (integrated as one system)
-Real, niche-matched photos are produced by the **Website Image Engine**, vendored
-in-repo at `lib/engine/image-engine/` and run as part of the same pipeline:
-- `image-engine/analyze.ts` infers niche / audience / tone / style / visual-mode /
-  palette from the prompt.
-- `image-engine/engine.ts` (`WebsiteImageEngine.generate`) plans N distinct assets
-  (hero / feature / background / detail / product / lifestyle), builds rich SD
-  prompts (variation pools + strong negative prompt + preset steps/cfg), calls the
-  local Stable Diffusion server, writes PNGs to `public/generated/`, and keeps a
-  repetition-guard memory (`public/generated/.image-engine-memory.json`) so
-  visuals don't repeat across sites.
-- `image-engine/backend/automatic1111.ts` POSTs `/sdapi/v1/txt2img` (the same SD
-  server `tools/image-generator` runs on `:7860`).
+### Images: content-aware Unsplash photos (unique per build)
+Real visuals come from the **official Unsplash Search API**, resolved per section
+from the EXACT content that section displays — not a single broad keyword.
 
-`lib/engine/image-provider.ts` is the single bridge: `generateSiteImages(puo, fp,
-brandName)` builds the engine request from the resolved PUO (prompt, palette,
-mood, industry → brand context), runs the engine, and maps the written files to
-public `/generated/*.png` URLs that `generate.ts` injects into the renderer
-(hero, split, gallery, product cards, CTA). It is bounded by a total timeout
-(`IMAGE_ENGINE_TIMEOUT_MS`, default 180s) and a graceful fallback: if the SD
-server is offline/slow or `IMAGE_GEN_ENABLED=0`, it returns `[]` and every slot
-renders a neutral CSS gradient placeholder (transparent pixel over
-`linear-gradient(--surf,--bg)`) — so site generation never hangs or breaks. No
-third-party image source is contacted; only your own local SD server.
+- `html-renderer.ts` → `planSiteImagery(context, brandName, understanding)` runs
+  the SAME deterministic understanding + `buildSiteCopy` logic the renderer uses,
+  then emits one Unsplash query per image slot:
+  - products / services → `"<exact product name> <niche>"` (key `name:<norm>`)
+  - features            → `"<exact feature title> <niche>"` (key `name:<norm>`)
+  - hero / gallery / team / about → niche + rotating context modifiers (`pool:N`)
+- `lib/engine/unsplash.ts` → `resolveSiteImagery(requests, seed)` calls the
+  Unsplash Search API (`Authorization: Client-ID <UNSPLASH_ACCESS_KEY>`), and
+  enforces GLOBAL uniqueness via a persistent ledger of every photo id ever used
+  (`public/generated/.unsplash-used.json`) — so no image is reused across builds,
+  even within the same niche. A per-generation page offset (from `seed`) further
+  varies which slice of results each query draws from.
+- `lib/engine/image-provider.ts` → `fetchSiteImagery(plan, seed)` is the bridge:
+  it bounds the whole phase with a timeout (`UNSPLASH_BUDGET_MS`, default 30s) and
+  degrades gracefully to empty imagery on any failure.
+- `generate.ts` plans → fetches → injects the `ResolvedImagery` (`pool` +
+  `byName`) into `renderMultiPageSite`. `productPhoto(name)` returns the exact
+  content-matched photo by normalized name; `getPhotos` distributes the unique
+  pool across hero/gallery/about/team. `ph(url,w,h)` appends per-slot Imgix
+  sizing (`auto=format&fit=crop&w&h&q=80`) to each Unsplash URL.
 
-Env: `IMAGE_GEN_URL` (default `http://127.0.0.1:7860`), `IMAGE_GEN_ENABLED`,
-`IMAGE_GEN_COUNT` (1–8, default 6), `IMAGE_GEN_PRESET` (balanced|premium|fast),
-`IMAGE_ENGINE_TIMEOUT_MS`. The earlier in-house illustration engines
-(`visual-engine.ts`, `canvas-engine.ts`, `image-backend.ts`, `image-cache.ts`,
-`image-agent.ts`, `placeholder.ts`) were removed.
+If `UNSPLASH_ACCESS_KEY` is unset, or the API is rate-limited / unreachable, every
+slot falls back to a BRANDED CSS placeholder (palette gradient + glow + photo
+glyph) — site generation never hangs or breaks.
+
+Env: `UNSPLASH_ACCESS_KEY` (required for real photos; free at
+https://unsplash.com/developers), `UNSPLASH_BUDGET_MS` (default 30000),
+`UNSPLASH_TIMEOUT_MS` (per-search, default 8000). The earlier self-hosted Stable
+Diffusion image engine (`lib/engine/image-engine/`, `tools/image-generator/`) and
+the in-house illustration engines were removed.
 
 The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site —
-including understanding the prompt — requires no external LLM, no API key, and no
-network. There is no Anthropic/OpenAI/Google SDK in the dependency tree.
+including understanding the prompt — requires no external LLM (no Anthropic /
+OpenAI / Google SDK in the tree); the only network call anywhere is the Unsplash
+photo lookup, which is optional and degrades to placeholders.
 
 ### Scope note
 The uploaded engine archive also contains ~250 auxiliary "rich" modules

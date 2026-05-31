@@ -17,6 +17,7 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
+import type { ImageRequest, Orientation, ResolvedImagery } from './unsplash';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -48,7 +49,16 @@ function setPlaceholderTheme(primary: string, accent: string, bg: string, dark: 
 // intentional art while real photos are unavailable. Varied per slot by index.
 let _phIdx = 0;
 function ph(idOrUri: string, w: number, h: number): string {
-  if (idOrUri && /^(data:|<svg|https?:|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
+  // Real Unsplash URL → append per-slot sizing/crop (Imgix params) so each
+  // section gets a correctly-proportioned, optimized image.
+  if (/^https?:\/\//.test(idOrUri)) {
+    if (/images\.unsplash\.com/.test(idOrUri)) {
+      const sep = idOrUri.includes('?') ? '&' : '?';
+      return `${idOrUri}${sep}auto=format&fit=crop&crop=entropy&w=${w}&h=${h}&q=80`;
+    }
+    return idOrUri;
+  }
+  if (idOrUri && /^(data:|<svg|\/|\.\/|blob:)/.test(idOrUri)) return idOrUri;
   const i = _phIdx++;
   // Alternate gradient direction/emphasis per slot so repeated sizes differ.
   const flip = i % 2 === 1;
@@ -679,25 +689,34 @@ function normalizeIndustry(raw: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// IMAGE SOURCE — in-process generative visual engine (no third-party API).
-// Every visual is synthesized from the SAME understanding object that drives
-// the layout + copy, so the niche, palette, mood, and style of each image
-// always match the website. Returns self-contained data:image/svg+xml URIs.
+// IMAGE SOURCE — content-aware Unsplash photos (lib/engine/image-provider.ts).
+// Each section's image is resolved from a query built from the ACTUAL content it
+// sits next to (product/service name, niche, branding) and is globally unique —
+// never reused across builds (see lib/engine/unsplash.ts). When no key is set the
+// slots fall back to branded CSS placeholders.
 // ─────────────────────────────────────────────────────────────────
 
-// Images provided by the pluggable image provider (lib/engine/image-provider.ts),
-// injected by renderMultiPageSite. Safe as module state because the render is
-// fully synchronous (no awaits), so no two renders interleave between set/clear.
-let INJECTED_IMAGES: string[] | null = null;
+// Imagery resolved by the image provider, injected by renderMultiPageSite. Safe
+// as module state because the render is fully synchronous (no awaits), so no two
+// renders interleave between set/clear.
+//   INJECTED_POOL    — ordered, globally-unique niche/context images (hero, gallery, about, team…)
+//   INJECTED_BY_NAME — exact per-product/per-feature image, keyed by normalized name
+let INJECTED_POOL: string[] | null = null;
+let INJECTED_BY_NAME: Record<string, string> | null = null;
+
+// Normalize a product/service/feature name into a stable lookup key. MUST match
+// the key planSiteImagery builds for the provider ('name:' + normName(...)).
+function normName(name: string): string {
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
 
 function getPhotos(_puo: PromptUnderstandingObject, fp: number): string[] {
   const NEED = 12;
 
-  // Distribute the provider's images across the slots. If the provider returned
-  // nothing, every slot is an empty string → ph() emits a transparent pixel and
-  // the neutral CSS placeholder shows through.
-  if (INJECTED_IMAGES && INJECTED_IMAGES.length > 0) {
-    const src = INJECTED_IMAGES;
+  // Distribute the unique pool across the generic slots. If the provider returned
+  // nothing, every slot is an empty string → ph() emits a branded placeholder.
+  if (INJECTED_POOL && INJECTED_POOL.length > 0) {
+    const src = INJECTED_POOL;
     const out: string[] = [];
     const start = Math.abs(fp) % src.length;
     for (let i = 0; i < NEED; i++) out.push(src[(start + i) % src.length]);
@@ -706,10 +725,14 @@ function getPhotos(_puo: PromptUnderstandingObject, fp: number): string[] {
   return new Array(NEED).fill('');
 }
 
-// Per-product image: pick a DISTINCT image from the provider's set keyed to the
-// SPECIFIC item name, so each menu/product card shows a different picture instead
-// of recycling the hero. With no provider images, returns '' → neutral CSS block.
+// Per-product image: prefer the EXACT content-matched photo resolved for this
+// specific item name; otherwise fall back to a distinct pool image so each card
+// still differs. With no imagery at all, returns '' → branded placeholder.
 function productPhoto(puo: PromptUnderstandingObject, name: string, fp: number, i: number): string {
+  if (INJECTED_BY_NAME) {
+    const hit = INJECTED_BY_NAME[normName(name)];
+    if (hit) return hit;
+  }
   const photos = getPhotos(puo, fp).filter(Boolean);
   if (photos.length === 0) return '';
   const idx = (Math.abs(fp) ^ hashStr(name.toLowerCase()) ^ ((i + 1) * 0x9E3779B1)) % photos.length;
@@ -3498,22 +3521,84 @@ export function renderMultiPageSite(
   brandName: string,
   subdomain = '',
   understanding?: PromptUnderstandingObject,
-  images?: string[],
+  imagery?: ResolvedImagery,
 ): MultiPageOutput {
   const prompt = context.input.userPrompt;
   const brand  = brandName || 'Brand';
   const year   = new Date().getFullYear();
   const base   = subdomain ? `/sites/${subdomain}/` : '';
 
-  // Inject the real generated photos (if any) for the duration of this fully
-  // synchronous render. Cleared in finally so nothing leaks to the next render.
-  INJECTED_IMAGES = images && images.length ? images : null;
+  // Inject the resolved content-aware imagery (if any) for the duration of this
+  // fully synchronous render. Cleared in finally so nothing leaks to the next.
+  INJECTED_POOL = imagery && imagery.pool.length ? imagery.pool : null;
+  INJECTED_BY_NAME = imagery && imagery.byName && Object.keys(imagery.byName).length ? imagery.byName : null;
   _phIdx = 0; // reset placeholder color cycle so renders are deterministic
   try {
     return renderMultiPageSiteInner(context, brand, subdomain, base, year, prompt, understanding);
   } finally {
-    INJECTED_IMAGES = null;
+    INJECTED_POOL = null;
+    INJECTED_BY_NAME = null;
   }
+}
+
+/**
+ * Build the CONTENT-AWARE image plan for a site WITHOUT rendering it. Runs the
+ * same deterministic understanding + copy logic the renderer uses, then emits one
+ * Unsplash query per image slot, derived from the exact content that slot will
+ * display:
+ *   • products / services  → "<exact product name> <niche>"   (key: name:<norm>)
+ *   • features             → "<exact feature title> <niche>"  (key: name:<norm>)
+ *   • hero / gallery / team / about → niche + rotating context modifiers (key: pool:N)
+ * The provider resolves each to a globally-unique photo; keys line up with what
+ * productPhoto()/getPhotos() look up at render time.
+ */
+export function planSiteImagery(
+  context: ISharedContext,
+  brandName: string,
+  understanding?: PromptUnderstandingObject,
+): ImageRequest[] {
+  const prompt = context.input.userPrompt;
+  const brand = brandName || 'Brand';
+  const puo = understanding ?? (() => {
+    const r = parsePrompt(prompt);
+    return r.success ? r.object : parsePrompt('modern professional website').object;
+  })();
+  const fp = fnv(brand + '|' + prompt);
+  const copy = buildSiteCopy(puo, brand, fp);
+  const niche = normalizeIndustry(puo.inferredIndustry);
+  // A human-readable subject for the niche to anchor every query in the right world.
+  const subject = (puo.inferredIndustry || niche || 'business').replace(/[_-]+/g, ' ').trim();
+
+  const requests: ImageRequest[] = [];
+  const seen = new Set<string>();
+  const addName = (name: string, extra: string, orientation: Orientation) => {
+    const key = 'name:' + normName(name);
+    if (!name || seen.has(key)) return;
+    seen.add(key);
+    requests.push({ key, query: `${name} ${extra}`.trim(), orientation });
+  };
+
+  // Per-product / per-service / per-feature → exact-content queries.
+  (copy.products ?? []).forEach((p) => addName(p.name, subject, 'squarish'));
+  (copy.features ?? []).forEach((f) => addName(f.title, subject, 'landscape'));
+
+  // Generic niche pool — rotate context modifiers so the 12 pool slots are varied
+  // yet all clearly on-niche (hero, gallery, team, about, story, cta backgrounds).
+  const modifiers = [
+    '', 'lifestyle', 'close up detail', 'workspace interior', 'people working',
+    'professional', 'equipment', 'product', 'environment', 'candid moment',
+    'texture background', 'team',
+  ];
+  const orientations: Orientation[] = ['landscape', 'portrait', 'squarish'];
+  for (let i = 0; i < 12; i++) {
+    requests.push({
+      key: `pool:${i}`,
+      query: `${subject} ${modifiers[i % modifiers.length]}`.trim(),
+      orientation: orientations[i % orientations.length],
+    });
+  }
+
+  return requests;
 }
 
 function renderMultiPageSiteInner(

@@ -1,10 +1,10 @@
 import { createOrchestrator } from './bootstrap';
-import { renderMultiPageSite, detectNiche } from './html-renderer';
-import { generateSiteImages } from './image-provider';
+import { renderMultiPageSite, planSiteImagery, detectNiche } from './html-renderer';
+import { fetchSiteImagery } from './image-provider';
+import type { ResolvedImagery } from './unsplash';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';
-import { parsePrompt } from './prompt-engine';
 
 function fnv(s: string): number {
   let h = 2166136261;
@@ -54,22 +54,20 @@ export async function generateWebsite(
     throw new Error(`Pipeline failed: ${context.errors.map((e) => e.message).join('; ')}`);
   }
 
-  // Fetch the site's images from the pluggable image provider (lib/engine/
-  // image-provider.ts — wire your own image generator in there). When it returns
-  // an empty list, every image slot renders as a neutral CSS placeholder.
-  const puo = understanding ?? (() => {
-    const r = parsePrompt(prompt);
-    return r.success ? r.object : parsePrompt('modern professional website').object;
-  })();
+  // Resolve content-aware visuals: plan one Unsplash query per section from the
+  // exact content it will display (product/service names, niche, branding), then
+  // fetch globally-unique photos. On any failure (no key, rate limit, timeout)
+  // this returns empty imagery → every slot renders a branded CSS placeholder.
   const fp = fnv((brandName || 'Brand') + '|' + prompt);
-  let images: string[] = [];
+  let imagery: ResolvedImagery = { pool: [], byName: {} };
   try {
-    images = await generateSiteImages(puo, fp, brandName);
+    const plan = planSiteImagery(context, brandName, understanding);
+    imagery = await fetchSiteImagery(plan, fp);
   } catch (err) {
     console.warn('[generate] image provider failed, rendering without images:', (err as Error)?.message);
   }
 
-  const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, images);
+  const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, imagery);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   return {
