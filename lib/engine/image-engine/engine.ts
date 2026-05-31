@@ -86,14 +86,30 @@ const NEGATIVE_PROMPT = [
   "messy background",
 ].join(", ");
 
+// Tuned for the distilled TURBO models the bundled SD server runs
+// (stabilityai/sd-turbo on CPU, sdxl-turbo on GPU). Turbo checkpoints are trained
+// to converge in 1-6 steps at guidance ~1-2. Running them at 20-36 steps / cfg 6+
+// (the values a full SD1.5/SDXL base model wants) is both far slower AND produces
+// washed-out, over-saturated results — which is why generation kept timing out.
 const PRESET_SETTINGS = {
-  balanced: { steps: 28, cfgScale: 6.5, samplerName: "Euler a" },
-  premium: { steps: 36, cfgScale: 7.2, samplerName: "DPM++ 2M Karras" },
-  fast: { steps: 22, cfgScale: 5.8, samplerName: "Euler a" },
+  fast: { steps: 3, cfgScale: 1.0, samplerName: "Euler a" },
+  balanced: { steps: 5, cfgScale: 1.5, samplerName: "Euler a" },
+  premium: { steps: 8, cfgScale: 2.0, samplerName: "Euler a" },
 } as const;
 
 function roundTo64(value: number): number {
   return Math.max(64, Math.round(value / 64) * 64);
+}
+
+// Scale a width/height pair down so the longest edge fits `maxDimension`, keeping
+// aspect ratio. Big canvases (1536px) are off-distribution for 512px turbo models
+// and brutally slow on CPU; capping keeps generation fast and on-model.
+function capDimensions(width: number, height: number, maxDimension?: number): { width: number; height: number } {
+  if (!maxDimension || maxDimension <= 0) return { width, height };
+  const longest = Math.max(width, height);
+  if (longest <= maxDimension) return { width, height };
+  const scale = maxDimension / longest;
+  return { width: roundTo64(width * scale), height: roundTo64(height * scale) };
 }
 
 function ratioToDimensions(ratio: string): { width: number; height: number } {
@@ -235,8 +251,13 @@ export class WebsiteImageEngine {
       const dims = ratioToDimensions(planned.ratio);
       const seedBasis = `${request.websitePrompt}|${summary}|${planned.kind}|${planned.purpose}|${index}`;
       const baseSeed = stableHashToNumber(seedBasis);
-      const width = roundTo64(request.imageSize?.width ?? dims.width);
-      const height = roundTo64(request.imageSize?.height ?? dims.height);
+      const capped = capDimensions(
+        request.imageSize?.width ?? dims.width,
+        request.imageSize?.height ?? dims.height,
+        request.maxDimension,
+      );
+      const width = roundTo64(capped.width);
+      const height = roundTo64(capped.height);
       return {
         id: `asset-${index + 1}`,
         kind: planned.kind,
@@ -280,8 +301,8 @@ export class WebsiteImageEngine {
         width: plan.width,
         height: plan.height,
         seed: repeated ? seed + 1337 : seed,
-        steps: preset.steps,
-        cfgScale: preset.cfgScale,
+        steps: request.steps ?? preset.steps,
+        cfgScale: request.cfgScale ?? preset.cfgScale,
         samplerName: preset.samplerName,
       };
 

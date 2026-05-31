@@ -29,6 +29,12 @@ export interface WebsiteVisualRequest {
     height?: number;
   };
   modelPreset?: "balanced" | "premium" | "fast";
+  /** Cap the longest image edge (px). Turbo models / CPU want ~512-768. */
+  maxDimension?: number;
+  /** Override diffusion steps (turbo models want 1-6). */
+  steps?: number;
+  /** Override guidance scale (turbo models want ~1-2). */
+  cfgScale?: number;
 }
 
 export interface WebsiteAnalysis {
