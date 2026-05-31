@@ -880,11 +880,32 @@ const NICHE_SUBJECT: Record<string, string> = {
   agency: 'Strategy', marketing: 'Marketing', consulting: 'Consulting',
   spa: 'Wellness', massage: 'Relaxation', dental: 'Care', therapy: 'Healing',
   hotel: 'Hospitality', travel: 'Experience',
+  // Expanded niches
+  craft: 'Craft', jewelry: 'Jewelry', florist: 'Florals', home: 'Living', pet: 'Pets',
+  dessert: 'Desserts', juicebar: 'Refreshment', ai: 'Intelligence', crypto: 'Web3',
+  gaming: 'Gaming', music: 'Sound', law: 'Counsel', finance: 'Finance',
+  education: 'Learning', realestate: 'Property', nonprofit: 'Impact', event: 'Celebration',
   general: 'Excellence',
 };
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Acronyms / stylised brand-words that must NOT be naively title-cased in copy
+// (so we never print "Saas", "Api", "Seo" — instant "AI-generated" tells).
+const LABEL_ACRONYMS: Record<string, string> = {
+  saas: 'SaaS', api: 'API', ai: 'AI', ml: 'ML', llm: 'LLM', seo: 'SEO', ux: 'UX', ui: 'UI',
+  crm: 'CRM', b2b: 'B2B', b2c: 'B2C', d2c: 'D2C', nft: 'NFT', defi: 'DeFi', web3: 'Web3',
+  hiit: 'HIIT', diy: 'DIY', pr: 'PR', vr: 'VR', ar: 'AR', iot: 'IoT', saa: 'SaaS',
+};
+
+// Turn a raw keyword/slug into display copy: expands acronyms, otherwise title-cases.
+function cleanLabel(s: string): string {
+  const k = String(s || '').trim().toLowerCase();
+  if (!k) return '';
+  if (LABEL_ACRONYMS[k]) return LABEL_ACRONYMS[k];
+  return titleCase(k);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1639,12 +1660,21 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // Derive headline descriptors. The prompt's own content noun wins (most specific);
   // then the specific industry slug subject ("ramen" → "Ramen"); then the normalized
   // niche subject ("food" → "Flavour"). Never falls through to a generic word.
-  const rawSubject = NICHE_SUBJECT[industry] || (industry !== 'general' ? titleCase(industry) : null);
+  const rawSubject = NICHE_SUBJECT[industry] || (industry !== 'general' ? cleanLabel(industry) : null);
   const normSubject = NICHE_SUBJECT[normIndustry] || null;
   const nicheSubject = rawSubject || normSubject || 'Excellence';
-  const mainKw = kws[0] ? titleCase(kws[0]) : nicheSubject;
-  const secKw  = kws[1] ? titleCase(kws[1]) : nicheSubject !== 'Experience' ? 'Experience' : 'Quality';
-  const thirdKw = kws[2] ? titleCase(kws[2]) : 'Innovation';
+  // A keyword equal to the niche slug itself ("saas", "craft", "candle") reads as a
+  // raw label in a headline — prefer the curated NICHE_SUBJECT noun instead, so we
+  // get "Software"/"Analytics", never "Saas". Acronyms are expanded via cleanLabel.
+  const slugLike = new Set([industry, normIndustry].map((x) => String(x).toLowerCase()));
+  const kwDisplay = (k: string | undefined, fallback: string): string => {
+    if (!k) return fallback;
+    if (slugLike.has(k.toLowerCase()) && (rawSubject || normSubject)) return (rawSubject || normSubject) as string;
+    return cleanLabel(k);
+  };
+  const mainKw = kwDisplay(kws[0], nicheSubject);
+  const secKw  = kwDisplay(kws[1], nicheSubject !== 'Experience' ? 'Experience' : 'Quality');
+  const thirdKw = kwDisplay(kws[2], 'Innovation');
 
   // Headline patterns keyed by personality
   const headlinePatterns: Record<string, string[]> = {
@@ -1709,7 +1739,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Feature heading — niche-safe phrasing (avoids SaaS-only idioms like "at Scale"
   // appearing on a coffee shop or restaurant).
-  const featureHeadings = [`Crafted for ${mainKw} Lovers`, `Built Around ${mainKw}`, `The Complete ${mainKw} Experience`, `Why Choose Our ${mainKw}`, `Everything ${mainKw}, Done Right`];
+  const featureHeadings = [`The Complete ${mainKw} Experience`, `Crafted Around ${mainKw}`, `Why ${brand}`, `What Sets Us Apart`, `Made for the Moment`, `Designed With Intention`];
   const featureHeading = pick(featureHeadings, fp + 5);
 
   // Features — driven by extracted keywords
@@ -1874,7 +1904,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const contactSub = subNiche?.contactSub || `Have questions about ${brand}? Ready to get started? Reach out and our team will get back to you within 24 hours.`;
 
   // CTA
-  const ctaHeadings = [`Ready to Experience ${mainKw}?`, `Start Your ${mainKw} Journey`, `Join Thousands of ${mainKw} Leaders`, `Transform Your ${mainKw} Today`];
+  const ctaHeadings = [`Ready to Experience ${brand}?`, `Let's Begin`, `Your ${mainKw} Starts Here`, `Become Part of ${brand}`, `Make It Happen`];
   const ctaHeading = subNiche?.ctaHeading || pick(ctaHeadings, fp + 9);
   const ctaSub = subNiche?.ctaSub || CTA_SUB_BY_NICHE[normIndustry] || CTA_SUB_BY_NICHE.general;
 
@@ -2325,7 +2355,7 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
 }
 
 const ALT_CLUSTER_EYEBROWS = ['What Sets Us Apart', 'The Details', 'Our Capabilities', 'Why It Works', 'Beyond the Basics', 'Made to Last'];
-const ALT_CLUSTER_HEADINGS = ['Designed Around You', 'Crafted for Results', 'Everything in One Place', 'Built to Perform', 'The Complete Experience'];
+const ALT_CLUSTER_HEADINGS = ['Designed Around You', 'Crafted for Results', 'A Considered Approach', 'Made to Last', 'Details That Matter', 'Thoughtful by Design'];
 
 function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
   const cols = Math.min(Math.max(node.grid.columnsDesktop || 3, 2), 4);
@@ -2691,7 +2721,7 @@ ${renderStripSection({ type:'strip', variant:'stats-row' } as LayoutNode, { puo,
 <section class="signal-section">
   <div class="wrap">
     <div class="signal-inner">
-      <h2 class="reveal">Ready to Get Started?</h2>
+      <h2 class="reveal">${esc(copy.ctaHeading)}</h2>
       <p class="reveal">Join thousands of others who trust ${esc(brand)}.</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">${esc(copy.primaryCta)}</a>
@@ -2753,7 +2783,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
 <section class="signal-section">
   <div class="wrap">
     <div class="signal-inner">
-      <h2 class="reveal">Like What You See?</h2>
+      <h2 class="reveal">${esc(copy.contactHeading)}</h2>
       <p class="reveal">Let's create something amazing together.</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">Get in Touch</a>
@@ -2998,7 +3028,7 @@ function buildServicesMain(normIndustry: string, brand: string, copy: SiteCopy, 
 <section class="signal-section">
   <div class="wrap">
     <div class="signal-inner">
-      <h2 class="reveal">Ready to Get Started?</h2>
+      <h2 class="reveal">${esc(copy.ctaHeading)}</h2>
       <p class="reveal">Talk to our team about the right package for you.</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">Get in Touch</a>
@@ -3033,7 +3063,7 @@ function buildProcessMain(normIndustry: string, _brand: string, _copy: SiteCopy)
 <section class="signal-section">
   <div class="wrap">
     <div class="signal-inner">
-      <h2 class="reveal">Start Your Project</h2>
+      <h2 class="reveal">Let's Begin Together</h2>
       <p class="reveal">Let's walk through the process together.</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">Get in Touch</a>
@@ -3448,12 +3478,25 @@ function buildHomeMain(
   // Singleton sections that must render at most once per page. The layout graph
   // can emit two galleries or two FAQ/testimonial blocks; rendering both reads
   // as a duplicate section. We keep the first occurrence and drop later repeats.
+  // 'signal' (CTA) is also capped to ONE on the home page — a professional page
+  // closes with a single call-to-action, not two competing ones.
   const seenKinds = new Set<string>();
   const sectionKind = (node: LayoutNode): string | null => {
     if (node.type === 'gallery') return 'gallery';
     if (node.type === 'list') return node.variant === 'accordion' ? 'faq' : 'testimonials';
     if (node.type === 'strip') return 'strip';
-    return null; // hero/cluster/tile/stage/frame/split/signal may repeat (varied content)
+    if (node.type === 'signal') return 'signal';
+    return null; // hero/cluster/tile/stage/frame/split may repeat (varied content)
+  };
+
+  // Final guard: never ship two sections with the SAME heading. Even varied-content
+  // types (split/stage/cluster) can land on the same generated <h2>; a duplicate
+  // heading is the clearest "unfinished/AI" tell, so we drop the later occurrence.
+  const seenHeadings = new Set<string>();
+  const headingOf = (htmlFrag: string): string | null => {
+    const m = htmlFrag.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/);
+    if (!m) return null;
+    return m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase() || null;
   };
 
   return graph.nodes.map(node => {
@@ -3462,7 +3505,13 @@ function buildHomeMain(
       if (seenKinds.has(kind)) return '';
       seenKinds.add(kind);
     }
-    return renderNode(node, ctx, counters);
+    const html = renderNode(node, ctx, counters);
+    const h = headingOf(html);
+    if (h) {
+      if (seenHeadings.has(h)) return '';
+      seenHeadings.add(h);
+    }
+    return html;
   }).filter(Boolean).join('\n');
 }
 
