@@ -438,7 +438,9 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 .hero-split-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(40px,6vw,80px);align-items:center}
 .hero-media{border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg)}
 .hero-media img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
-@media(max-width:768px){.hero-split-grid{grid-template-columns:1fr}}
+/* On phones the tall portrait becomes a cinematic banner so it doesn't eat the
+   whole viewport before the copy is reached. */
+@media(max-width:768px){.hero-split-grid{grid-template-columns:1fr}.hero-media img{aspect-ratio:16/10}}
 
 /* SECTION HEADING */
 .sec-head{margin-bottom:clamp(32px,5vw,52px)}
@@ -474,6 +476,7 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 .split-section.flip>.split-media{order:-1}
 .split-media{border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg)}
 .split-media img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+@media(max-width:768px){.split-media img{aspect-ratio:16/10}}
 .split-text h2{font-size:var(--h2-size);margin-bottom:14px}
 .split-text .split-body{color:var(--muted);margin-bottom:18px;line-height:1.72}
 .split-list{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:24px}
@@ -481,23 +484,54 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 .split-list li::before{content:'→';color:var(--primary);font-weight:700;margin-top:1px;flex-shrink:0}
 @media(max-width:768px){.split-section{grid-template-columns:1fr}.split-section.flip>.split-media{order:0}}
 
-/* GALLERY */
+/* GALLERY — each variant has its OWN shape language so no two sites (and no two
+   sections) read as the same repetitive square grid. Items carry intrinsic
+   aspect-ratios; masonry mixes wide + tall tiles for an editorial rhythm. */
 .gallery-grid{display:grid;gap:var(--gap)}
 .gallery-grid.uniform{grid-template-columns:repeat(3,1fr)}
-.gallery-grid.masonry{grid-template-columns:repeat(3,1fr)}
+.gallery-grid.masonry{grid-template-columns:repeat(3,1fr);grid-auto-flow:dense}
 .gallery-grid.panorama{grid-template-columns:repeat(2,1fr)}
-.gallery-grid.filmstrip{display:flex;overflow-x:auto;gap:var(--gap);padding-bottom:8px}
-.gallery-grid.filmstrip img{width:260px;flex-shrink:0;height:320px;border-radius:var(--radius);object-fit:cover}
+.gallery-grid.filmstrip{display:flex;overflow-x:auto;gap:var(--gap);padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.gallery-grid.filmstrip .gallery-item{width:clamp(240px,72vw,300px);flex-shrink:0;aspect-ratio:4/5;scroll-snap-align:start}
+.gallery-grid.filmstrip img{width:100%;height:100%}
 .gallery-item{position:relative;overflow:hidden;border-radius:var(--radius)}
 .gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--ease)}
 .gallery-item:hover img{transform:scale(1.05)}
-@media(max-width:768px){.gallery-grid.uniform,.gallery-grid.masonry,.gallery-grid.panorama{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.gallery-grid.uniform,.gallery-grid.masonry,.gallery-grid.panorama{grid-template-columns:1fr}}
+/* Default tile shape per variant (non-square so it never looks like a 1:1 stamp). */
+.gallery-grid.uniform .gallery-item{aspect-ratio:4/3}
+.gallery-grid.panorama .gallery-item{aspect-ratio:16/9}
+.gallery-grid.masonry .gallery-item{aspect-ratio:4/3}
+/* Editorial accents: a wide hero tile and a tall portrait tile break the grid. */
+.gallery-grid.masonry .gallery-item:nth-child(6n+1){grid-column:span 2;aspect-ratio:16/9}
+.gallery-grid.masonry .gallery-item:nth-child(6n+4){grid-column:span 2;aspect-ratio:2/1}
+/* TABLET — drop to 2 columns but keep the asymmetry. */
+@media(max-width:768px){
+  .gallery-grid.uniform,.gallery-grid.masonry{grid-template-columns:repeat(2,1fr)}
+  .gallery-grid.masonry .gallery-item:nth-child(6n+4){grid-column:auto;aspect-ratio:4/3}
+}
+/* PHONE — a real editorial 2-col gallery (featured banner + varied shapes),
+   NOT a monotonous full-width stack. */
+@media(max-width:560px){
+  .gallery-grid.uniform,.gallery-grid.masonry,.gallery-grid.panorama{grid-template-columns:repeat(2,1fr);grid-auto-flow:dense}
+  .gallery-grid .gallery-item{aspect-ratio:1}
+  .gallery-grid .gallery-item:nth-child(7n+1){grid-column:span 2;aspect-ratio:16/10}
+  .gallery-grid .gallery-item:nth-child(7n+4){aspect-ratio:4/5}
+  .gallery-grid.masonry .gallery-item:nth-child(6n+1){grid-column:span 2;aspect-ratio:16/10}
+}
 
 /* PRODUCT / MENU GRID — real items with name, description, price */
 .product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
 @media(max-width:900px){.product-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.product-grid{grid-template-columns:1fr}}
+/* Phones keep a real 2-up shop grid (like a storefront) with tighter spacing and
+   square thumbnails, only dropping to a single column on the narrowest devices. */
+@media(max-width:560px){
+  .product-grid{grid-template-columns:repeat(2,1fr);gap:14px}
+  .product-media{aspect-ratio:1}
+  .product-body{padding:13px}
+  .product-name{font-size:1rem}
+  .product-row{flex-direction:column;gap:2px}
+}
+@media(max-width:360px){.product-grid{grid-template-columns:1fr}.product-media{aspect-ratio:4/3}}
 .product-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s}
 .product-card:hover{transform:translateY(-6px);box-shadow:0 24px 56px -16px rgba(0,0,0,.28)}
 .product-media{aspect-ratio:4/3;overflow:hidden}
@@ -533,7 +567,8 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop
 /* BENTO GRID */
 .bento{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap)}
 .bento .card:first-child{grid-column:span 2;grid-row:span 2}
-@media(max-width:900px){.bento{grid-template-columns:repeat(2,1fr)}.bento .card:first-child{grid-column:1;grid-row:1}}
+@media(max-width:900px){.bento{grid-template-columns:repeat(2,1fr)}.bento .card:first-child{grid-column:span 2;grid-row:auto}}
+@media(max-width:480px){.bento{grid-template-columns:repeat(2,1fr)}.bento .card:first-child{grid-column:span 2}}
 
 /* LIST / FAQ */
 .faq-list{max-width:720px}
@@ -2702,7 +2737,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
       <img src="${ph(photoId, 600, h)}" alt="${esc(copy.galleryHeading)} item ${i+1}" loading="lazy"/>
     </div>`;
     }).join('');
-    body = `<div class="gallery-grid masonry" style="grid-auto-rows:220px">${galleryItems}</div>`;
+    body = `<div class="gallery-grid masonry">${galleryItems}</div>`;
   }
 
   const main = `
@@ -3273,7 +3308,7 @@ function buildLookbookMain(puo: PromptUnderstandingObject, brand: string, copy: 
       <h1 style="font-size:var(--h1-size)">${esc(brand)} Lookbook</h1>
       <p>The season's defining looks — curated for the bold.</p>
     </div>
-    <div class="gallery-grid masonry" style="grid-auto-rows:220px;margin-top:clamp(36px,5vw,56px)">${items}</div>
+    <div class="gallery-grid masonry" style="margin-top:clamp(36px,5vw,56px)">${items}</div>
   </div>
 </section>
 <section class="signal-section">
