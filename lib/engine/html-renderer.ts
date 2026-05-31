@@ -17,7 +17,7 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
-import type { ImageRequest, Orientation, ResolvedImagery } from './unsplash';
+import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -52,9 +52,9 @@ function ph(idOrUri: string, w: number, h: number): string {
   // Real Unsplash URL → append per-slot sizing/crop (Imgix params) so each
   // section gets a correctly-proportioned, optimized image.
   if (/^https?:\/\//.test(idOrUri)) {
-    if (/images\.unsplash\.com/.test(idOrUri)) {
+    if (/images\.pexels\.com/.test(idOrUri)) {
       const sep = idOrUri.includes('?') ? '&' : '?';
-      return `${idOrUri}${sep}auto=format&fit=crop&crop=entropy&w=${w}&h=${h}&q=80`;
+      return `${idOrUri}${sep}w=${w}&h=${h}&fit=crop&auto=compress`;
     }
     return idOrUri;
   }

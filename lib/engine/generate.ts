@@ -1,7 +1,7 @@
 import { createOrchestrator } from './bootstrap';
 import { renderMultiPageSite, planSiteImagery, detectNiche } from './html-renderer';
 import { fetchSiteImagery } from './image-provider';
-import type { ResolvedImagery } from './unsplash';
+import type { ResolvedImagery } from './pexels';
 import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';

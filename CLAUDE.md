@@ -57,44 +57,43 @@ unified pipeline:
 The whole path is synchronous, in-process, and dependency-free, so `next build`
 stays green offline.
 
-### Images: content-aware Unsplash photos (unique per build)
-Real visuals come from the **official Unsplash Search API**, resolved per section
-from the EXACT content that section displays — not a single broad keyword.
+### Images: content-aware Pexels photos (unique per build)
+Real visuals come from the **Pexels Search API**, resolved per section from the
+EXACT content that section displays — not a single broad keyword.
 
 - `html-renderer.ts` → `planSiteImagery(context, brandName, understanding)` runs
   the SAME deterministic understanding + `buildSiteCopy` logic the renderer uses,
-  then emits one Unsplash query per image slot:
+  then emits one Pexels query per image slot:
   - products / services → `"<exact product name> <niche>"` (key `name:<norm>`)
   - features            → `"<exact feature title> <niche>"` (key `name:<norm>`)
   - hero / gallery / team / about → niche + rotating context modifiers (`pool:N`)
-- `lib/engine/unsplash.ts` → `resolveSiteImagery(requests, seed)` calls the
-  Unsplash Search API (`Authorization: Client-ID <UNSPLASH_ACCESS_KEY>`), and
-  enforces GLOBAL uniqueness via a persistent ledger of every photo id ever used
-  (`public/generated/.unsplash-used.json`) — so no image is reused across builds,
+- `lib/engine/pexels.ts` → `resolveSiteImagery(requests, seed)` calls the
+  Pexels Search API (`Authorization: <PEXELS_API_KEY>`), and enforces GLOBAL
+  uniqueness via a persistent ledger of every photo id ever used
+  (`public/generated/.pexels-used.json`) — so no image is reused across builds,
   even within the same niche. A per-generation page offset (from `seed`) further
   varies which slice of results each query draws from.
 - `lib/engine/image-provider.ts` → `fetchSiteImagery(plan, seed)` is the bridge:
-  it bounds the whole phase with a timeout (`UNSPLASH_BUDGET_MS`, default 30s) and
+  it bounds the whole phase with a timeout (`PEXELS_BUDGET_MS`, default 30s) and
   degrades gracefully to empty imagery on any failure.
 - `generate.ts` plans → fetches → injects the `ResolvedImagery` (`pool` +
   `byName`) into `renderMultiPageSite`. `productPhoto(name)` returns the exact
   content-matched photo by normalized name; `getPhotos` distributes the unique
-  pool across hero/gallery/about/team. `ph(url,w,h)` appends per-slot Imgix
-  sizing (`auto=format&fit=crop&w&h&q=80`) to each Unsplash URL.
+  pool across hero/gallery/about/team. `ph(url,w,h)` appends per-slot sizing
+  (`w=W&h=H&fit=crop&auto=compress`) to each Pexels URL.
 
-If `UNSPLASH_ACCESS_KEY` is unset, or the API is rate-limited / unreachable, every
-slot falls back to a BRANDED CSS placeholder (palette gradient + glow + photo
-glyph) — site generation never hangs or breaks.
+If `PEXELS_API_KEY` is unset, or the API is rate-limited / unreachable, every slot
+falls back to a BRANDED CSS placeholder (palette gradient + glow + photo glyph) —
+site generation never hangs or breaks.
 
-Env: `UNSPLASH_ACCESS_KEY` (required for real photos; free at
-https://unsplash.com/developers), `UNSPLASH_BUDGET_MS` (default 30000),
-`UNSPLASH_TIMEOUT_MS` (per-search, default 8000). The earlier self-hosted Stable
-Diffusion image engine (`lib/engine/image-engine/`, `tools/image-generator/`) and
-the in-house illustration engines were removed.
+Env: `PEXELS_API_KEY` (required for real photos; free at https://www.pexels.com/api/),
+`PEXELS_BUDGET_MS` (default 30000), `PEXELS_TIMEOUT_MS` (per-search, default 8000).
+The earlier self-hosted Stable Diffusion image engine (`lib/engine/image-engine/`,
+`tools/image-generator/`) and the in-house illustration engines were removed.
 
 The engine's core runtime deps are `uuid` and `eventemitter3`. Building a site —
 including understanding the prompt — requires no external LLM (no Anthropic /
-OpenAI / Google SDK in the tree); the only network call anywhere is the Unsplash
+OpenAI / Google SDK in the tree); the only network call anywhere is the Pexels
 photo lookup, which is optional and degrades to placeholders.
 
 ### Scope note

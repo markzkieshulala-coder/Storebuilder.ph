@@ -13,11 +13,11 @@
 // throws — e.g. when UNSPLASH_ACCESS_KEY is unset or the API is rate-limited.
 // ---------------------------------------------------------------------------
 
-import { resolveSiteImagery, isUnsplashConfigured } from './unsplash';
-import type { ImageRequest, ResolvedImagery } from './unsplash';
+import { resolveSiteImagery, isConfigured } from './pexels';
+import type { ImageRequest, ResolvedImagery } from './pexels';
 
-// Total wall-clock budget for the whole image phase across all Unsplash calls.
-const TOTAL_BUDGET_MS = Number(process.env.UNSPLASH_BUDGET_MS || 30000);
+// Total wall-clock budget for the whole image phase across all Pexels calls.
+const TOTAL_BUDGET_MS = Number(process.env.PEXELS_BUDGET_MS || 30000);
 
 const EMPTY: ResolvedImagery = { pool: [], byName: {} };
 
@@ -27,10 +27,10 @@ const EMPTY: ResolvedImagery = { pool: [], byName: {} };
  * Unsplash request failed.
  */
 export async function fetchSiteImagery(requests: ImageRequest[], seed: number): Promise<ResolvedImagery> {
-  if (!isUnsplashConfigured()) {
+  if (!isConfigured()) {
     console.warn(
-      '[image-provider] UNSPLASH_ACCESS_KEY not set → branded placeholders.\n' +
-      '  → Get a free key at https://unsplash.com/developers and add UNSPLASH_ACCESS_KEY=... to .env.local',
+      '[image-provider] PEXELS_API_KEY not set → branded placeholders.\n' +
+      '  → Get a free key at https://www.pexels.com/api/ and add PEXELS_API_KEY=... to .env.local',
     );
     return EMPTY;
   }
@@ -43,14 +43,14 @@ export async function fetchSiteImagery(requests: ImageRequest[], seed: number): 
   try {
     const result = await Promise.race([resolveSiteImagery(requests, seed), timeout]);
     if (!result) {
-      console.warn(`[image-provider] Unsplash phase timed out after ${TOTAL_BUDGET_MS}ms; using placeholders.`);
+      console.warn(`[image-provider] Pexels phase timed out after ${TOTAL_BUDGET_MS}ms; using placeholders.`);
       return EMPTY;
     }
     const count = result.pool.length + Object.keys(result.byName).length;
     console.log(`[image-provider] resolved ${count} unique image(s) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     return result;
   } catch (err) {
-    console.warn('[image-provider] Unsplash resolve failed; using placeholders:', (err as Error)?.message);
+    console.warn('[image-provider] Pexels resolve failed; using placeholders:', (err as Error)?.message);
     return EMPTY;
   }
 }
