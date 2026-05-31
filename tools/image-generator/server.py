@@ -45,7 +45,6 @@ from diffusers import AutoPipelineForText2Image
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-MODEL_ID = os.environ.get("MODEL_ID", "stabilityai/sdxl-turbo")
 # On-disk cache of generated PNGs so identical prompts are produced once.
 CACHE_DIR = os.environ.get("IMAGE_GEN_CACHE", os.path.join(os.path.dirname(__file__), ".cache"))
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -60,6 +59,27 @@ def pick_device():
 
 
 DEVICE, DTYPE = pick_device()
+
+# Auto-select model based on hardware when MODEL_ID is not explicitly set:
+#   GPU  → sdxl-turbo  (1024px-capable, fast with CUDA/MPS)
+#   CPU  → sd-turbo    (512px, ~2 GB, 30-90s/image — heavy but real AI images with no GPU)
+def _default_model(device: str) -> str:
+    return "stabilityai/sdxl-turbo" if device in ("cuda", "mps") else "stabilityai/sd-turbo"
+
+MODEL_ID = os.environ.get("MODEL_ID") or _default_model(DEVICE)
+
+# sd-turbo is a 512px model. Requests larger than this are off-distribution and
+# significantly slower without quality gain. Clamp silently.
+_IS_SD_TURBO = "sd-turbo" in MODEL_ID and "sdxl" not in MODEL_ID
+_MAX_SIDE = 512 if _IS_SD_TURBO else 1536
+
+# On CPU, pin all available cores to the PyTorch thread pool so inference uses
+# the full machine rather than the default single-threaded path.
+if DEVICE == "cpu":
+    _n_threads = min(os.cpu_count() or 4, 8)
+    torch.set_num_threads(_n_threads)
+    print(f"[image-generator] CPU mode: {_n_threads} inference threads", flush=True)
+
 print(f"[image-generator] loading {MODEL_ID} on {DEVICE} ({DTYPE}) ...", flush=True)
 
 _t0 = time.time()
@@ -86,10 +106,10 @@ class Txt2Img(BaseModel):
     prompt: str
     negative_prompt: str = ""
     seed: int = 0
-    width: int = 768
-    height: int = 768
-    steps: int = 6
-    cfg_scale: float = 2.0
+    width: int = 512
+    height: int = 512
+    steps: int = 4
+    cfg_scale: float = 1.0
     sampler_name: str = "Euler a"  # accepted for A1111 compatibility, ignored here
 
 
@@ -100,9 +120,9 @@ def _cache_key(req: "Txt2Img", w: int, h: int) -> str:
 
 @app.post("/sdapi/v1/txt2img")
 def txt2img(req: Txt2Img):
-    # Round dims to multiples of 8 (model requirement).
-    w = max(256, (req.width // 8) * 8)
-    h = max(256, (req.height // 8) * 8)
+    # Round dims to multiples of 8 (model requirement), then clamp to model max.
+    w = max(256, min((req.width // 8) * 8, _MAX_SIDE))
+    h = max(256, min((req.height // 8) * 8, _MAX_SIDE))
 
     # Disk cache hit → return immediately (no recompute).
     key = _cache_key(req, w, h)

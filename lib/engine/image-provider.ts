@@ -26,13 +26,13 @@ const IMAGE_GEN_URL = process.env.IMAGE_GEN_URL || 'http://127.0.0.1:7860';
 const IMAGE_GEN_DISABLED = process.env.IMAGE_GEN_ENABLED === '0' || process.env.IMAGE_GEN_ENABLED === 'false';
 // How many distinct images to generate per site (engine caps at 8).
 const IMAGE_COUNT = Math.min(8, Math.max(1, Number(process.env.IMAGE_GEN_COUNT || 4)));
-// Total wall-clock budget for the whole image phase. Defaults to 180s; raise via
-// IMAGE_ENGINE_TIMEOUT_MS if your SD server is slow (a CPU box at 512px/turbo needs
-// roughly 20-40s per image, so 4 images can take a couple of minutes on first run).
-const TOTAL_BUDGET_MS = Number(process.env.IMAGE_ENGINE_TIMEOUT_MS || 180000);
-// Cap the longest image edge. Turbo models are trained at 512px; big canvases are
-// off-distribution and brutally slow on CPU. Override with IMAGE_GEN_MAX_DIM.
-const MAX_DIMENSION = Math.max(256, Number(process.env.IMAGE_GEN_MAX_DIM || 768));
+// Total wall-clock budget for the whole image phase. 300s gives 4 CPU images
+// (~40-70s each) comfortable headroom. Raise via IMAGE_ENGINE_TIMEOUT_MS if needed.
+const TOTAL_BUDGET_MS = Number(process.env.IMAGE_ENGINE_TIMEOUT_MS || 300000);
+// Cap the longest image edge. sd-turbo (CPU default) is a 512px model; bigger
+// canvases are off-distribution and slower without quality gain. Override with
+// IMAGE_GEN_MAX_DIM (e.g. 768 or 1024 when running sdxl-turbo on a GPU).
+const MAX_DIMENSION = Math.max(256, Number(process.env.IMAGE_GEN_MAX_DIM || 512));
 // Optional explicit diffusion controls (turbo wants very low values).
 const STEPS_OVERRIDE = process.env.IMAGE_GEN_STEPS ? Number(process.env.IMAGE_GEN_STEPS) : undefined;
 const CFG_OVERRIDE = process.env.IMAGE_GEN_CFG ? Number(process.env.IMAGE_GEN_CFG) : undefined;
