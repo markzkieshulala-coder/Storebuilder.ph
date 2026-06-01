@@ -92,6 +92,18 @@ export const NICHES: NicheDef[] = [
   // Music / events
   { slug: 'music', broad: 'music', triggers: ['music', 'band', 'dj', 'record label', 'musician', 'producer', 'singer', 'rapper', 'nightclub', 'concert venue', 'festival'] },
   { slug: 'event', broad: 'agency', specific: true, triggers: ['event', 'wedding', 'event planning', 'conference', 'expo', 'party planning'] },
+  // Home & local services
+  { slug: 'homeservices', broad: 'homeservices', specific: true, triggers: ['plumber', 'plumbing', 'electrician', 'electrical', 'hvac', 'heating', 'cooling', 'air conditioning', 'contractor', 'general contractor', 'roofing', 'roofer', 'handyman', 'renovation', 'remodeling', 'remodelling', 'painter', 'painting', 'landscaping', 'lawn care', 'gardening', 'cleaning service', 'house cleaning', 'maid service', 'pest control', 'moving company', 'movers', 'locksmith', 'flooring', 'carpentry', 'fencing', 'pool service'] },
+  // Automotive
+  { slug: 'automotive', broad: 'automotive', specific: true, triggers: ['auto repair', 'mechanic', 'car repair', 'auto shop', 'auto service', 'garage', 'car dealership', 'dealership', 'car wash', 'auto detailing', 'car detailing', 'tire shop', 'body shop', 'oil change', 'used cars', 'auto body'] },
+  // More services & local
+  { slug: 'veterinary', broad: 'medical', specific: true, triggers: ['veterinary', 'veterinarian', 'vet clinic', 'animal hospital', 'animal clinic', 'pet hospital'] },
+  { slug: 'childcare', broad: 'education', specific: true, triggers: ['childcare', 'child care', 'daycare', 'day care', 'preschool', 'pre-school', 'nursery school', 'kindergarten', 'montessori'] },
+  { slug: 'recruiting', broad: 'consulting', specific: true, triggers: ['recruiting', 'recruitment', 'staffing', 'headhunting', 'talent agency', 'talent acquisition', 'executive search'] },
+  { slug: 'coaching', broad: 'consulting', specific: true, triggers: ['life coach', 'business coach', 'career coach', 'executive coach', 'coaching practice', 'mentorship', 'mindset coach'] },
+  { slug: 'podcast', broad: 'music', specific: true, triggers: ['podcast', 'podcasting', 'podcast studio', 'audio show'] },
+  { slug: 'winery', broad: 'food', specific: true, triggers: ['winery', 'vineyard', 'distillery', 'cidery', 'wine estate', 'wine tasting'] },
+  { slug: 'bookstore', broad: 'ecommerce', specific: true, triggers: ['bookstore', 'bookshop', 'book shop', 'comic shop', 'record store', 'vinyl shop'] },
   // Mission
   { slug: 'nonprofit', broad: 'nonprofit', triggers: ['nonprofit', 'non-profit', 'charity', 'foundation', 'ngo'] },
   { slug: 'education', broad: 'education', triggers: ['education', 'school', 'academy', 'course', 'tutoring', 'learning'] },
@@ -255,6 +267,40 @@ export const NICHE_PROFILES: Record<string, NicheCopyProfile> = {
     ],
     palette: { primary: '#7c3aed', accent: '#06b6d4', background: '#0b0b14' },
     cta: 'Start a Project', ctaSecondary: 'See Our Work',
+  },
+  homeservices: {
+    mood: 'grounded', designStyle: 'corporate', personality: 'trustworthy', tone: 'professional',
+    products: [
+      { name: 'Free Estimate', desc: 'A no-obligation quote so you know exactly what to expect before we start.' },
+      { name: 'Repairs & Maintenance', desc: 'Fast, reliable fixes handled right the first time by licensed pros.' },
+      { name: 'Installations', desc: 'Professional installation done to code, on schedule, and built to last.' },
+      { name: 'Emergency Service', desc: 'Urgent problem? We offer prompt response when you need help most.' },
+    ],
+    faqs: [
+      { q: 'Are you licensed and insured?', a: 'Yes — our team is fully licensed, bonded, and insured for your peace of mind.' },
+      { q: 'Do you offer free estimates?', a: 'Absolutely. Reach out and we’ll schedule a visit and provide a clear, upfront quote.' },
+      { q: 'How quickly can you come out?', a: 'We aim for same-week scheduling, with emergency service available for urgent jobs.' },
+      { q: 'Do you guarantee your work?', a: 'Every job is backed by our workmanship guarantee — we’re not done until you’re satisfied.' },
+    ],
+    palette: { primary: '#1d4ed8', accent: '#f97316', background: '#0b1020' },
+    cta: 'Get a Free Quote', ctaSecondary: 'Book a Visit',
+  },
+  automotive: {
+    mood: 'contrast', designStyle: 'industrial', personality: 'authoritative', tone: 'professional',
+    products: [
+      { name: 'Diagnostics', desc: 'Precise, computerised diagnostics to pinpoint the issue — no guesswork.' },
+      { name: 'Repairs & Service', desc: 'Expert repairs and routine servicing to keep you safely on the road.' },
+      { name: 'Maintenance Plans', desc: 'Scheduled maintenance that protects your vehicle and your wallet.' },
+      { name: 'Detailing', desc: 'Showroom-quality cleaning inside and out, by hand.' },
+    ],
+    faqs: [
+      { q: 'Do I need an appointment?', a: 'Appointments are recommended, but we welcome walk-ins whenever we have space.' },
+      { q: 'Do you offer a warranty on repairs?', a: 'Yes — all parts and labour are covered by our service warranty.' },
+      { q: 'How long will my service take?', a: 'Most routine services are done same-day; we’ll give you a clear timeline up front.' },
+      { q: 'Do you provide free estimates?', a: 'We do. Bring your vehicle in and we’ll assess it and quote before any work begins.' },
+    ],
+    palette: { primary: '#dc2626', accent: '#1f2937', background: '#0a0a0c' },
+    cta: 'Book a Service', ctaSecondary: 'Get a Quote',
   },
   general: {
     mood: 'light', designStyle: 'minimal', personality: 'trustworthy', tone: 'professional',
@@ -601,6 +647,7 @@ export function profileFor(slug: string, broad: string): NicheCopyProfile {
     music: 'music', design: 'design', consulting: 'agency', finance: 'finance',
     ecommerce: 'ecommerce', gaming: 'saas', education: 'education', nonprofit: 'nonprofit',
     realestate: 'realestate', portfolio: 'photography',
+    homeservices: 'homeservices', automotive: 'automotive',
   };
   const mapped = map[broad];
   return (mapped && NICHE_PROFILES[mapped]) || NICHE_PROFILES.general;

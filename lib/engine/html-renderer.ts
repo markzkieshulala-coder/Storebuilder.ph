@@ -12,6 +12,7 @@
 
 import type { ISharedContext } from './core/types';
 import { parsePrompt } from './prompt-engine';
+import { buildUnderstandingSync } from './understanding';
 import { composeLayout } from './layout-composer';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
@@ -103,6 +104,19 @@ export interface MultiPageOutput {
 // ─────────────────────────────────────────────────────────────────
 // UTILITIES
 // ─────────────────────────────────────────────────────────────────
+
+// Resolve a full PromptUnderstandingObject for callers that pass none. Runs the
+// same in-house NLU + fold pipeline the API uses, so niche, dynamic copy, and
+// functional-section detection are never silently lost. Degrades to a bare parse
+// only if understanding throws.
+function resolveUnderstanding(prompt: string): PromptUnderstandingObject {
+  try {
+    return buildUnderstandingSync(prompt);
+  } catch {
+    const r = parsePrompt(prompt);
+    return r.success ? r.object : parsePrompt('modern professional website').object;
+  }
+}
 
 function esc(s: unknown): string {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -728,8 +742,14 @@ const INDUSTRY_KEY_MAP: Record<string, string> = {
   realty: 'professional', accounting: 'professional', insurance: 'professional',
   consulting: 'professional', consultancy: 'professional', advisory: 'professional',
   research: 'professional', laboratory: 'professional',
+  recruiting: 'professional', coaching: 'professional',
   // Hospitality & travel
   hotel: 'hospitality', resort: 'hospitality', travel: 'hospitality', tourism: 'hospitality',
+  // Home & local services, automotive — trade/service-led content
+  homeservices: 'homeservices', automotive: 'automotive',
+  // Misc niches mapped to the closest content register
+  veterinary: 'wellness', childcare: 'wellness',
+  podcast: 'agency', winery: 'food', bookstore: 'ecommerce',
 };
 
 function normalizeIndustry(raw: string): string {
@@ -1141,6 +1161,8 @@ const CTA_SUB_BY_NICHE: Record<string, string> = {
   portfolio: 'Have a project in mind? Let\'s create something exceptional together.',
   hospitality: 'Book your stay today and experience hospitality done right.',
   technology: 'Get started in minutes. No credit card required.',
+  homeservices: 'Get your free, no-obligation quote today — fast, friendly, and fully guaranteed.',
+  automotive: 'Book your service today and get back on the road with total confidence.',
   general: 'Get in touch today — we\'d love to hear from you.',
 };
 
@@ -1172,21 +1194,6 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     return cleanLabel(k);
   };
 
-  // When a contextual modifier appears before the core niche word in the prompt
-  // (e.g. "artisan ramen", "underground tattoo", "specialty coffee"), prefer the
-  // niche-aligned keyword as the primary anchor so about/headline copy names the
-  // actual business concept rather than its descriptor.
-  const allNicheWords = new Set(
-    [industry, normIndustry, ...Object.keys(INDUSTRY_KEY_MAP).filter(k => INDUSTRY_KEY_MAP[k] === normIndustry)]
-      .map(s => String(s).toLowerCase())
-  );
-  const mainKwSrc   = kws.find(k => allNicheWords.has(k)) ?? kws[0];
-  const secKwSrc    = kws.find(k => k !== mainKwSrc) ?? kws[1];
-  const thirdKwSrc  = kws.find(k => k !== mainKwSrc && k !== secKwSrc) ?? kws[2];
-  const mainKw  = kwDisplay(mainKwSrc, nicheSubject);
-  const secKw   = kwDisplay(secKwSrc, nicheSubject !== 'Experience' ? 'Experience' : 'Quality');
-  const thirdKw = kwDisplay(thirdKwSrc, 'Innovation');
-
   // Semantic qualifiers extracted from the prompt — drive richer, unique copy.
   const llmCtx = (puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm || {};
   const strVal = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : '');
@@ -1194,6 +1201,26 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const differentiator = strVal(llmCtx.differentiator); // "handmade", "award-winning"
   const audFrag   = audience ? ` for ${audience}` : '';
   const diffAdj   = differentiator ? `${titleCase(differentiator)} ` : '';
+
+  // When a contextual modifier appears before the core niche word in the prompt
+  // (e.g. "artisan ramen", "underground tattoo", "specialty coffee"), prefer the
+  // niche-aligned keyword as the primary anchor so about/headline copy names the
+  // actual business concept rather than its descriptor. The detected differentiator
+  // (e.g. "licensed", "handmade") is excluded so it never doubles up as the noun
+  // ("licensed licensed done right").
+  const allNicheWords = new Set(
+    [industry, normIndustry, ...Object.keys(INDUSTRY_KEY_MAP).filter(k => INDUSTRY_KEY_MAP[k] === normIndustry)]
+      .map(s => String(s).toLowerCase())
+  );
+  const diffWords = new Set(differentiator.toLowerCase().split(/\s+/).filter(Boolean));
+  const kwPool = kws.filter(k => !diffWords.has(k));
+  const pool = kwPool.length ? kwPool : kws;
+  const mainKwSrc   = pool.find(k => allNicheWords.has(k)) ?? pool[0];
+  const secKwSrc    = pool.find(k => k !== mainKwSrc) ?? kws.find(k => k !== mainKwSrc);
+  const thirdKwSrc  = pool.find(k => k !== mainKwSrc && k !== secKwSrc) ?? kws.find(k => k !== mainKwSrc && k !== secKwSrc);
+  const mainKw  = kwDisplay(mainKwSrc, nicheSubject);
+  const secKw   = kwDisplay(secKwSrc, nicheSubject !== 'Experience' ? 'Experience' : 'Quality');
+  const thirdKw = kwDisplay(thirdKwSrc, 'Innovation');
 
   // Headline patterns — ALL use actual extracted keywords so every prompt produces
   // a unique headline. {mainKw} is the real primary activity from the prompt
@@ -1236,6 +1263,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     photography: 'View Portfolio', fashion: 'Shop the Collection', ecommerce: 'Shop Now',
     portfolio: 'View Work', agency: 'Start a Project', wellness: 'Book a Session',
     hospitality: 'Book Your Stay', professional: 'Get a Consultation',
+    homeservices: 'Get a Free Quote', automotive: 'Book a Service',
   };
   const ctaMap: Record<string, string> = {
     'e-commerce': 'Shop Now', saas: 'Start Free Trial', 'lead-gen': 'Get Started Free',
@@ -1249,6 +1277,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
     portfolio: 'View Work', agency: 'Our Process', wellness: 'Learn More',
     hospitality: 'Explore Rooms', professional: 'Learn More',
+    homeservices: 'Our Services', automotive: 'Our Services',
   };
   const secondaryCta = secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
 
@@ -1288,6 +1317,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     wellness:     ['Experience','Session','Journey','Ritual','Practice','Treatment','Care','Program'],
     professional: ['Service','Consultation','Advisory','Strategy','Solution','Expertise','Practice','Process'],
     hospitality:  ['Experience','Stay','Escape','Journey','Retreat','Event','Gathering','Moment'],
+    homeservices: ['Service','Repair','Install','Maintenance','Solution','Care','Job','Work'],
+    automotive:   ['Service','Repair','Care','Maintenance','Tune-Up','Detail','Diagnostic','Job'],
     general:      ['Experience','Service','Approach','Method','Solution','Practice','Process','Craft'],
   };
   const suffixes = FEATURE_SUFFIXES_BY_INDUSTRY[normIndustry] || FEATURE_SUFFIXES_BY_INDUSTRY.general;
@@ -1304,6 +1335,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     wellness:     (kw) => `Expert ${kw} tailored to your goals and delivered with genuine care.`,
     professional: (kw) => `Dependable ${kw} that delivers measurable value for every client.`,
     hospitality:  (kw) => `Exceptional ${kw} crafted to create moments worth remembering.`,
+    homeservices: (kw) => `Reliable ${kw} done right the first time — licensed, insured, and guaranteed.`,
+    automotive:   (kw) => `Expert ${kw} that keeps your vehicle running safely and reliably.`,
     general:      (kw) => `Exceptional ${kw} tailored to your specific needs.`,
   };
   const descFor = FEATURE_DESC_BY_INDUSTRY[normIndustry] || FEATURE_DESC_BY_INDUSTRY.general;
@@ -1338,6 +1371,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     sports:     [{number:'500+',label:'Athletes'},{number:'100+',label:'Championships'},{number:'5/5',label:'Coaching'},{number:'20+',label:'Sports'}],
     food:       [{number:'200+',label:'Menu Items'},{number:'4.9/5',label:'Reviews'},{number:'10+',label:'Years Open'},{number:'Daily',label:'Fresh Ingredients'}],
     agency:     [{number:'300+',label:'Clients'},{number:'$50M+',label:'Revenue Generated'},{number:'10+',label:'Years'},{number:'50+',label:'Experts'}],
+    homeservices:[{number:'5K+',label:'Jobs Completed'},{number:'4.9/5',label:'Customer Rating'},{number:'15+',label:'Years'},{number:'100%',label:'Satisfaction'}],
+    automotive: [{number:'20K+',label:'Vehicles Serviced'},{number:'4.9/5',label:'Customer Rating'},{number:'25+',label:'Years'},{number:'ASE',label:'Certified Techs'}],
     general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5/5',label:'Rating'}],
   };
   const stats = (statBanks[normIndustry] || statBanks.general).slice(0, 4);
@@ -1352,6 +1387,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     ecommerce:  ['Verified Buyer','Repeat Customer','Brand Partner','First-time Shopper'],
     portfolio:  ['Art Director, Studio9','Creative Director, Brand Co','Gallery Curator','Editorial Lead'],
     agency:     ['CMO, GrowthCo','Brand Director, ScaleUp','Founder, BuildFast','Head of Marketing, DataFlow'],
+    homeservices:['Homeowner','Property Manager','Repeat Customer','Local Resident'],
+    automotive: ['Loyal Customer','Fleet Manager','First-time Visitor','Local Driver'],
     general:    ['CEO, GrowthCo','Operations Director, ScaleUp','Founder, BuildFast','Product Lead, DataFlow'],
   };
   const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
@@ -1392,6 +1429,16 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       `The ${brand} team treated our ${mainKw} like their own. The results were undeniable.`,
       `Our ${secKw} engagement tripled after partnering with ${brand}.`,
     ],
+    homeservices:[
+      `${brand} handled our ${mainKw} quickly and professionally. Spotless work and fair pricing.`,
+      `Finally, a team I can trust. ${brand} showed up on time and got the job done right.`,
+      `Honest, reliable, and tidy — ${brand} is the only company we call now.`,
+    ],
+    automotive: [
+      `${brand} fixed my car right the first time and explained everything clearly. Honest shop.`,
+      `Fast, fair, and friendly. ${brand} is the only place I trust with my vehicle.`,
+      `Great ${mainKw} service — no upselling, just quality work at a fair price.`,
+    ],
     general:    [
       `${brand} completely transformed our ${mainKw} operations. The results are undeniable.`,
       `Nothing compares to what ${brand} delivers. Our ${secKw} metrics improved by 3x.`,
@@ -1421,6 +1468,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     wellness:     (b, mk, sk, aud, diff) => `${b} was created to make ${mk.toLowerCase()} more accessible${aud ? ' for ' + aud : ''}. ${diff ? `Our ${diff} approach sets a new standard — ` : ''}We combine expertise with genuine care to guide every journey.`,
     professional: (b, mk, sk, aud, diff) => `${b} was founded to deliver ${diff ? diff + ' ' : ''}${mk.toLowerCase()}${aud ? ' for ' + aud : ''}. We bring deep expertise, honest advice, and a results-driven approach to every client relationship.`,
     hospitality:  (b, mk, sk, aud, diff) => `${b} was built${aud ? ' for ' + aud : ' for those'} who believe ${mk.toLowerCase()} should be${diff ? ' ' + diff + ' and' : ''} exceptional. Every detail is considered, every guest is welcomed, and every experience is crafted to be remembered.`,
+    homeservices: (b, mk, sk, aud, diff) => `${b} was built on a simple promise: ${diff ? diff + ' ' : ''}${mk.toLowerCase()} done right, on time, and at a fair price${aud ? ' for ' + aud : ''}. Licensed, insured, and genuinely reliable — we treat your home like our own.`,
+    automotive:   (b, mk, sk, aud, diff) => `${b} keeps${aud ? ' ' + aud : ' drivers'} moving with honest, ${diff ? diff + ', ' : ''}expert ${mk.toLowerCase()}. No upselling, no surprises — just dependable work from certified technicians who stand behind every job.`,
   };
   const aboutBodyFn = ABOUT_BODY[normIndustry];
   const aboutBody = aboutBodyFn
@@ -1439,7 +1488,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const missionBody = `Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with${audience ? ' a focus on ' + audience + ' and' : ''} an obsession for ${secKw.toLowerCase()}${differentiator ? ', keeping our ' + differentiator + ' commitment at the core of everything we do' : ''}. No shortcuts — just work we're proud to put our name on.`;
 
   // Gallery
-  const galleryLabel: Record<string, string> = { portfolio: 'Portfolio', ecommerce: 'Shop', technology: 'Features', food: 'Menu', sports: 'Gallery', photography: 'Portfolio', fashion: 'Collection', agency: 'Work', general: 'Gallery' };
+  const galleryLabel: Record<string, string> = { portfolio: 'Portfolio', ecommerce: 'Shop', technology: 'Features', food: 'Menu', sports: 'Gallery', photography: 'Portfolio', fashion: 'Collection', agency: 'Work', homeservices: 'Our Work', automotive: 'Our Work', general: 'Gallery' };
   const galleryHeading = `Our ${(galleryLabel[normIndustry] || galleryLabel.general)}`;
 
   // Contact
@@ -2259,22 +2308,137 @@ function renderContactBandSection(ctx: RenderCtx): string {
 </section>`;
 }
 
+// Booking / appointment request — a real, styled front-end form. It posts
+// nowhere (onsubmit return false) because the output is a static document, but
+// it gives the visitor the exact affordance the prompt asked for.
+function renderBookingSection(ctx: RenderCtx): string {
+  const { copy, brandName } = ctx;
+  const services = (copy.products && copy.products.length
+    ? copy.products.map(p => p.name)
+    : copy.features.map(f => f.title)).slice(0, 6);
+  const options = services.length
+    ? services.map(s => `<option>${esc(s)}</option>`).join('')
+    : '<option>General Enquiry</option>';
+  const cta = copy.primaryCta && copy.primaryCta.length <= 22 ? copy.primaryCta : 'Request Booking';
+  return `
+<section class="booking-section">
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">Booking</span><h2>Book with ${esc(brandName)}</h2><p>Tell us what you need and a preferred time — we'll confirm by email shortly.</p></div>
+    <form class="reveal" style="max-width:640px;margin:0 auto" onsubmit="return false">
+      <div class="g2">
+        <div><label>Full name</label><input type="text" placeholder="Your name" required/></div>
+        <div><label>Email</label><input type="email" placeholder="you@example.com" required/></div>
+      </div>
+      <div class="g2">
+        <div><label>Phone</label><input type="tel" placeholder="(000) 000-0000"/></div>
+        <div><label>Preferred date</label><input type="date"/></div>
+      </div>
+      <div><label>Service</label><select>${options}</select></div>
+      <div><label>Notes</label><textarea placeholder="Anything we should know?"></textarea></div>
+      <button type="submit" class="btn btn-primary" style="align-self:flex-start">${esc(cta)}</button>
+    </form>
+  </div>
+</section>`;
+}
+
+// Location / hours block — address, opening hours, and a branded map panel.
+function renderLocationSection(ctx: RenderCtx): string {
+  const { copy, brandName } = ctx;
+  const hours = [
+    ['Monday – Friday', '9:00 AM – 6:00 PM'],
+    ['Saturday', '10:00 AM – 4:00 PM'],
+    ['Sunday', 'Closed'],
+  ].map(([d, h]) => `<div class="contact-detail"><span class="contact-detail-icon">◷</span><span><strong>${esc(d)}</strong> &nbsp; ${esc(h)}</span></div>`).join('');
+  return `
+<section class="location-section">
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">Visit Us</span><h2>Find ${esc(brandName)}</h2></div>
+    <div class="contact-form-grid reveal">
+      <div class="contact-info">
+        <h3>Opening Hours</h3>
+        ${hours}
+        <div class="contact-detail" style="margin-top:18px"><span class="contact-detail-icon">⚲</span><span>123 Main Street, Your City</span></div>
+        <a href="contact" class="btn btn-outline" style="margin-top:18px">${esc(copy.secondaryCta || 'Get Directions')}</a>
+      </div>
+      <div aria-label="Map" style="min-height:300px;border-radius:var(--radius);background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 22%,transparent),color-mix(in srgb,var(--accent) 22%,transparent));display:grid;place-items:center;border:1px solid var(--bdr)">
+        <span style="color:var(--muted);font-size:var(--small-size)">◗ Map &amp; directions</span>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+// Lightweight blog/news teaser — three article cards anchored on the brand's
+// subject so the section reads as real editorial, not lorem ipsum.
+function renderBlogSection(ctx: RenderCtx): string {
+  const { copy, brandName, photos, fp } = ctx;
+  const subject = copy.features[0]?.title?.split(' ')[0] || brandName;
+  const posts = [
+    { tag: 'Guide', title: `A Beginner's Guide to ${esc(subject)}` },
+    { tag: 'Story', title: `Behind the Scenes at ${esc(brandName)}` },
+    { tag: 'Tips', title: `5 Things to Know Before You Start` },
+  ];
+  const cards = posts.map((p, i) => `
+    <div class="card reveal reveal-delay-${i % 3}">
+      <img src="${ph(photos[(fp + i + 2) % Math.max(1, photos.length)] || '', 600, 360)}" alt="${p.title}" loading="lazy" style="width:100%;aspect-ratio:5/3;object-fit:cover;border-radius:var(--radius);margin-bottom:14px"/>
+      <span class="eyebrow">${p.tag}</span>
+      <h3 style="font-size:var(--h3-size);margin:6px 0 8px">${p.title}</h3>
+      <a href="contact" style="color:var(--primary);font-weight:600">Read more →</a>
+    </div>`).join('');
+  return `
+<section class="blog-section">
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">From the Blog</span><h2>Latest from ${esc(brandName)}</h2></div>
+    <div class="g3">${cards}</div>
+  </div>
+</section>`;
+}
+
+// Upcoming events / schedule — dated rows with a clear RSVP affordance.
+function renderEventsSection(ctx: RenderCtx): string {
+  const { copy, brandName } = ctx;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now = new Date();
+  const events = [0, 1, 2].map((n) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7 * (n + 1));
+    return { day: String(d.getDate()).padStart(2, '0'), mon: months[d.getMonth()] };
+  });
+  const titles = [`${brandName} Open House`, `Workshop & Q&A`, `Community Meetup`];
+  const rows = events.map((e, i) => `
+    <div class="card reveal" style="display:flex;align-items:center;gap:18px;text-align:left">
+      <div style="flex-shrink:0;text-align:center;min-width:62px"><div style="font-size:1.6rem;font-weight:800;color:var(--primary);line-height:1">${e.day}</div><div style="font-size:var(--small-size);color:var(--muted);text-transform:uppercase">${e.mon}</div></div>
+      <div style="flex:1"><h3 style="font-size:var(--h3-size);margin:0 0 2px">${esc(titles[i])}</h3><p style="color:var(--muted);font-size:var(--small-size);margin:0">All welcome — reserve your spot.</p></div>
+      <a href="contact" class="btn btn-outline" style="flex-shrink:0">${esc(copy.secondaryCta && copy.secondaryCta.length <= 14 ? copy.secondaryCta : 'RSVP')}</a>
+    </div>`).join('');
+  return `
+<section class="events-section">
+  <div class="wrap">
+    <div class="sec-head centered reveal"><span class="eyebrow">What's On</span><h2>Upcoming Events</h2></div>
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:720px;margin:0 auto">${rows}</div>
+  </div>
+</section>`;
+}
+
 // Map a free-text section name the user listed → a canonical injectable kind.
 function canonicalSectionKind(raw: string): string | null {
   const s = String(raw || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!s) return null;
   const table: Array<[RegExp, string]> = [
     [/news\s*letter|subscribe|sign\s*up|signup|mailing list|email list/, 'newsletter'],
+    [/book|appointment|schedul|reserv|enquiry|inquiry|request a (quote|callback|consultation)/, 'booking'],
+    [/map|location|directions|find us|store locator|opening hours|hours of operation|address/, 'location'],
+    [/blog|articles?|insights|journal|news section|stories section/, 'blog'],
+    [/events?|calendar|workshops?|timetable/, 'events'],
     [/testimonial|review|what (people|clients|customers) say/, 'testimonials'],
     [/faq|frequently asked|questions/, 'faq'],
     [/stat|metric|number|impact|by the numbers/, 'stats'],
     [/team|staff|coaches|trainers|people|crew|founders?/, 'team'],
     [/pricing|plans|packages|membership|tiers?|rates/, 'pricing'],
-    [/menu|products?|shop|store|catalog|collection|lookbook|new arrivals/, 'products'],
+    [/menu|products?|shop|store|catalog|collection|lookbook|new arrivals|order/, 'products'],
     [/gallery|portfolio|showcase|work|photos|moments/, 'gallery'],
     [/about|story|heritage|journey|mission|values|who we are/, 'story'],
     [/feature|benefit|why (us|choose)|what we (offer|do)|services|offerings|how it works|class(es)?|programs?|courses?|lessons?|sessions?|workouts?|treatments?/, 'features'],
-    [/contact|get in touch|reach us|location|find us|visit/, 'contact'],
+    [/contact|get in touch|reach us|visit/, 'contact'],
     [/cta|call to action/, 'cta'],
   ];
   for (const [re, kind] of table) if (re.test(s)) return kind;
@@ -2287,6 +2451,10 @@ function detectPresentKinds(html: string): Set<string> {
   const present = new Set<string>();
   const add = (re: RegExp, kind: string) => { if (re.test(html)) present.add(kind); };
   add(/newsletter-section/, 'newsletter');
+  add(/booking-section/, 'booking');
+  add(/location-section/, 'location');
+  add(/blog-section/, 'blog');
+  add(/events-section/, 'events');
   add(/testimonial-card/, 'testimonials');
   add(/faq-list/, 'faq');
   add(/stat-number/, 'stats');
@@ -2307,6 +2475,10 @@ function renderInjectedKind(kind: string, ctx: RenderCtx, counters: Record<strin
   const bump = (t: string) => (counters[t] = (counters[t] || 0) + 1) - 1;
   switch (kind) {
     case 'newsletter':   return renderNewsletterSection(ctx);
+    case 'booking':      return renderBookingSection(ctx);
+    case 'location':     return renderLocationSection(ctx);
+    case 'blog':         return renderBlogSection(ctx);
+    case 'events':       return renderEventsSection(ctx);
     case 'team':         return renderTeamSection(ctx);
     case 'contact':      return renderContactBandSection(ctx);
     case 'testimonials': return renderListSection({ type: 'list', variant: 'testimonials' } as LayoutNode, ctx);
@@ -3392,10 +3564,7 @@ export function planSiteImagery(
 ): ImageRequest[] {
   const prompt = context.input.userPrompt;
   const brand = brandName || 'Brand';
-  const puo = understanding ?? (() => {
-    const r = parsePrompt(prompt);
-    return r.success ? r.object : parsePrompt('modern professional website').object;
-  })();
+  const puo = understanding ?? resolveUnderstanding(prompt);
   const fp = fnv(brand + '|' + prompt);
   const copy = buildSiteCopy(puo, brand, fp);
   const niche = normalizeIndustry(puo.inferredIndustry);
@@ -3445,12 +3614,10 @@ function renderMultiPageSiteInner(
 ): MultiPageOutput {
 
   // 1. Use the canonical analyzer-resolved understanding when supplied, so the
-  //    render matches the concept the user was shown. Only re-parse as a
-  //    fallback (e.g. direct/legacy callers that pass no understanding).
-  const puo = understanding ?? (() => {
-    const parseResult = parsePrompt(prompt);
-    return parseResult.success ? parseResult.object : parsePrompt('modern professional website').object;
-  })();
+  //    render matches the concept the user was shown. Otherwise run the SAME full
+  //    in-house understanding (NLU + fold) the API uses — so direct/legacy callers
+  //    still get niche detection, dynamic copy, and functional-section injection.
+  const puo = understanding ?? resolveUnderstanding(prompt);
 
   const fp = fnv(brand + '|' + prompt);
 

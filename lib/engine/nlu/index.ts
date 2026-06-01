@@ -200,14 +200,15 @@ function extractAudience(lower: string): string | undefined {
 // copy to produce "Handmade Candles Worth Keeping" vs. "Award-Winning Cuisine".
 const DIFFERENTIATORS: string[] = [
   'handmade','hand-made','handcrafted','hand-crafted','artisanal','artisan','small-batch','small batch',
-  'award-winning','award winning','multi-award','prize-winning',
-  'certified','licensed','accredited','registered','qualified',
-  'family-owned','family owned','family-run','women-owned','female-owned','veteran-owned',
-  'organic','sustainable','eco-friendly','ethically sourced','locally sourced','farm-to-table',
-  'bespoke','custom','personalised','personalized','made-to-order','made to order',
-  'luxury','ultra-luxury','fine','premier','top-rated','top rated',
-  'fast','same-day','24-hour','24 hour','instant','rapid',
-  'independent','boutique','specialist','expert','master','professional',
+  'award-winning','award winning','multi-award','prize-winning','five-star','5-star','highly-rated','top-rated','top rated',
+  'certified','licensed','accredited','registered','qualified','insured','bonded',
+  'family-owned','family owned','family-run','women-owned','female-owned','veteran-owned','minority-owned','locally-owned','locally owned','independent','independently-owned',
+  'organic','sustainable','eco-friendly','eco-conscious','ethically sourced','locally sourced','farm-to-table','cruelty-free','vegan','plant-based','gluten-free','non-toxic','all-natural','plastic-free','zero-waste','carbon-neutral',
+  'bespoke','custom','personalised','personalized','made-to-order','made to order','handpicked','hand-picked','curated',
+  'luxury','ultra-luxury','fine','premier','premium','high-end','exclusive',
+  'fast','same-day','24-hour','24 hour','round-the-clock','instant','rapid','on-demand','mobile',
+  'affordable','budget-friendly','no-contract','money-back','satisfaction-guaranteed',
+  'boutique','specialist','expert','master','professional','trusted','reliable','experienced','veteran',
 ];
 
 function extractDifferentiator(lower: string): string | undefined {
@@ -314,11 +315,58 @@ function inferProductsFromActivity(
   ];
 }
 
+// ── Functional-intent detection ──────────────────────────────────────────────
+// Reads the prompt for FUNCTIONAL requirements the user asked for — booking,
+// online ordering, a map/location block, a newsletter signup, a blog, events,
+// pricing, a gallery, etc. — and returns canonical section labels. These are
+// merged into `sections` so the renderer includes the matching UI affordance
+// (form, map block, signup, listing) rather than a fixed page skeleton.
+//
+// Honest scope: this surfaces the right front-end SECTION/affordance for each
+// intent (e.g. a booking form, a location/map block, a newsletter signup form).
+// It does not stand up live backends (real payments, real auth) — the output is
+// a self-contained static site, so these render as functional UI, not services.
+const FUNCTIONAL_INTENTS: Array<{ label: string; re: RegExp }> = [
+  { label: 'Booking',       re: /\b(book(ing)?|appointment|schedul(e|ing)|reserve a (slot|spot|session|class)|make an appointment|online booking|book online|request a (quote|consultation|callback)|consultation request)\b/ },
+  { label: 'Reservations',  re: /\b(reservation|reserve a table|table booking|book a table)\b/ },
+  { label: 'Ordering',      re: /\b(online order(ing)?|order online|order ahead|takeout|take-out|takeaway|delivery|add to cart|checkout|shopping cart)\b/ },
+  { label: 'Newsletter',    re: /\b(newsletter|subscribe|mailing list|email (signup|sign-up|list)|sign up for|join our list)\b/ },
+  { label: 'Blog',          re: /\b(blog|articles?|news section|insights|journal|stories section)\b/ },
+  { label: 'Events',        re: /\b(events?|calendar|upcoming events|event listing|classes schedule|class timetable|workshops?)\b/ },
+  { label: 'Location',      re: /\b(map|location|directions|find us|visit us|address|store locator|where to find|opening hours|hours of operation)\b/ },
+  { label: 'Gallery',       re: /\b(gallery|photo gallery|lookbook|portfolio gallery|image gallery|showcase)\b/ },
+  { label: 'Pricing',       re: /\b(pricing|price list|plans|packages|tiers|rates|membership options)\b/ },
+  { label: 'Team',          re: /\b(team|our staff|meet the team|our people|coaches|trainers|practitioners)\b/ },
+  { label: 'Testimonials',  re: /\b(testimonials?|reviews?|client feedback|what (clients|customers|people) say)\b/ },
+  { label: 'FAQ',           re: /\b(faqs?|frequently asked|questions section|help section)\b/ },
+  { label: 'Contact',       re: /\b(contact form|contact us|get in touch|enquiry form|inquiry form|message us)\b/ },
+];
+
+function extractFunctionalIntents(lower: string): string[] {
+  const out: string[] = [];
+  for (const { label, re } of FUNCTIONAL_INTENTS) {
+    if (re.test(lower) && !out.includes(label)) out.push(label);
+  }
+  return out;
+}
+
+// Merge explicitly-listed sections with detected functional intents, preserving
+// the user's order first and de-duplicating case-insensitively.
+function mergeSections(explicit: string[] | undefined, intents: string[]): string[] | undefined {
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  for (const s of [...(explicit || []), ...intents]) {
+    const key = s.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); merged.push(s); }
+  }
+  return merged.length ? merged : undefined;
+}
+
 // ── Design cue detection ─────────────────────────────────────────────────────
-const MOOD_CUES = ['dark','light','bright','vibrant','muted','soft','warm','cold','cool','dramatic','moody','ethereal','contrast','grounded','neutral'];
-const STYLE_CUES = ['minimal','minimalist','brutalist','glassmorphism','glass','neumorphism','flat','material','cyberpunk','futuristic','retro','vintage','vaporwave','editorial','corporate','playful','artistic','organic','industrial','luxury','luxurious','premium','startup','enterprise','cinematic','high-tech','modern','clean','elegant','sleek'];
-const PERSONALITY_CUES = ['bold','elegant','aggressive','friendly','authoritative','whimsical','serious','approachable','exclusive','energetic','calm','rebellious','sophisticated','youthful','trustworthy','innovative','timeless','experimental','professional','fun','quirky'];
-const TONE_CUES = ['professional','casual','formal','playful','technical','luxury','accessible','disruptive','authoritative','empathetic','aggressive','conservative'];
+const MOOD_CUES = ['dark','light','bright','vibrant','muted','soft','warm','cold','cool','dramatic','moody','ethereal','contrast','grounded','neutral','airy','cozy','serene','calm','energetic','bold','pastel','earthy','rustic','clean','crisp','dreamy','atmospheric'];
+const STYLE_CUES = ['minimal','minimalist','brutalist','glassmorphism','glass','neumorphism','flat','material','cyberpunk','futuristic','retro','vintage','vaporwave','editorial','corporate','playful','artistic','organic','industrial','luxury','luxurious','premium','startup','enterprise','cinematic','high-tech','modern','clean','elegant','sleek','geometric','handdrawn','hand-drawn','grunge','y2k','art deco','art-deco','swiss','maximalist','monochrome','gradient','neon','typographic'];
+const PERSONALITY_CUES = ['bold','elegant','aggressive','friendly','authoritative','whimsical','serious','approachable','exclusive','energetic','calm','rebellious','sophisticated','youthful','trustworthy','innovative','timeless','experimental','professional','fun','quirky','playful','confident','warm','edgy','refined','daring','wholesome','premium'];
+const TONE_CUES = ['professional','casual','formal','playful','technical','luxury','accessible','disruptive','authoritative','empathetic','aggressive','conservative','witty','inspirational','reassuring','bold','friendly','warm','direct','no-nonsense'];
 
 function hasCue(lower: string, cues: string[]): boolean {
   return cues.some(c => new RegExp(`(^|[^a-z])${c}([^a-z]|$)`, 'i').test(lower));
@@ -369,6 +417,7 @@ export function understandPrompt(prompt: string): NluContent {
   const audience = extractAudience(lower);
   const differentiator = extractDifferentiator(lower);
   const activityKeywords = extractActivityKeywords(lower);
+  const functionalIntents = extractFunctionalIntents(lower);
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
   const keywords = activityKeywords;
@@ -407,7 +456,10 @@ export function understandPrompt(prompt: string): NluContent {
     primaryCta:   explicit?.primaryCta   || profile.cta,
     secondaryCta: explicit?.secondaryCta || profile.ctaSecondary,
     about:        undefined,
-    sections:     explicit?.sections,
+    // Sections the user explicitly listed PLUS functional affordances detected
+    // from the prompt (booking, ordering, newsletter, map/location, blog…). The
+    // renderer injects any of these the composed page doesn't already cover.
+    sections:     mergeSections(explicit?.sections, functionalIntents),
     products,
     faqs:         profile.faqs,
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy
