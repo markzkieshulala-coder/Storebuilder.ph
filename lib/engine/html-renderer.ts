@@ -2399,7 +2399,6 @@ function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): st
     <div class="sec-head${idx % 3 === 0 ? ' centered' : ''} reveal">
       <span class="eyebrow">${esc(eyebrow)}</span>
       <h2>${esc(heading)}</h2>
-      <p>Built for performance. Designed for you.</p>
     </div>
     <div class="${gridClass}">${cardsHtml}</div>
   </div>
@@ -2442,7 +2441,7 @@ function renderSplitSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
         </div>
         <p class="split-body reveal">${esc(copy.aboutBody)}</p>
         <ul class="split-list reveal">${bullets}</ul>
-        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-primary reveal">${esc(copy.hiddenPrimaryCtaLabel)}</a>
+        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline reveal">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
       </div>
       <div class="split-media reveal">
         <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.aboutHeading)}" loading="lazy"/>
@@ -2513,6 +2512,10 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
 function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
   const { copy } = ctx;
   const isFullBleed = node.variant === 'full-bleed' || node.span === 'bleed';
+  // The CTA band is the page's closing action — use the hidden-primary label
+  // (e.g. "Reserve a Table", "Book a Demo", "View Services") so it's a distinct
+  // next step from the hero's primary button (e.g. "View Our Menu", "Get Started").
+  const ctaBtn = copy.hiddenPrimaryCtaLabel || copy.primaryCta;
 
   if (isFullBleed) {
     return `
@@ -2521,7 +2524,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
     <h2 class="reveal">${esc(copy.ctaHeading)}</h2>
     <p class="reveal">${esc(copy.ctaSub)}</p>
     <div class="signal-ctas reveal">
-      <a href="contact" class="btn btn-primary">${esc(copy.primaryCta)}</a>
+      <a href="contact" class="btn btn-primary">${esc(ctaBtn)}</a>
       <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(copy.hiddenSecondaryCtaLabel)}</a>
     </div>
   </div>
@@ -2535,7 +2538,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
       <h2 class="reveal">${esc(copy.ctaHeading)}</h2>
       <p class="reveal">${esc(copy.ctaSub)}</p>
       <div class="signal-ctas reveal">
-        <a href="contact" class="btn btn-primary">${esc(copy.primaryCta)}</a>
+        <a href="contact" class="btn btn-primary">${esc(ctaBtn)}</a>
         <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(copy.hiddenSecondaryCtaLabel)}</a>
       </div>
     </div>
@@ -2608,22 +2611,21 @@ function renderTileSection(node: LayoutNode, ctx: RenderCtx, idx: number): strin
 function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
   const { copy, photos, fp } = ctx;
   const photo = photos[(fp + idx + 3) % photos.length];
+  const flip = idx % 2 === 0;
   return `
 <section>
   <div class="wrap">
-    <div class="frame-block reveal">
-      <div class="split-section">
-        <div class="split-text">
-          <div class="sec-head">
-            <span class="eyebrow">Featured</span>
-            <h2>${esc(copy.missionHeading)}</h2>
-          </div>
-          <p class="split-body">${esc(copy.missionBody)}</p>
-          <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-primary">${esc(copy.hiddenPrimaryCtaLabel)}</a>
+    <div class="split-section${flip ? ' flip' : ''}">
+      <div class="split-text">
+        <div class="sec-head reveal">
+          <span class="eyebrow">Featured</span>
+          <h2>${esc(copy.missionHeading)}</h2>
         </div>
-        <div class="split-media">
-          <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.aboutHeading)}" loading="lazy"/>
-        </div>
+        <p class="split-body reveal">${esc(copy.missionBody)}</p>
+        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline reveal">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
+      </div>
+      <div class="split-media reveal">
+        <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.missionHeading)}" loading="lazy"/>
       </div>
     </div>
   </div>
