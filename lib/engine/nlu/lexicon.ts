@@ -87,7 +87,7 @@ export const NICHES: NicheDef[] = [
   { slug: 'crypto', broad: 'saas', specific: true, triggers: ['crypto', 'blockchain', 'web3', 'nft', 'defi'] },
   { slug: 'gaming', broad: 'gaming', specific: true, triggers: ['gaming', 'game studio', 'esports'] },
   // Hospitality / travel
-  { slug: 'hotel', broad: 'travel', specific: true, triggers: ['hotel', 'resort', 'lodge', 'boutique hotel'] },
+  { slug: 'hotel', broad: 'travel', specific: true, triggers: ['hotel', 'resort', 'lodge', 'boutique hotel', 'overwater', 'beachfront resort', 'luxury resort'] },
   { slug: 'travel', broad: 'travel', triggers: ['travel', 'tour', 'tourism', 'vacation'] },
   // Music / events
   { slug: 'music', broad: 'music', triggers: ['music', 'band', 'dj', 'record label', 'musician', 'producer', 'singer', 'rapper', 'nightclub', 'concert venue', 'festival'] },
