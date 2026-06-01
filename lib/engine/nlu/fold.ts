@@ -72,6 +72,10 @@ export function foldNluIntoPuo(puo: PromptUnderstandingObject, nlu: NluContent):
     sections: Array.isArray(nlu.sections) ? nlu.sections : undefined,
     products: Array.isArray(nlu.products) ? nlu.products : undefined,
     faqs: Array.isArray(nlu.faqs) ? nlu.faqs : undefined,
+    // Semantic qualifiers — used by buildSiteCopy to enrich dynamic copy
+    audience: nlu.audience,
+    differentiator: nlu.differentiator,
+    activityKeywords: Array.isArray(nlu.activityKeywords) ? nlu.activityKeywords : undefined,
   };
   const mergedLlm: Record<string, unknown> = { ...prevLlm };
   for (const [k, v] of Object.entries(fresh)) {

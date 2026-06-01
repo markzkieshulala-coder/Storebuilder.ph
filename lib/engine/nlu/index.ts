@@ -2,22 +2,21 @@
 // IN-HOUSE NLU ENGINE
 //
 // A purpose-built natural-language understanding engine that runs IN-PROCESS,
-// in the SAME system as the website generator — no Claude, no OpenAI, no Google,
-// no Ollama, no network of any kind. It reads the user's whole prompt and
-// extracts a structured understanding (niche, brand name, colours, the hero copy
-// and button labels they wrote, the products/services they listed, requested
-// sections) and synthesises any on-brand copy the prompt left implicit, drawing
-// on the niche lexicon.
+// in the SAME system as the website generator — no Claude, no OpenAI, no
+// network of any kind.
 //
-// The output is folded into the PromptUnderstandingObject's `customAttributes.llm`
-// channel — the exact shape the renderer already consumes — so the generator
-// builds the site the user described. Understanding and generation are one
-// pipeline in one process.
+// What it does:
+//   1. Tokenise the prompt and detect the niche (for design tokens only)
+//   2. Extract EXACTLY what the user stated: brand name, explicit copy (hero/
+//      CTA/sections), listed products/services, colours
+//   3. Extract semantic content: primary activity, audience, differentiator
+//   4. Infer products/services from the extracted activity when none listed
 //
-// Pipeline:
-//   tokenize → detect niche → extract explicit copy (hero/CTA/sections)
-//   → extract brand name → extract colours → extract listed products
-//   → synthesise missing copy from the niche profile → assemble NluContent
+// What it does NOT do:
+//   Pull copy from a stored niche profile. Every word in the hero headline,
+//   sub-text, and about copy comes from what the user actually wrote — fed into
+//   structural interpolation templates in buildSiteCopy (html-renderer.ts).
+//   The NLU's job is extraction, not template selection.
 // ---------------------------------------------------------------------------
 
 import type { PromptUnderstandingObject } from '../prompt-engine';
@@ -48,21 +47,27 @@ export interface NluContent {
   sections?: string[];
   products?: NluProduct[];
   faqs?: NluFaq[];
+  // Semantic content extracted from the prompt — fed into dynamic copy synthesis
+  audience?: string;        // "youth athletes", "couples", "small businesses"
+  differentiator?: string;  // "handmade", "award-winning", "certified", "luxury"
+  activityKeywords?: string[]; // content-rich keywords stripped of style/meta words
 }
 
 // ── Small deterministic helpers ─────────────────────────────────────────────
 
-// A stable hash so a given prompt always picks the same copy variant (no random
-// drift between /api/analyze and /api/generate).
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
 function pick<T>(arr: T[], seed: number): T {
-  // Tolerate any (even negative) seed — signed shifts upstream can go negative.
   const i = ((Math.trunc(seed) % arr.length) + arr.length) % arr.length;
   return arr[i];
+}
+function titleCase(s: string): string {
+  return s.replace(/\w[\w''-]*/g, w =>
+    /^(and|or|the|of|a|an|to|in|on|with|for)$/i.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)
+  ).replace(/^\w/, c => c.toUpperCase());
 }
 
 const STOPWORDS = new Set([
@@ -72,15 +77,31 @@ const STOPWORDS = new Set([
   'business','company','brand','called','named','using','use','should','have','has','include','includes',
 ]);
 
+// Style/meta words that describe HOW a site looks, not WHAT the business does.
+// Filtered out so activity keywords always anchor on real subject matter.
+const STYLE_META = new Set([
+  'dark','light','bright','airy','warm','cold','cozy','muted','vibrant','neon','ethereal','dreamy',
+  'dramatic','contrast','moody','calm','serene','intimate','atmospheric','lush','deep','pure','raw',
+  'earthy','rustic','subtle','understated','timeless','minimal','minimalist','bold','elegant','clean',
+  'modern','luxury','luxurious','premium','sleek','stylish','sophisticated','refined','classy','chic',
+  'flat','brutalist','glassmorphism','neumorphism','cyberpunk','futuristic','retro','vintage','editorial',
+  'corporate','playful','artistic','organic','industrial','vaporwave','cinematic','professional',
+  'aesthetic','beautiful','stunning','gorgeous','fresh','trendy','crisp','smooth','polished','high',
+  'upscale','classic','sharp','iconic','signature','curated','artisanal','bespoke','elevated','immersive',
+  'great','best','good','nice','cool','awesome','simple','creative','unique','dynamic','energetic',
+  'friendly','powerful','strong','exclusive','inspired','authentic','genuine','real','true','pure',
+  'passionate','dedicated','committed','website','site','page','pages','landing','homepage','layout',
+  'design','designs','style','styles','theme','color','colors','colour','font','fonts','typography',
+  'build','create','make','generate','want','need','please','with','that','this','for','the','and',
+  'have','has','look','feel','vibe','using','about','scheme','palette','brand','branding','visual',
+]);
+
 // ── Niche detection ─────────────────────────────────────────────────────────
-// Walk the lexicon, score every niche by how many of its trigger phrases appear
-// (longer phrases score higher, specific niches break ties over umbrella ones).
 function detectNiche(lower: string): { slug: string; broad: string } {
   let best: { slug: string; broad: string; score: number } | null = null;
   for (const niche of NICHES) {
     let score = 0;
     for (const t of niche.triggers) {
-      // word-boundary-ish match so "barber" doesn't fire inside "barbershop" twice incorrectly
       const re = new RegExp(`(^|[^a-z])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`, 'i');
       if (re.test(lower)) score += t.includes(' ') ? 3 : 2;
     }
@@ -90,20 +111,13 @@ function detectNiche(lower: string): { slug: string; broad: string } {
   return best ? { slug: best.slug, broad: best.broad } : { slug: 'general', broad: 'general' };
 }
 
-// Colour names that double as common nouns / niche words. These only count as a
-// palette colour when sitting next to a colour-context cue.
+// ── Colour extraction ───────────────────────────────────────────────────────
 const AMBIGUOUS_COLORS = new Set([
-  'coffee', 'espresso', 'mocha', 'caramel', 'chocolate', 'cream',
-  'mint', 'sage', 'olive', 'wine', 'salmon', 'peach', 'forest',
+  'coffee','espresso','mocha','caramel','chocolate','cream','mint','sage','olive','wine','salmon','peach','forest',
 ]);
 
-// ── Colour extraction ───────────────────────────────────────────────────────
-// Pull out hex codes the user typed and named colours, mapping the first two to
-// primary/accent. Background follows the niche default unless a dark/light cue
-// is present.
 function extractColors(text: string, lower: string, profile: NicheCopyProfile): NluContent['palette'] | undefined {
   const found: string[] = [];
-  // Explicit hex codes win.
   const hexRe = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
   let m: RegExpExecArray | null;
   while ((m = hexRe.exec(text)) !== null) {
@@ -111,12 +125,6 @@ function extractColors(text: string, lower: string, profile: NicheCopyProfile): 
     if (hex.length === 4) hex = '#' + hex.slice(1).split('').map(c => c + c).join('');
     if (!found.includes(hex)) found.push(hex);
   }
-  // Named colours, in the order they appear. Several colour names are also common
-  // nouns or niche words ("coffee", "espresso", "mint", "rose", "wine", ...), so
-  // we partition matches into those backed by a colour-context cue ("palette",
-  // "colour", "scheme", "theme", "accent", ...) and bare ones. If any cue-backed
-  // colours exist we trust only those; otherwise we fall back to bare matches but
-  // drop the ambiguous food/niche words to avoid mistaking "coffee shop" for brown.
   const CUE_RE = /\b(colou?rs?|palette|scheme|theme|tones?|accent|primary|background|shades?|hues?)\b/gi;
   const cuePositions: number[] = [];
   let cm: RegExpExecArray | null;
@@ -140,7 +148,6 @@ function extractColors(text: string, lower: string, profile: NicheCopyProfile): 
   const palette: NonNullable<NluContent['palette']> = {};
   palette.primary = found[0];
   if (found[1]) palette.accent = found[1];
-  // Honour explicit dark/light cues for the background; else use niche default.
   if (/\b(dark|night|black|moody|midnight)\b/.test(lower)) palette.background = '#0a0a0c';
   else if (/\b(light|bright|white|airy|clean)\b/.test(lower)) palette.background = '#f8fafc';
   else if (profile.palette) palette.background = profile.palette.background;
@@ -148,24 +155,17 @@ function extractColors(text: string, lower: string, profile: NicheCopyProfile): 
 }
 
 // ── Brand-name extraction ───────────────────────────────────────────────────
-// Recognise “called X”, “named X”, “brand X”, “for X”, or a leading proper noun.
-
-// First word of a captured phrase that should not be treated as a brand name.
 const SKIP_BRAND_FIRST = new Set([
-  "My", "Our", "Your", "The", "An", "A", "This", "That", "Their",
-  "New", "Best", "Good", "Top", "Big", "Small", "Great", "Just",
-  "Build", "Create", "Make", "Design", "Develop", "Launch", "Start",
+  "My","Our","Your","The","An","A","This","That","Their",
+  "New","Best","Good","Top","Big","Small","Great","Just",
+  "Build","Create","Make","Design","Develop","Launch","Start",
 ]);
 
 function extractBrandName(text: string): string | undefined {
   const patterns = [
-    // Explicit: “called Rodriguez Coffee”, “named The Morning Grind”, “brand name is...”
-    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+[“”']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
-    // “for a coffee shop called The Grind”
-    /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+[“”']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
-    // “for Rodriguez Coffee Shop” — capitalized proper-noun phrase following “for”
+    /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+[""']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
+    /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+[""']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
     /\bfor\s+([A-Z][A-Za-z&''.-]{1,}(?:\s+[A-Z][A-Za-z&''.-]+){0,4})(?=\s|[,.!?\n]|$)/,
-    // “[BrandName] is a [niche]” — brand stated at the start of a clause
     /^([A-Z][A-Za-z&''.-]{1,}(?:\s+[A-Z][A-Za-z&''.-]+){0,3})\s+(?:is\s+a|is\s+an|—|–|-)\s+/m,
   ];
   for (const re of patterns) {
@@ -180,60 +180,65 @@ function extractBrandName(text: string): string | undefined {
   return undefined;
 }
 
-// ── Product / service list extraction ───────────────────────────────────────
-// Find comma/“and”-separated lists introduced by an offering cue
-// ("we serve / offer / sell / menu / products / drinks like ...").
-const LIST_CUES = [
-  'serve', 'serving', 'offer', 'offering', 'sell', 'selling', 'specialize in', 'specialise in',
-  'menu', 'products', 'product', 'drinks', 'dishes', 'items', 'services', 'such as', 'including',
-  'include', 'like', 'feature', 'featuring',
-];
-
-function extractProducts(text: string): NluProduct[] | undefined {
-  const lower = text.toLowerCase();
-  let bestList: string[] | null = null;
-  // Track the best list specifically from a "such as" / "including" cue since
-  // those introduce the cleanest enumerations (e.g. "drinks such as espresso,
-  // latte, cappuccino").  If we find one with ≥2 items it wins outright.
-  let suchAsList: string[] | null = null;
-
-  for (const cue of LIST_CUES) {
-    let from = 0;
-    while (true) {
-      const idx = lower.indexOf(cue, from);
-      if (idx < 0) break;
-      from = idx + cue.length;
-      // Grab the clause after the cue, up to sentence end.
-      const tail = text.slice(idx + cue.length, idx + cue.length + 200);
-      const clause = tail.split(/[.!?\n]/)[0];
-      const items = splitList(clause);
-      if (items.length >= 2) {
-        // Prefer the "such as" cue result over generic cues — it reliably
-        // follows the complete product list without extra noise.
-        if (cue === 'such as' || cue === 'including') {
-          if (!suchAsList || items.length > suchAsList.length) suchAsList = items;
-        }
-        if (!bestList || items.length > bestList.length) bestList = items;
-      }
-    }
-  }
-  // A "such as / including" result takes priority when it is at least as long
-  // as the generic best — it filters out noise from other cue matches.
-  const finalList = suchAsList && suchAsList.length >= (bestList?.length ?? 0)
-    ? suchAsList
-    : bestList;
-  if (!finalList) return undefined;
-  return finalList.slice(0, 8).map(name => ({ name }));
+// ── Audience extraction ─────────────────────────────────────────────────────
+// Pulls "for [audience]" phrases — "for youth athletes", "for small businesses",
+// "for couples", "for homeowners". These are used in dynamic copy generation so
+// "Basketball Coaching for Youth Athletes" reads naturally in the hero headline.
+function extractAudience(lower: string): string | undefined {
+  // "for [optional article] [audience phrase]" — stop before another "for", period, or clause
+  const m = lower.match(/\bfor\s+(?:a\s+|the\s+|all\s+|busy\s+|young\s+)?([a-z][a-z\s-]{2,30}?)(?:\s*[.,!?]|$|\s+who\b|\s+that\b|\s+looking\b|\s+wanting\b)/);
+  if (!m) return undefined;
+  const raw = m[1].trim().replace(/\s+/g, ' ');
+  // Reject if it's a business descriptor not an audience
+  if (/\b(shop|store|studio|cafe|website|site|business|company|brand|platform|agency|firm)\b/i.test(raw)) return undefined;
+  if (raw.split(' ').length > 5) return undefined;
+  return raw;
 }
 
-// Filler words that can appear at the start of a list item when a cue like
-// “drinks such as espresso, latte” fires — the tail “such as espresso, latte”
-// gets split and “such as espresso” becomes the first token.  Drop them.
+// ── Differentiator extraction ───────────────────────────────────────────────
+// Pulls the strongest qualifier that distinguishes the business — used in hero
+// copy to produce "Handmade Candles Worth Keeping" vs. "Award-Winning Cuisine".
+const DIFFERENTIATORS: string[] = [
+  'handmade','hand-made','handcrafted','hand-crafted','artisanal','artisan','small-batch','small batch',
+  'award-winning','award winning','multi-award','prize-winning',
+  'certified','licensed','accredited','registered','qualified',
+  'family-owned','family owned','family-run','women-owned','female-owned','veteran-owned',
+  'organic','sustainable','eco-friendly','ethically sourced','locally sourced','farm-to-table',
+  'bespoke','custom','personalised','personalized','made-to-order','made to order',
+  'luxury','ultra-luxury','fine','premier','top-rated','top rated',
+  'fast','same-day','24-hour','24 hour','instant','rapid',
+  'independent','boutique','specialist','expert','master','professional',
+];
+
+function extractDifferentiator(lower: string): string | undefined {
+  return DIFFERENTIATORS.find(d => lower.includes(d));
+}
+
+// ── Activity keywords ────────────────────────────────────────────────────────
+// Content-rich keywords extracted from the prompt with style/meta words removed.
+// These drive the dynamic copy templates in buildSiteCopy so "basketball coaching"
+// produces "Basketball at Its Best" rather than a generic "Sports at Full Speed".
+function extractActivityKeywords(lower: string): string[] {
+  const words = lower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(Boolean);
+  const freq: Record<string, number> = {};
+  for (const w of words) {
+    if (w.length < 3 || STOPWORDS.has(w) || STYLE_META.has(w)) continue;
+    freq[w] = (freq[w] || 0) + 1;
+  }
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([w]) => w);
+}
+
+// ── Product / service list extraction ───────────────────────────────────────
+const LIST_CUES = [
+  'serve','serving','offer','offering','sell','selling','specialize in','specialise in',
+  'menu','products','product','drinks','dishes','items','services','such as','including',
+  'include','like','feature','featuring',
+];
+
 const FILLER_FIRST = new Set([
-  'such', 'including', 'like', 'and', 'or', 'but', 'also', 'plus', 'featuring',
+  'such','including','like','and','or','but','also','plus','featuring',
 ]);
 
-// Split “A, B, C and D” / “A, B & C” into clean title-cased items.
 function splitList(clause: string): string[] {
   const cleaned = clause.replace(/^[\s:;,–—-]+/, '');
   const parts = cleaned
@@ -242,45 +247,74 @@ function splitList(clause: string): string[] {
     .filter(Boolean);
   const items: string[] = [];
   for (let p of parts) {
-    // Stop the list at obvious sentence continuations.
     if (/\b(with|for|that|which|to|so|because|please|on|in|at)\b/i.test(p) && p.split(/\s+/).length > 4) break;
-    p = p.replace(/^[“”'']+|[“”''.]+$/g, '').trim();
-    // Reject fragments that are clearly prose, keep short noun phrases.
+    p = p.replace(/^[""'']+|[""''.]+$/g, '').trim();
     const words = p.split(/\s+/);
     if (!p || words.length > 4) continue;
     if (p.length < 2 || p.length > 40) continue;
-    // Skip items whose first word is a filler/connector — artefacts of cues like
-    // “such as” or “including” being included in the extracted clause tail.
-    // e.g. “drinks such as espresso, latte” → tail “ such as espresso, latte”
-    // → split yields “such as espresso” as first part → skip it.
     if (FILLER_FIRST.has(words[0].toLowerCase())) continue;
     items.push(titleCase(p));
   }
   return items;
 }
 
-function titleCase(s: string): string {
-  return s.replace(/\w[\w''-]*/g, w =>
-    /^(and|or|the|of|a|an|to|in|on|with|for)$/i.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)
-  ).replace(/^\w/, c => c.toUpperCase());
-}
-
-// ── Keyword extraction ──────────────────────────────────────────────────────
-function extractKeywords(lower: string): string[] {
-  const words = lower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(Boolean);
-  const freq: Record<string, number> = {};
-  for (const w of words) {
-    if (w.length < 3 || STOPWORDS.has(w)) continue;
-    freq[w] = (freq[w] || 0) + 1;
+function extractProducts(text: string): NluProduct[] | undefined {
+  const lower = text.toLowerCase();
+  let bestList: string[] | null = null;
+  let suchAsList: string[] | null = null;
+  for (const cue of LIST_CUES) {
+    let from = 0;
+    while (true) {
+      const idx = lower.indexOf(cue, from);
+      if (idx < 0) break;
+      from = idx + cue.length;
+      const tail = text.slice(idx + cue.length, idx + cue.length + 200);
+      const clause = tail.split(/[.!?\n]/)[0];
+      const items = splitList(clause);
+      if (items.length >= 2) {
+        if (cue === 'such as' || cue === 'including') {
+          if (!suchAsList || items.length > suchAsList.length) suchAsList = items;
+        }
+        if (!bestList || items.length > bestList.length) bestList = items;
+      }
+    }
   }
-  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([w]) => w);
+  const finalList = suchAsList && suchAsList.length >= (bestList?.length ?? 0) ? suchAsList : bestList;
+  if (!finalList) return undefined;
+  return finalList.slice(0, 8).map(name => ({ name }));
 }
 
-// ── Explicit design-cue detection ───────────────────────────────────────────
-// If the user explicitly named a mood/style/personality/tone, we must NOT let
-// the niche profile's default override their choice. We detect which dimensions
-// the prompt speaks to and suppress the profile default for those, leaving the
-// deterministic parser's explicit-words-win result to stand.
+// ── Product inference from activity keywords ─────────────────────────────────
+// When the user listed no products/services and the profile has no authored
+// bank for this niche, infer plausible offerings from the activity keywords.
+// Every generated item name uses the actual trade words from the prompt.
+function inferProductsFromActivity(
+  actKws: string[],
+  industry: string,
+  isProductBusiness: boolean,
+): NluProduct[] {
+  const act = actKws[0] || industry;
+  const spec = actKws[1] || '';
+  const actT = titleCase(act);
+  const specT = spec ? titleCase(spec) : '';
+
+  if (isProductBusiness) {
+    return [
+      { name: `${actT} Collection`, desc: `Our curated range of ${act} — crafted to the highest standard.` },
+      { name: `Best Sellers`, desc: `The ${act} our customers reach for again and again.` },
+      { name: `${specT ? specT + ' ' : ''}${actT}s`, desc: `${specT ? titleCase(specT) + ' ' : ''}${act} made with care, built to last.` },
+      { name: `Gift Sets`, desc: `Beautifully packaged ${act} sets — ready to give.` },
+    ];
+  }
+  return [
+    { name: `Free Consultation`, desc: `An initial session to understand your goals and plan the right approach.` },
+    { name: `${actT}${specT ? ' ' + specT : ''} Sessions`, desc: `Core ${act} sessions delivered with expertise and genuine care.` },
+    { name: `Custom ${actT} Program`, desc: `A tailored plan built around your specific timeline and requirements.` },
+    { name: `${actT} Membership`, desc: `Regular sessions, priority booking, and member-only benefits.` },
+  ];
+}
+
+// ── Design cue detection ─────────────────────────────────────────────────────
 const MOOD_CUES = ['dark','light','bright','vibrant','muted','soft','warm','cold','cool','dramatic','moody','ethereal','contrast','grounded','neutral'];
 const STYLE_CUES = ['minimal','minimalist','brutalist','glassmorphism','glass','neumorphism','flat','material','cyberpunk','futuristic','retro','vintage','vaporwave','editorial','corporate','playful','artistic','organic','industrial','luxury','luxurious','premium','startup','enterprise','cinematic','high-tech','modern','clean','elegant','sleek'];
 const PERSONALITY_CUES = ['bold','elegant','aggressive','friendly','authoritative','whimsical','serious','approachable','exclusive','energetic','calm','rebellious','sophisticated','youthful','trustworthy','innovative','timeless','experimental','professional','fun','quirky'];
@@ -290,21 +324,7 @@ function hasCue(lower: string, cues: string[]): boolean {
   return cues.some(c => new RegExp(`(^|[^a-z])${c}([^a-z]|$)`, 'i').test(lower));
 }
 
-// ── Copy synthesis ──────────────────────────────────────────────────────────
-// Build niche-appropriate hero/sub/tagline/about copy, substituting the brand
-// name. Explicit user copy (extracted separately) always overrides these.
-function synthesizeCopyFrom(heroes: string[], profile: NicheCopyProfile, brand: string, seed: number) {
-  const sub = (s: string) => s.replace(/\{brand\}/g, brand);
-  return {
-    heroHeadline: sub(pick(heroes, seed)),
-    heroSub: sub(pick(profile.subs, seed >> 3)),
-    tagline: sub(pick(profile.taglines, seed >> 5)),
-    about: sub(pick(profile.abouts, seed >> 7)),
-  };
-}
-
-// Attach niche-appropriate descriptions/prices to user-named products that came
-// with only a name, by matching against the profile's known products.
+// ── Product enrichment ───────────────────────────────────────────────────────
 function enrichProducts(named: NluProduct[], profile: NicheCopyProfile): NluProduct[] {
   return named.map(p => {
     if (p.desc && p.price) return p;
@@ -314,69 +334,86 @@ function enrichProducts(named: NluProduct[], profile: NicheCopyProfile): NluProd
   });
 }
 
-// ── Main entry point ────────────────────────────────────────────────────────
+// Product-oriented niches infer product cards; all others infer service cards.
+const PRODUCT_INDUSTRIES = new Set([
+  'ecommerce','fashion','florist','craft','jewelry','home','pet','beauty','retail','shop','store',
+  'dessert','juicebar','bakery','coffee',
+]);
+
+// ── Main entry point ─────────────────────────────────────────────────────────
 /**
  * Read a prompt and produce a structured, in-house understanding. Always returns
  * content — there is no network path and no failure mode that yields null.
+ *
+ * Design principle: the NLU is an EXTRACTOR, not a copy writer. It reads the
+ * prompt and surfaces what is there — brand name, explicit copy, listed
+ * products, semantic qualifiers (audience, differentiator). ALL prose copy
+ * (heroHeadline, heroSub, about) is generated downstream in buildSiteCopy
+ * from the extracted keywords and semantic context, so every site's copy is
+ * unique to the prompt rather than pulled from a stored template pool.
  */
 export function understandPrompt(prompt: string): NluContent {
-  const text = (prompt || '').replace(/[“”„‟″]/g, '"').replace(/[''‚‛′]/g, "'");
+  const text = (prompt || '').replace(/[""„‟″]/g, '"').replace(/[''‚‛′]/g, "'");
   const lower = text.toLowerCase();
   const seed = hash(lower);
 
   const { slug, broad } = detectNiche(lower);
   const profile = profileFor(slug, broad);
 
-  const explicit = extractPromptCopy(prompt);          // hero/CTA/sections the user wrote
+  const explicit = extractPromptCopy(prompt);
   const brandName = extractBrandName(text);
-  // When we know the brand name, substitute it into copy. When we don't, use a
-  // placeholder that the renderer's own brand-name logic will overwrite.
-  const brand = brandName || 'We';
-  // Explicit colours win. Otherwise use the niche default palette — but only when
-  // the user gave no mood cue (e.g. "dark"), so we don't fight the parser's
-  // mood-derived palette.
   const explicitPalette = extractColors(text, lower, profile);
   const palette = explicitPalette || (hasCue(lower, MOOD_CUES) ? undefined : profile.palette);
+
+  // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
+  const audience = extractAudience(lower);
+  const differentiator = extractDifferentiator(lower);
+  const activityKeywords = extractActivityKeywords(lower);
+
+  // Keywords for the prompt-engine parser (all content words, slightly broader set)
+  const keywords = activityKeywords;
+
+  // Products: explicit user list → enriched from profile → inferred from activity
   const namedProducts = extractProducts(text);
+  let products: NluProduct[] | undefined;
+  if (namedProducts && namedProducts.length) {
+    products = enrichProducts(namedProducts, profile);
+  } else if (profile.products.length) {
+    products = profile.products;
+  } else {
+    products = inferProductsFromActivity(activityKeywords, slug, PRODUCT_INDUSTRIES.has(slug));
+  }
 
-  // When a brand name was found, prefer the brand-personalised hero pool so the
-  // headline feels specific to this business rather than generic niche copy.
-  const heroPool = brandName && profile.brandHeroes?.length
-    ? profile.brandHeroes
-    : profile.heroes;
-  const synth = synthesizeCopyFrom(heroPool, profile, brand, seed);
-
-  // Products: prefer the user's explicit list (enriched with niche detail), else
-  // the niche's representative offering.
-  const products = namedProducts && namedProducts.length
-    ? enrichProducts(namedProducts, profile)
-    : profile.products;
-
-  // Suppress profile token defaults the user spoke to explicitly, so the parser's
-  // explicit-words-win result stands for those dimensions.
   const content: NluContent = {
     industry: slug,
-    keywords: extractKeywords(lower),
-    mood: hasCue(lower, MOOD_CUES) ? undefined : profile.mood,
-    designStyle: hasCue(lower, STYLE_CUES) ? undefined : profile.designStyle,
+    keywords,
+    // Design tokens from profile (niche-appropriate defaults that the parser may
+    // override when the user explicitly named a mood/style/personality/tone)
+    mood:        hasCue(lower, MOOD_CUES)        ? undefined : profile.mood,
+    designStyle: hasCue(lower, STYLE_CUES)       ? undefined : profile.designStyle,
     personality: hasCue(lower, PERSONALITY_CUES) ? undefined : profile.personality,
-    tone: hasCue(lower, TONE_CUES) ? undefined : profile.tone,
+    tone:        hasCue(lower, TONE_CUES)        ? undefined : profile.tone,
     palette,
     brandName,
-    // Explicit user copy wins; otherwise the synthesised niche copy fills in.
-    heroHeadline: explicit?.heroHeadline || synth.heroHeadline,
-    heroSub: explicit?.heroSub || synth.heroSub,
-    tagline: explicit?.tagline || synth.tagline,
-    heroTag: explicit?.heroTag,
-    // Explicit button text wins; otherwise the niche profile's own CTA labels
-    // drive the hero buttons so they read correctly for the trade (a florist
-    // says "Shop Bouquets", a law firm "Request a Consultation").
-    primaryCta: explicit?.primaryCta || profile.cta,
+    // EXPLICIT user copy wins (what they actually wrote in the prompt).
+    // Hero headline/sub/about are NOT synthesised here from a profile bank —
+    // they are generated dynamically in buildSiteCopy from the extracted
+    // keywords, audience, and differentiator below, so every site's copy is
+    // unique and anchored in the real prompt content.
+    heroHeadline: explicit?.heroHeadline || undefined,
+    heroSub:      explicit?.heroSub      || undefined,
+    tagline:      explicit?.tagline      || undefined,
+    heroTag:      explicit?.heroTag      || undefined,
+    primaryCta:   explicit?.primaryCta   || profile.cta,
     secondaryCta: explicit?.secondaryCta || profile.ctaSecondary,
-    about: synth.about,
-    sections: explicit?.sections,
+    about:        undefined,
+    sections:     explicit?.sections,
     products,
-    faqs: profile.faqs,
+    faqs:         profile.faqs,
+    // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy
+    audience,
+    differentiator,
+    activityKeywords,
   };
   return content;
 }

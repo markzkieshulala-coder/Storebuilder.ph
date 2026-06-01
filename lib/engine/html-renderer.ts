@@ -1687,33 +1687,45 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const secKw  = kwDisplay(kws[1], nicheSubject !== 'Experience' ? 'Experience' : 'Quality');
   const thirdKw = kwDisplay(kws[2], 'Innovation');
 
-  // Headline patterns keyed by personality
+  // Semantic qualifiers extracted from the prompt — drive richer, unique copy.
+  const llmCtx = (puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm || {};
+  const strVal = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : '');
+  const audience     = strVal(llmCtx.audience);     // "youth athletes", "couples"
+  const differentiator = strVal(llmCtx.differentiator); // "handmade", "award-winning"
+  const audFrag   = audience ? ` for ${audience}` : '';
+  const diffAdj   = differentiator ? `${titleCase(differentiator)} ` : '';
+
+  // Headline patterns — ALL use actual extracted keywords so every prompt produces
+  // a unique headline. {mainKw} is the real primary activity from the prompt
+  // (e.g. "Basketball", "Candle", "Florals") not a generic category word.
   const headlinePatterns: Record<string, string[]> = {
-    bold:           [`${brand} — ${mainKw} Redefined`, `The ${mainKw} Standard`, `${mainKw}. Unmatched.`, `Powering ${mainKw} Forward`],
-    elegant:        [`${brand} — ${mainKw} & ${secKw}`, `The Art of ${mainKw}`, `${mainKw} with Precision`, `Refined ${mainKw}`],
-    energetic:      [`${mainKw} at Full Speed`, `${brand}: Where ${mainKw} Meets ${secKw}`, `Fuel Your ${mainKw}`, `${mainKw} Unleashed`],
-    friendly:       [`Welcome to ${brand}`, `${mainKw} Made Simple`, `${mainKw} for Everyone`, `Your ${mainKw} Journey Starts Here`],
-    authoritative:  [`${brand}: Leading ${mainKw}`, `The ${mainKw} Authority`, `Trusted ${mainKw} Since Day One`, `Setting the ${mainKw} Standard`],
-    innovative:     [`${mainKw} Reimagined`, `The Future of ${mainKw}`, `${brand} — ${mainKw} Next`, `${mainKw} × ${secKw}`],
-    sophisticated:  [`${brand} — ${mainKw} Elevated`, `Where ${mainKw} Meets ${secKw}`, `${mainKw}. Elevated.`, `Premium ${mainKw}`],
-    trustworthy:    [`${brand}: Your ${mainKw} Partner`, `Reliable ${mainKw}, Guaranteed`, `${mainKw} You Can Count On`, `Trusted ${mainKw}`],
+    bold:          [`${brand} — ${mainKw} Redefined`, `The ${mainKw} Standard`, `${diffAdj}${mainKw}. Built Different.`, `${mainKw} Worth Choosing`],
+    elegant:       [`${brand} — ${diffAdj}${mainKw} & ${secKw}`, `The Art of ${diffAdj}${mainKw}`, `${diffAdj}${mainKw}, Thoughtfully Done`, `${mainKw} with Intention`],
+    energetic:     [`${mainKw} at Its Best${audFrag}`, `${brand}: ${mainKw} Meets ${secKw}`, `Elevate Your ${mainKw}`, `${mainKw} Unleashed`],
+    friendly:      [`Welcome to ${brand}`, `${mainKw} Made for You${audFrag}`, `${brand} — ${mainKw} You'll Love`, `Your ${mainKw} Starts Here`],
+    authoritative: [`${brand}: Trusted ${mainKw}`, `The ${mainKw} Authority`, `${mainKw} Done Right${audFrag}`, `Setting the ${mainKw} Standard`],
+    innovative:    [`${mainKw} Reimagined`, `The Future of ${mainKw}`, `${brand} — ${mainKw} Next`, `${mainKw} × ${secKw}`],
+    sophisticated: [`${brand} — ${diffAdj}${mainKw} Elevated`, `Where ${mainKw} Meets ${secKw}`, `${diffAdj}${mainKw}. Elevated.`, `${mainKw} Worth Remembering`],
+    trustworthy:   [`${brand}: Your ${mainKw} Partner`, `${mainKw} You Can Trust${audFrag}`, `Reliable ${mainKw}`, `Trusted ${mainKw}${audFrag}`],
+    calm:          [`${brand} — ${mainKw} Done Right`, `A Space for ${mainKw}`, `${mainKw}, With Care`, `${mainKw} Worth Slowing Down For`],
+    exclusive:     [`${diffAdj}${mainKw} Worth Having`, `${brand} — ${mainKw} Refined`, `The ${diffAdj}${mainKw} Edit`, `${mainKw}, Elevated`],
   };
 
   const headlines = headlinePatterns[personality] || headlinePatterns['bold'];
   const heroHeadline = pick(headlines, fp);
 
-  // Hero subtitle — a crafted, benefit-led sentence. We deliberately DO NOT echo
-  // the raw prompt back (that leaks meta-instructions like "modern, clean website
-  // with Facebook colors" into the page). Instead we compose copy from the niche
-  // subject + supporting keyword so it reads like real marketing.
+  // Hero subtitle — composed purely from the prompt's own keywords, audience, and
+  // differentiator. Never pulled from a profile's stored string bank.
   const subjectPhrase = (kws[0] ? kws[0] : nicheSubject).toLowerCase();
   const supportPhrase = (kws[1] ? kws[1] : secKw).toLowerCase();
-  const heroSubPatterns = subNiche?.heroSubs || [
-    `Premium ${subjectPhrase} crafted for those who expect more — where ${supportPhrase} meets uncompromising quality.`,
-    `Discover ${brand}: a new standard in ${subjectPhrase}, built around ${supportPhrase} and an obsession with detail.`,
-    `Experience ${subjectPhrase} done right. Thoughtfully designed, expertly delivered, and made to leave an impression.`,
-    `${brand} brings ${subjectPhrase} and ${supportPhrase} together into one seamless, elevated experience.`,
-    `Where ${subjectPhrase} becomes an experience. Refined, considered, and crafted for you.`,
+  const heroSubPatterns = [
+    differentiator
+      ? `${diffAdj}${subjectPhrase} and ${supportPhrase}${audFrag} — made with genuine care and no shortcuts.`
+      : `${titleCase(subjectPhrase)} and ${supportPhrase}${audFrag === '' ? '' : ', ' + audience} — done the right way, every time.`,
+    `Discover ${brand}: a new standard in ${subjectPhrase}, built around ${supportPhrase}${audFrag === '' ? '' : ' ' + audience + ' trust'}.`,
+    `Experience ${subjectPhrase} done right${audFrag}. Thoughtfully crafted, expertly delivered, built to last.`,
+    `${brand} brings ${subjectPhrase} and ${supportPhrase} together into one ${differentiator ? differentiator + ', ' : ''}seamless experience.`,
+    `Where ${subjectPhrase} becomes an experience${audFrag === '' ? '' : ' ' + audience + ' remember'}. Considered, crafted, and built for you.`,
   ];
   const heroSub = pick(heroSubPatterns, fp + 2);
 
@@ -1966,6 +1978,7 @@ function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy 
   const llm = (puo.customAttributes as { llm?: {
     tagline?: string; heroHeadline?: string; heroSub?: string; about?: string;
     primaryCta?: string; secondaryCta?: string; heroTag?: string;
+    audience?: string; differentiator?: string; activityKeywords?: string[];
     products?: Array<{ name?: string; desc?: string; price?: string }>;
     faqs?: Array<{ q?: string; a?: string }>;
   } } | undefined)?.llm;
