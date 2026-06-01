@@ -82,6 +82,7 @@ export function foldNluIntoPuo(puo: PromptUnderstandingObject, nlu: NluContent):
     brandVoice: nlu.brandVoice,
     sellingPoints: Array.isArray(nlu.sellingPoints) && nlu.sellingPoints.length ? nlu.sellingPoints : undefined,
     intentCta: nlu.intentCta,
+    missionStatement: nlu.missionStatement,
   };
   const mergedLlm: Record<string, unknown> = { ...prevLlm };
   for (const [k, v] of Object.entries(fresh)) {

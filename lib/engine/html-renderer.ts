@@ -1281,10 +1281,16 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const differentiator = strVal(llmCtx.differentiator); // "handmade", "award-winning"
   const location       = strVal(llmCtx.location);       // "Manila", "Los Angeles"
   const credSignals    = Array.isArray(llmCtx.credentialSignals) ? (llmCtx.credentialSignals as string[]) : [];
+  const actKws         = Array.isArray(llmCtx.activityKeywords) ? (llmCtx.activityKeywords as string[]) : [];
+  const missionStatement = typeof llmCtx.missionStatement === 'string' ? llmCtx.missionStatement.trim() : '';
   const bVoice         = (llmCtx.brandVoice as { register?: string; usesExclamations?: boolean } | undefined);
   // The user's own descriptive sentences about their business — used verbatim
   // in heroSub and aboutBody so their words appear on the generated site.
   const sellingPoints  = Array.isArray(llmCtx.sellingPoints) ? (llmCtx.sellingPoints as string[]) : [];
+  // Filter pure CTA sentences — those belong in buttons, not bullets/testimonials
+  const descriptiveSPs = sellingPoints.filter(sp =>
+    !/\b(?:order|book|call|visit|contact|reserve|schedule|buy|shop|sign\s+up|get\s+started)\s+(?:now|today|us|here|online)\b/i.test(sp)
+  );
   // Action phrase the user wrote in their prompt — overrides the niche-template CTA.
   const intentCta      = strVal(llmCtx.intentCta);
   const audFrag   = audience ? ` for ${audience}` : '';
@@ -1480,8 +1486,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     application: 'Launch App', showcase: 'Explore', dashboard: 'Open Dashboard',
     'multi-page': 'Get Started', 'single-page': 'Learn More',
   };
-  // intentCta (action phrase from user's prompt) > niche default > layout default > generic
-  const primaryCta = intentCta || ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
+  // explicit user CTA text > action phrase user wrote > niche default > layout default > generic
+  const primaryCta = strVal(llmCtx.primaryCta) || intentCta || ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
   const secByNiche: Record<string, string> = {
     food: 'Book a Table', sports: 'See Programs', technology: 'Watch Demo',
     photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
@@ -1489,32 +1495,33 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     hospitality: 'Explore Rooms', professional: 'Learn More',
     homeservices: 'Our Services', automotive: 'Our Services',
   };
-  const secondaryCta = secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
+  const secondaryCta = strVal(llmCtx.secondaryCta) || secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
 
-  // Hero tag — credential signals win when present so "award-winning" / "est. 1995"
-  // surfaces in the hero eyebrow, giving every prompt its own trust marker.
+  // Hero tag — explicit user text > credential signal > location > niche > generic
   const heroTagCredential = credSignals.length > 0 ? titleCase(credSignals[0]) : null;
-  const heroTagNiche = industry !== 'general' ? `${titleCase(industry)} Specialists` : null;
-  const heroTagsPool = [
-    ...(heroTagCredential ? [heroTagCredential] : []),
-    ...(heroTagNiche ? [heroTagNiche] : []),
-    'Now Open', 'Trusted by Thousands', `${mainKw} Experts`, 'Book Today',
-    'New Collection', 'Now Available', 'Get Started Today', `Premium ${mainKw}`,
-    ...(location ? [`Serving ${location}`] : []),
-  ];
-  const heroTag = pick(heroTagsPool, fp + 3);
+  const heroTag = strVal(llmCtx.heroTag)
+    || heroTagCredential
+    || (location ? `Serving ${location}` : '')
+    || (industry !== 'general' ? `${titleCase(industry)} Specialists` : '')
+    || pick(['Trusted by Thousands', `${mainKw} Experts`, 'Book Today', 'Now Open', `Premium ${mainKw}`, 'New Collection', 'Get Started Today'], fp + 3);
 
-  // Section eyebrow
-  const eyebrows = ['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'The Difference', 'Built for You', 'What Sets Us Apart', 'The Story Behind It', 'Here\'s the Difference'];
-  const sectionEyebrow = pick(eyebrows, fp + 7);
+  // Section eyebrow — derive from user's differentiator/audience/activity, not a random pick
+  const sectionEyebrow = differentiator
+    ? `What Makes Us ${titleCase(differentiator)}`
+    : audience
+    ? `Built for ${titleCase(audience)}`
+    : actKws[0]
+    ? `Specialising in ${titleCase(actKws[0])}`
+    : pick(['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'The Difference', 'Built for You', 'What Sets Us Apart', "Here's the Difference"], fp + 7);
 
-  // Feature heading — niche-safe, avoids SaaS-only idioms on non-tech niches.
-  const featureHeadings = [
-    `The Complete ${mainKw} Experience`, `Crafted Around ${mainKw}`, `Why ${brand}`,
-    `What Sets Us Apart`, `Made for the Moment`, `Designed With Intention`,
-    `Built for ${audience || mainKw}`, `The ${brand} Difference`,
-  ];
-  const featureHeading = pick(featureHeadings, fp + 5);
+  // Feature heading — NLU-derived so it always references user's differentiator/brand
+  const featureHeading = differentiator && audience
+    ? `${titleCase(differentiator)} ${mainKw} for ${titleCase(audience)}`
+    : differentiator
+    ? `The ${titleCase(differentiator)} Difference`
+    : audience
+    ? `Everything ${titleCase(audience)} Need`
+    : `Why ${brand}`;
 
   // Features — driven by extracted keywords
   const ICONS = ICON_SVGS;
@@ -1564,7 +1571,6 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const descFor = FEATURE_DESC_BY_INDUSTRY[normIndustry] || FEATURE_DESC_BY_INDUSTRY.general;
 
   // Merge activityKeywords (most content-rich) with kws, dedup, take up to 6.
-  const actKws = Array.isArray(llmCtx.activityKeywords) ? (llmCtx.activityKeywords as string[]) : [];
   const featureKws = [...new Set([...actKws.map(k => k.toLowerCase()), ...kws])].slice(0, 6);
   // 6 title patterns rotate by (fp + i*3) so adjacent features get different shapes.
   const FEAT_TITLE_FNS: Array<(kw: string, sf: string) => string> = [
@@ -1703,20 +1709,36 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       `The ${mainKw} experience with ${brand} is unmatched. Every team should use this.`,
     ],
   };
-  const baseQuotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
-  // Personalise quotes with user's actual product/selling-point words when available
-  const sp0 = sellingPoints[0] ? spToTitle(sellingPoints[0]).toLowerCase() : mainKw;
-  const sp1 = sellingPoints[1] ? spToTitle(sellingPoints[1]).toLowerCase() : secKw;
-  const firstProduct = productTitles[0] ? productTitles[0] : sp0;
-  const quotes = baseQuotes.map(q =>
-    q.replace(/\b(mainKw)\b/g, mainKw)
-     .replace(/\b(secKw)\b/g, secKw)
-  ).map((q, i) => {
-    // Inject real product/selling-point words into the first two quotes
-    if (i === 0 && firstProduct !== mainKw) return q.replace(mainKw, firstProduct);
-    if (i === 1 && sp1 !== secKw) return q.replace(secKw, sp1);
-    return q;
-  });
+  // Build testimonial quotes grounded in user's actual selling-point and product words.
+  // When the user described their business, those words appear in the testimonials
+  // so every quote sounds specific to this business — not a generic niche template.
+  const tSp0 = descriptiveSPs[0] ? spToTitle(descriptiveSPs[0]).toLowerCase() : mainKw.toLowerCase();
+  const tSp1 = descriptiveSPs[1] ? spToTitle(descriptiveSPs[1]).toLowerCase() : secKw.toLowerCase();
+  const tProd0 = productTitles[0] || tSp0;
+  const tProd1 = productTitles[1] || tSp1;
+  const buildTestimonialQ = (idx: number): string => {
+    switch (idx % 3) {
+      case 0:
+        if (descriptiveSPs.length >= 1)
+          return `${brand}'s ${tSp0} is exactly what I was looking for. I've tried other places — nothing even comes close.`;
+        return (TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general)[0]
+          .replace(/\$\{brand\}/g, brand).replace(/\$\{mainKw\}/g, mainKw).replace(/\$\{secKw\}/g, secKw);
+      case 1:
+        if (productTitles.length >= 1)
+          return `The ${tProd0} at ${brand} exceeded every expectation. I've already recommended it to everyone I know.`;
+        if (descriptiveSPs.length >= 2)
+          return `${brand} delivers on every promise — especially the ${tSp1}. An experience worth coming back for again and again.`;
+        return (TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general)[1]
+          .replace(/\$\{brand\}/g, brand).replace(/\$\{mainKw\}/g, mainKw).replace(/\$\{secKw\}/g, secKw);
+      default:
+        if (productTitles.length >= 2)
+          return `Came for the ${tProd0}, stayed for the ${tProd1}. ${brand} is in a class of its own.`;
+        if (descriptiveSPs.length >= 1)
+          return `Once you've experienced ${tSp0} at ${brand}, you won't go anywhere else. The quality speaks for itself.`;
+        return (TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general)[2]
+          .replace(/\$\{brand\}/g, brand).replace(/\$\{mainKw\}/g, mainKw).replace(/\$\{secKw\}/g, secKw);
+    }
+  };
   // Rotate through 6 diverse name sets so every brand gets a different trio.
   const NAME_POOL: string[][] = [
     ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'],
@@ -1728,7 +1750,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   ];
   const names = NAME_POOL[fp % NAME_POOL.length];
   const testimonials = names.map((name, i) => ({
-    quote: quotes[i % quotes.length] || quotes[0],
+    quote: buildTestimonialQ(i),
     name,
     role: roles[i % roles.length] || roles[0],
   }));
@@ -1855,27 +1877,57 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     return tpl;
   })();
 
-  const aboutBullets = [
-    `${kws[0] ? titleCase(kws[0]) + '-first approach' : 'Client-first approach'}`,
-    `${kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution'}`,
-    `${differentiator ? titleCase(differentiator) + ' commitment' : audience ? 'Built for ' + audience : 'Uncompromising quality'}`,
-    `Transparent, honest, and always improving`,
-  ];
+  const aboutBullets: string[] = descriptiveSPs.length >= 3
+    ? descriptiveSPs.slice(0, 4).map(sp => spToTitle(sp))
+    : descriptiveSPs.length >= 1
+    ? [
+        spToTitle(descriptiveSPs[0]),
+        kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution',
+        differentiator ? titleCase(differentiator) + ' commitment' : audience ? 'Built for ' + audience : 'Uncompromising quality',
+        'Transparent, honest, and always improving',
+      ]
+    : [
+        kws[0] ? titleCase(kws[0]) + '-first approach' : 'Client-first approach',
+        kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution',
+        differentiator ? titleCase(differentiator) + ' commitment' : audience ? 'Built for ' + audience : 'Uncompromising quality',
+        'Transparent, honest, and always improving',
+      ];
 
-  // Mission — distinct from About so stage + split sections never clone.
-  const missionHeading = pick([`Our Approach`, `Why ${brand}`, `Built Different`, `What Drives Us`, `The ${brand} Difference`], fp + 4);
-  const missionBodies = [
-    `Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with${audience ? ' a focus on ' + audience + ' and' : ''} an obsession for ${secKw.toLowerCase()}${differentiator ? ', keeping our ' + differentiator + ' commitment at the core of everything we do' : ''}. No shortcuts — just work we're proud to put our name on.`,
-    `At ${brand}, the standard is simple: every piece of ${mainKw.toLowerCase()} we deliver has to be something we'd choose ourselves${audience ? ' if we were ' + audience : ''}. ${differentiator ? titleCase(differentiator) + ' execution, ' : ''}Genuine ${secKw.toLowerCase()}, and the kind of care that doesn't take shortcuts.`,
-    `We didn't build ${brand} to be average. ${differentiator ? 'Our ' + differentiator + ' approach means ' : ''}We obsess over ${mainKw.toLowerCase()}, we invest in ${secKw.toLowerCase()}, and we hold ourselves accountable to outcomes${audience ? ' ' + audience + ' can measure' : ' that matter'}.`,
-    `The ${brand} philosophy is straightforward: show up, do excellent ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''}, and never stop improving. ${differentiator ? titleCase(differentiator) + ' craft and ' : ''}${secKw} is not optional — it's who we are.`,
-  ];
-  const missionBody = pick(missionBodies, fp + 4);
+  // Mission — NLU-first: explicit mission statement from prompt > derived > template
+  const missionHeading = missionStatement
+    ? `The ${brand} Mission`
+    : differentiator
+    ? `Our ${titleCase(differentiator)} Promise`
+    : audience
+    ? `Built for ${titleCase(audience)}`
+    : `Why ${brand}`;
+  const missionBody = (() => {
+    if (missionStatement) {
+      return differentiator
+        ? `${missionStatement} — ${differentiator} at every step.`
+        : missionStatement;
+    }
+    if (descriptiveSPs.length >= 3) return descriptiveSPs.slice(2).join(' ');
+    if (differentiator && audience) {
+      return `At ${brand}, we're ${differentiator} to the core — built specifically for ${audience}. Every ${mainKw.toLowerCase()} decision starts with one question: does this truly serve ${audience}? Our answer is always ${differentiator}, always genuine, and never shortcuts.`;
+    }
+    if (differentiator) {
+      return `At ${brand}, ${differentiator} isn't just a tagline — it's how we operate. From our sourcing to our service, every detail reflects our commitment to doing ${mainKw.toLowerCase()} the ${differentiator} way. No shortcuts. Just work we're proud to put our name on.`;
+    }
+    if (audience) {
+      return `${brand} was built specifically for ${audience}. We understand what ${audience} need better than anyone — and that understanding shapes every decision we make, from the way we work to the results we deliver.`;
+    }
+    // Fallback to well-parameterised template
+    return `Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with an obsession for ${secKw.toLowerCase()}. No shortcuts — just work we're proud to put our name on.`;
+  })();
 
 
-  // Gallery
+  // Gallery — use brand name for specificity
   const galleryLabel: Record<string, string> = { portfolio: 'Portfolio', ecommerce: 'Shop', technology: 'Features', food: 'Menu', sports: 'Gallery', photography: 'Portfolio', fashion: 'Collection', agency: 'Work', homeservices: 'Our Work', automotive: 'Our Work', general: 'Gallery' };
-  const galleryHeading = `Our ${(galleryLabel[normIndustry] || galleryLabel.general)}`;
+  const galleryLabelWord = galleryLabel[normIndustry] || galleryLabel.general;
+  const galleryHeading = productTitles.length >= 2
+    ? `${brand} — ${galleryLabelWord}`
+    : `Our ${galleryLabelWord}`;
 
   // Contact — personalised with audience and location when present.
   const contactHeading = audience ? `Ready, ${titleCase(audience)}?` : `Let's Talk ${mainKw}`;
@@ -1887,14 +1939,23 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     ' Have questions or want to get started? Reach out and our team will get back to you within 24 hours.',
   ].join('');
 
-  // CTA
-  const ctaHeadings = [
-    `Ready to Experience ${brand}?`, `Let's Begin`, `Your ${mainKw} Starts Here`,
-    `Become Part of ${brand}`, `Make It Happen`, `Start Today`, `The Next Step is Yours`,
-    audience ? `Built for ${titleCase(audience)} — Ready When You Are` : `${brand} Is Ready. Are You?`,
-  ];
-  const ctaHeading = pick(ctaHeadings, fp + 9);
-  const ctaSub = CTA_SUB_BY_NICHE[normIndustry] || CTA_SUB_BY_NICHE.general;
+  // CTA — NLU-first: user's intent > selling-point preview > audience/brand fallback
+  const ctaHeading = intentCta && intentCta !== 'Get Started'
+    ? `${intentCta.replace(/\s*now\s*/gi, '').trim()} — ${brand} Is Ready`
+    : descriptiveSPs.length >= 1
+    ? `Experience ${spToTitle(descriptiveSPs[0])} at ${brand}`
+    : audience
+    ? `Built for ${titleCase(audience)} — Ready When You Are`
+    : `Ready to Experience ${brand}?`;
+  // CTA sub — inject differentiator/audience so it's specific to this business
+  const ctaSubBase = CTA_SUB_BY_NICHE[normIndustry] || CTA_SUB_BY_NICHE.general;
+  const ctaSub = audience && differentiator
+    ? `${brand} is ${differentiator} — designed specifically for ${audience}. ${ctaSubBase}`
+    : audience
+    ? `${brand} is built for ${audience}. ${ctaSubBase}`
+    : differentiator
+    ? `Experience the ${differentiator} difference at ${brand}. ${ctaSubBase}`
+    : ctaSubBase;
 
   // FAQ + product/menu content — niche-specific, resolved from the banks above.
   const faqs = resolveFaqs(normIndustry);
@@ -1902,18 +1963,17 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const products = productBank?.items || null;
   const productEyebrow = productBank?.eyebrow || 'Featured';
 
-  // Footer tagline — 8 options for variety across prompts.
-  const footerTaglines = [
-    `${mainKw} made powerful.`,
-    `Building the future of ${mainKw.toLowerCase()}.`,
-    `Your ${mainKw.toLowerCase()} partner.`,
-    `${brand} — where ${mainKw.toLowerCase()} meets ${secKw.toLowerCase()}.`,
-    differentiator ? `${titleCase(differentiator)} ${mainKw.toLowerCase()}. Every time.` : `${mainKw} done right, every time.`,
-    audience ? `Made for ${audience}.` : `Made for the moments that matter.`,
-    `${brand} — because ${mainKw.toLowerCase()} matters.`,
-    location ? `Proudly serving ${location}.` : `${mainKw} worth the journey.`,
-  ];
-  const footerTagline = pick(footerTaglines, fp + 11);
+  // Footer tagline — NLU-first: explicit tagline > differentiator+location > fallback
+  const footerTagline = strVal(llmCtx.tagline)
+    || (differentiator && location
+      ? `${titleCase(differentiator)} ${mainKw.toLowerCase()} in ${location}.`
+      : differentiator
+      ? `${titleCase(differentiator)} ${mainKw.toLowerCase()} — every time.`
+      : location
+      ? `Proudly serving ${location}.`
+      : audience
+      ? `Made for ${audience}.`
+      : `${brand} — ${mainKw.toLowerCase()} done right.`);
 
   // Pricing plans (if saas/ecommerce)
   let pricingPlans: SiteCopy['pricingPlans'] = null;
@@ -1944,48 +2004,56 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   return applyLlmCopy(copy, puo);
 }
 
-// Overlay the in-house NLU's prompt-specific copy (hero, tagline, about, named
-// products, faqs) from customAttributes.llm onto the deterministic SiteCopy.
-// Each field is
-// applied only when present and non-empty; everything else is left untouched.
+// Overlay explicit NLU-extracted copy from customAttributes.llm onto the SiteCopy.
+// This is the final-pass override: anything the user EXPLICITLY stated in their
+// prompt (headlines, about text, mission, CTAs, products, FAQs) wins over every
+// derived or templated value. Only present, non-empty values are applied.
 function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy {
-  const llm = (puo.customAttributes as { llm?: {
-    tagline?: string; heroHeadline?: string; heroSub?: string; about?: string;
-    primaryCta?: string; secondaryCta?: string; heroTag?: string;
-    audience?: string; differentiator?: string; activityKeywords?: string[];
-    products?: Array<{ name?: string; desc?: string; price?: string }>;
-    faqs?: Array<{ q?: string; a?: string }>;
-  } } | undefined)?.llm;
+  const llm = (puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm;
   if (!llm) return copy;
 
   const str = (s: unknown): string | null => (typeof s === 'string' && s.trim() ? s.trim() : null);
-  const heroHeadline = str(llm.heroHeadline);
-  const heroSub = str(llm.heroSub);
-  const about = str(llm.about);
-  const tagline = str(llm.tagline);
-  const primaryCta = str(llm.primaryCta);
-  const secondaryCta = str(llm.secondaryCta);
-  const heroTag = str(llm.heroTag);
-  if (heroHeadline) copy.heroHeadline = heroHeadline;
-  if (heroSub) copy.heroSub = heroSub;
-  if (about) copy.aboutBody = about;
-  if (tagline) copy.footerTagline = tagline;
-  // Explicit, user-named button labels override the deterministic CTA banks.
-  // primaryCta/secondaryCta only: hiddenPrimaryCtaLabel is the split-section CTA
-  // (distinct from the hero), so we don't overwrite it with the hero button text.
-  if (primaryCta) copy.primaryCta = primaryCta;
-  if (secondaryCta) copy.secondaryCta = secondaryCta;
-  if (heroTag) copy.heroTag = heroTag;
 
-  if (Array.isArray(llm.products) && llm.products.length) {
-    const items = llm.products
+  // Hero section — explicit user text always wins
+  const heroHeadline = str(llm.heroHeadline);
+  const heroSub      = str(llm.heroSub);
+  const heroTag      = str(llm.heroTag);
+  if (heroHeadline) copy.heroHeadline = heroHeadline;
+  if (heroSub)      copy.heroSub      = heroSub;
+  if (heroTag)      copy.heroTag      = heroTag;
+
+  // CTAs — explicit button text the user wrote overrides derived labels
+  const primaryCta   = str(llm.primaryCta);
+  const secondaryCta = str(llm.secondaryCta);
+  if (primaryCta)   copy.primaryCta   = primaryCta;
+  if (secondaryCta) copy.secondaryCta = secondaryCta;
+
+  // About + Mission — explicit user about/mission text overrides NLU-derived
+  const about            = str(llm.about);
+  const missionStatement = str(llm.missionStatement);
+  const tagline          = str(llm.tagline);
+  if (about)            copy.aboutBody     = about;
+  if (missionStatement) copy.missionBody   = missionStatement;
+  if (tagline)          copy.footerTagline = tagline;
+
+  // Contact — if the user explicitly told us who they serve or where they are
+  const audience = str(llm.audience);
+  const location = str(llm.location);
+  if (audience) copy.contactHeading = `Ready, ${audience.charAt(0).toUpperCase() + audience.slice(1)}?`;
+  if (location && !copy.contactSub.includes(location)) {
+    copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Based in ${location}.`;
+  }
+
+  // Products and FAQs — user's explicitly listed items replace niche defaults
+  if (Array.isArray(llm.products) && (llm.products as unknown[]).length) {
+    const items = (llm.products as Array<{ name?: string; desc?: string; price?: string }>)
       .filter(p => str(p?.name))
       .map(p => ({ name: str(p.name)!, desc: str(p.desc) || '', price: str(p.price) || '' }));
     if (items.length) copy.products = items;
   }
 
-  if (Array.isArray(llm.faqs) && llm.faqs.length) {
-    const faqs = llm.faqs
+  if (Array.isArray(llm.faqs) && (llm.faqs as unknown[]).length) {
+    const faqs = (llm.faqs as Array<{ q?: string; a?: string }>)
       .filter(f => str(f?.q) && str(f?.a))
       .map(f => ({ q: str(f.q)!, a: str(f.a)! }));
     if (faqs.length) copy.faqs = faqs;

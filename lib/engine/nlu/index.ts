@@ -59,6 +59,7 @@ export interface NluContent {
   // The user's actual descriptive sentences about their business — used directly
   // as heroSub and aboutBody copy so their words appear on the site, verbatim.
   sellingPoints?: string[];
+  missionStatement?: string; // "our mission is to...", "we exist to...", "we believe..."
 }
 
 // ── Small deterministic helpers ─────────────────────────────────────────────
@@ -610,6 +611,12 @@ export function understandPrompt(prompt: string): NluContent {
   const sellingPoints = extractSellingPoints(text, activityKeywords, brandName);
   // Action phrases the user wrote ("order now", "book a table") → hero CTA label
   const intentCta = extractIntentCta(text);
+  // Mission/purpose statements — "our mission is to...", "we exist to...", "we believe..."
+  const MISSION_RE = /(?:^|\.\s+|\n)(?:our\s+)?mission\s+(?:statement\s+)?(?:is\s+(?:to\s+)?)?([A-Za-z].{15,200}?)(?:\.|$)/im;
+  const PURPOSE_RE = /we\s+(?:exist\s+to|(?:was\s+)?(?:built|created|founded|started)\s+(?:to|for)\s+)([A-Za-z].{15,200}?)(?:\.|$)/i;
+  const BELIEF_RE = /we\s+believe\s+(?:that\s+)?([A-Za-z].{15,200}?)(?:\.|$)/i;
+  const missionM = MISSION_RE.exec(text) || PURPOSE_RE.exec(text) || BELIEF_RE.exec(text);
+  const missionStatement = missionM ? missionM[1].trim() : undefined;
   const implicit = NICHE_IMPLICIT_SECTIONS[slug] || NICHE_IMPLICIT_SECTIONS[broad] || [];
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
@@ -669,6 +676,7 @@ export function understandPrompt(prompt: string): NluContent {
     brandVoice,
     sellingPoints: sellingPoints.length ? sellingPoints : undefined,
     intentCta,
+    missionStatement,
   };
   return content;
 }
