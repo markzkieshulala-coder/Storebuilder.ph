@@ -55,6 +55,7 @@ export interface NluContent {
   credentialSignals?: string[];  // "award-winning", "5-star rated", "est. 1995"
   location?: string;             // city or area: "Manila", "Los Angeles"
   brandVoice?: { register: 'formal' | 'casual' | 'energetic' | 'luxe' | 'technical'; usesExclamations: boolean };
+  intentCta?: string;        // "Order Now", "Book a Table", "Shop Now" — extracted from user's action phrases
   // The user's actual descriptive sentences about their business — used directly
   // as heroSub and aboutBody copy so their words appear on the site, verbatim.
   sellingPoints?: string[];
@@ -495,16 +496,21 @@ const PRODUCT_INDUSTRIES = new Set([
 ]);
 
 // ── Selling-points extractor ─────────────────────────────────────────────────
-// Pulls the user's own descriptive sentences about their business out of the
-// prompt so the renderer can use them verbatim instead of building from
-// templates. Sentences that are website-building instructions ("build me a site",
-// "create a landing page") are excluded; everything else that sounds like a
-// business description is kept.
+// Pulls the user's own descriptive sentences from the prompt verbatim.
+// Three acceptance paths: (A) sentence starts with we/our/I + describes the
+// business; (B) sentence contains a quality/authenticity signal word; (C)
+// sentence contains one of the activity keywords. Website-building instructions
+// are always excluded regardless.
 const BUILD_INTENT_RE = /\b(build|create|make|design|develop|generate|launch|set\s+up)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+)?(?:website|web\s*site|web\s*page|site|page|landing\s+page|online\s+store|ecommerce|e-commerce|store)\b/i;
-const BUSINESS_DESC_RE = /\b(authentic|handmade|hand[- ]crafted|artisan|organic|fresh|local|seasonal|signature|specialty|bespoke|custom|certified|licensed|award|slow[- ]cook|from\s+scratch|we\s+\w|our\s+\w|i\s+am\b|i'm\s+a\b|offer|serve|speciali[zs]|feature|provide|craft|deliver|help\s+\w|focus\s+on|mission|founded|established|since\s+\d{4}|perfect\s+for|designed\s+for|tailored\s+for|ideal\s+for|known\s+for|famous\s+for)\b/i;
+// Matches sentences that start with first-person business ownership language.
+// NOTE: deliberately avoids `we\s+\w` with a trailing \b (broken — `we s[erve]`
+// would need \b after 's' which fails because 'e' follows). Instead, match the
+// full opener and rely on word-count to filter trivially short results.
+const FIRST_PERSON_START = /^(?:we\b|our\b|i\s+(?:am\b|offer\b|speciali[zs]|create\b|make\b|serve\b|sell\b|help\b|run\b|own\b|founded\b|built\b|provide\b)|i'm\s+(?:a\b|an?\s))/i;
+// Quality/authenticity/action signals anywhere in the sentence.
+const BUSINESS_DESC_RE = /\b(?:authentic|handmade|hand[- ]crafted|artisan|organic|fresh|local|seasonal|signature|specialty|bespoke|custom|certified|licensed|award|slow[- ]cook|from\s+scratch|offer|serve|speciali[zs]|feature|provide|craft|deliver|mission|founded|established|since\s+\d{4}|perfect\s+for|designed\s+for|tailored\s+for|ideal\s+for|known\s+for|famous\s+for)\b/i;
 
 function extractSellingPoints(text: string, actKws: string[], brandName?: string): string[] {
-  // Split on sentence boundaries AND line breaks
   const sentences = text.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(Boolean);
   const kwSet = new Set(actKws.map(k => k.toLowerCase()));
   const bNameLower = (brandName || '').toLowerCase();
@@ -513,26 +519,57 @@ function extractSellingPoints(text: string, actKws: string[], brandName?: string
 
   for (const sent of sentences) {
     if (sent.length < 20) continue;
-    // Skip website-building instructions
     if (BUILD_INTENT_RE.test(sent)) continue;
-    // Skip bare brand-name references ("for Tanaka Ramen", etc.)
+    // Skip bare brand-name references
     if (bNameLower && sent.toLowerCase().trim() === bNameLower) continue;
     if (bNameLower && /^(for|by|from|at)\s/i.test(sent) && sent.toLowerCase().includes(bNameLower) && sent.split(/\s+/).length <= 5) continue;
-    // Extract content words, check if any match the activity keywords
     const words = sent.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
     if (words.length < 3) continue;
     const hasKw = words.some(w => kwSet.has(w));
-    if (hasKw || BUSINESS_DESC_RE.test(sent)) {
-      // Strip leading bullets / dashes
+    const isFirstPerson = FIRST_PERSON_START.test(sent) && words.length >= 3;
+    const isBusinessDesc = BUSINESS_DESC_RE.test(sent);
+    if (hasKw || isFirstPerson || isBusinessDesc) {
       const cleaned = sent.replace(/^[-–—•·*\d.)\s]+/, '').trim();
       if (cleaned.length < 20) continue;
-      // Dedup (case-insensitive)
-      if (!points.some(p => p.toLowerCase() === cleaned.toLowerCase())) {
-        points.push(cleaned);
-      }
+      if (!points.some(p => p.toLowerCase() === cleaned.toLowerCase())) points.push(cleaned);
     }
   }
   return points.slice(0, 6);
+}
+
+// ── Intent CTA extractor ─────────────────────────────────────────────────────
+// When the user writes an action phrase in their prompt ("order now", "book a
+// table", "shop our collection"), extract a clean, short CTA label from it.
+// This replaces the niche-template default ("View Menu", "Shop Now") so the
+// hero button says what the USER actually wrote, not what we guessed.
+const INTENT_CTA_PATTERNS: Array<[RegExp, string]> = [
+  [/\border\s+(?:now|online|today|here)\b/i,                                               'Order Now'],
+  [/\border\s+(?:for\s+)?delivery\b/i,                                                     'Order for Delivery'],
+  [/\b(?:place|send)\s+(?:an?\s+)?order\b/i,                                               'Order Now'],
+  [/\bbook\s+a\s+table\b/i,                                                                'Book a Table'],
+  [/\breserve\s+(?:a\s+)?(?:table|spot|seat)\b/i,                                          'Reserve a Table'],
+  [/\bmake\s+a\s+reservation\b/i,                                                          'Reserve a Table'],
+  [/\bbook\s+(?:a\s+)?(?:room|stay|appointment|session|class|slot|service)\b/i,            'Book Now'],
+  [/\bshop\s+(?:now|our|the|online|collection)\b/i,                                       'Shop Now'],
+  [/\bbuy\s+(?:now|online|today)\b/i,                                                      'Buy Now'],
+  [/\bsign\s+up\b/i,                                                                       'Sign Up Free'],
+  [/\bjoin\s+(?:us\s+)?(?:now|today)\b/i,                                                  'Join Now'],
+  [/\bstart\s+(?:a\s+)?free\s+trial\b/i,                                                   'Start Free Trial'],
+  [/\btry\s+(?:it\s+)?(?:for\s+)?free\b/i,                                                 'Try for Free'],
+  [/\bget\s+(?:a\s+)?(?:free\s+)?quote\b/i,                                                'Get a Free Quote'],
+  [/\bschedule\s+(?:a\s+)?(?:consultation|call|meeting|appointment|demo)\b/i,              'Schedule a Call'],
+  [/\bdownload\s+(?:now|(?:the\s+)?app|(?:for\s+)?free)\b/i,                               'Download Now'],
+  [/\bwatch\s+(?:the\s+)?(?:demo|video|tour)\b/i,                                          'Watch Demo'],
+  [/\bcontact\s+us\b/i,                                                                    'Contact Us'],
+  [/\bcall\s+us\b/i,                                                                       'Call Now'],
+  [/\bget\s+started\b/i,                                                                   'Get Started'],
+];
+
+function extractIntentCta(text: string): string | undefined {
+  for (const [pattern, label] of INTENT_CTA_PATTERNS) {
+    if (pattern.test(text)) return label;
+  }
+  return undefined;
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
@@ -571,6 +608,8 @@ export function understandPrompt(prompt: string): NluContent {
   const brandVoice = detectBrandVoice(text);
   // The user's own descriptive sentences — used verbatim in heroSub / aboutBody
   const sellingPoints = extractSellingPoints(text, activityKeywords, brandName);
+  // Action phrases the user wrote ("order now", "book a table") → hero CTA label
+  const intentCta = extractIntentCta(text);
   const implicit = NICHE_IMPLICIT_SECTIONS[slug] || NICHE_IMPLICIT_SECTIONS[broad] || [];
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
@@ -607,8 +646,11 @@ export function understandPrompt(prompt: string): NluContent {
     heroSub:      explicit?.heroSub      || undefined,
     tagline:      explicit?.tagline      || undefined,
     heroTag:      explicit?.heroTag      || undefined,
-    primaryCta:   explicit?.primaryCta   || profile.cta,
-    secondaryCta: explicit?.secondaryCta || profile.ctaSecondary,
+    // Only set these when the user EXPLICITLY wrote CTA text (quoted or cued).
+    // Profile defaults are handled by ctaByNiche in buildSiteCopy, so setting
+    // them here would overwrite the intentCta that was extracted from the prompt.
+    primaryCta:   explicit?.primaryCta   || undefined,
+    secondaryCta: explicit?.secondaryCta || undefined,
     about:        undefined,
     // Sections the user explicitly listed PLUS functional affordances detected
     // from the prompt (booking, ordering, newsletter, map/location, blog…). The
@@ -626,6 +668,7 @@ export function understandPrompt(prompt: string): NluContent {
     location,
     brandVoice,
     sellingPoints: sellingPoints.length ? sellingPoints : undefined,
+    intentCta,
   };
   return content;
 }

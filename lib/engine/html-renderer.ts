@@ -1205,6 +1205,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // The user's own descriptive sentences about their business — used verbatim
   // in heroSub and aboutBody so their words appear on the generated site.
   const sellingPoints  = Array.isArray(llmCtx.sellingPoints) ? (llmCtx.sellingPoints as string[]) : [];
+  // Action phrase the user wrote in their prompt — overrides the niche-template CTA.
+  const intentCta      = strVal(llmCtx.intentCta);
   const audFrag   = audience ? ` for ${audience}` : '';
   const diffAdj   = differentiator ? `${titleCase(differentiator)} ` : '';
 
@@ -1377,7 +1379,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     application: 'Launch App', showcase: 'Explore', dashboard: 'Open Dashboard',
     'multi-page': 'Get Started', 'single-page': 'Learn More',
   };
-  const primaryCta = ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
+  // intentCta (action phrase from user's prompt) > niche default > layout default > generic
+  const primaryCta = intentCta || ctaByNiche[normIndustry] || ctaMap[direction] || 'Get Started';
   const secByNiche: Record<string, string> = {
     food: 'Book a Table', sports: 'See Programs', technology: 'Watch Demo',
     photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
@@ -1471,13 +1474,20 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     (kw, sf) => `The ${titleCase(kw)} ${sf}`,
     (kw, sf) => `${titleCase(kw)}: ${sf}`,
   ];
+  // When the user described their business in the prompt, use those exact
+  // sentences as feature descriptions instead of generic templates. Cycle through
+  // selling points so each feature card gets a different sentence.
+  const spDesc = (i: number): string | null =>
+    sellingPoints.length > 0 ? sellingPoints[i % sellingPoints.length] : null;
+
   const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => {
     const sf = pick(suffixes, fp + i);
     const titleFn = FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length];
     return {
       icon: ICONS[(fp + i) % ICONS.length],
       title: titleFn(kw, sf),
-      desc: descFor(kw),
+      // Prefer user's own words; fall back to niche template only when none exist.
+      desc: spDesc(i) ?? descFor(kw),
       href: featureHref,
     };
   });
@@ -2055,9 +2065,19 @@ function buildNav(brand: string, navItems: Array<{ label: string; href: string }
   const initial = brand.charAt(0).toUpperCase();
   const links = navItems.map(n => {
     const isActive = n.href === activePath || n.href === '.' && activePath === '/';
-    return `<a href="${esc(n.href)}" class="${isActive?'active':''}">${esc(n.label)}</a>`;
+    const isCart = n.label === 'Cart';
+    const badge = isCart
+      ? ` <span class="sb-cart-count" style="display:none;background:var(--primary);color:#fff;border-radius:9999px;min-width:18px;height:18px;font-size:.7rem;font-weight:700;align-items:center;justify-content:center;padding:0 5px;vertical-align:middle;margin-left:3px"></span>`
+      : '';
+    return `<a href="${esc(n.href)}" class="${isActive?'active':''}">${esc(n.label)}${badge}</a>`;
   }).join('');
-  const mobileLinks = navItems.map(n => `<a href="${esc(n.href)}">${esc(n.label)}</a>`).join('');
+  const mobileLinks = navItems.map(n => {
+    const isCart = n.label === 'Cart';
+    const badge = isCart
+      ? ` <span class="sb-cart-count" style="display:none;background:var(--primary);color:#fff;border-radius:9999px;min-width:18px;height:18px;font-size:.7rem;font-weight:700;align-items:center;justify-content:center;padding:0 5px;vertical-align:middle;margin-left:3px"></span>`
+      : '';
+    return `<a href="${esc(n.href)}">${esc(n.label)}${badge}</a>`;
+  }).join('');
 
   return `
 <header id="hdr">
@@ -2312,13 +2332,18 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
   // collection), render a genuine PRODUCT grid — image + name + description +
   // price — instead of a bare photo gallery. This is what the user asked for.
   if (copy.products && copy.products.length) {
+    const isShop = copy.gallerySlug === 'shop' || copy.gallerySlug === 'menu';
     const cards = copy.products.map((p, i) => {
       const photoId = productPhoto(ctx.puo, p.name, fp, i);
+      const cartBtn = isShop
+        ? `<button onclick="sbAddToCart('${esc(p.name).replace(/'/g,"\\'")}','${esc(p.price).replace(/'/g,"\\'")}',this)" class="btn btn-primary" style="width:100%;margin-top:14px;font-size:.85rem">Add to Cart</button>`
+        : `<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="width:100%;margin-top:14px;display:block;text-align:center;font-size:.85rem">${esc(copy.hiddenPrimaryCtaLabel)}</a>`;
       return `<div class="product-card reveal reveal-delay-${i % 3}">
       <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
       <div class="product-body">
         <div class="product-row"><h3 class="product-name">${esc(p.name)}</h3><span class="product-price">${esc(p.price)}</span></div>
         <p class="product-desc">${esc(p.desc)}</p>
+        ${cartBtn}
       </div>
     </div>`;
     }).join('');
@@ -2896,13 +2921,18 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
   // Real product/menu grid when the niche has purchasable items.
   let body: string;
   if (copy.products && copy.products.length) {
+    const isShop = copy.gallerySlug === 'shop' || copy.gallerySlug === 'menu';
     const cards = copy.products.map((p, i) => {
       const photoId = productPhoto(puo, p.name, fp, i);
+      const cartBtn = isShop
+        ? `<button onclick="sbAddToCart('${esc(p.name).replace(/'/g,"\\'")}','${esc(p.price).replace(/'/g,"\\'")}',this)" class="btn btn-primary" style="width:100%;margin-top:14px;font-size:.85rem">Add to Cart</button>`
+        : '';
       return `<div class="product-card reveal reveal-delay-${i % 3}">
       <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
       <div class="product-body">
         <div class="product-row"><h3 class="product-name">${esc(p.name)}</h3><span class="product-price">${esc(p.price)}</span></div>
         <p class="product-desc">${esc(p.desc)}</p>
+        ${cartBtn}
       </div>
     </div>`;
     }).join('');
@@ -3583,6 +3613,174 @@ function buildTeamMain(brand: string, copy: SiteCopy, puo: PromptUnderstandingOb
 </section>`;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// CART + CHECKOUT PAGES — for product-selling websites
+// ─────────────────────────────────────────────────────────────────
+
+function buildCartMain(brand: string, copy: SiteCopy): string {
+  const hasProducts = copy.products && copy.products.length > 0;
+  const previewItems = hasProducts
+    ? copy.products!.slice(0, 4).map(p =>
+        `<option value="${esc(p.name)}|${esc(p.price)}">${esc(p.name)} — ${esc(p.price)}</option>`
+      ).join('')
+    : '';
+  return `
+<section style="padding-top:140px;min-height:80vh">
+  <div class="wrap" style="max-width:760px;margin:0 auto">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Shopping Cart</span>
+      <h1 style="font-size:var(--h1-size)">Your Cart</h1>
+    </div>
+    <div id="sb-cart-list" style="margin-top:clamp(28px,4vw,44px);display:flex;flex-direction:column;gap:16px">
+      <!-- populated by sbCartInit() -->
+    </div>
+    <div id="sb-cart-empty" style="display:none;text-align:center;padding:60px 0">
+      <p style="color:var(--muted);margin-bottom:24px">Your cart is empty.</p>
+      <a href="${esc(copy.gallerySlug)}" class="btn btn-primary">Continue Shopping</a>
+    </div>
+    <div id="sb-cart-summary" style="display:none;border-top:2px solid var(--bdr);padding-top:28px;margin-top:28px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+        <div>
+          <p style="color:var(--muted);font-size:.9rem">Order total</p>
+          <h2 style="font-size:1.8rem;font-weight:700">₱<span id="sb-cart-total">0.00</span></h2>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <a href="${esc(copy.gallerySlug)}" class="btn btn-outline">Continue Shopping</a>
+          <a href="checkout" class="btn btn-primary">Proceed to Checkout →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+(function(){
+  function sbCartInit(){
+    const cart=JSON.parse(localStorage.getItem('sb_cart_${brand.replace(/[^a-z0-9]/gi,'_')}')||'[]');
+    const listEl=document.getElementById('sb-cart-list');
+    const emptyEl=document.getElementById('sb-cart-empty');
+    const sumEl=document.getElementById('sb-cart-summary');
+    if(!cart.length){emptyEl.style.display='block';sumEl.style.display='none';listEl.innerHTML='';return;}
+    emptyEl.style.display='none';sumEl.style.display='block';
+    const grouped={};
+    cart.forEach(item=>{if(grouped[item.n])grouped[item.n].qty++;else grouped[item.n]={p:item.p,qty:1};});
+    let total=0;
+    listEl.innerHTML=Object.entries(grouped).map(([name,info])=>{
+      const price=parseFloat(String(info.p).replace(/[^0-9.]/g,''))||0;
+      const sub=price*info.qty;total+=sub;
+      return '<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;gap:16px;flex-wrap:wrap">'
+        +'<div style="flex:1"><h4 style="margin:0 0 4px">'+name+'</h4><span style="color:var(--muted);font-size:.9rem">'+info.p+' each</span></div>'
+        +'<div style="display:flex;align-items:center;gap:10px">'
+        +'<span style="font-size:.9rem;color:var(--muted)">Qty: '+info.qty+'</span>'
+        +'<span style="font-weight:700">₱'+sub.toFixed(2)+'</span>'
+        +'<button onclick="sbRemoveItem(\''+name.replace(/'/g,"\\'")+'\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;padding:4px">✕</button>'
+        +'</div></div>';
+    }).join('');
+    document.getElementById('sb-cart-total').textContent=total.toFixed(2);
+  }
+  window.sbRemoveItem=function(name){
+    let cart=JSON.parse(localStorage.getItem('sb_cart_${brand.replace(/[^a-z0-9]/gi,'_')}')||'[]');
+    const idx=cart.findIndex(i=>i.n===name);if(idx>=0)cart.splice(idx,1);
+    localStorage.setItem('sb_cart_${brand.replace(/[^a-z0-9]/gi,'_')}',JSON.stringify(cart));
+    sbCartInit();
+    document.querySelectorAll('.sb-cart-count').forEach(el=>{el.textContent=cart.length||'';el.style.display=cart.length?'inline-flex':'none';});
+  };
+  sbCartInit();
+})();
+</script>`;
+}
+
+function buildCheckoutMain(brand: string, copy: SiteCopy): string {
+  return `
+<section style="padding-top:140px;min-height:80vh">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Checkout</span>
+      <h1 style="font-size:var(--h1-size)">Complete Your Order</h1>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:clamp(24px,5vw,56px);margin-top:clamp(28px,4vw,44px);align-items:start" class="checkout-grid">
+      <div>
+        <form id="sb-checkout-form" class="reveal" onsubmit="sbCheckoutSubmit(event)" style="display:flex;flex-direction:column;gap:18px">
+          <h3 style="font-size:1.05rem;font-weight:700;border-bottom:1px solid var(--bdr);padding-bottom:12px;margin-bottom:4px">Contact Information</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div><label>First Name*</label><input type="text" name="fname" placeholder="Juan" required/></div>
+            <div><label>Last Name*</label><input type="text" name="lname" placeholder="dela Cruz" required/></div>
+          </div>
+          <div><label>Email Address*</label><input type="email" name="email" placeholder="juan@email.com" required/></div>
+          <div><label>Phone Number*</label><input type="tel" name="phone" placeholder="+63 9XX XXX XXXX" required/></div>
+          <h3 style="font-size:1.05rem;font-weight:700;border-bottom:1px solid var(--bdr);padding-bottom:12px;margin-top:8px;margin-bottom:4px">Delivery Address</h3>
+          <div><label>Street Address*</label><input type="text" name="address" placeholder="House no., Street name, Barangay" required/></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div><label>City / Municipality*</label><input type="text" name="city" placeholder="City" required/></div>
+            <div><label>Province*</label><input type="text" name="province" placeholder="Province" required/></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div><label>Zip Code</label><input type="text" name="zip" placeholder="0000"/></div>
+            <div><label>Country</label><input type="text" name="country" value="Philippines"/></div>
+          </div>
+          <h3 style="font-size:1.05rem;font-weight:700;border-bottom:1px solid var(--bdr);padding-bottom:12px;margin-top:8px;margin-bottom:4px">Payment Method</h3>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:2px solid var(--bdr);border-radius:var(--radius-sm);transition:border-color .2s" onclick="this.style.borderColor='var(--primary)'"><input type="radio" name="payment" value="cod" checked style="accent-color:var(--primary)"/> <span>💵 Cash on Delivery</span></label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:2px solid var(--bdr);border-radius:var(--radius-sm);transition:border-color .2s" onclick="this.style.borderColor='var(--primary)'"><input type="radio" name="payment" value="gcash" style="accent-color:var(--primary)"/> <span>📱 GCash</span></label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:2px solid var(--bdr);border-radius:var(--radius-sm);transition:border-color .2s" onclick="this.style.borderColor='var(--primary)'"><input type="radio" name="payment" value="card" style="accent-color:var(--primary)"/> <span>💳 Credit / Debit Card</span></label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:2px solid var(--bdr);border-radius:var(--radius-sm);transition:border-color .2s" onclick="this.style.borderColor='var(--primary)'"><input type="radio" name="payment" value="bank" style="accent-color:var(--primary)"/> <span>🏦 Bank Transfer</span></label>
+          </div>
+          <div><label>Order Notes (optional)</label><textarea name="notes" placeholder="Any special instructions for your order?" rows="3" style="resize:vertical"></textarea></div>
+          <button type="submit" class="btn btn-primary" style="width:100%;padding:16px;font-size:1rem;margin-top:8px">Place Order →</button>
+        </form>
+        <div id="sb-order-success" style="display:none;text-align:center;padding:72px 24px" class="reveal">
+          <div style="width:64px;height:64px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:1.8rem">✓</div>
+          <h2 style="margin-bottom:12px">Order Confirmed!</h2>
+          <p style="color:var(--muted);max-width:400px;margin:0 auto 24px">Thank you for your order at ${esc(brand)}. A confirmation has been sent to your email. We'll process your order shortly.</p>
+          <a href="." class="btn btn-outline">Back to Home</a>
+        </div>
+      </div>
+      <div class="card reveal" style="padding:28px;position:sticky;top:100px">
+        <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:20px">Order Summary</h3>
+        <div id="sb-checkout-items" style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+          <p style="color:var(--muted);font-size:.9rem">Loading cart…</p>
+        </div>
+        <div style="border-top:1px solid var(--bdr);padding-top:16px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:.9rem;color:var(--muted)"><span>Subtotal</span><span>₱<span id="sb-co-sub">0.00</span></span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:.9rem;color:var(--muted)"><span>Delivery</span><span>₱ 60.00</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.1rem;padding-top:8px;border-top:1px solid var(--bdr);margin-top:8px"><span>Total</span><span>₱<span id="sb-co-total">60.00</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+@media(max-width:768px){.checkout-grid{grid-template-columns:1fr!important}}
+</style>
+<script>
+(function(){
+  const KEY='sb_cart_${brand.replace(/[^a-z0-9]/gi,'_')}';
+  const cart=JSON.parse(localStorage.getItem(KEY)||'[]');
+  const itemsEl=document.getElementById('sb-checkout-items');
+  if(cart.length===0){
+    itemsEl.innerHTML='<p style="color:var(--muted);font-size:.9rem">Your cart is empty.</p>';
+  } else {
+    const grouped={};
+    cart.forEach(i=>{if(grouped[i.n])grouped[i.n].qty++;else grouped[i.n]={p:i.p,qty:1};});
+    let sub=0;
+    itemsEl.innerHTML=Object.entries(grouped).map(([name,info])=>{
+      const price=parseFloat(String(info.p).replace(/[^0-9.]/g,''))||0;
+      const total=price*info.qty;sub+=total;
+      return '<div style="display:flex;justify-content:space-between;font-size:.9rem"><span>'+name+' × '+info.qty+'</span><span style="font-weight:600">₱'+total.toFixed(2)+'</span></div>';
+    }).join('');
+    document.getElementById('sb-co-sub').textContent=sub.toFixed(2);
+    document.getElementById('sb-co-total').textContent=(sub+60).toFixed(2);
+  }
+  window.sbCheckoutSubmit=function(e){
+    e.preventDefault();
+    document.getElementById('sb-checkout-form').style.display='none';
+    document.getElementById('sb-order-success').style.display='block';
+    localStorage.removeItem(KEY);
+    document.querySelectorAll('.sb-cart-count').forEach(el=>{el.style.display='none';});
+  };
+})();
+</script>`;
+}
+
 function buildHiddenPrimaryPage(slug: string, normIndustry: string, brand: string, copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
   switch (slug) {
     case 'reservations': return buildReservationsMain(brand, copy);
@@ -3759,6 +3957,23 @@ const SPA_ROUTER_JS = `<script>
   document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el);});
   var initial=norm(location.hash)||'home';
   if(initial!=='home'){ show(initial); } else { setActive('home'); }
+
+  // Cart functionality — available on every page of the SPA.
+  var CART_KEY=(function(){var m=document.querySelector('meta[name="sb-cart-key"]');return m?m.getAttribute('content'):'sb_cart';})();
+  function sbGetCart(){try{return JSON.parse(localStorage.getItem(CART_KEY)||'[]');}catch(e){return [];}}
+  function sbSaveCart(c){localStorage.setItem(CART_KEY,JSON.stringify(c));}
+  function sbUpdateBadge(){
+    var c=sbGetCart();
+    document.querySelectorAll('.sb-cart-count').forEach(function(el){
+      el.textContent=c.length>0?String(c.length):'';
+      el.style.display=c.length>0?'inline-flex':'none';
+    });
+  }
+  window.sbAddToCart=function(name,price,btn){
+    var c=sbGetCart();c.push({n:name,p:price});sbSaveCart(c);sbUpdateBadge();
+    if(btn){var orig=btn.textContent;btn.textContent='✓ Added';btn.disabled=true;setTimeout(function(){btn.textContent=orig;btn.disabled=false;},1500);}
+  };
+  sbUpdateBadge();
 })();
 </script>`;
 
@@ -3775,11 +3990,13 @@ function buildSpaDocument(
   const footer = buildFooter(brand, navItems, copy, year);
   // No <base href> — navigation is fully client-side via hash routing.
   const head = buildHead(brand, 'Home', copy.heroSub, font, css, '');
+  // Cart key meta tag — lets the JS cart helper find the right localStorage key.
+  const cartKeyMeta = `<meta name="sb-cart-key" content="sb_cart_${brand.replace(/[^a-z0-9]/gi,'_')}">`;
   const routeStyle = `<style>.route{display:none}.route:first-child{display:block}</style>`;
   const routeDivs = routes
     .map((r, i) => `<div class="route" data-route="${esc(r.key)}" style="display:${i === 0 ? 'block' : 'none'}">${r.main}</div>`)
     .join('\n');
-  return `${head}${routeStyle}<body>${nav}<main id="app">${routeDivs}</main>${footer}${SPA_ROUTER_JS}</body></html>`;
+  return `${head}${cartKeyMeta}${routeStyle}<body>${nav}<main id="app">${routeDivs}</main>${footer}${SPA_ROUTER_JS}</body></html>`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -3910,6 +4127,12 @@ function renderMultiPageSiteInner(
   const copy = buildSiteCopy(puo, brand, fp);
   const gallerySlug = copy.gallerySlug;
 
+  // Detect product-selling websites — these get a cart + checkout page and a
+  // "Cart" nav item with a live badge showing item count.
+  const normIndustry2 = normalizeIndustry(puo.inferredIndustry);
+  const PRODUCT_NICHES = new Set(['ecommerce','fashion','jewelry','florist','craft','pet','beauty','retail','shop','store','dessert','juicebar','bakery','coffee']);
+  const isProductBiz = PRODUCT_NICHES.has(normIndustry2) || puo.layout.direction === 'e-commerce';
+
   // 4. Navigation — real routes
   const navItems: Array<{ label: string; href: string }> = [
     { label: 'Home',  href: '.' },
@@ -3919,6 +4142,10 @@ function renderMultiPageSiteInner(
   ];
   if (copy.pricingPlans) {
     navItems.splice(3, 0, { label: 'Pricing', href: 'pricing' });
+  }
+  if (isProductBiz) {
+    // Cart nav item — badge count is updated by JS on every page load
+    navItems.push({ label: 'Cart', href: 'cart' });
   }
 
   // 5. CSS built from PUO — entirely prompt-faithful
@@ -3942,9 +4169,13 @@ function renderMultiPageSiteInner(
     { key: 'contact', main: contactMain },
   ];
   if (pricingMain) routes.splice(3, 0, { key: 'pricing', main: pricingMain });
+  // Product businesses get cart + checkout as first-class pages in the SPA.
+  if (isProductBiz) {
+    routes.push({ key: 'cart',     main: buildCartMain(brand, copy) });
+    routes.push({ key: 'checkout', main: buildCheckoutMain(brand, copy) });
+  }
   // Hidden pages — bundled in the SPA but NOT in navItems, so they're unreachable
   // from the nav but reachable via section CTAs.
-  const normIndustry2 = normalizeIndustry(puo.inferredIndustry);
   const hiddenPrimaryMain  = buildHiddenPrimaryPage(copy.hiddenPrimarySlug, normIndustry2, brand, copy, puo, fp + 5);
   const hiddenSecondaryMain = buildHiddenSecondaryPage(copy.hiddenSecondarySlug, normIndustry2, brand, copy, puo, fp + 6);
   routes.push({ key: copy.hiddenPrimarySlug,  main: hiddenPrimaryMain  });
