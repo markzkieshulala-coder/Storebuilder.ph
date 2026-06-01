@@ -368,8 +368,11 @@ export function understandPrompt(prompt: string): NluContent {
     heroSub: explicit?.heroSub || synth.heroSub,
     tagline: explicit?.tagline || synth.tagline,
     heroTag: explicit?.heroTag,
-    primaryCta: explicit?.primaryCta,
-    secondaryCta: explicit?.secondaryCta,
+    // Explicit button text wins; otherwise the niche profile's own CTA labels
+    // drive the hero buttons so they read correctly for the trade (a florist
+    // says "Shop Bouquets", a law firm "Request a Consultation").
+    primaryCta: explicit?.primaryCta || profile.cta,
+    secondaryCta: explicit?.secondaryCta || profile.ctaSecondary,
     about: synth.about,
     sections: explicit?.sections,
     products,

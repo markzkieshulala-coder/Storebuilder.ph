@@ -701,26 +701,33 @@ const INDUSTRY_KEY_MAP: Record<string, string> = {
   startup: 'technology', ai: 'technology', crypto: 'technology', blockchain: 'technology',
   fintech: 'technology', gaming: 'technology',
   // Photography & creative
-  photography: 'photography', photographer: 'photography', film: 'photography', videography: 'photography',
-  // Fashion & beauty
-  fashion: 'fashion', beauty: 'fashion', apparel: 'fashion', clothing: 'fashion',
-  streetwear: 'fashion', boutique: 'fashion', salon: 'fashion', tattoo: 'fashion',
-  barbershop: 'fashion', barber: 'fashion', grooming: 'fashion', nail: 'fashion',
-  // E-commerce
+  photography: 'photography', photographer: 'photography', film: 'photography',
+  // Fashion & apparel
+  fashion: 'fashion', apparel: 'fashion', clothing: 'fashion',
+  streetwear: 'fashion', boutique: 'fashion',
+  // E-commerce & retail — product/shop niches share the e-commerce content bank
+  // (shop-style features, product stats, buyer testimonials).
   ecommerce: 'ecommerce', retail: 'ecommerce', shop: 'ecommerce', store: 'ecommerce', product: 'ecommerce',
+  florist: 'ecommerce', flowers: 'ecommerce', pet: 'ecommerce', craft: 'ecommerce',
+  candle: 'ecommerce', handmade: 'ecommerce', jewelry: 'ecommerce', jewellery: 'ecommerce',
+  home: 'ecommerce', homeware: 'ecommerce', furniture: 'ecommerce',
   // Portfolio & design
   portfolio: 'portfolio', art: 'portfolio', design: 'portfolio', architecture: 'portfolio',
-  interior: 'portfolio', illustration: 'portfolio',
-  // Agency & marketing
+  interior: 'portfolio', illustration: 'portfolio', videography: 'portfolio',
+  // Agency, marketing, events & music — story/brand-led content
   agency: 'agency', marketing: 'agency', consulting: 'agency', advertising: 'agency',
-  branding: 'agency', studio: 'agency', pr: 'agency',
-  // Wellness & health
+  branding: 'agency', studio: 'agency', pr: 'agency', event: 'agency', music: 'agency',
+  // Wellness, beauty & personal care — service-led, booking-oriented content
   spa: 'wellness', wellness: 'wellness', meditation: 'wellness', massage: 'wellness',
   therapy: 'wellness', dental: 'wellness', dentist: 'wellness', clinic: 'wellness',
-  // Legal & professional
+  medical: 'wellness', beauty: 'wellness', salon: 'wellness', tattoo: 'wellness',
+  barber: 'wellness', barbershop: 'wellness', grooming: 'wellness', nail: 'wellness',
+  // Legal, finance, real estate & professional — trust-led content
   law: 'professional', legal: 'professional', nonprofit: 'professional',
-  // Hospitality
-  hotel: 'hospitality', resort: 'hospitality', travel: 'hospitality',
+  finance: 'professional', realestate: 'professional', property: 'professional',
+  realty: 'professional', accounting: 'professional', insurance: 'professional',
+  // Hospitality & travel
+  hotel: 'hospitality', resort: 'hospitality', travel: 'hospitality', tourism: 'hospitality',
 };
 
 function normalizeIndustry(raw: string): string {
