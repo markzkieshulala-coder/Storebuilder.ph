@@ -1166,6 +1166,86 @@ const CTA_SUB_BY_NICHE: Record<string, string> = {
   general: 'Get in touch today — we\'d love to hear from you.',
 };
 
+// ─────────────────────────────────────────────────────────────────
+// PROMPT-GROUNDING HELPERS
+// Turn the user's own sentences into headlines, feature titles, and
+// real stats — so generated copy uses their words, not ours.
+// ─────────────────────────────────────────────────────────────────
+
+// Stop-words that signal the end of a title phrase
+const TITLE_STOP_RE = /^(?:and|or|with|for|of|to|by|in|at|on|made|from|using|serving|offering|providing|specializing|focusing|including|featuring|available|designed|tailored|perfect)$/i;
+
+function titleWords(s: string, max: number): string {
+  const words = s.replace(/[,;.!?]+$/, '').trim().split(/\s+/).filter(Boolean);
+  const result: string[] = [];
+  for (const w of words) {
+    if (result.length >= max) break;
+    if (result.length > 0 && TITLE_STOP_RE.test(w)) break;
+    result.push(w.charAt(0).toUpperCase() + w.slice(1));
+  }
+  return result.join(' ');
+}
+
+// Convert a user's descriptive sentence into a short 3-5 word title phrase.
+// "We serve authentic Hakata-style tonkotsu ramen" → "Authentic Hakata-Style Tonkotsu"
+// "Our signature broth is slow-cooked for 18 hours" → "Signature Broth"
+// "I am a certified financial advisor" → "Certified Financial Advisor"
+function spToTitle(sentence: string): string {
+  let s = sentence.trim();
+  let m: RegExpMatchArray | null;
+
+  // "We serve/offer/make/create/use [only] X"
+  m = s.match(/^(?:we|i)\s+(?:serve|offer|make|create|sell|craft|use(?:\s+only)?|provide|specialize\s+in|focus\s+on|feature|carry)\s+(?:only\s+|exclusively\s+|primarily\s+)?(.+)$/i);
+  if (m) return titleWords(m[1], 4);
+
+  // "Our X is/are/was/were/has Y" → take "X"
+  m = s.match(/^our\s+((?:[a-z][a-z-]*\s+){0,3}[a-z][a-z-]*)\s+(?:is|are|has|have|was|were)\b/i);
+  if (m) return titleWords(m[1], 4);
+
+  // "I am/I'm a/an X"
+  m = s.match(/^i(?:'m|\s+am)\s+(?:a\s+|an\s+)?(.+)$/i);
+  if (m) return titleWords(m[1], 3);
+
+  // Fallback: first 4 meaningful words
+  return titleWords(s, 4);
+}
+
+// Extract real numbers from a prompt for authentic stats.
+// Returns up to 2 stat objects; the remainder of 4 comes from the niche bank.
+function extractPromptStats(prompt: string): Array<{ number: string; label: string }> {
+  const lower = prompt.toLowerCase();
+  const stats: Array<{ number: string; label: string }> = [];
+
+  // "18-hour broth", "72-hour ferment", "24-hour service"
+  const hrM = lower.match(/\b(\d{1,3})[-\s]?(?:hour|hr)s?\b/);
+  if (hrM) {
+    const n = parseInt(hrM[1]);
+    if (n >= 2 && n <= 96) stats.push({ number: `${n}hrs`, label: 'Cook / Prep Time' });
+  }
+
+  // "since 2010", "est. 1995", "established in 2008", "founded 2005"
+  const yrM = lower.match(/\b(?:since\s+|est\.?\s*|established\s+(?:in\s+)?|founded\s+(?:in\s+)?)(\d{4})\b/);
+  if (yrM) {
+    const age = new Date().getFullYear() - parseInt(yrM[1]);
+    if (age >= 1 && age <= 150) stats.push({ number: `${age}+`, label: 'Years in Business' });
+  }
+
+  // "over 50 menu items", "100+ dishes", "20 flavours"
+  const itemM = lower.match(/(?:over\s+|more\s+than\s+)?(\d{1,4})\+?\s+(?:menu\s+)?(items?|products?|dishes?|flavou?rs?|varieties?|styles?|services?|options?)/);
+  if (itemM) {
+    const n = parseInt(itemM[1]);
+    const raw = itemM[2].replace(/s?$/, '').replace(/flavou?r/, 'Flavor').replace(/variet/, 'Variet');
+    const label = raw.charAt(0).toUpperCase() + raw.slice(1) + 's';
+    stats.push({ number: `${n}+`, label: label });
+  }
+
+  // "5-star", "4.9 rating"
+  if (/\b5[-\s]star\b|[★⭐]{5}/.test(lower)) stats.push({ number: '5/5', label: 'Star Rated' });
+  else if (/\b4\.9\b/.test(lower)) stats.push({ number: '4.9', label: 'Star Rating' });
+
+  return stats.slice(0, 2);
+}
+
 function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number): SiteCopy {
   const kws = getContentWords(puo);
   const industry = puo.inferredIndustry;
@@ -1331,7 +1411,28 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   };
 
   const headlines = headlinePatterns[personality] || headlinePatterns['bold'];
-  const heroHeadline = pick(headlines, fp);
+
+  // When the user described their business, use THEIR words as the headline —
+  // the first selling point produces a 3-5 word key phrase (the most descriptive
+  // thing they said about what they do). If a second selling point contains a
+  // memorable number detail (18 hours, since 2010) it's appended as a dash clause.
+  let heroHeadline: string;
+  if (sellingPoints.length >= 1) {
+    const kp = spToTitle(sellingPoints[0]);
+    let detail = '';
+    if (sellingPoints.length >= 2) {
+      const numM = sellingPoints[1].match(/\b(\d+(?:\.\d+)?)\s*[-–]?\s*(?:hour|hr|year|star|location|item|piece|day)\b/i);
+      if (numM) {
+        const unitRaw = sellingPoints[1].match(/\b(hour|hr|year|star|location|item|piece|day)s?\b/i);
+        const unit = unitRaw ? unitRaw[1] : '';
+        const unitLabel: Record<string,string> = { hour:'Hour', hr:'Hour', year:'Year', star:'Star', location:'Location', item:'Item', piece:'Piece', day:'Day' };
+        detail = ` — ${numM[1]}-${unitLabel[unit.toLowerCase()] || unit.charAt(0).toUpperCase()+unit.slice(1)} ${unit.toLowerCase() === 'hour' || unit.toLowerCase() === 'hr' ? 'Crafted' : 'Proven'}`;
+      }
+    }
+    heroHeadline = kp + detail;
+  } else {
+    heroHeadline = pick(headlines, fp);
+  }
 
   // Hero subtitle — 10 unique patterns anchored on prompt's own keywords.
   const subjectPhrase = (kws[0] ? kws[0] : nicheSubject).toLowerCase();
@@ -1474,18 +1575,25 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     (kw, sf) => `The ${titleCase(kw)} ${sf}`,
     (kw, sf) => `${titleCase(kw)}: ${sf}`,
   ];
-  // When the user described their business in the prompt, use those exact
-  // sentences as feature descriptions instead of generic templates. Cycle through
-  // selling points so each feature card gets a different sentence.
+  // Build title priority: product name > selling-point-derived title > keyword template
+  const spTitles: string[] = sellingPoints.map(spToTitle);
+  const productTitles: string[] = (Array.isArray(llmCtx.products)
+    ? (llmCtx.products as Array<{name?: string}>).map(p => p?.name || '').filter(Boolean)
+    : []) as string[];
+  const getBestTitle = (i: number, kw: string, sf: string): string => {
+    if (productTitles[i]) return productTitles[i];
+    if (spTitles[i]) return spTitles[i];
+    return FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length](kw, sf);
+  };
+  // Use user's own sentences as feature descriptions; cycle through selling points.
   const spDesc = (i: number): string | null =>
     sellingPoints.length > 0 ? sellingPoints[i % sellingPoints.length] : null;
 
   const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => {
     const sf = pick(suffixes, fp + i);
-    const titleFn = FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length];
     return {
       icon: ICONS[(fp + i) % ICONS.length],
-      title: titleFn(kw, sf),
+      title: getBestTitle(i, kw, sf),
       // Prefer user's own words; fall back to niche template only when none exist.
       desc: spDesc(i) ?? descFor(kw),
       href: featureHref,
@@ -1516,7 +1624,16 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     automotive: [{number:'20K+',label:'Vehicles Serviced'},{number:'4.9/5',label:'Customer Rating'},{number:'25+',label:'Years'},{number:'ASE',label:'Certified Techs'}],
     general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5/5',label:'Rating'}],
   };
-  const stats = (statBanks[normIndustry] || statBanks.general).slice(0, 4);
+  // Blend real numbers extracted from the user's prompt into the stat bank
+  const promptStats = extractPromptStats(puo.originalPrompt || '');
+  const nicheStats = statBanks[normIndustry] || statBanks.general;
+  // Prompt stats take the first slots; fill remaining from the niche bank (no duplicates)
+  const mergedStats = [...promptStats];
+  for (const ns of nicheStats) {
+    if (mergedStats.length >= 4) break;
+    if (!promptStats.some(ps => ps.label === ns.label)) mergedStats.push(ns);
+  }
+  const stats = mergedStats.slice(0, 4);
 
   // Testimonials — vary by industry for authenticity
   const TESTIMONIAL_ROLES: Record<string, string[]> = {
@@ -1586,7 +1703,20 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       `The ${mainKw} experience with ${brand} is unmatched. Every team should use this.`,
     ],
   };
-  const quotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
+  const baseQuotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
+  // Personalise quotes with user's actual product/selling-point words when available
+  const sp0 = sellingPoints[0] ? spToTitle(sellingPoints[0]).toLowerCase() : mainKw;
+  const sp1 = sellingPoints[1] ? spToTitle(sellingPoints[1]).toLowerCase() : secKw;
+  const firstProduct = productTitles[0] ? productTitles[0] : sp0;
+  const quotes = baseQuotes.map(q =>
+    q.replace(/\b(mainKw)\b/g, mainKw)
+     .replace(/\b(secKw)\b/g, secKw)
+  ).map((q, i) => {
+    // Inject real product/selling-point words into the first two quotes
+    if (i === 0 && firstProduct !== mainKw) return q.replace(mainKw, firstProduct);
+    if (i === 1 && sp1 !== secKw) return q.replace(secKw, sp1);
+    return q;
+  });
   // Rotate through 6 diverse name sets so every brand gets a different trio.
   const NAME_POOL: string[][] = [
     ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'],
