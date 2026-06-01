@@ -51,6 +51,10 @@ export interface NluContent {
   audience?: string;        // "youth athletes", "couples", "small businesses"
   differentiator?: string;  // "handmade", "award-winning", "certified", "luxury"
   activityKeywords?: string[]; // content-rich keywords stripped of style/meta words
+  // Enrichment signals — elevate copy to feel hand-written for this exact business
+  credentialSignals?: string[];  // "award-winning", "5-star rated", "est. 1995"
+  location?: string;             // city or area: "Manila", "Los Angeles"
+  brandVoice?: { register: 'formal' | 'casual' | 'energetic' | 'luxe' | 'technical'; usesExclamations: boolean };
 }
 
 // ── Small deterministic helpers ─────────────────────────────────────────────
@@ -181,18 +185,37 @@ function extractBrandName(text: string): string | undefined {
 }
 
 // ── Audience extraction ─────────────────────────────────────────────────────
-// Pulls "for [audience]" phrases — "for youth athletes", "for small businesses",
-// "for couples", "for homeowners". These are used in dynamic copy generation so
-// "Basketball Coaching for Youth Athletes" reads naturally in the hero headline.
-function extractAudience(lower: string): string | undefined {
-  // "for [optional article] [audience phrase]" — stop before another "for", period, or clause
-  const m = lower.match(/\bfor\s+(?:a\s+|the\s+|all\s+|busy\s+|young\s+)?([a-z][a-z\s-]{2,30}?)(?:\s*[.,!?]|$|\s+who\b|\s+that\b|\s+looking\b|\s+wanting\b)/);
-  if (!m) return undefined;
-  const raw = m[1].trim().replace(/\s+/g, ' ');
-  // Reject if it's a business descriptor not an audience
-  if (/\b(shop|store|studio|cafe|website|site|business|company|brand|platform|agency|firm)\b/i.test(raw)) return undefined;
-  if (raw.split(' ').length > 5) return undefined;
-  return raw;
+// Pulls "for [audience]" and "serving [audience]" phrases. Skips matches that are
+// proper nouns / brand names (checked via capitalisation in the original text).
+function extractAudience(text: string, lower: string): string | undefined {
+  // Try every "for X" occurrence, not just the first — the brand name comes before
+  // the target audience in "for [Brand], a studio for [audience]" patterns.
+  // Capture "for X" — stop at: period/comma, clause starters, "in/at/from" prepositions
+  const re = /\bfor\s+(?:a\s+|the\s+|all\s+|busy\s+|young\s+|local\s+)?([a-z][a-z\s-]{2,30}?)(?:\s*[.,!?]|$|\s+who\b|\s+that\b|\s+looking\b|\s+wanting\b|\s+in\b|\s+at\b|\s+from\b)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(lower)) !== null) {
+    const raw = m[1].trim().replace(/\s+/g, ' ');
+    if (/\b(shop|store|studio|cafe|website|site|business|company|brand|platform|agency|firm|ramen|coffee|salon|spa|gym|restaurant|bar|bakery)\b/i.test(raw)) continue;
+    if (raw.split(' ').length > 4) continue;
+    // If every word of the match is capitalized in the ORIGINAL text, it's a proper noun (brand name).
+    const lowerRaw = raw;
+    const origIdx = text.toLowerCase().indexOf(lowerRaw, m.index);
+    if (origIdx >= 0) {
+      const origPhrase = text.slice(origIdx, origIdx + lowerRaw.length);
+      const words = origPhrase.split(/\s+/).filter(Boolean);
+      if (words.length > 0 && words.every(w => /^[A-Z]/.test(w))) continue;
+    }
+    return raw;
+  }
+  // "serving [lowercase audience]" — e.g. "serving small businesses", "serving homeowners"
+  // Only match lowercase starts (cities are capitalized, audiences are not).
+  const servM = lower.match(/\bserving\s+([a-z][a-z\s-]{2,25}?)(?:\s*[.,!?]|$|\s+(?:in|across|throughout|near|around|the|since|and|area|metro|region)\b)/);
+  if (servM) {
+    const raw = servM[1].trim();
+    if (!/\b(area|metro|region|location|city|town|district|village|street|road|avenue|makati|manila|bgc|cebu)\b/i.test(raw) && raw.split(' ').length <= 4)
+      return raw;
+  }
+  return undefined;
 }
 
 // ── Differentiator extraction ───────────────────────────────────────────────
@@ -214,6 +237,86 @@ const DIFFERENTIATORS: string[] = [
 function extractDifferentiator(lower: string): string | undefined {
   return DIFFERENTIATORS.find(d => lower.includes(d));
 }
+
+// ── Credential signal extraction ──────────────────────────────────────────────
+// Pulls social-proof and trust signals from the prompt so the renderer can
+// surface them in hero tags and about text.
+const CREDENTIAL_PATTERNS: Array<{ label: string; re: RegExp }> = [
+  { label: 'award-winning',         re: /\baward[\s-]winning\b/i },
+  { label: 'multi-award-winning',   re: /\bmulti[\s-]award\b/i },
+  { label: '5-star rated',          re: /\b(5[\s-]star|five[\s-]star)\b/i },
+  { label: 'highly rated',          re: /\b(highly[\s-]rated|top[\s-]rated)\b/i },
+  { label: 'nationally recognised', re: /\b(nationally|internationally)[\s-](recognised|recognized|known|acclaimed)\b/i },
+  { label: 'featured in the press', re: /\b(featured in|as seen in|as seen on)\b/i },
+  { label: 'family-owned',          re: /\bfamily[\s-](owned|run|operated)\b/i },
+  { label: 'locally-owned',         re: /\blocally[\s-](owned|run|operated)\b/i },
+  { label: 'licensed & insured',    re: /\b(licensed\b[^.]*\binsured|bonded)\b/i },
+  { label: 'veteran-owned',         re: /\bveteran[\s-](owned|run|operated)\b/i },
+  { label: 'women-owned',           re: /\b(women|female|woman)[\s-](owned|run|led)\b/i },
+  { label: 'minority-owned',        re: /\bminority[\s-](owned|run)\b/i },
+];
+
+function extractCredentialSignals(lower: string): string[] {
+  const signals = CREDENTIAL_PATTERNS
+    .filter(({ re }) => re.test(lower))
+    .map(({ label }) => label);
+  const yearM = lower.match(/\b(?:est\.?|established|founded|since|operating since)\s+(19\d{2}|20[0-2]\d)\b/i);
+  if (yearM) signals.unshift(`est. ${yearM[1]}`);
+  return signals.slice(0, 4);
+}
+
+// ── Location extraction ────────────────────────────────────────────────────────────
+// Pulls a city/area when the user says "serving X", "based in X", or "located in X".
+function extractLocation(text: string, lower: string): string | undefined {
+  const patterns: RegExp[] = [
+    /\bserving\s+(?:the\s+)?([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)(?:\s+area|\s+metro|\s+region|\s+homeowners?|\s+residents?|\s+drivers?|\s+customers?|\s*[,.]|\s+and|$)/,
+    /\bbased in\s+([A-Z][a-zA-Z ]+?)(?:\s*[,.]|\s+and|$)/,
+    /\blocated in\s+([A-Z][a-zA-Z ]+?)(?:\s*[,.]|\s+and|$)/,
+    /\bin\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s*[,.]\s+Philippines/,
+    /\bin\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s*[,.]\s+(?:USA|UK|Australia|Canada)\b/,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m && m[1]) {
+      const loc = m[1].trim().replace(/\s+/g, ' ');
+      if (loc.length >= 3 && loc.length <= 35 &&
+          !/\b(website|site|shop|store|business|brand|studio)\b/i.test(loc)) return loc;
+    }
+  }
+  return undefined;
+}
+
+// ── Brand voice detection ────────────────────────────────────────────────────────
+// Reads HOW the user wrote their prompt to infer the register they want, so
+// copy adapts: "energetic" for all-caps/exclamations, "luxe" for premium vocabulary,
+// "technical" for API/SaaS language, "formal" for long complex sentences.
+function detectBrandVoice(text: string): NluContent['brandVoice'] {
+  const exclamations = (text.match(/!/g) || []).length;
+  const words = text.trim().split(/\s+/).length;
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 4);
+  const avgLen = sentences.length ? words / sentences.length : 10;
+  const hasAllCaps = /\b[A-Z]{4,}\b/.test(text);
+  const hasLuxeWords = /\b(luxury|luxurious|bespoke|exclusive|premium|curated|elevated|refined|distinguished)\b/i.test(text);
+  const hasTechWords = /\b(api|saas|dashboard|automation|workflow|analytics|infrastructure|kubernetes)\b/i.test(text);
+  let register: NonNullable<NluContent['brandVoice']>['register'];
+  if (hasLuxeWords) register = 'luxe';
+  else if (hasTechWords) register = 'technical';
+  else if (exclamations >= 2 || hasAllCaps) register = 'energetic';
+  else if (avgLen >= 18) register = 'formal';
+  else register = 'casual';
+  return { register, usesExclamations: exclamations >= 1 };
+}
+
+// Niche-driven implicit sections — high-confidence affordances every site in
+// this niche benefits from, even if the user did not explicitly request them.
+const NICHE_IMPLICIT_SECTIONS: Record<string, string[]> = {
+  food:         ['Location'],
+  homeservices: ['Location'],
+  automotive:   ['Location'],
+  wellness:     ['Pricing'],
+  photography:  ['Gallery'],
+  hospitality:  ['Gallery'],
+};
 
 // ── Activity keywords ────────────────────────────────────────────────────────
 // Content-rich keywords extracted from the prompt with style/meta words removed.
@@ -414,10 +517,15 @@ export function understandPrompt(prompt: string): NluContent {
   const palette = explicitPalette || (hasCue(lower, MOOD_CUES) ? undefined : profile.palette);
 
   // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
-  const audience = extractAudience(lower);
+  const audience = extractAudience(text, lower);
   const differentiator = extractDifferentiator(lower);
   const activityKeywords = extractActivityKeywords(lower);
   const functionalIntents = extractFunctionalIntents(lower);
+  // Enrichment signals — elevate copy quality and uniqueness per prompt
+  const credentialSignals = extractCredentialSignals(lower);
+  const location = extractLocation(text, lower);
+  const brandVoice = detectBrandVoice(text);
+  const implicit = NICHE_IMPLICIT_SECTIONS[slug] || NICHE_IMPLICIT_SECTIONS[broad] || [];
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
   const keywords = activityKeywords;
@@ -459,13 +567,18 @@ export function understandPrompt(prompt: string): NluContent {
     // Sections the user explicitly listed PLUS functional affordances detected
     // from the prompt (booking, ordering, newsletter, map/location, blog…). The
     // renderer injects any of these the composed page doesn't already cover.
-    sections:     mergeSections(explicit?.sections, functionalIntents),
+    // Sections: user-explicit → functional intents → niche implicit affordances.
+    sections:     mergeSections(explicit?.sections, [...functionalIntents, ...implicit]),
     products,
     faqs:         profile.faqs,
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy
     audience,
     differentiator,
     activityKeywords,
+    // Enrichment signals — colour copy uniqueness and credibility per-prompt
+    credentialSignals: credentialSignals.length ? credentialSignals : undefined,
+    location,
+    brandVoice,
   };
   return content;
 }

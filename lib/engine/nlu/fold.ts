@@ -76,6 +76,10 @@ export function foldNluIntoPuo(puo: PromptUnderstandingObject, nlu: NluContent):
     audience: nlu.audience,
     differentiator: nlu.differentiator,
     activityKeywords: Array.isArray(nlu.activityKeywords) ? nlu.activityKeywords : undefined,
+    // Enrichment signals — credential trust markers, location, writing register
+    credentialSignals: Array.isArray(nlu.credentialSignals) && nlu.credentialSignals.length ? nlu.credentialSignals : undefined,
+    location: nlu.location,
+    brandVoice: nlu.brandVoice,
   };
   const mergedLlm: Record<string, unknown> = { ...prevLlm };
   for (const [k, v] of Object.entries(fresh)) {

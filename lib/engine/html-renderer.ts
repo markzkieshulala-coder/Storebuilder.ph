@@ -1194,11 +1194,14 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     return cleanLabel(k);
   };
 
-  // Semantic qualifiers extracted from the prompt — drive richer, unique copy.
+  // Semantic qualifiers + enrichment signals — drive richer, unique copy per prompt.
   const llmCtx = (puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm || {};
   const strVal = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : '');
-  const audience     = strVal(llmCtx.audience);     // "youth athletes", "couples"
+  const audience       = strVal(llmCtx.audience);       // "youth athletes", "couples"
   const differentiator = strVal(llmCtx.differentiator); // "handmade", "award-winning"
+  const location       = strVal(llmCtx.location);       // "Manila", "Los Angeles"
+  const credSignals    = Array.isArray(llmCtx.credentialSignals) ? (llmCtx.credentialSignals as string[]) : [];
+  const bVoice         = (llmCtx.brandVoice as { register?: string; usesExclamations?: boolean } | undefined);
   const audFrag   = audience ? ` for ${audience}` : '';
   const diffAdj   = differentiator ? `${titleCase(differentiator)} ` : '';
 
@@ -1222,37 +1225,132 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const secKw   = kwDisplay(secKwSrc, nicheSubject !== 'Experience' ? 'Experience' : 'Quality');
   const thirdKw = kwDisplay(thirdKwSrc, 'Innovation');
 
-  // Headline patterns — ALL use actual extracted keywords so every prompt produces
-  // a unique headline. {mainKw} is the real primary activity from the prompt
-  // (e.g. "Basketball", "Candle", "Florals") not a generic category word.
+  // Headline patterns — ALL anchored on extracted keywords for uniqueness per prompt.
+  // 8 patterns per personality × 18 personalities = vast headline space.
   const headlinePatterns: Record<string, string[]> = {
-    bold:          [`${brand} — ${mainKw} Redefined`, `The ${mainKw} Standard`, `${diffAdj}${mainKw}. Built Different.`, `${mainKw} Worth Choosing`],
-    elegant:       [`${brand} — ${diffAdj}${mainKw} & ${secKw}`, `The Art of ${diffAdj}${mainKw}`, `${diffAdj}${mainKw}, Thoughtfully Done`, `${mainKw} with Intention`],
-    energetic:     [`${mainKw} at Its Best${audFrag}`, `${brand}: ${mainKw} Meets ${secKw}`, `Elevate Your ${mainKw}`, `${mainKw} Unleashed`],
-    friendly:      [`Welcome to ${brand}`, `${mainKw} Made for You${audFrag}`, `${brand} — ${mainKw} You'll Love`, `Your ${mainKw} Starts Here`],
-    authoritative: [`${brand}: Trusted ${mainKw}`, `The ${mainKw} Authority`, `${mainKw} Done Right${audFrag}`, `Setting the ${mainKw} Standard`],
-    innovative:    [`${mainKw} Reimagined`, `The Future of ${mainKw}`, `${brand} — ${mainKw} Next`, `${mainKw} × ${secKw}`],
-    sophisticated: [`${brand} — ${diffAdj}${mainKw} Elevated`, `Where ${mainKw} Meets ${secKw}`, `${diffAdj}${mainKw}. Elevated.`, `${mainKw} Worth Remembering`],
-    trustworthy:   [`${brand}: Your ${mainKw} Partner`, `${mainKw} You Can Trust${audFrag}`, `Reliable ${mainKw}`, `Trusted ${mainKw}${audFrag}`],
-    calm:          [`${brand} — ${mainKw} Done Right`, `A Space for ${mainKw}`, `${mainKw}, With Care`, `${mainKw} Worth Slowing Down For`],
-    exclusive:     [`${diffAdj}${mainKw} Worth Having`, `${brand} — ${mainKw} Refined`, `The ${diffAdj}${mainKw} Edit`, `${mainKw}, Elevated`],
+    bold: [
+      `${brand} — ${mainKw} Redefined`, `The ${mainKw} Standard`, `${diffAdj}${mainKw}. Built Different.`,
+      `${mainKw} Worth Choosing`, `${brand}: ${mainKw} Done Right`, `No Shortcuts. Just ${mainKw}.`,
+      `${diffAdj}${mainKw} That Delivers`, `${brand} — Because ${mainKw} Matters`,
+    ],
+    elegant: [
+      `${brand} — ${diffAdj}${mainKw} & ${secKw}`, `The Art of ${diffAdj}${mainKw}`, `${diffAdj}${mainKw}, Thoughtfully Done`,
+      `${mainKw} with Intention`, `A Study in ${mainKw}`, `${mainKw} as It Should Be`,
+      `${brand} — Where ${mainKw} Meets ${secKw}`, `${diffAdj}${mainKw}, Carefully Considered`,
+    ],
+    energetic: [
+      `${mainKw} at Its Best${audFrag}`, `${brand}: ${mainKw} Meets ${secKw}`, `Elevate Your ${mainKw}`,
+      `${mainKw} Unleashed`, `${brand} — Built for ${mainKw}`, `Fuel Your ${mainKw}`,
+      `Take Your ${mainKw} Further`, `${mainKw} Without Limits${audFrag}`,
+    ],
+    friendly: [
+      `Welcome to ${brand}`, `${mainKw} Made for You${audFrag}`, `${brand} — ${mainKw} You'll Love`,
+      `Your ${mainKw} Starts Here`, `${mainKw} Made Simple${audFrag}`, `${brand}: Here for Your ${mainKw}`,
+      `${mainKw} Done with Care`, `Let's Start with ${mainKw}`,
+    ],
+    authoritative: [
+      `${brand}: Trusted ${mainKw}`, `The ${mainKw} Authority`, `${mainKw} Done Right${audFrag}`,
+      `Setting the ${mainKw} Standard`, `${mainKw} You Can Count On`, `The Proven ${mainKw} Partner`,
+      `${brand}: Leading ${mainKw}`, `Where ${mainKw} Expertise Lives`,
+    ],
+    innovative: [
+      `${mainKw} Reimagined`, `The Future of ${mainKw}`, `${brand} — ${mainKw} Next`,
+      `${mainKw} × ${secKw}`, `Reinventing ${mainKw}`, `${brand}: A New Kind of ${mainKw}`,
+      `Beyond ${mainKw}`, `${mainKw}, Rethought`,
+    ],
+    sophisticated: [
+      `${brand} — ${diffAdj}${mainKw} Elevated`, `Where ${mainKw} Meets ${secKw}`, `${diffAdj}${mainKw}. Elevated.`,
+      `${mainKw} Worth Remembering`, `${brand} — Refined ${mainKw}`, `${mainKw} Without Compromise`,
+      `The Considered ${mainKw}`, `${diffAdj}${mainKw}, Perfected`,
+    ],
+    trustworthy: [
+      `${brand}: Your ${mainKw} Partner`, `${mainKw} You Can Trust${audFrag}`, `Reliable ${mainKw}`,
+      `Trusted ${mainKw}${audFrag}`, `${brand} — ${mainKw} Without the Guesswork`, `Honest ${mainKw}, Every Time`,
+      `${mainKw} Backed by Experience`, `${brand}: Dependable ${mainKw}`,
+    ],
+    calm: [
+      `${brand} — ${mainKw} Done Right`, `A Space for ${mainKw}`, `${mainKw}, With Care`,
+      `${mainKw} Worth Slowing Down For`, `${mainKw} the Way It Should Be`, `Quietly Exceptional ${mainKw}`,
+      `${brand} — Unhurried ${mainKw}`, `${mainKw} That Stays with You`,
+    ],
+    exclusive: [
+      `${diffAdj}${mainKw} Worth Having`, `${brand} — ${mainKw} Refined`, `The ${diffAdj}${mainKw} Edit`,
+      `${mainKw}, Elevated`, `${brand}: For Those Who Know ${mainKw}`, `Only the Finest ${mainKw}`,
+      `${mainKw} Reserved for the Few`, `${diffAdj}${mainKw} by ${brand}`,
+    ],
+    aggressive: [
+      `${brand} vs. The Rest`, `${mainKw} Without Apology`, `Dominate Your ${mainKw}`,
+      `${brand} Means Business`, `${mainKw}? We Own It.`, `Built to Win at ${mainKw}`,
+      `${brand}: The ${mainKw} Competitor`, `Lead with ${mainKw}`,
+    ],
+    whimsical: [
+      `${mainKw} and a Little Magic`, `${brand} — Where ${mainKw} Gets Fun`, `A Little ${mainKw}, A Lot of Joy`,
+      `${mainKw} That Makes You Smile`, `Something ${mainKw}, Something Wonderful`,
+      `${brand}: Playful ${mainKw}`, `Find Your ${mainKw} Happy Place`, `Joyful ${mainKw}${audFrag}`,
+    ],
+    serious: [
+      `${brand}: Serious About ${mainKw}`, `${mainKw}. No Compromises.`, `${mainKw} That Performs`,
+      `Precision in ${mainKw}`, `${brand} — Professional ${mainKw}`, `${mainKw} Done with Discipline`,
+      `The ${mainKw} Specialists`, `When ${mainKw} Matters`,
+    ],
+    approachable: [
+      `${mainKw} Made Easy${audFrag}`, `${brand} — ${mainKw} for Everyone`, `Start Your ${mainKw} Journey`,
+      `${mainKw} Without the Jargon`, `${brand}: Friendly ${mainKw}`, `${mainKw} That Works for You`,
+      `Getting Started with ${mainKw}`, `${mainKw} Simplified${audFrag}`,
+    ],
+    rebellious: [
+      `${brand}: Break the ${mainKw} Rules`, `${mainKw} on Your Own Terms`, `${mainKw} the Industry Ignores`,
+      `Against the ${mainKw} Grain`, `${brand} Does ${mainKw} Differently`, `Unconventional ${mainKw}`,
+      `${mainKw} Unchained`, `The Anti-${mainKw} ${mainKw}`,
+    ],
+    youthful: [
+      `${mainKw} for the Next Gen${audFrag}`, `${brand}: Fresh ${mainKw}`, `Your ${mainKw} Era Starts Now`,
+      `Next-Level ${mainKw}`, `${brand} — ${mainKw} Made New`, `${mainKw} for Now${audFrag}`,
+      `Fresh Perspective. ${mainKw}.`, `${mainKw} That Keeps Up${audFrag}`,
+    ],
+    timeless: [
+      `${brand} — ${mainKw} Since Day One`, `${mainKw} Built to Last`, `A Legacy of ${mainKw}`,
+      `${mainKw} That Endures`, `${brand}: ${mainKw} the Classic Way`, `${diffAdj}${mainKw}, Timeless Craft`,
+      `Generations of ${mainKw}`, `${brand}: Standing the Test of ${secKw}`,
+    ],
+    experimental: [
+      `${brand}: Redefining ${mainKw}`, `What If ${mainKw} Could Be More?`, `${mainKw} × ${secKw} × ${thirdKw}`,
+      `${brand} — The ${mainKw} Experiment`, `${mainKw}: A New Hypothesis`, `Exploring the Edge of ${mainKw}`,
+      `${mainKw} Uncharted`, `${brand}: ${mainKw} in Beta`,
+    ],
+    innovative_default: [
+      `${mainKw} Reimagined`, `${brand} — ${mainKw} Next`, `${mainKw} × ${secKw}`,
+      `Beyond ${mainKw}`, `Reinventing ${mainKw}`, `${mainKw}, Rethought`,
+      `The New ${mainKw}`, `${brand}: A New Standard in ${mainKw}`,
+    ],
   };
 
   const headlines = headlinePatterns[personality] || headlinePatterns['bold'];
   const heroHeadline = pick(headlines, fp);
 
-  // Hero subtitle — composed purely from the prompt's own keywords, audience, and
-  // differentiator. Never pulled from a profile's stored string bank.
+  // Hero subtitle — 10 unique patterns anchored on prompt's own keywords.
   const subjectPhrase = (kws[0] ? kws[0] : nicheSubject).toLowerCase();
   const supportPhrase = (kws[1] ? kws[1] : secKw).toLowerCase();
+  // Brand voice register modifies the sub register slightly.
+  const isEnergetic = bVoice?.register === 'energetic' || bVoice?.usesExclamations;
+  const isLuxe = bVoice?.register === 'luxe';
   const heroSubPatterns = [
     differentiator
       ? `${diffAdj}${subjectPhrase} and ${supportPhrase}${audFrag} — made with genuine care and no shortcuts.`
-      : `${titleCase(subjectPhrase)} and ${supportPhrase}${audFrag === '' ? '' : ', ' + audience} — done the right way, every time.`,
+      : `${titleCase(subjectPhrase)} and ${supportPhrase}${audFrag === '' ? '' : ', for ' + audience} — done the right way, every time.`,
     `Discover ${brand}: a new standard in ${subjectPhrase}, built around ${supportPhrase}${audFrag === '' ? '' : ' ' + audience + ' trust'}.`,
     `Experience ${subjectPhrase} done right${audFrag}. Thoughtfully crafted, expertly delivered, built to last.`,
     `${brand} brings ${subjectPhrase} and ${supportPhrase} together into one ${differentiator ? differentiator + ', ' : ''}seamless experience.`,
     `Where ${subjectPhrase} becomes an experience${audFrag === '' ? '' : ' ' + audience + ' remember'}. Considered, crafted, and built for you.`,
+    `Every detail at ${brand} was designed around one thing: outstanding ${subjectPhrase}${audFrag}${differentiator ? ' — ' + differentiator + ', and always' : ' — always'} without exception.`,
+    isLuxe
+      ? `${brand} was created for ${audience || 'those who expect more'} — where ${subjectPhrase} and ${supportPhrase} are not just promised, but delivered with distinction.`
+      : `${brand} was built because ${subjectPhrase} deserved better${audFrag === '' ? '' : ' for ' + audience}. ${differentiator ? titleCase(differentiator) + ' and u' : 'U'}ncompromising quality, every time.`,
+    `The kind of ${subjectPhrase}${audFrag} that doesn't happen by accident — it's ${differentiator ? differentiator + ', ' : ''}deliberate, considered, and carried through in every detail.`,
+    isEnergetic
+      ? `${brand} is where ${subjectPhrase} gets serious${audFrag}. Real results. Genuine ${supportPhrase}. No shortcuts.`
+      : `${audFrag === '' ? 'Genuine' : titleCase(audience) + ' deserve genuine'} ${subjectPhrase}. Real ${supportPhrase}. ${brand} — the way it should be.`,
+    `Not just ${subjectPhrase} — the full ${supportPhrase} experience${audFrag}. Built with care, delivered by people who genuinely know their craft.`,
   ];
   const heroSub = pick(heroSubPatterns, fp + 2);
 
@@ -1281,17 +1379,29 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   };
   const secondaryCta = secByNiche[normIndustry] || pick(['Learn More', 'See How It Works', 'Explore', 'View Work', 'Discover More'] as const, fp + 1);
 
-  // Hero tag
-  const heroTags = ['New Launch', 'Now Available', `${mainKw} Platform`, `${industry !== 'general' ? titleCase(industry) + ' ' : ''}Solution`, 'Trusted by Thousands', 'Award Winning', 'Free to Start'];
-  const heroTag = pick(heroTags, fp + 3);
+  // Hero tag — credential signals win when present so "award-winning" / "est. 1995"
+  // surfaces in the hero eyebrow, giving every prompt its own trust marker.
+  const heroTagCredential = credSignals.length > 0 ? titleCase(credSignals[0]) : null;
+  const heroTagNiche = industry !== 'general' ? `${titleCase(industry)} Specialists` : null;
+  const heroTagsPool = [
+    ...(heroTagCredential ? [heroTagCredential] : []),
+    ...(heroTagNiche ? [heroTagNiche] : []),
+    'Now Open', 'Trusted by Thousands', `${mainKw} Experts`, 'Book Today',
+    'New Collection', 'Now Available', 'Get Started Today', `Premium ${mainKw}`,
+    ...(location ? [`Serving ${location}`] : []),
+  ];
+  const heroTag = pick(heroTagsPool, fp + 3);
 
   // Section eyebrow
-  const eyebrows = ['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'The Difference', 'Built for You', 'What Sets Us Apart'];
+  const eyebrows = ['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'The Difference', 'Built for You', 'What Sets Us Apart', 'The Story Behind It', 'Here\'s the Difference'];
   const sectionEyebrow = pick(eyebrows, fp + 7);
 
-  // Feature heading — niche-safe phrasing (avoids SaaS-only idioms like "at Scale"
-  // appearing on a coffee shop or restaurant).
-  const featureHeadings = [`The Complete ${mainKw} Experience`, `Crafted Around ${mainKw}`, `Why ${brand}`, `What Sets Us Apart`, `Made for the Moment`, `Designed With Intention`];
+  // Feature heading — niche-safe, avoids SaaS-only idioms on non-tech niches.
+  const featureHeadings = [
+    `The Complete ${mainKw} Experience`, `Crafted Around ${mainKw}`, `Why ${brand}`,
+    `What Sets Us Apart`, `Made for the Moment`, `Designed With Intention`,
+    `Built for ${audience || mainKw}`, `The ${brand} Difference`,
+  ];
   const featureHeading = pick(featureHeadings, fp + 5);
 
   // Features — driven by extracted keywords
@@ -1344,12 +1454,25 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // Merge activityKeywords (most content-rich) with kws, dedup, take up to 6.
   const actKws = Array.isArray(llmCtx.activityKeywords) ? (llmCtx.activityKeywords as string[]) : [];
   const featureKws = [...new Set([...actKws.map(k => k.toLowerCase()), ...kws])].slice(0, 6);
-  const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => ({
-    icon: ICONS[(fp + i) % ICONS.length],
-    title: `${titleCase(kw)} ${pick(suffixes, fp + i)}`,
-    desc: descFor(kw),
-    href: featureHref,
-  }));
+  // 6 title patterns rotate by (fp + i*3) so adjacent features get different shapes.
+  const FEAT_TITLE_FNS: Array<(kw: string, sf: string) => string> = [
+    (kw, sf) => `${titleCase(kw)} ${sf}`,
+    (kw, sf) => `Expert ${titleCase(kw)}`,
+    (kw, sf) => `${sf}-Grade ${titleCase(kw)}`,
+    (kw, sf) => `Proven ${titleCase(kw)}`,
+    (kw, sf) => `The ${titleCase(kw)} ${sf}`,
+    (kw, sf) => `${titleCase(kw)}: ${sf}`,
+  ];
+  const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => {
+    const sf = pick(suffixes, fp + i);
+    const titleFn = FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length];
+    return {
+      icon: ICONS[(fp + i) % ICONS.length],
+      title: titleFn(kw, sf),
+      desc: descFor(kw),
+      href: featureHref,
+    };
+  });
   // Pad to 3 with generic feature descriptions if needed
   while (allKwFeatures.length < 3) {
     const defaults = [
@@ -1446,35 +1569,127 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     ],
   };
   const quotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
-  const names = ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'];
+  // Rotate through 6 diverse name sets so every brand gets a different trio.
+  const NAME_POOL: string[][] = [
+    ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'],
+    ['Priya Sharma', "James O'Brien", 'Cleo Martinez'],
+    ['David Kim', 'Rachel Wong', 'Nathan Brooks'],
+    ['Amara Okafor', 'Tyler Reed', 'Sofia Morales'],
+    ['Lucas Hernandez', 'Emma Clarke', 'Kai Nakamura'],
+    ['Jordan White', 'Mia Patel', 'Ryan Fitzgerald'],
+  ];
+  const names = NAME_POOL[fp % NAME_POOL.length];
   const testimonials = names.map((name, i) => ({
-    quote: quotes[i] || quotes[0],
+    quote: quotes[i % quotes.length] || quotes[0],
     name,
-    role: roles[i] || roles[0],
+    role: roles[i % roles.length] || roles[0],
   }));
 
   // About — niche-aware body composed from prompt's own keywords, audience, and differentiator.
   const aboutHeading = `The ${brand} Story`;
   type AboutFn = (b: string, mk: string, sk: string, aud: string, diff: string) => string;
   const ABOUT_BODY: Record<string, AboutFn> = {
-    food:         (b, mk, sk, aud, diff) => `${b} was born from a passion for ${mk.toLowerCase()} done right. We source the finest ingredients, craft every dish with care${diff ? `, guided by a genuinely ${diff} approach` : ''}, and create a space${aud ? ' for ' + aud : ''} to enjoy something truly special.`,
-    sports:       (b, mk, sk, aud, diff) => `${b} was built${aud ? ' for ' + aud : ' for those'} who want more from their ${mk.toLowerCase()} journey. We pair expert ${sk.toLowerCase()} with proven programs${diff ? ` and a ${diff} philosophy` : ''} — so every step forward is real, measurable progress.`,
-    technology:   (b, mk, sk, aud, diff) => `${b} was built to make ${mk.toLowerCase()} better${aud ? ' for ' + aud : ''}. ${diff ? `Our ${diff} approach means ` : ''}We move fast, iterate constantly, and ship tools${aud ? ' ' + aud : ' teams'} actually love. No bloat, no compromise.`,
-    photography:  (b, mk, sk, aud, diff) => `${b} is a ${mk.toLowerCase()} studio driven by a love of visual storytelling${aud ? ' for ' + aud : ''}. ${diff ? `Our ${diff} perspective ` : 'An independent perspective '}drives every shoot — from first frame to final delivery.`,
-    fashion:      (b, mk, sk, aud, diff) => `${b} was founded on the belief that ${mk.toLowerCase()} should be ${diff ? diff + ' and ' : ''}intentional${aud ? ', made for ' + aud : ''}. Every piece we carry is the result of considered craft and deliberate choices.`,
-    ecommerce:    (b, mk, sk, aud, diff) => `${b} exists to bring${diff ? ' ' + diff : ''} ${mk.toLowerCase()} to${aud ? ' ' + aud : ' everyone'}. We curate with conviction — every product earns its place because it genuinely delivers.`,
-    portfolio:    (b, mk, sk, aud, diff) => `${b} is a ${mk.toLowerCase()} practice built on craft and clarity${aud ? ', created for ' + aud : ''}. ${diff ? `A ${diff} perspective ` : 'An independent perspective '}shapes every project — from brief to final delivery.`,
-    agency:       (b, mk, sk, aud, diff) => `${b} is a creative studio focused on ${mk.toLowerCase()}${aud ? ' for ' + aud : ''}. We bring strategy and execution together in one focused team. ${diff ? `Our ${diff} edge means every brief gets the thinking it deserves.` : 'Every project gets the thinking it deserves.'}`,
-    wellness:     (b, mk, sk, aud, diff) => `${b} was created to make ${mk.toLowerCase()} more accessible${aud ? ' for ' + aud : ''}. ${diff ? `Our ${diff} approach sets a new standard — ` : ''}We combine expertise with genuine care to guide every journey.`,
-    professional: (b, mk, sk, aud, diff) => `${b} was founded to deliver ${diff ? diff + ' ' : ''}${mk.toLowerCase()}${aud ? ' for ' + aud : ''}. We bring deep expertise, honest advice, and a results-driven approach to every client relationship.`,
-    hospitality:  (b, mk, sk, aud, diff) => `${b} was built${aud ? ' for ' + aud : ' for those'} who believe ${mk.toLowerCase()} should be${diff ? ' ' + diff + ' and' : ''} exceptional. Every detail is considered, every guest is welcomed, and every experience is crafted to be remembered.`,
-    homeservices: (b, mk, sk, aud, diff) => `${b} was built on a simple promise: ${diff ? diff + ' ' : ''}${mk.toLowerCase()} done right, on time, and at a fair price${aud ? ' for ' + aud : ''}. Licensed, insured, and genuinely reliable — we treat your home like our own.`,
-    automotive:   (b, mk, sk, aud, diff) => `${b} keeps${aud ? ' ' + aud : ' drivers'} moving with honest, ${diff ? diff + ', ' : ''}expert ${mk.toLowerCase()}. No upselling, no surprises — just dependable work from certified technicians who stand behind every job.`,
+    food: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was born from a genuine passion for ${mk.toLowerCase()} — not the kind that fades, but the kind that drives every decision from sourcing to service.`;
+      const s2 = diff
+        ? `Our ${diff} approach shows in every detail: ${sk.toLowerCase()}-forward cooking, carefully chosen ingredients, and a space ${aud ? 'for ' + aud : 'for everyone'} that invites you to stay.`
+        : `We cook with care, source with intention, and create a space ${aud ? 'for ' + aud : 'for everyone'} to slow down and savour something worth coming back for.`;
+      const s3 = `From the first bite to the last, every detail at ${b} is there for a reason.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    sports: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was built ${aud ? 'for ' + aud : 'for athletes and enthusiasts'} who want more than just a workout — they want a system that actually produces results.`;
+      const s2 = diff
+        ? `Our ${diff} ${mk.toLowerCase()} programs combine expert ${sk.toLowerCase()} coaching with evidence-based methods and the kind of accountability that drives real progress.`
+        : `We combine expert ${sk.toLowerCase()} coaching with proven programming and an environment that pushes you forward — session after session.`;
+      const s3 = `Progress at ${b} is measured, tracked, and real — because your ${mk.toLowerCase()} goals deserve nothing less.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    technology: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was built to solve the ${mk.toLowerCase()} problem ${aud ? aud + ' face' : 'teams face'} — not with layers of complexity, but with focused tools that work the first time.`;
+      const s2 = diff
+        ? `Our ${diff} engineering philosophy means we iterate fast, ship often, and build on a foundation designed for ${sk.toLowerCase()} at scale.`
+        : `We move fast, iterate constantly, and ship software ${aud ? aud : 'teams'} actually want to use — no bloat, no feature graveyard.`;
+      const s3 = `Every feature at ${b} earns its place. We cut what doesn't serve you.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    photography: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} is a ${mk.toLowerCase()} studio driven by an obsession with light, moment, and the story that each frame can hold.`;
+      const s2 = diff
+        ? `A ${diff} perspective shapes every project — from the initial brief through the ${sk.toLowerCase()} to the final edited collection.`
+        : `From first conversation to final delivery, every shoot is approached with care, craft, and a genuine respect for the subject.`;
+      const s3 = `${b} works ${aud ? 'with ' + aud : 'with a range of clients'} — and every project gets the same full attention, without exception.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    fashion: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was founded on the belief that ${mk.toLowerCase()} should be ${diff ? diff + ' and ' : ''}intentional — a deliberate expression of self, not just something to wear.`;
+      const s2 = aud
+        ? `Every piece we carry was chosen with ${aud} in mind: the edit is tight, the criteria demanding, and the standards uncompromised.`
+        : `Every piece in our edit earns its place through material quality, construction, and a clear point of view.`;
+      const s3 = `${b} is not about chasing trends — it's about building a wardrobe that lasts.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    ecommerce: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} exists to bring${diff ? ' ' + diff : ''} ${mk.toLowerCase()} to ${aud ? aud : 'everyone who deserves better'} — without the overhead, the middlemen, or the compromises.`;
+      const s2 = `Every product in our shop was chosen because it genuinely delivers: good materials, honest pricing, and the kind of quality that holds up over time.`;
+      const s3 = `We curate with conviction. If it doesn't earn a place, it doesn't make it to you.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    portfolio: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} is a ${mk.toLowerCase()} practice built on the belief that every brief deserves real thinking — not templates, not shortcuts, and not work that could belong to anyone else.`;
+      const s2 = diff
+        ? `A ${diff} perspective shapes every project: from initial concept through ${sk.toLowerCase()} to the final deliverable.`
+        : `From concept to delivery, every project is approached with curiosity, precision, and a drive to make something that actually works.`;
+      const s3 = `${b} works ${aud ? 'with ' + aud : 'with a range of clients'} — and every project receives the same complete attention.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    agency: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} is a focused creative studio that lives at the intersection of ${mk.toLowerCase()} strategy and craft — we handle both because we believe you can't fully separate them.`;
+      const s2 = diff
+        ? `Our ${diff} approach means every brief gets more than execution: it gets real thinking, honest iteration, and a team genuinely invested in the outcome.`
+        : `Every project gets rigorous strategy, focused execution, and a team that treats your ${sk.toLowerCase()} like their own.`;
+      const s3 = `${b} works ${aud ? 'with ' + aud : 'with ambitious brands'} who want results — not decks.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    wellness: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was created from the conviction that ${mk.toLowerCase()} should be genuinely accessible, thoughtfully designed, and led by practitioners who care about outcomes — not just attendance.`;
+      const s2 = diff
+        ? `Our ${diff} approach combines deep ${sk.toLowerCase()} expertise with personalised attention, so every session moves you forward in a way that actually sticks.`
+        : `We combine expert-led ${sk.toLowerCase()} programming with a warm, judgement-free space where progress is always the primary goal.`;
+      const s3 = `${aud ? titleCase(aud) + ' come' : 'People come'} to ${b} to feel better — and that's exactly what happens.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    professional: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was founded to deliver ${diff ? diff + ' ' : ''}${mk.toLowerCase()} that clients can actually rely on — expert counsel, clear communication, and outcomes that speak for themselves.`;
+      const s2 = aud
+        ? `We specialise in working with ${aud}, bringing deep ${sk.toLowerCase()} expertise and a genuine commitment to understanding each client's specific situation.`
+        : `We bring deep ${sk.toLowerCase()} expertise, honest counsel, and a results-driven approach to every client relationship — without the jargon.`;
+      const s3 = `${b} was built on trust, and trust is built on doing consistently excellent work.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    hospitality: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was built for ${aud ? aud : 'those'} who believe ${mk.toLowerCase()} should be${diff ? ' ' + diff + ' and' : ''} exceptional — not adequate, not efficient, but genuinely memorable.`;
+      const s2 = `Every detail at ${b} is considered: the spaces, the service, the ${sk.toLowerCase()}, and the moments between — because the best experiences rarely come down to a single thing.`;
+      const s3 = `We set the scene. You make the memory.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    homeservices: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} was built on a simple and uncommon promise: ${diff ? diff + ' ' : ''}${mk.toLowerCase()} done right, on time, and priced fairly — every single time.`;
+      const s2 = `Our team is fully licensed and insured, communicates clearly from first call to final walkthrough, and treats every ${aud ? aud + ' ' : ''}home with the respect it deserves.`;
+      const s3 = `You should never have to chase a contractor. At ${b}, you don't.`;
+      return `${s1} ${s2} ${s3}`;
+    },
+    automotive: (b, mk, sk, aud, diff) => {
+      const s1 = `${b} keeps ${aud ? aud : 'drivers'} moving with honest, ${diff ? diff + ', ' : ''}expert ${mk.toLowerCase()} — the kind of service that explains what was wrong, fixes it right, and charges fairly.`;
+      const s2 = `Our certified technicians have seen everything, and they approach every vehicle — whether it's a daily driver or something special — with the same care and precision.`;
+      const s3 = `No upselling. No surprises. Just reliable ${mk.toLowerCase()} from a team you can actually trust.`;
+      return `${s1} ${s2} ${s3}`;
+    },
   };
   const aboutBodyFn = ABOUT_BODY[normIndustry];
   const aboutBody = aboutBodyFn
     ? aboutBodyFn(brand, mainKw, secKw, audience, differentiator)
-    : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''} should be${differentiator ? ' ' + differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and an obsession with quality to everything we do.`;
+    : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''} should be${differentiator ? ' ' + differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and a relentless focus on quality to everything we do. Every client relationship is built on trust — and trust is built by showing up, doing the work, and doing it right.`;
 
   const aboutBullets = [
     `${kws[0] ? titleCase(kws[0]) + '-first approach' : 'Client-first approach'}`,
@@ -1485,18 +1700,35 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
 
   // Mission — distinct from About so stage + split sections never clone.
   const missionHeading = pick([`Our Approach`, `Why ${brand}`, `Built Different`, `What Drives Us`, `The ${brand} Difference`], fp + 4);
-  const missionBody = `Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with${audience ? ' a focus on ' + audience + ' and' : ''} an obsession for ${secKw.toLowerCase()}${differentiator ? ', keeping our ' + differentiator + ' commitment at the core of everything we do' : ''}. No shortcuts — just work we're proud to put our name on.`;
+  const missionBodies = [
+    `Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with${audience ? ' a focus on ' + audience + ' and' : ''} an obsession for ${secKw.toLowerCase()}${differentiator ? ', keeping our ' + differentiator + ' commitment at the core of everything we do' : ''}. No shortcuts — just work we're proud to put our name on.`,
+    `At ${brand}, the standard is simple: every piece of ${mainKw.toLowerCase()} we deliver has to be something we'd choose ourselves${audience ? ' if we were ' + audience : ''}. ${differentiator ? titleCase(differentiator) + ' execution, ' : ''}Genuine ${secKw.toLowerCase()}, and the kind of care that doesn't take shortcuts.`,
+    `We didn't build ${brand} to be average. ${differentiator ? 'Our ' + differentiator + ' approach means ' : ''}We obsess over ${mainKw.toLowerCase()}, we invest in ${secKw.toLowerCase()}, and we hold ourselves accountable to outcomes${audience ? ' ' + audience + ' can measure' : ' that matter'}.`,
+    `The ${brand} philosophy is straightforward: show up, do excellent ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''}, and never stop improving. ${differentiator ? titleCase(differentiator) + ' craft and ' : ''}${secKw} is not optional — it's who we are.`,
+  ];
+  const missionBody = pick(missionBodies, fp + 4);
+
 
   // Gallery
   const galleryLabel: Record<string, string> = { portfolio: 'Portfolio', ecommerce: 'Shop', technology: 'Features', food: 'Menu', sports: 'Gallery', photography: 'Portfolio', fashion: 'Collection', agency: 'Work', homeservices: 'Our Work', automotive: 'Our Work', general: 'Gallery' };
   const galleryHeading = `Our ${(galleryLabel[normIndustry] || galleryLabel.general)}`;
 
-  // Contact
-  const contactHeading = `Let's Talk ${mainKw}`;
-  const contactSub = `Ready to experience ${brand}?${audience ? ' We work with ' + audience : ''} Have questions or want to get started? Reach out and our team will get back to you within 24 hours.`;
+  // Contact — personalised with audience and location when present.
+  const contactHeading = audience ? `Ready, ${titleCase(audience)}?` : `Let's Talk ${mainKw}`;
+  const locPhrase = location ? ` We're ${location.match(/^(in|at|near)\b/i) ? location : 'based in ' + location}.` : '';
+  const contactSub = [
+    `Ready to experience ${brand}?`,
+    audience ? ` We work with ${audience}.` : '',
+    locPhrase,
+    ' Have questions or want to get started? Reach out and our team will get back to you within 24 hours.',
+  ].join('');
 
   // CTA
-  const ctaHeadings = [`Ready to Experience ${brand}?`, `Let's Begin`, `Your ${mainKw} Starts Here`, `Become Part of ${brand}`, `Make It Happen`];
+  const ctaHeadings = [
+    `Ready to Experience ${brand}?`, `Let's Begin`, `Your ${mainKw} Starts Here`,
+    `Become Part of ${brand}`, `Make It Happen`, `Start Today`, `The Next Step is Yours`,
+    audience ? `Built for ${titleCase(audience)} — Ready When You Are` : `${brand} Is Ready. Are You?`,
+  ];
   const ctaHeading = pick(ctaHeadings, fp + 9);
   const ctaSub = CTA_SUB_BY_NICHE[normIndustry] || CTA_SUB_BY_NICHE.general;
 
@@ -1506,8 +1738,17 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const products = productBank?.items || null;
   const productEyebrow = productBank?.eyebrow || 'Featured';
 
-  // Footer tagline
-  const footerTaglines = [`${mainKw} made powerful.`, `Building the future of ${mainKw.toLowerCase()}.`, `Your ${mainKw.toLowerCase()} partner.`, `${brand} — where ${mainKw.toLowerCase()} meets ${secKw.toLowerCase()}.`];
+  // Footer tagline — 8 options for variety across prompts.
+  const footerTaglines = [
+    `${mainKw} made powerful.`,
+    `Building the future of ${mainKw.toLowerCase()}.`,
+    `Your ${mainKw.toLowerCase()} partner.`,
+    `${brand} — where ${mainKw.toLowerCase()} meets ${secKw.toLowerCase()}.`,
+    differentiator ? `${titleCase(differentiator)} ${mainKw.toLowerCase()}. Every time.` : `${mainKw} done right, every time.`,
+    audience ? `Made for ${audience}.` : `Made for the moments that matter.`,
+    `${brand} — because ${mainKw.toLowerCase()} matters.`,
+    location ? `Proudly serving ${location}.` : `${mainKw} worth the journey.`,
+  ];
   const footerTagline = pick(footerTaglines, fp + 11);
 
   // Pricing plans (if saas/ecommerce)
