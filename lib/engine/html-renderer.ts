@@ -1202,6 +1202,9 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const location       = strVal(llmCtx.location);       // "Manila", "Los Angeles"
   const credSignals    = Array.isArray(llmCtx.credentialSignals) ? (llmCtx.credentialSignals as string[]) : [];
   const bVoice         = (llmCtx.brandVoice as { register?: string; usesExclamations?: boolean } | undefined);
+  // The user's own descriptive sentences about their business — used verbatim
+  // in heroSub and aboutBody so their words appear on the generated site.
+  const sellingPoints  = Array.isArray(llmCtx.sellingPoints) ? (llmCtx.sellingPoints as string[]) : [];
   const audFrag   = audience ? ` for ${audience}` : '';
   const diffAdj   = differentiator ? `${titleCase(differentiator)} ` : '';
 
@@ -1352,7 +1355,12 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       : `${audFrag === '' ? 'Genuine' : titleCase(audience) + ' deserve genuine'} ${subjectPhrase}. Real ${supportPhrase}. ${brand} — the way it should be.`,
     `Not just ${subjectPhrase} — the full ${supportPhrase} experience${audFrag}. Built with care, delivered by people who genuinely know their craft.`,
   ];
-  const heroSub = pick(heroSubPatterns, fp + 2);
+  // Prefer the user's own sentences as the hero sub-text when the engine found
+  // descriptive selling-point statements in the prompt. This is the core of
+  // prompt-grounded copy: their words, on their site.
+  const heroSub = sellingPoints.length >= 1
+    ? sellingPoints.slice(0, 2).join(' ')
+    : pick(heroSubPatterns, fp + 2);
 
   // CTA text — NICHE first (so a coffee shop says "View Menu", not "Get Started"),
   // then fall back to layout direction, then a safe default.
@@ -1687,9 +1695,25 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     },
   };
   const aboutBodyFn = ABOUT_BODY[normIndustry];
-  const aboutBody = aboutBodyFn
-    ? aboutBodyFn(brand, mainKw, secKw, audience, differentiator)
-    : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''} should be${differentiator ? ' ' + differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and a relentless focus on quality to everything we do. Every client relationship is built on trust — and trust is built by showing up, doing the work, and doing it right.`;
+  // When the user wrote 2+ descriptive sentences about their business, use those
+  // directly as the about body — their actual words, not a template.
+  // With 1 sentence, blend it in as the final sentence of the template.
+  // With 0, fall through to the niche template as before.
+  const aboutBody = (() => {
+    if (sellingPoints.length >= 2) {
+      return sellingPoints.slice(0, 3).join(' ');
+    }
+    const tpl = aboutBodyFn
+      ? aboutBodyFn(brand, mainKw, secKw, audience, differentiator)
+      : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''} should be${differentiator ? ' ' + differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and a relentless focus on quality to everything we do. Every client relationship is built on trust — and trust is built by showing up, doing the work, and doing it right.`;
+    if (sellingPoints.length === 1) {
+      // Append the user's own sentence after the template intro
+      const sentences = tpl.split(/(?<=[.!?])\s+/);
+      const intro = sentences.slice(0, 2).join(' ');
+      return `${intro} ${sellingPoints[0]}`;
+    }
+    return tpl;
+  })();
 
   const aboutBullets = [
     `${kws[0] ? titleCase(kws[0]) + '-first approach' : 'Client-first approach'}`,

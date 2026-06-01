@@ -55,6 +55,9 @@ export interface NluContent {
   credentialSignals?: string[];  // "award-winning", "5-star rated", "est. 1995"
   location?: string;             // city or area: "Manila", "Los Angeles"
   brandVoice?: { register: 'formal' | 'casual' | 'energetic' | 'luxe' | 'technical'; usesExclamations: boolean };
+  // The user's actual descriptive sentences about their business — used directly
+  // as heroSub and aboutBody copy so their words appear on the site, verbatim.
+  sellingPoints?: string[];
 }
 
 // ── Small deterministic helpers ─────────────────────────────────────────────
@@ -491,6 +494,47 @@ const PRODUCT_INDUSTRIES = new Set([
   'dessert','juicebar','bakery','coffee',
 ]);
 
+// ── Selling-points extractor ─────────────────────────────────────────────────
+// Pulls the user's own descriptive sentences about their business out of the
+// prompt so the renderer can use them verbatim instead of building from
+// templates. Sentences that are website-building instructions ("build me a site",
+// "create a landing page") are excluded; everything else that sounds like a
+// business description is kept.
+const BUILD_INTENT_RE = /\b(build|create|make|design|develop|generate|launch|set\s+up)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+)?(?:website|web\s*site|web\s*page|site|page|landing\s+page|online\s+store|ecommerce|e-commerce|store)\b/i;
+const BUSINESS_DESC_RE = /\b(authentic|handmade|hand[- ]crafted|artisan|organic|fresh|local|seasonal|signature|specialty|bespoke|custom|certified|licensed|award|slow[- ]cook|from\s+scratch|we\s+\w|our\s+\w|i\s+am\b|i'm\s+a\b|offer|serve|speciali[zs]|feature|provide|craft|deliver|help\s+\w|focus\s+on|mission|founded|established|since\s+\d{4}|perfect\s+for|designed\s+for|tailored\s+for|ideal\s+for|known\s+for|famous\s+for)\b/i;
+
+function extractSellingPoints(text: string, actKws: string[], brandName?: string): string[] {
+  // Split on sentence boundaries AND line breaks
+  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+  const kwSet = new Set(actKws.map(k => k.toLowerCase()));
+  const bNameLower = (brandName || '').toLowerCase();
+  const STOP_WORDS = new Set(['the','a','an','and','or','but','for','with','in','on','at','to','of','is','are','was','were','be','it','its','i','we','our','this','that','these','those','which','who']);
+  const points: string[] = [];
+
+  for (const sent of sentences) {
+    if (sent.length < 20) continue;
+    // Skip website-building instructions
+    if (BUILD_INTENT_RE.test(sent)) continue;
+    // Skip bare brand-name references ("for Tanaka Ramen", etc.)
+    if (bNameLower && sent.toLowerCase().trim() === bNameLower) continue;
+    if (bNameLower && /^(for|by|from|at)\s/i.test(sent) && sent.toLowerCase().includes(bNameLower) && sent.split(/\s+/).length <= 5) continue;
+    // Extract content words, check if any match the activity keywords
+    const words = sent.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+    if (words.length < 3) continue;
+    const hasKw = words.some(w => kwSet.has(w));
+    if (hasKw || BUSINESS_DESC_RE.test(sent)) {
+      // Strip leading bullets / dashes
+      const cleaned = sent.replace(/^[-–—•·*\d.)\s]+/, '').trim();
+      if (cleaned.length < 20) continue;
+      // Dedup (case-insensitive)
+      if (!points.some(p => p.toLowerCase() === cleaned.toLowerCase())) {
+        points.push(cleaned);
+      }
+    }
+  }
+  return points.slice(0, 6);
+}
+
 // ── Main entry point ─────────────────────────────────────────────────────────
 /**
  * Read a prompt and produce a structured, in-house understanding. Always returns
@@ -525,6 +569,8 @@ export function understandPrompt(prompt: string): NluContent {
   const credentialSignals = extractCredentialSignals(lower);
   const location = extractLocation(text, lower);
   const brandVoice = detectBrandVoice(text);
+  // The user's own descriptive sentences — used verbatim in heroSub / aboutBody
+  const sellingPoints = extractSellingPoints(text, activityKeywords, brandName);
   const implicit = NICHE_IMPLICIT_SECTIONS[slug] || NICHE_IMPLICIT_SECTIONS[broad] || [];
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
@@ -579,6 +625,7 @@ export function understandPrompt(prompt: string): NluContent {
     credentialSignals: credentialSignals.length ? credentialSignals : undefined,
     location,
     brandVoice,
+    sellingPoints: sellingPoints.length ? sellingPoints : undefined,
   };
   return content;
 }
