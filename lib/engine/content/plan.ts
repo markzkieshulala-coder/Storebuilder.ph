@@ -1,0 +1,716 @@
+// ---------------------------------------------------------------------------
+// CONTENT PLAN — Phase 3: single source of truth for all user-facing copy.
+//
+// buildContentPlan is the entry point. It runs the full resolution chain for every
+// content field — prompt tier first, then NLU synthesis, then niche bank fallback,
+// then generic default — and returns a ContentPlan where every field carries a
+// Provenance tag describing which tier produced it.
+//
+// Key design decisions:
+//   D5 (Conservative synthesis): short, honest, prompt-derived content is preferred.
+//      Fall through to niche fallback rather than fabricating speculative content.
+//   D6 (Downgrade synthesized catalogs): products only when explicitly in prompt or
+//      nlu.products is non-empty. No catalog solely from niche classification.
+//   D7 (Sparse prompt floor): surface provenance metrics. Do not block generation.
+// ---------------------------------------------------------------------------
+
+import type { PromptUnderstandingObject } from '../prompt-engine';
+import type { WebsiteSpec } from '../spec';
+import type { LayoutPlan } from '../layout';
+import { normalizeIndustry } from '../html-renderer';
+import {
+  type ContentPlan, type ContentValue, type FeatureItem, type StatItem,
+  type TestimonialItem, type FaqItem, type PricingPlan,
+  computeProvenance,
+} from './types';
+import {
+  pick, rotate, titleCase, cleanLabel, spToTitle, extractPromptStats,
+  extractNluSignals, getContentWords, buildHeadlinePatterns,
+  type NluSignals,
+} from './synthesis';
+import {
+  NICHE_SUBJECT, GALLERY_LABEL_BY_NICHE, CTA_SUB_BY_NICHE,
+  TESTIMONIAL_ROLES, TESTIMONIAL_QUOTES,
+  ABOUT_BODY_BY_NICHE, FEATURE_SUFFIXES_BY_NICHE, FEATURE_DESC_BY_NICHE,
+  GENERIC_TRUST_SIGNALS, resolveNicheFaqs, resolveProductBank,
+  buildNichePricingPlans,
+} from './banks';
+
+// ── Helper for building ContentValue ────────────────────────────────────────
+
+function cv<T>(value: T, source: ContentValue<T>['source'], origin?: string): ContentValue<T> {
+  return { value, source, origin };
+}
+
+// ── Content context (shared across all resolvers) ────────────────────────────
+
+interface Ctx {
+  prompt: string;
+  puo: PromptUnderstandingObject;
+  spec: WebsiteSpec;
+  layoutPlan: LayoutPlan;
+  brand: string;
+  fp: number;
+  normIndustry: string;
+  kws: string[];
+  mainKw: string;
+  secKw: string;
+  thirdKw: string;
+  diffAdj: string;
+  audFrag: string;
+  nlu: NluSignals;
+}
+
+function buildCtx(
+  prompt: string,
+  puo: PromptUnderstandingObject,
+  spec: WebsiteSpec,
+  layoutPlan: LayoutPlan,
+  brand: string,
+  fp: number,
+): Ctx {
+  const normIndustry = normalizeIndustry(puo.inferredIndustry);
+  const nlu = extractNluSignals(puo);
+  const kws = getContentWords(puo);
+
+  const rawSubject = NICHE_SUBJECT[puo.inferredIndustry] || (puo.inferredIndustry !== 'general' ? cleanLabel(puo.inferredIndustry) : null);
+  const normSubject = NICHE_SUBJECT[normIndustry] || null;
+  const nicheSubject = rawSubject || normSubject || 'Excellence';
+
+  const slugLike = new Set([puo.inferredIndustry, normIndustry].map(x => String(x).toLowerCase()));
+  const kwDisplay = (k: string | undefined, fallback: string): string => {
+    if (!k) return fallback;
+    if (slugLike.has(k.toLowerCase()) && (rawSubject || normSubject)) return (rawSubject || normSubject) as string;
+    return cleanLabel(k);
+  };
+
+  const diffWords = new Set(nlu.differentiator.toLowerCase().split(/\s+/).filter(Boolean));
+  const kwPool = kws.filter(k => !diffWords.has(k));
+  const pool = kwPool.length ? kwPool : kws;
+  const allNicheWords = new Set(
+    [puo.inferredIndustry, normIndustry].map(s => String(s).toLowerCase())
+  );
+  const mainKwSrc  = pool.find(k => allNicheWords.has(k)) ?? pool[0];
+  const secKwSrc   = pool.find(k => k !== mainKwSrc) ?? kws.find(k => k !== mainKwSrc);
+  const thirdKwSrc = pool.find(k => k !== mainKwSrc && k !== secKwSrc) ?? kws.find(k => k !== mainKwSrc && k !== secKwSrc);
+  const mainKw  = kwDisplay(mainKwSrc, nicheSubject);
+  const secKw   = kwDisplay(secKwSrc, nicheSubject !== 'Experience' ? 'Experience' : 'Quality');
+  const thirdKw = kwDisplay(thirdKwSrc, 'Innovation');
+
+  const diffAdj = nlu.differentiator ? `${titleCase(nlu.differentiator)} ` : '';
+  const audFrag = nlu.audience ? ` for ${nlu.audience}` : '';
+
+  return { prompt, puo, spec, layoutPlan, brand, fp, normIndustry, kws, mainKw, secKw, thirdKw, diffAdj, audFrag, nlu };
+}
+
+// ── Hero resolvers ────────────────────────────────────────────────────────────
+
+function resolveHeroHeadline(ctx: Ctx): ContentValue<string> {
+  const { nlu, puo, brand, mainKw, secKw, thirdKw, diffAdj, audFrag, fp } = ctx;
+
+  // Tier 1: Prompt — explicitly stated heroHeadline
+  if (nlu.heroHeadline) return cv(nlu.heroHeadline, 'prompt', 'llm.heroHeadline');
+
+  // Tier 1: Prompt — user's own descriptive sentences → title
+  if (nlu.descriptiveSPs.length >= 1) {
+    const kp = spToTitle(nlu.descriptiveSPs[0]);
+    let detail = '';
+    if (nlu.descriptiveSPs.length >= 2) {
+      const numM = nlu.descriptiveSPs[1].match(/\b(\d+(?:\.\d+)?)\s*[-–]?\s*(?:hour|hr|year|star|location|item|piece|day)\b/i);
+      if (numM) {
+        const unitRaw = nlu.descriptiveSPs[1].match(/\b(hour|hr|year|star|location|item|piece|day)s?\b/i);
+        const unit = unitRaw ? unitRaw[1] : '';
+        const unitLabel: Record<string, string> = { hour:'Hour', hr:'Hour', year:'Year', star:'Star', location:'Location', item:'Item', piece:'Piece', day:'Day' };
+        detail = ` — ${numM[1]}-${unitLabel[unit.toLowerCase()] || unit.charAt(0).toUpperCase()+unit.slice(1)} ${unit.toLowerCase() === 'hour' || unit.toLowerCase() === 'hr' ? 'Crafted' : 'Proven'}`;
+      }
+    }
+    return cv(kp + detail, 'prompt', 'descriptiveSPs[0]');
+  }
+
+  // Tier 2: NLU — personality-based pattern using extracted keywords
+  const patterns = buildHeadlinePatterns(brand, mainKw, secKw, thirdKw, diffAdj, audFrag);
+  const headlines = patterns[puo.websitePersonality] || patterns.bold;
+  return cv(pick(headlines, fp), 'nlu', 'headlinePattern');
+}
+
+function resolveHeroSub(ctx: Ctx): ContentValue<string> {
+  const { nlu, puo, brand, mainKw, secKw, fp } = ctx;
+
+  // Tier 1: Prompt — explicitly stated heroSub
+  if (nlu.heroSub) return cv(nlu.heroSub, 'prompt', 'llm.heroSub');
+
+  // Tier 1: Prompt — user's descriptive sentences
+  if (nlu.descriptiveSPs.length >= 1) {
+    return cv(nlu.descriptiveSPs.slice(0, 2).join(' '), 'prompt', 'descriptiveSPs');
+  }
+
+  // Tier 2: NLU — keyword-anchored hero sub pattern
+  const subjectPhrase = (ctx.kws[0] ? ctx.kws[0] : mainKw).toLowerCase();
+  const supportPhrase = (ctx.kws[1] ? ctx.kws[1] : secKw).toLowerCase();
+  const isEnergetic = nlu.brandVoice?.register === 'energetic' || nlu.brandVoice?.usesExclamations;
+  const isLuxe = nlu.brandVoice?.register === 'luxe';
+  const { differentiator, audience } = nlu;
+  const diffAdj2 = differentiator ? `${titleCase(differentiator)} ` : '';
+  const audFrag2 = audience ? ` for ${audience}` : '';
+
+  const heroSubPatterns = [
+    differentiator
+      ? `${diffAdj2}${subjectPhrase} and ${supportPhrase}${audFrag2} — made with genuine care and no shortcuts.`
+      : `${titleCase(subjectPhrase)} and ${supportPhrase}${audFrag2 === '' ? '' : ', for ' + audience} — done the right way, every time.`,
+    `Discover ${brand}: a new standard in ${subjectPhrase}, built around ${supportPhrase}${audFrag2 === '' ? '' : ' ' + audience + ' trust'}.`,
+    `Experience ${subjectPhrase} done right${audFrag2}. Thoughtfully crafted, expertly delivered, built to last.`,
+    `${brand} brings ${subjectPhrase} and ${supportPhrase} together into one ${differentiator ? differentiator + ', ' : ''}seamless experience.`,
+    isLuxe
+      ? `${brand} was created for ${audience || 'those who expect more'} — where ${subjectPhrase} and ${supportPhrase} are not just promised, but delivered with distinction.`
+      : `${brand} was built because ${subjectPhrase} deserved better${audFrag2 === '' ? '' : ' for ' + audience}. ${differentiator ? titleCase(differentiator) + ' and u' : 'U'}ncompromising quality, every time.`,
+    isEnergetic
+      ? `${brand} is where ${subjectPhrase} gets serious${audFrag2}. Real results. Genuine ${supportPhrase}. No shortcuts.`
+      : `${audFrag2 === '' ? 'Genuine' : titleCase(audience!) + ' deserve genuine'} ${subjectPhrase}. Real ${supportPhrase}. ${brand} — the way it should be.`,
+  ];
+  return cv(pick(heroSubPatterns, fp + 2), 'nlu', 'heroSubPattern');
+}
+
+function resolveHeroTag(ctx: Ctx): ContentValue<string> {
+  const { nlu, puo, brand, mainKw, fp, normIndustry } = ctx;
+
+  // Tier 1: Prompt — explicit heroTag
+  if (nlu.heroTag) return cv(nlu.heroTag, 'prompt', 'llm.heroTag');
+
+  // Tier 1: Prompt — credential signals
+  if (nlu.credSignals.length > 0) return cv(titleCase(nlu.credSignals[0]), 'prompt', 'credSignals');
+
+  // Tier 2: NLU — location
+  if (nlu.location) return cv(`Serving ${nlu.location}`, 'nlu', 'location');
+
+  // Tier 3: Niche — industry specialisation label
+  if (puo.inferredIndustry !== 'general') {
+    return cv(`${titleCase(puo.inferredIndustry)} Specialists`, 'niche', 'industry');
+  }
+
+  // Generic
+  return cv(pick(['Trusted by Thousands', `${mainKw} Experts`, 'Now Open', `Premium ${mainKw}`], fp + 3), 'generic', 'pick');
+}
+
+// ── CTA resolvers ─────────────────────────────────────────────────────────────
+
+function resolvePrimaryCta(ctx: Ctx): ContentValue<string> {
+  const { nlu, puo, normIndustry, fp } = ctx;
+
+  // Tier 1: Prompt — explicit CTA
+  if (nlu.primaryCta) return cv(nlu.primaryCta, 'prompt', 'llm.primaryCta');
+  if (nlu.intentCta) return cv(nlu.intentCta, 'prompt', 'intentCta');
+
+  // Tier 3: Niche CTA
+  const ctaByNiche: Record<string, string> = {
+    food: 'View Menu', sports: 'Start Training', technology: 'Start Free Trial',
+    photography: 'View Portfolio', fashion: 'Shop the Collection', ecommerce: 'Shop Now',
+    portfolio: 'View Work', agency: 'Start a Project', wellness: 'Book a Session',
+    hospitality: 'Book Your Stay', professional: 'Get a Consultation',
+    homeservices: 'Get a Free Quote', automotive: 'Book a Service',
+  };
+  if (ctaByNiche[normIndustry]) return cv(ctaByNiche[normIndustry], 'niche', 'ctaByNiche');
+
+  // Tier 3: Direction CTA
+  const ctaMap: Record<string, string> = {
+    'e-commerce': 'Shop Now', saas: 'Start Free Trial', 'lead-gen': 'Get Started Free',
+    landing: 'Get Started', portfolio: 'View My Work', editorial: 'Read More',
+  };
+  if (ctaMap[puo.layout.direction]) return cv(ctaMap[puo.layout.direction], 'niche', 'ctaMap');
+
+  return cv('Get Started', 'generic', 'fallback');
+}
+
+function resolveSecondaryCta(ctx: Ctx): ContentValue<string> {
+  const { nlu, normIndustry, fp } = ctx;
+
+  if (nlu.secondaryCta) return cv(nlu.secondaryCta, 'prompt', 'llm.secondaryCta');
+
+  const secByNiche: Record<string, string> = {
+    food: 'Book a Table', sports: 'See Programs', technology: 'Watch Demo',
+    photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
+    portfolio: 'View Work', agency: 'Our Process', wellness: 'Learn More',
+    hospitality: 'Explore Rooms', professional: 'Learn More',
+    homeservices: 'Our Services', automotive: 'Our Services',
+  };
+  if (secByNiche[normIndustry]) return cv(secByNiche[normIndustry], 'niche', 'secByNiche');
+
+  return cv(pick(['Learn More', 'See How It Works', 'Explore', 'Discover More'], fp + 1), 'generic', 'pick');
+}
+
+// ── Features resolvers ────────────────────────────────────────────────────────
+
+function resolveSectionEyebrow(ctx: Ctx): ContentValue<string> {
+  const { nlu, fp } = ctx;
+  if (nlu.differentiator) return cv(`What Makes Us ${titleCase(nlu.differentiator)}`, 'nlu', 'differentiator');
+  if (nlu.audience) return cv(`Built for ${titleCase(nlu.audience)}`, 'nlu', 'audience');
+  if (nlu.activityKeywords[0]) return cv(`Specialising in ${titleCase(nlu.activityKeywords[0])}`, 'nlu', 'activityKeywords');
+  return cv(pick(['Why Choose Us', 'What We Offer', 'Our Approach', 'How We Help', 'What Sets Us Apart'], fp + 7), 'generic', 'pick');
+}
+
+function resolveFeatureHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw } = ctx;
+  if (nlu.differentiator && nlu.audience) {
+    return cv(`${titleCase(nlu.differentiator)} ${mainKw} for ${titleCase(nlu.audience)}`, 'nlu', 'differentiator+audience');
+  }
+  if (nlu.differentiator) return cv(`The ${titleCase(nlu.differentiator)} Difference`, 'nlu', 'differentiator');
+  if (nlu.audience) return cv(`Everything ${titleCase(nlu.audience)} Need`, 'nlu', 'audience');
+  return cv(`Why ${brand}`, 'generic', 'brand');
+}
+
+const FEAT_TITLE_FNS: Array<(kw: string, sf: string) => string> = [
+  (kw, sf) => `${titleCase(kw)} ${sf}`,
+  (kw, sf) => `Expert ${titleCase(kw)}`,
+  (kw, sf) => `${sf}-Grade ${titleCase(kw)}`,
+  (kw, sf) => `Proven ${titleCase(kw)}`,
+  (kw, sf) => `The ${titleCase(kw)} ${sf}`,
+  (kw, sf) => `${titleCase(kw)}: ${sf}`,
+];
+
+function resolveFeatures(ctx: Ctx, iconPool: string[], featureHref: string): ContentValue<FeatureItem[]> {
+  const { nlu, kws, normIndustry, fp, mainKw } = ctx;
+
+  const suffixes = FEATURE_SUFFIXES_BY_NICHE[normIndustry] || FEATURE_SUFFIXES_BY_NICHE.general;
+  const descFor = FEATURE_DESC_BY_NICHE[normIndustry] || FEATURE_DESC_BY_NICHE.general;
+  const featureKws = [...new Set([...nlu.activityKeywords.map(k => k.toLowerCase()), ...kws])].slice(0, 6);
+  const spTitles = nlu.descriptiveSPs.map(spToTitle);
+  const productTitles = nlu.products.map(p => p.name).filter(Boolean);
+
+  const hasPromptContent = spTitles.length > 0 || productTitles.length > 0;
+  const source = hasPromptContent ? 'prompt' : (featureKws.length > 0 ? 'nlu' : 'niche');
+
+  const getBestTitle = (i: number, kw: string, sf: string): string => {
+    if (productTitles[i]) return productTitles[i];
+    if (spTitles[i]) return spTitles[i];
+    return FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length](kw, sf);
+  };
+  const spDesc = (i: number): string | null =>
+    nlu.descriptiveSPs.length > 0 ? nlu.descriptiveSPs[i % nlu.descriptiveSPs.length] : null;
+
+  const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => {
+    const sf = pick(suffixes, fp + i);
+    return {
+      icon: iconPool[(fp + i) % iconPool.length],
+      title: getBestTitle(i, kw, sf),
+      desc: spDesc(i) ?? descFor(kw),
+      href: featureHref,
+    };
+  });
+
+  while (allKwFeatures.length < 3) {
+    const defaults: FeatureItem[] = [
+      { icon: iconPool[9 % iconPool.length], title: 'Peak Performance', desc: `Our ${mainKw} approach delivers measurable results from day one.`, href: featureHref },
+      { icon: iconPool[2 % iconPool.length], title: 'Trusted Quality', desc: `Every aspect of ${ctx.brand} is built on a foundation of quality and trust.`, href: 'about' },
+      { icon: iconPool[7 % iconPool.length], title: 'Proven Results', desc: `Hundreds of clients have already experienced the ${ctx.brand} difference.`, href: featureHref },
+    ];
+    allKwFeatures.push(defaults[allKwFeatures.length % defaults.length]);
+  }
+
+  return cv(allKwFeatures.slice(0, 4), source, 'features');
+}
+
+// ── Stats resolver ────────────────────────────────────────────────────────────
+
+function resolveStats(ctx: Ctx): ContentValue<StatItem[]> {
+  const { puo, normIndustry, prompt } = ctx;
+  const promptStats = extractPromptStats(puo.originalPrompt || prompt);
+  const fallback = GENERIC_TRUST_SIGNALS[normIndustry] || GENERIC_TRUST_SIGNALS.general;
+
+  const merged = [...promptStats];
+  for (const ts of fallback) {
+    if (merged.length >= 4) break;
+    if (!promptStats.some(ps => ps.label === ts.label)) merged.push(ts);
+  }
+
+  const source = promptStats.length > 0 ? 'prompt' : 'niche';
+  return cv(merged.slice(0, 4), source, 'stats');
+}
+
+// ── Testimonials resolver ─────────────────────────────────────────────────────
+
+function resolveTestimonials(ctx: Ctx): ContentValue<TestimonialItem[]> {
+  const { nlu, brand, mainKw, secKw, normIndustry, fp } = ctx;
+  const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
+
+  const tSp0 = nlu.descriptiveSPs[0] ? spToTitle(nlu.descriptiveSPs[0]).toLowerCase() : mainKw.toLowerCase();
+  const tSp1 = nlu.descriptiveSPs[1] ? spToTitle(nlu.descriptiveSPs[1]).toLowerCase() : secKw.toLowerCase();
+  const tProd0 = nlu.products[0]?.name || tSp0;
+  const tProd1 = nlu.products[1]?.name || tSp1;
+
+  const nicheQuotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
+  const interpolate = (q: string) =>
+    q.replace(/\[brand\]/g, brand).replace(/\[mainKw\]/g, mainKw).replace(/\[secKw\]/g, secKw);
+
+  const buildQ = (idx: number): string => {
+    switch (idx % 3) {
+      case 0:
+        if (nlu.descriptiveSPs.length >= 1)
+          return `${brand}'s ${tSp0} is exactly what I was looking for. I've tried other places — nothing even comes close.`;
+        return interpolate(nicheQuotes[0]);
+      case 1:
+        if (nlu.products.length >= 1)
+          return `The ${tProd0} at ${brand} exceeded every expectation. I've already recommended it to everyone I know.`;
+        if (nlu.descriptiveSPs.length >= 2)
+          return `${brand} delivers on every promise — especially the ${tSp1}. An experience worth coming back for again and again.`;
+        return interpolate(nicheQuotes[1]);
+      default:
+        if (nlu.products.length >= 2)
+          return `Came for the ${tProd0}, stayed for the ${tProd1}. ${brand} is in a class of its own.`;
+        if (nlu.descriptiveSPs.length >= 1)
+          return `Once you've experienced ${tSp0} at ${brand}, you won't go anywhere else. The quality speaks for itself.`;
+        return interpolate(nicheQuotes[2] || nicheQuotes[0]);
+    }
+  };
+
+  const NAME_POOL = [
+    ['A Happy Customer', 'A Regular Client', 'A Returning Customer'],
+    ['A Satisfied Client', 'A Verified Buyer', 'A Loyal Customer'],
+    ['A Weekly Regular', 'A Happy Client', 'A Long-Time Customer'],
+    ['A Local Customer', 'A First-Time Visitor', 'A Returning Guest'],
+    ['A Devoted Regular', 'A Happy Customer', 'A Repeat Client'],
+    ['A Verified Client', 'A Regular Guest', 'A Satisfied Customer'],
+  ];
+  const names = NAME_POOL[fp % NAME_POOL.length];
+  const items = names.map((name, i) => ({
+    quote: buildQ(i),
+    name,
+    role: roles[i % roles.length] || roles[0],
+  }));
+
+  const hasPrompt = nlu.descriptiveSPs.length > 0 || nlu.products.length > 0;
+  return cv(items, hasPrompt ? 'prompt' : 'niche', 'testimonials');
+}
+
+// ── About resolvers ───────────────────────────────────────────────────────────
+
+function resolveAboutHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw } = ctx;
+  if (nlu.differentiator && mainKw) return cv(`${titleCase(nlu.differentiator)} ${mainKw}`, 'nlu', 'differentiator+mainKw');
+  if (nlu.missionStatement) return cv(`The ${brand} Mission`, 'nlu', 'missionStatement');
+  if (nlu.audience) return cv(`${brand}: For ${titleCase(nlu.audience)}`, 'nlu', 'audience');
+  return cv(`The ${brand} Story`, 'generic', 'brand');
+}
+
+function resolveAboutBody(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw, secKw, normIndustry } = ctx;
+
+  // Tier 1: Prompt — explicit about text from NLU
+  if (nlu.about) return cv(nlu.about, 'prompt', 'llm.about');
+
+  // Tier 1: Prompt — 2+ descriptive selling points → use verbatim
+  if (nlu.descriptiveSPs.length >= 2) {
+    return cv(nlu.descriptiveSPs.slice(0, 3).join(' '), 'prompt', 'descriptiveSPs');
+  }
+
+  // Tier 3: Niche template, optionally enriched with 1 descriptive SP
+  const tplFn = ABOUT_BODY_BY_NICHE[normIndustry];
+  const tpl = tplFn
+    ? tplFn(brand, mainKw, secKw, nlu.audience, nlu.differentiator)
+    : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${nlu.audience ? ' for ' + nlu.audience : ''} should be${nlu.differentiator ? ' ' + nlu.differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and a relentless focus on quality to everything we do.`;
+
+  if (nlu.descriptiveSPs.length === 1) {
+    const sentences = tpl.split(/(?<=[.!?])\s+/);
+    const intro = sentences.slice(0, 2).join(' ');
+    return cv(`${intro} ${nlu.descriptiveSPs[0]}`, 'prompt', 'descriptiveSPs[0]+niche');
+  }
+
+  // Tier 3: Niche with NLU enrichment signals
+  const extras: string[] = [];
+  if (nlu.credSignals.length >= 1) extras.push(`As a ${nlu.credSignals.slice(0, 2).join(', ')} business, quality is built into every decision.`);
+  if (nlu.location) extras.push(`Proudly serving ${nlu.location}.`);
+  const body = extras.length ? `${tpl} ${extras.join(' ')}` : tpl;
+  return cv(body, extras.length ? 'nlu' : 'niche', 'aboutBodyTemplate');
+}
+
+function resolveAboutBullets(ctx: Ctx): ContentValue<string[]> {
+  const { nlu, kws, mainKw } = ctx;
+
+  if (nlu.descriptiveSPs.length >= 3) {
+    return cv(nlu.descriptiveSPs.slice(0, 4).map(sp => spToTitle(sp)), 'prompt', 'descriptiveSPs');
+  }
+  if (nlu.descriptiveSPs.length >= 1) {
+    return cv([
+      spToTitle(nlu.descriptiveSPs[0]),
+      kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution',
+      nlu.differentiator ? titleCase(nlu.differentiator) + ' commitment' : nlu.audience ? 'Built for ' + nlu.audience : 'Uncompromising quality',
+      'Transparent, honest, and always improving',
+    ], 'prompt', 'descriptiveSPs[0]');
+  }
+  return cv([
+    kws[0] ? titleCase(kws[0]) + '-first approach' : 'Client-first approach',
+    kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution',
+    nlu.differentiator ? titleCase(nlu.differentiator) + ' commitment' : nlu.audience ? 'Built for ' + nlu.audience : 'Uncompromising quality',
+    'Transparent, honest, and always improving',
+  ], nlu.differentiator || nlu.audience ? 'nlu' : 'generic', 'aboutBullets');
+}
+
+// ── Mission resolvers ─────────────────────────────────────────────────────────
+
+function resolveMissionHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw } = ctx;
+  if (nlu.missionStatement) return cv(`The ${brand} Mission`, 'prompt', 'missionStatement');
+  if (nlu.differentiator) return cv(`Our ${titleCase(nlu.differentiator)} Promise`, 'nlu', 'differentiator');
+  if (nlu.audience) return cv(`Built for ${titleCase(nlu.audience)}`, 'nlu', 'audience');
+  return cv(`Why ${brand}`, 'generic', 'brand');
+}
+
+function resolveMissionBody(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw, secKw } = ctx;
+
+  if (nlu.missionStatement) {
+    const body = nlu.differentiator
+      ? `${nlu.missionStatement} — ${nlu.differentiator} at every step.`
+      : nlu.missionStatement;
+    return cv(body, 'prompt', 'missionStatement');
+  }
+  if (nlu.descriptiveSPs.length >= 3) {
+    return cv(nlu.descriptiveSPs.slice(2).join(' '), 'prompt', 'descriptiveSPs[2+]');
+  }
+  if (nlu.differentiator && nlu.audience) {
+    return cv(`At ${brand}, we're ${nlu.differentiator} to the core — built specifically for ${nlu.audience}. Every ${mainKw.toLowerCase()} decision starts with one question: does this truly serve ${nlu.audience}? Our answer is always ${nlu.differentiator}, always genuine, and never shortcuts.`, 'nlu', 'differentiator+audience');
+  }
+  if (nlu.differentiator) {
+    return cv(`At ${brand}, ${nlu.differentiator} isn't just a tagline — it's how we operate. From our sourcing to our service, every detail reflects our commitment to doing ${mainKw.toLowerCase()} the ${nlu.differentiator} way. No shortcuts. Just work we're proud to put our name on.`, 'nlu', 'differentiator');
+  }
+  if (nlu.audience) {
+    return cv(`${brand} was built specifically for ${nlu.audience}. We understand what ${nlu.audience} need better than anyone — and that understanding shapes every decision we make, from the way we work to the results we deliver.`, 'nlu', 'audience');
+  }
+  return cv(`Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with an obsession for ${secKw.toLowerCase()}. No shortcuts — just work we're proud to put our name on.`, 'generic', 'template');
+}
+
+// ── Gallery / catalog resolvers ───────────────────────────────────────────────
+
+function resolveGalleryHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, normIndustry } = ctx;
+  const productTitles = nlu.products.map(p => p.name).filter(Boolean);
+  const galleryLabel = GALLERY_LABEL_BY_NICHE[normIndustry] || GALLERY_LABEL_BY_NICHE.general;
+  if (productTitles.length >= 2) return cv(`${brand} — ${galleryLabel}`, 'prompt', 'productTitles');
+  return cv(`Our ${galleryLabel}`, 'niche', 'galleryLabel');
+}
+
+// D6 quality filter: NLU always produces at least one generic fallback product.
+// These are NOT real products — they're placeholders the NLU emits when it can't
+// find anything specific. Filter them out so only genuinely prompt-derived products
+// activate the products section.
+const GENERIC_PRODUCT_RE = /^(our offering|services|consulting|custom|general|get in touch|contact us|donation|donate)$/i;
+
+function isRealProduct(p: { name: string; desc?: string; price?: string }): boolean {
+  if (!p.name || GENERIC_PRODUCT_RE.test(p.name.trim())) return false;
+  return true;
+}
+
+function resolveProducts(ctx: Ctx): ContentValue<Array<{ name: string; desc: string; price: string }> | null> {
+  const { nlu, puo, spec, normIndustry } = ctx;
+
+  // D6: products ONLY when spec includes products section
+  if (!spec.sections.includes('products')) {
+    return cv(null, 'absent', 'spec.sections.no-products');
+  }
+
+  // Tier 1: Prompt — explicit NLU-extracted products (filtered for quality)
+  const realProducts = nlu.products.filter(isRealProduct);
+  if (realProducts.length > 0) {
+    return cv(realProducts, 'prompt', 'llm.products');
+  }
+
+  // D6: if spec has 'products' only because of generic NLU fallback, treat as absent
+  // The niche bank is only consulted when the user explicitly requests a products page
+  // (i.e., the spec.sections 'products' entry came from a real prompt signal).
+  if (nlu.products.length > 0 && realProducts.length === 0) {
+    // All NLU products were generic fallbacks — no real products in prompt
+    return cv(null, 'absent', 'all-products-are-generic-fallbacks');
+  }
+
+  // Tier 3: Niche bank (only if products section was genuinely requested)
+  const bank = resolveProductBank(puo.extractedKeywords, puo.inferredIndustry, normIndustry);
+  if (bank) return cv(bank.items, 'niche', 'productBank');
+
+  return cv(null, 'absent', 'no-products');
+}
+
+function resolveProductEyebrow(ctx: Ctx): ContentValue<string> {
+  const { nlu, puo, normIndustry } = ctx;
+  if (nlu.products.length > 0) return cv('Featured', 'generic', 'default');
+  const bank = resolveProductBank(puo.extractedKeywords, puo.inferredIndustry, normIndustry);
+  if (bank) return cv(bank.eyebrow, 'niche', 'productBank.eyebrow');
+  return cv('Featured', 'generic', 'default');
+}
+
+// ── Contact resolvers ─────────────────────────────────────────────────────────
+
+function resolveContactHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, mainKw } = ctx;
+  if (nlu.audience) return cv(`Ready, ${titleCase(nlu.audience)}?`, 'nlu', 'audience');
+  return cv(`Let's Talk ${mainKw}`, 'nlu', 'mainKw');
+}
+
+function resolveContactSub(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand } = ctx;
+  const parts: string[] = [
+    nlu.operatingHours ? `We're open ${nlu.operatingHours}.` : `Ready to experience ${brand}?`,
+    nlu.audience ? ` We work with ${nlu.audience}.` : '',
+    nlu.location ? (nlu.location.match(/^(in|at|near)\b/i) ? ` We're ${nlu.location}.` : ` We're based in ${nlu.location}.`) : '',
+    nlu.phone ? ` Call us at ${nlu.phone}.` : '',
+    ' Have a question? Reach out and we\'ll get back to you soon.',
+  ];
+  const sub = parts.join('');
+  const hasPromptSignals = !!(nlu.operatingHours || nlu.location || nlu.phone || nlu.audience);
+  return cv(sub, hasPromptSignals ? 'prompt' : 'generic', 'contactSub');
+}
+
+// ── CTA section resolvers ─────────────────────────────────────────────────────
+
+function resolveCtaHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw } = ctx;
+  if (nlu.intentCta && nlu.intentCta !== 'Get Started') {
+    return cv(`${nlu.intentCta.replace(/\s*now\s*/gi, '').trim()} — ${brand} Is Ready`, 'prompt', 'intentCta');
+  }
+  if (nlu.descriptiveSPs.length >= 1) {
+    return cv(`Experience ${spToTitle(nlu.descriptiveSPs[0])} at ${brand}`, 'prompt', 'descriptiveSPs[0]');
+  }
+  if (nlu.audience) return cv(`Built for ${titleCase(nlu.audience)} — Ready When You Are`, 'nlu', 'audience');
+  return cv(`Ready to Experience ${brand}?`, 'generic', 'brand');
+}
+
+function resolveCtaSub(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, normIndustry } = ctx;
+  const base = CTA_SUB_BY_NICHE[normIndustry] || CTA_SUB_BY_NICHE.general;
+  if (nlu.audience && nlu.differentiator) {
+    return cv(`${brand} is ${nlu.differentiator} — designed specifically for ${nlu.audience}. ${base}`, 'nlu', 'differentiator+audience+niche');
+  }
+  if (nlu.audience) {
+    return cv(`${brand} is built for ${nlu.audience}. ${base}`, 'nlu', 'audience+niche');
+  }
+  if (nlu.differentiator) {
+    return cv(`Experience the ${nlu.differentiator} difference at ${brand}. ${base}`, 'nlu', 'differentiator+niche');
+  }
+  return cv(base, 'niche', 'CTA_SUB_BY_NICHE');
+}
+
+// ── Footer resolver ───────────────────────────────────────────────────────────
+
+function resolveFooterTagline(ctx: Ctx): ContentValue<string> {
+  const { nlu, brand, mainKw } = ctx;
+
+  if (nlu.tagline) return cv(nlu.tagline, 'prompt', 'llm.tagline');
+
+  let base: string;
+  let source: ContentValue<string>['source'];
+
+  if (nlu.differentiator && nlu.location) {
+    base = `${titleCase(nlu.differentiator)} ${mainKw.toLowerCase()} in ${nlu.location}.`;
+    source = 'nlu';
+  } else if (nlu.differentiator) {
+    base = `${titleCase(nlu.differentiator)} ${mainKw.toLowerCase()} — every time.`;
+    source = 'nlu';
+  } else if (nlu.location) {
+    base = `Proudly serving ${nlu.location}.`;
+    source = 'nlu';
+  } else if (nlu.audience) {
+    base = `Made for ${nlu.audience}.`;
+    source = 'nlu';
+  } else {
+    base = `${brand} — ${mainKw.toLowerCase()} done right.`;
+    source = 'generic';
+  }
+
+  const tagline = nlu.operatingHours
+    ? `${base.replace(/\.$/, '')} · Open ${nlu.operatingHours}.`
+    : nlu.phone
+    ? `${base.replace(/\.$/, '')} · ${nlu.phone}`
+    : base;
+
+  return cv(tagline, source, 'footerTagline');
+}
+
+// ── FAQ resolver ──────────────────────────────────────────────────────────────
+
+function resolveFaqs(ctx: Ctx): ContentValue<FaqItem[] | null> {
+  const { nlu, spec, normIndustry } = ctx;
+
+  // D6: FAQs only when spec includes faq section
+  if (!spec.sections.includes('faq')) {
+    return cv(null, 'absent', 'spec.sections.no-faq');
+  }
+
+  // Tier 1: Prompt — user-provided FAQs
+  if (nlu.faqs.length > 0) return cv(nlu.faqs, 'prompt', 'llm.faqs');
+
+  // Tier 3: Niche FAQ bank
+  return cv(resolveNicheFaqs(normIndustry), 'niche', 'nicheFaq');
+}
+
+// ── Pricing resolver ──────────────────────────────────────────────────────────
+
+function resolvePricingPlans(ctx: Ctx): ContentValue<PricingPlan[] | null> {
+  const { puo, spec, mainKw } = ctx;
+
+  // Only emit pricing when spec requires it
+  if (!spec.sections.includes('pricing')) {
+    return cv(null, 'absent', 'spec.sections.no-pricing');
+  }
+
+  // Pricing is always niche-templated in Phase 3 (no prompt extraction yet)
+  return cv(buildNichePricingPlans(mainKw), 'niche', 'pricingTemplate');
+}
+
+// ── StartingPrice resolver ────────────────────────────────────────────────────
+
+function resolveStartingPrice(ctx: Ctx): ContentValue<string> {
+  if (ctx.nlu.startingPrice) return cv(ctx.nlu.startingPrice, 'prompt', 'llm.startingPrice');
+  return cv('', 'absent', 'no-starting-price');
+}
+
+// ── Main entry point ──────────────────────────────────────────────────────────
+
+/**
+ * Build the ContentPlan — the single source of truth for all user-facing copy.
+ *
+ * Call after buildWebsiteSpec() and buildLayoutPlan() so section gating (D6) can
+ * check whether products/faq/pricing sections actually exist.
+ *
+ * @param iconPool  — SVG strings for feature icons (from html-renderer.ts ICON_SVGS)
+ * @param featureHref — where feature card CTAs link (from html-renderer layout logic)
+ */
+export function buildContentPlan(
+  prompt: string,
+  puo: PromptUnderstandingObject,
+  spec: WebsiteSpec,
+  layoutPlan: LayoutPlan,
+  brand: string,
+  fp: number,
+  iconPool: string[] = [],
+  featureHref = 'about',
+): ContentPlan {
+  const ctx = buildCtx(prompt, puo, spec, layoutPlan, brand, fp);
+
+  const partial = {
+    heroHeadline:   resolveHeroHeadline(ctx),
+    heroSub:        resolveHeroSub(ctx),
+    heroTag:        resolveHeroTag(ctx),
+    primaryCta:     resolvePrimaryCta(ctx),
+    secondaryCta:   resolveSecondaryCta(ctx),
+    sectionEyebrow: resolveSectionEyebrow(ctx),
+    featureHeading: resolveFeatureHeading(ctx),
+    features:       resolveFeatures(ctx, iconPool.length ? iconPool : ['●'], featureHref),
+    stats:          resolveStats(ctx),
+    testimonials:   resolveTestimonials(ctx),
+    aboutHeading:   resolveAboutHeading(ctx),
+    aboutBody:      resolveAboutBody(ctx),
+    aboutBullets:   resolveAboutBullets(ctx),
+    missionHeading: resolveMissionHeading(ctx),
+    missionBody:    resolveMissionBody(ctx),
+    galleryHeading: resolveGalleryHeading(ctx),
+    products:       resolveProducts(ctx),
+    productEyebrow: resolveProductEyebrow(ctx),
+    contactHeading: resolveContactHeading(ctx),
+    contactSub:     resolveContactSub(ctx),
+    ctaHeading:     resolveCtaHeading(ctx),
+    ctaSub:         resolveCtaSub(ctx),
+    footerTagline:  resolveFooterTagline(ctx),
+    faqs:           resolveFaqs(ctx),
+    pricingPlans:   resolvePricingPlans(ctx),
+    startingPrice:  resolveStartingPrice(ctx),
+  };
+
+  return { ...partial, _provenance: computeProvenance(partial) };
+}

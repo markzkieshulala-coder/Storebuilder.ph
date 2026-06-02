@@ -71,7 +71,7 @@ export function buildWebsiteSpec(
   // NLU CONTENT implies a section: if the user enumerated products or FAQs, those
   // sections are implicitly required even when no clause named them as a "section".
   const nluContent: SectionKind[] = [];
-  if (Array.isArray(llm?.products) && (llm!.products as unknown[]).length) nluContent.push('products');
+  if (Array.isArray(llm?.products) && (llm!.products as { _fromUser?: boolean }[]).some(p => p._fromUser)) nluContent.push('products');
   if (Array.isArray(llm?.faqs) && (llm!.faqs as unknown[]).length) nluContent.push('faq');
 
   // Forbidden is the union of prompt directives and NLU exclusions.

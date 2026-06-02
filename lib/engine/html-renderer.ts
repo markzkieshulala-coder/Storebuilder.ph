@@ -20,6 +20,7 @@ import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
 import { canonicalKind, detectRenderedKinds, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
 import { buildWebsiteSpec, type WebsiteSpec } from './spec';
 import { buildLayoutPlan, type LayoutPlan, type SectionPlacement } from './layout';
+import { buildContentPlan, contentPlanToSiteCopy, type ContentPlan } from './content';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -1259,7 +1260,52 @@ function extractPromptStats(prompt: string): Array<{ number: string; label: stri
   return stats.slice(0, 2);
 }
 
-function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number): SiteCopy {
+// Phase 3: _lastContentPlan holds the most recently built plan for provenance reporting.
+let _lastContentPlan: ContentPlan | null = null;
+
+/** Retrieve the ContentPlan from the last buildSiteCopy call (for provenance reporting). */
+export function getLastContentPlan(): ContentPlan | null { return _lastContentPlan; }
+
+function buildSiteCopy(
+  puo: PromptUnderstandingObject,
+  brand: string,
+  fp: number,
+  spec?: WebsiteSpec,
+  layoutPlan?: LayoutPlan,
+): SiteCopy {
+  const prompt = puo.originalPrompt || '';
+  const resolvedSpec = spec ?? buildWebsiteSpec(prompt, puo);
+  const normInd = normalizeIndustry(puo.inferredIndustry);
+  const resolvedLayout = layoutPlan ?? buildLayoutPlan(prompt, puo, resolvedSpec, normInd);
+
+  const gallerySlug = detectGallerySlug(puo);
+  const direction = puo.layout.direction;
+  const featureLinkMap: Record<string, string> = {
+    'portfolio': gallerySlug, 'e-commerce': gallerySlug, 'showcase': gallerySlug,
+    'editorial': gallerySlug, 'saas': 'contact', 'dashboard': 'contact',
+    'lead-gen': 'contact', 'landing': 'contact',
+  };
+  const featureHref = featureLinkMap[direction] || (gallerySlug !== 'gallery' ? gallerySlug : 'about');
+
+  const plan = buildContentPlan(
+    prompt, puo, resolvedSpec, resolvedLayout, brand, fp,
+    ICON_SVGS, featureHref,
+  );
+  _lastContentPlan = plan;
+  return contentPlanToSiteCopy(plan, gallerySlug) as SiteCopy;
+}
+
+// Phase 3: applyLlmCopy logic moved into content resolvers (plan.ts).
+// _applyLlmCopyRemoved is a tombstone — safe to delete in Phase 5.
+function _applyLlmCopyRemoved(copy: SiteCopy): SiteCopy { return copy; }
+
+// ─── DEAD CODE TOMBSTONE — Phase 3 migration ────────────────────────────────
+// The old buildSiteCopy body below (signal extraction, headlinePatterns, etc.)
+// has been REPLACED by buildContentPlan in lib/engine/content/plan.ts.
+// This block is retained temporarily so the diff is reviewable. Delete in Phase 5.
+// Wrapping in a no-op function that is never called keeps TypeScript happy.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _deadCode_phase3(puo: PromptUnderstandingObject, brand: string, fp: number): SiteCopy {
   const kws = getContentWords(puo);
   const industry = puo.inferredIndustry;
   const normIndustry = normalizeIndustry(industry);
@@ -2056,90 +2102,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     hiddenSecondaryCtaLabel: secondaryCta,
   };
 
-  // Prompt-specific content produced by the in-house NLU engine takes precedence
-  // over the deterministic banks, so the built site reflects exactly what the
-  // user described. (Channel name kept as `llm` for renderer compatibility.)
-  return applyLlmCopy(copy, puo);
-}
-
-// Overlay explicit NLU-extracted copy from customAttributes.llm onto the SiteCopy.
-// This is the final-pass override: anything the user EXPLICITLY stated in their
-// prompt (headlines, about text, mission, CTAs, products, FAQs) wins over every
-// derived or templated value. Only present, non-empty values are applied.
-function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy {
-  const llm = (puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm;
-  if (!llm) return copy;
-
-  const str = (s: unknown): string | null => (typeof s === 'string' && s.trim() ? s.trim() : null);
-
-  // Hero section — explicit user text always wins
-  const heroHeadline = str(llm.heroHeadline);
-  const heroSub      = str(llm.heroSub);
-  const heroTag      = str(llm.heroTag);
-  if (heroHeadline) copy.heroHeadline = heroHeadline;
-  if (heroSub)      copy.heroSub      = heroSub;
-  if (heroTag)      copy.heroTag      = heroTag;
-
-  // CTAs — explicit button text the user wrote overrides derived labels
-  const primaryCta   = str(llm.primaryCta);
-  const secondaryCta = str(llm.secondaryCta);
-  if (primaryCta)   copy.primaryCta   = primaryCta;
-  if (secondaryCta) copy.secondaryCta = secondaryCta;
-
-  // About + Mission — explicit user about/mission text overrides NLU-derived
-  const about            = str(llm.about);
-  const missionStatement = str(llm.missionStatement);
-  const tagline          = str(llm.tagline);
-  if (about)            copy.aboutBody     = about;
-  if (missionStatement) copy.missionBody   = missionStatement;
-  if (tagline)          copy.footerTagline = tagline;
-
-  // Contact — if the user explicitly told us who they serve, where they are, or their hours
-  const audience = str(llm.audience);
-  const location = str(llm.location);
-  const operatingHours = str(llm.operatingHours);
-  const phone = str(llm.phone);
-  if (audience) copy.contactHeading = `Ready, ${audience.charAt(0).toUpperCase() + audience.slice(1)}?`;
-  if (location && !copy.contactSub.includes(location)) {
-    copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Based in ${location}.`;
-  }
-  if (operatingHours && !copy.contactSub.includes(operatingHours)) {
-    copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Open ${operatingHours}.`;
-  }
-  if (phone && !copy.contactSub.includes(phone)) {
-    copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Call us: ${phone}.`;
-  }
-
-  // Products and FAQs — user's explicitly listed items replace niche defaults
-  const startingPriceLlm = str(llm.startingPrice) || '';
-  if (startingPriceLlm) copy.startingPrice = startingPriceLlm;
-  if (Array.isArray(llm.products) && (llm.products as unknown[]).length) {
-    const items = (llm.products as Array<{ name?: string; desc?: string; price?: string }>)
-      .filter(p => str(p?.name))
-      .map(p => ({
-        name: str(p.name)!,
-        desc: str(p.desc) || '',
-        // Fall back to "from [startingPrice]" when no per-product price was extracted
-        price: str(p.price) || (startingPriceLlm ? `from ${startingPriceLlm}` : ''),
-      }));
-    if (items.length) copy.products = items;
-  }
-
-  if (Array.isArray(llm.faqs) && (llm.faqs as unknown[]).length) {
-    const faqs = (llm.faqs as Array<{ q?: string; a?: string }>)
-      .filter(f => str(f?.q) && str(f?.a))
-      .map(f => ({ q: str(f.q)!, a: str(f.a)! }));
-    // User-provided FAQs always override — set even if copy.faqs was null
-    if (faqs.length) copy.faqs = faqs;
-  }
-  // Sections: if user explicitly requested FAQ but none exist in copy yet, inject template
-  const sectionsLlm = Array.isArray(llm.sections) ? (llm.sections as string[]) : [];
-  if (!copy.faqs && sectionsLlm.some(s => /faq|frequently asked/i.test(s))) {
-    const ind = puo.inferredIndustry || 'general';
-    copy.faqs = NICHE_FAQ[ind] || NICHE_FAQ.general;
-  }
-
-  return copy;
+  // Phase 3 tombstone: dead code ends here.
+  return _applyLlmCopyRemoved({ heroHeadline, heroSub, heroTag, primaryCta, secondaryCta, sectionEyebrow, featureHeading, features, stats, testimonials, aboutHeading, aboutBody, aboutBullets, missionHeading, missionBody, galleryHeading, gallerySlug, contactHeading, contactSub, ctaHeading, ctaSub, footerTagline, pricingPlans, faqs, products, productEyebrow, startingPrice, hiddenPrimarySlug: gallerySlug, hiddenSecondarySlug: gallerySlug, hiddenPrimaryCtaLabel: secondaryCta, hiddenSecondaryCtaLabel: secondaryCta });
 }
 
 function detectGallerySlug(puo: PromptUnderstandingObject): string {

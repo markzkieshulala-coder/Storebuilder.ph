@@ -25,7 +25,7 @@ import { extractPromptCopy } from '../prompt-copy';
 import { COLOR_HEX, NICHES, profileFor, type NicheCopyProfile } from './lexicon';
 import { extractRequirements, canonicalKind } from '../requirements';
 
-export interface NluProduct { name: string; desc?: string; price?: string }
+export interface NluProduct { name: string; desc?: string; price?: string; _fromUser?: boolean }
 export interface NluFaq { q: string; a: string }
 
 // The structured understanding the renderer consumes (via customAttributes.llm).
@@ -752,9 +752,9 @@ export function understandPrompt(prompt: string): NluContent {
   const bulletProducts = extractBulletProducts(text);
   let products: NluProduct[] | undefined;
   if (namedProducts && namedProducts.length) {
-    products = enrichProducts(namedProducts, profile);
+    products = enrichProducts(namedProducts, profile).map(p => ({ ...p, _fromUser: true }));
   } else if (bulletProducts.length >= 2) {
-    products = bulletProducts.map(name => ({ name }));
+    products = bulletProducts.map(name => ({ name, _fromUser: true }));
   } else if (profile.products.length) {
     products = profile.products;
   } else {
