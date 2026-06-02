@@ -6,6 +6,7 @@
     "dev": "node --max-http-header-size=524288 ./node_modules/next/dist/bin/next dev",
     "build": "prisma generate && prisma db push --accept-data-loss && next build",
     "start": "node --max-http-header-size=524288 ./node_modules/next/dist/bin/next start",
+    "test": "jest --no-coverage",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:generate": "dotenv -e .env.local -- prisma generate",
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.15",
     "@types/react": "^18",
@@ -67,8 +69,10 @@
     "dotenv-cli": "^11.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
+    "jest": "^30.4.2",
     "postcss": "^8",
     "tailwindcss": "^3.4.10",
+    "ts-jest": "^29.4.11",
     "typescript": "^5"
   }
 }

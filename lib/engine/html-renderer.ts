@@ -835,7 +835,7 @@ interface SiteCopy {
   ctaSub: string;
   footerTagline: string;
   pricingPlans: Array<{ name: string; price: string; period: string; desc: string; features: string[]; featured: boolean }> | null;
-  faqs: Array<{ q: string; a: string }>;
+  faqs: Array<{ q: string; a: string }> | null;
   products: Array<{ name: string; desc: string; price: string }> | null;
   productEyebrow: string;
   startingPrice: string;   // "₱2,500", "$99" — lowest/from price to show in hero/section
@@ -1621,28 +1621,30 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   }
   const features = allKwFeatures.slice(0, 4);
 
-  // Stats
-  const statBanks: Record<string, Array<{ number: string; label: string }>> = {
-    technology: [{number:'10K+',label:'Active Users'},{number:'99.9%',label:'Uptime SLA'},{number:'4.9/5',label:'User Rating'},{number:'<100ms',label:'Response Time'}],
-    ecommerce:  [{number:'50K+',label:'Products'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'120+',label:'Countries'}],
-    portfolio:  [{number:'200+',label:'Projects'},{number:'8+',label:'Years Experience'},{number:'50+',label:'Clients'},{number:'15+',label:'Awards'}],
-    photography:[{number:'200+',label:'Shoots'},{number:'12+',label:'Years'},{number:'50+',label:'Clients'},{number:'15+',label:'Awards'}],
-    fashion:    [{number:'120+',label:'Pieces'},{number:'4.9/5',label:'Reviews'},{number:'30+',label:'Collections'},{number:'90+',label:'Stockists'}],
-    sports:     [{number:'500+',label:'Athletes'},{number:'100+',label:'Championships'},{number:'5/5',label:'Coaching'},{number:'20+',label:'Sports'}],
-    food:       [{number:'200+',label:'Menu Items'},{number:'4.9/5',label:'Reviews'},{number:'10+',label:'Years Open'},{number:'Daily',label:'Fresh Ingredients'}],
-    agency:     [{number:'300+',label:'Clients'},{number:'$50M+',label:'Revenue Generated'},{number:'10+',label:'Years'},{number:'50+',label:'Experts'}],
-    homeservices:[{number:'5K+',label:'Jobs Completed'},{number:'4.9/5',label:'Customer Rating'},{number:'15+',label:'Years'},{number:'100%',label:'Satisfaction'}],
-    automotive: [{number:'20K+',label:'Vehicles Serviced'},{number:'4.9/5',label:'Customer Rating'},{number:'25+',label:'Years'},{number:'ASE',label:'Certified Techs'}],
-    general:    [{number:'10K+',label:'Happy Clients'},{number:'98%',label:'Satisfaction'},{number:'24/7',label:'Support'},{number:'5/5',label:'Rating'}],
+  // Stats — real extracted numbers from the prompt first. For any remaining slots,
+  // use generic evergreen trust signals that make no specific numerical claims the
+  // business hasn't actually validated.  These never fabricate counts, ratings, or
+  // revenue figures — only qualitative descriptors any quality business can stand behind.
+  const genericTrustSignals: Record<string, Array<{ number: string; label: string }>> = {
+    technology:  [{number:'Fast',label:'Delivery'},{number:'Secure',label:'Platform'},{number:'Scalable',label:'Architecture'},{number:'24/7',label:'Monitoring'}],
+    ecommerce:   [{number:'Fast',label:'Shipping'},{number:'Secure',label:'Checkout'},{number:'Easy',label:'Returns'},{number:'Quality',label:'Guaranteed'}],
+    portfolio:   [{number:'Unique',label:'Approach'},{number:'End-to-End',label:'Service'},{number:'Fast',label:'Turnaround'},{number:'Quality',label:'Every Time'}],
+    photography: [{number:'Studio',label:'Quality'},{number:'On-Site',label:'Available'},{number:'Fast',label:'Turnaround'},{number:'Custom',label:'Packages'}],
+    fashion:     [{number:'Curated',label:'Selection'},{number:'Quality',label:'Materials'},{number:'Free',label:'Returns'},{number:'Worldwide',label:'Shipping'}],
+    sports:      [{number:'All',label:'Skill Levels'},{number:'Expert',label:'Coaching'},{number:'Results',label:'Focused'},{number:'Flexible',label:'Scheduling'}],
+    food:        [{number:'Fresh',label:'Daily'},{number:'Made',label:'In-House'},{number:'Custom',label:'Orders Welcome'},{number:'Open',label:'For You'}],
+    agency:      [{number:'Strategy',label:'First'},{number:'Full-Service',label:'Team'},{number:'Results',label:'Driven'},{number:'Transparent',label:'Process'}],
+    homeservices:[{number:'Licensed',label:'& Insured'},{number:'Same-Day',label:'Available'},{number:'Fair',label:'Pricing'},{number:'Satisfaction',label:'Guaranteed'}],
+    automotive:  [{number:'ASE',label:'Certified'},{number:'Honest',label:'Pricing'},{number:'Fast',label:'Turnaround'},{number:'Quality',label:'Parts'}],
+    general:     [{number:'Quality',label:'Focused'},{number:'Client',label:'First'},{number:'Expert',label:'Team'},{number:'Results',label:'Guaranteed'}],
   };
-  // Blend real numbers extracted from the user's prompt into the stat bank
   const promptStats = extractPromptStats(puo.originalPrompt || '');
-  const nicheStats = statBanks[normIndustry] || statBanks.general;
-  // Prompt stats take the first slots; fill remaining from the niche bank (no duplicates)
+  const fallbackSignals = genericTrustSignals[normIndustry] || genericTrustSignals.general;
+  // Prompt-extracted stats take the first slots; fill remaining from evergreen trust signals
   const mergedStats = [...promptStats];
-  for (const ns of nicheStats) {
+  for (const ts of fallbackSignals) {
     if (mergedStats.length >= 4) break;
-    if (!promptStats.some(ps => ps.label === ns.label)) mergedStats.push(ns);
+    if (!promptStats.some(ps => ps.label === ts.label)) mergedStats.push(ts);
   }
   const stats = mergedStats.slice(0, 4);
 
@@ -1744,14 +1746,15 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
           .replace(/\$\{brand\}/g, brand).replace(/\$\{mainKw\}/g, mainKw).replace(/\$\{secKw\}/g, secKw);
     }
   };
-  // Rotate through 6 diverse name sets so every brand gets a different trio.
+  // Use neutral role-based identifiers rather than fabricated person names — these
+  // are honest (any satisfied customer could say this) and avoid inventing identities.
   const NAME_POOL: string[][] = [
-    ['Alex Chen', 'Sarah Miller', 'Marcus Johnson'],
-    ['Priya Sharma', "James O'Brien", 'Cleo Martinez'],
-    ['David Kim', 'Rachel Wong', 'Nathan Brooks'],
-    ['Amara Okafor', 'Tyler Reed', 'Sofia Morales'],
-    ['Lucas Hernandez', 'Emma Clarke', 'Kai Nakamura'],
-    ['Jordan White', 'Mia Patel', 'Ryan Fitzgerald'],
+    ['A Happy Customer', 'A Regular Client', 'A Returning Customer'],
+    ['A Satisfied Client', 'A Verified Buyer', 'A Loyal Customer'],
+    ['A Weekly Regular', 'A Happy Client', 'A Long-Time Customer'],
+    ['A Local Customer', 'A First-Time Visitor', 'A Returning Guest'],
+    ['A Devoted Regular', 'A Happy Customer', 'A Repeat Client'],
+    ['A Verified Client', 'A Regular Guest', 'A Satisfied Customer'],
   ];
   const names = NAME_POOL[fp % NAME_POOL.length];
   const testimonials = names.map((name, i) => ({
@@ -1871,7 +1874,9 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // When the user wrote 2+ descriptive sentences about their business, use those
   // directly as the about body — their actual words, not a template.
   // With 1 sentence, blend it in as the final sentence of the template.
-  // With 0, fall through to the niche template as before.
+  // With 0, synthesise from all available NLU signals (differentiator, audience,
+  // location, credentials, products) so the about copy is still anchored in the
+  // real prompt rather than a fully-generic niche fallback.
   // Use descriptiveSPs — verb-filtered sentences only — so brand-name labels and
   // CTA sentences don't appear in the about body.
   const aboutBody = (() => {
@@ -1887,7 +1892,11 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       const intro = sentences.slice(0, 2).join(' ');
       return `${intro} ${descriptiveSPs[0]}`;
     }
-    return tpl;
+    // 0 selling points — enrich template with additional NLU signals if available
+    const extras: string[] = [];
+    if (credSignals.length >= 1) extras.push(`As a ${credSignals.slice(0, 2).join(', ')} business, quality is built into every decision.`);
+    if (location) extras.push(`Proudly serving ${location}.`);
+    return extras.length ? `${tpl} ${extras.join(' ')}` : tpl;
   })();
 
   const aboutBullets: string[] = descriptiveSPs.length >= 3
@@ -1974,8 +1983,19 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     ? `Experience the ${differentiator} difference at ${brand}. ${ctaSubBase}`
     : ctaSubBase;
 
-  // FAQ + product/menu content — niche-specific, resolved from the banks above.
-  const faqs = resolveFaqs(normIndustry);
+  // FAQ — only show if the user provided their own FAQs or explicitly requested the section.
+  // When neither is true, omit the FAQ section rather than fabricating niche-template questions
+  // the user never wrote and answers the user never gave.
+  const userFaqsRaw = Array.isArray(llmCtx.faqs)
+    ? (llmCtx.faqs as Array<{ q?: string; a?: string }>).filter(f => f?.q && f?.a) as Array<{ q: string; a: string }>
+    : [];
+  const userRequestedFaq = Array.isArray(llmCtx.sections)
+    && (llmCtx.sections as string[]).some(s => /faq|frequently asked/i.test(s));
+  const faqs: Array<{ q: string; a: string }> | null = userFaqsRaw.length
+    ? userFaqsRaw
+    : userRequestedFaq
+    ? resolveFaqs(normIndustry)
+    : null;
   const productBank = resolveProducts(puo, normIndustry);
   const products = productBank?.items || null;
   const productEyebrow = productBank?.eyebrow || 'Featured';
@@ -2094,7 +2114,14 @@ function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy 
     const faqs = (llm.faqs as Array<{ q?: string; a?: string }>)
       .filter(f => str(f?.q) && str(f?.a))
       .map(f => ({ q: str(f.q)!, a: str(f.a)! }));
+    // User-provided FAQs always override — set even if copy.faqs was null
     if (faqs.length) copy.faqs = faqs;
+  }
+  // Sections: if user explicitly requested FAQ but none exist in copy yet, inject template
+  const sectionsLlm = Array.isArray(llm.sections) ? (llm.sections as string[]) : [];
+  if (!copy.faqs && sectionsLlm.some(s => /faq|frequently asked/i.test(s))) {
+    const ind = puo.inferredIndustry || 'general';
+    copy.faqs = NICHE_FAQ[ind] || NICHE_FAQ.general;
   }
 
   return copy;
@@ -2664,6 +2691,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
 function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
   const { copy } = ctx;
   if (node.variant === 'accordion') {
+    if (!copy.faqs || copy.faqs.length === 0) return '';
     const items = copy.faqs.map(f => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('');
     return `
 <section>

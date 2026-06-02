@@ -175,10 +175,16 @@ const SKIP_BRAND_FIRST = new Set([
 
 function extractBrandName(text: string): string | undefined {
   const patterns = [
+    // "called / named [Brand]" — most explicit
     /\b(?:called|named|brand(?:\s+name)?(?:\s+is)?|business(?:\s+name)?(?:\s+is)?|shop(?:\s+called)?|store(?:\s+called)?)\s+[""']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
+    // "for a coffee shop called [Brand]"
     /\b(?:for(?:\s+a|\s+my|\s+our)?)\s+(?:coffee shop|cafe|restaurant|brand|business|company|store|shop|studio|agency|firm)\s+(?:called|named)\s+[""']?([A-Z][\w&''.-]*(?:\s+[A-Z][\w&''.-]*){0,4})/,
+    // "for [Brand]" — common shorthand
     /\bfor\s+([A-Z][A-Za-z&''.-]{1,}(?:\s+[A-Z][A-Za-z&''.-]+){0,4})(?=\s|[,.!?\n]|$)/,
+    // "[Brand] is a..." or "[Brand] — "
     /^([A-Z][A-Za-z&''.-]{1,}(?:\s+[A-Z][A-Za-z&''.-]+){0,3})\s+(?:is\s+a|is\s+an|—|–|-)\s+/m,
+    // "[Brand]. We/Our/I..." — opening-line business introduction
+    /^([A-Z][A-Za-z0-9&''.-]+(?:\s+[A-Z][A-Za-z0-9&''.-]+){0,3})\.\s+(?:We\s|Our\s|I\s)/m,
   ];
   for (const re of patterns) {
     const m = re.exec(text);
@@ -774,7 +780,7 @@ export function understandPrompt(prompt: string): NluContent {
     // Sections: user-explicit → functional intents → niche implicit affordances.
     sections:     mergeSections(explicit?.sections, [...functionalIntents, ...implicit]),
     products,
-    faqs:         profile.faqs,
+    faqs:         undefined, // FAQs are template content, not user-written — omit so renderer only shows them when explicitly requested
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy
     audience,
     differentiator,

@@ -1,8 +1,7 @@
-import { createOrchestrator } from './bootstrap';
+import { SharedContext } from './core';
 import { renderMultiPageSite, planSiteImagery, detectNiche } from './html-renderer';
 import { fetchSiteImagery } from './image-provider';
 import type { ResolvedImagery } from './pexels';
-import type { ISharedContext } from './core/types';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';
 
@@ -38,9 +37,11 @@ export async function generateWebsite(
   subdomain = '',
   understanding?: PromptUnderstandingObject,
 ): Promise<EngineGenerationResult> {
-  const orchestrator = createOrchestrator({ logEvents: false, persistMemory: false });
-
-  const context = await orchestrator.run({
+  // Build a lightweight shared context directly — skips the 9-stage ghost pipeline
+  // (planning → blueprint → design-dna → component → frontend → motion → validation
+  // → scoring → final-rendering) whose artifacts are never read by the HTML renderer.
+  // The renderer only needs context.input.userPrompt, which this provides instantly.
+  const context = new SharedContext({
     userPrompt: prompt,
     constraints: {
       targetFramework: 'react',
@@ -48,11 +49,7 @@ export async function generateWebsite(
       responsiveBreakpoints: ['mobile', 'tablet', 'desktop'],
       accessibilityLevel: 'wcag2-aa',
     },
-  }) as ISharedContext;
-
-  if (context.errors.length > 0) {
-    throw new Error(`Pipeline failed: ${context.errors.map((e) => e.message).join('; ')}`);
-  }
+  });
 
   // Resolve content-aware visuals: plan one Unsplash query per section from the
   // exact content it will display (product/service names, niche, branding), then
