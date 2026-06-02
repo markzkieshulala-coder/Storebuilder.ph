@@ -203,21 +203,21 @@ describe('enforceSections — drops forbidden, injects required', () => {
 describe('scoreFidelity', () => {
   test('perfect score when required present and forbidden absent', () => {
     const html = '<section class="newsletter-section"></section><section class="gallery-grid"></section>';
-    const res = scoreFidelity({ required: ['newsletter', 'gallery'], forbidden: ['testimonials'], rawRequired: [], rawForbidden: [] }, html);
+    const res = scoreFidelity({ required: ['newsletter', 'gallery'], forbidden: ['testimonials'], requiredPages: [], forbiddenPages: [], rawRequired: [], rawForbidden: [] }, html);
     expect(res.score).toBe(1);
     expect(res.forbiddenPresent).toEqual([]);
   });
 
   test('forbidden present is a violation and lowers the score', () => {
     const html = '<section class="newsletter-section"></section><section><div class="testimonial-card"></div></section>';
-    const res = scoreFidelity({ required: ['newsletter'], forbidden: ['testimonials'], rawRequired: [], rawForbidden: [] }, html);
+    const res = scoreFidelity({ required: ['newsletter'], forbidden: ['testimonials'], requiredPages: [], forbiddenPages: [], rawRequired: [], rawForbidden: [] }, html);
     expect(res.forbiddenPresent).toContain('testimonials');
     expect(res.score).toBeLessThan(1);
   });
 
   test('missing required lowers the score', () => {
     const html = '<section class="newsletter-section"></section>';
-    const res = scoreFidelity({ required: ['newsletter', 'gallery'], forbidden: [], rawRequired: [], rawForbidden: [] }, html);
+    const res = scoreFidelity({ required: ['newsletter', 'gallery'], forbidden: [], requiredPages: [], forbiddenPages: [], rawRequired: [], rawForbidden: [] }, html);
     expect(res.requiredMissing).toContain('gallery');
     expect(res.score).toBe(0.5);
   });

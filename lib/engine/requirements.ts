@@ -125,12 +125,67 @@ function forbiddenKindsInClause(clause: string): SectionKind[] {
   return [...out];
 }
 
+// ── Page-worthy kinds ─────────────────────────────────────────────────────────
+// A subset of SectionKind that represents a destination (a real page) rather than
+// a homepage block. Only these may be promoted to a standalone page; everything
+// else lives on the home document as an in-page section (Phase 2B).
+export const PAGE_WORTHY_KINDS: ReadonlySet<SectionKind> = new Set<SectionKind>([
+  'products', 'gallery', 'pricing', 'blog', 'events', 'booking',
+  'contact', 'story', 'team', 'faq',
+]);
+
+// Page-worthy kinds that become a standalone page AUTOMATICALLY when required as a
+// section (no explicit "X page" phrase needed). contact/story/team/faq are
+// deliberately excluded — per D3/D4 they stay homepage sections unless the user
+// explicitly asks for the page.
+export const AUTO_PAGE_KINDS: ReadonlySet<SectionKind> = new Set<SectionKind>([
+  'products', 'gallery', 'pricing', 'blog', 'events', 'booking',
+]);
+
+export function isPageWorthy(kind: SectionKind): boolean {
+  return PAGE_WORTHY_KINDS.has(kind);
+}
+
+export function isAutoPage(kind: SectionKind): boolean {
+  return AUTO_PAGE_KINDS.has(kind);
+}
+
+// Meta-uses of the word "page" that must NOT trigger a standalone page
+// (e.g. "a landing page", "single-page site", "homepage", "this page").
+const META_PAGE = /\b(?:land(?:ing)?|home|single|one|web|this|the|first|next|whole|entire)[\s-]+page\b|homepage|one[\s-]page|single[\s-]page|multi[\s-]page/i;
+
+// Map a clause that explicitly mentions a "page" to the page-worthy kinds it
+// names. "an about page", "a separate FAQ page", "a page for pricing" → real
+// pages. Returns [] when the clause's "page" is a meta-use (landing/home/etc.).
+function pageKindsInClause(clause: string): SectionKind[] {
+  const lc = clause.toLowerCase();
+  if (!/\bpage\b/.test(lc)) return [];
+  // Strip the meta-page phrase so its noun ("landing"/"home") cannot leak a kind,
+  // then require that a real page-worthy keyword remains.
+  const stripped = lc.replace(META_PAGE, ' ');
+  if (!/\bpage\b/.test(stripped) && !/\bpages\b/.test(lc)) {
+    // The only "page" reference was a meta-use — no standalone page requested.
+    return [];
+  }
+  const out = new Set<SectionKind>();
+  for (const [re, kind] of KIND_TABLE) {
+    if (kind === 'cta') continue;
+    if (!PAGE_WORTHY_KINDS.has(kind)) continue;
+    if (re.test(stripped)) out.add(kind);
+  }
+  return [...out];
+}
+
 // ── Requirement extraction ───────────────────────────────────────────────────
 export interface RequirementSet {
   /** Canonical kinds the user explicitly asked for. */
   required: SectionKind[];
   /** Canonical kinds the user explicitly forbade. */
   forbidden: SectionKind[];
+  /** Page-worthy kinds the user explicitly asked to be a STANDALONE PAGE. */
+  requiredPages: SectionKind[];
+  /** Page-worthy kinds the user explicitly asked NOT to be a standalone page. */
+  forbiddenPages: SectionKind[];
   /** The user's literal requested phrases, for reporting. */
   rawRequired: string[];
   /** The user's literal forbidding clauses, for reporting. */
@@ -143,17 +198,26 @@ export function extractRequirements(prompt: string): RequirementSet {
 
   // Forbidden — from the negative directives ONLY.
   const forbidden = new Set<SectionKind>();
+  const forbiddenPages = new Set<SectionKind>();
   const rawForbidden: string[] = [];
   for (const clause of negativeClauses) {
     const kinds = forbiddenKindsInClause(clause);
     if (kinds.length) { rawForbidden.push(clause); kinds.forEach(k => forbidden.add(k)); }
+    // An explicit "no X page" also forbids the standalone page for that kind.
+    for (const pk of pageKindsInClause(clause)) forbiddenPages.add(pk);
   }
 
   // Required — one canonical kind per positive clause (negations already stripped).
   // A "Requirements:" bullet list yields one requirement per line.
   const required = new Set<SectionKind>();
+  const requiredPages = new Set<SectionKind>();
   const rawRequired: string[] = [];
   for (const clause of positiveClauses) {
+    // Explicit "X page" requests — promote the kind to a standalone page (Tier 3).
+    for (const pk of pageKindsInClause(clause)) {
+      if (!forbiddenPages.has(pk)) requiredPages.add(pk);
+    }
+
     const phrase = clause.replace(/^[-*•·\d.)\s]+/, '').trim();
     if (!phrase || phrase.length > 80) continue;
     const kind = canonicalKind(phrase);
@@ -162,9 +226,16 @@ export function extractRequirements(prompt: string): RequirementSet {
     if (!required.has(kind)) { required.add(kind); rawRequired.push(phrase); }
   }
 
+  // A kind requested as a page is implicitly a required section too.
+  for (const pk of requiredPages) {
+    if (!forbidden.has(pk)) required.add(pk);
+  }
+
   return {
     required: [...required],
     forbidden: [...forbidden],
+    requiredPages: [...requiredPages],
+    forbiddenPages: [...forbiddenPages],
     rawRequired,
     rawForbidden,
   };

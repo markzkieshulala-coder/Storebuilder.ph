@@ -1267,9 +1267,10 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const personality = puo.websitePersonality;
   const tone = puo.businessTone;
   const direction = puo.layout.direction;
-  // gallerySlug declared early so feature hrefs can reference it
+  // gallerySlug declared early so feature hrefs can reference it. These are
+  // PLACEHOLDER defaults — renderMultiPageSiteInner overwrites them with the
+  // LayoutPlan's resolved CTA targets so every link points at a real page (Phase 2B).
   const gallerySlug = detectGallerySlug(puo);
-  const hiddenCfg = getHiddenPageConfig(normIndustry);
 
   // Derive headline descriptors. The prompt's own content noun wins (most specific);
   // then the specific industry slug subject ("ramen" → "Ramen"); then the normalized
@@ -2047,10 +2048,12 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     galleryHeading, gallerySlug,
     contactHeading, contactSub, ctaHeading, ctaSub, footerTagline,
     pricingPlans, faqs, products, productEyebrow, startingPrice,
-    hiddenPrimarySlug:    hiddenCfg.primary.slug,
-    hiddenSecondarySlug:  hiddenCfg.secondary.slug,
-    hiddenPrimaryCtaLabel:   hiddenCfg.primary.ctaLabel,
-    hiddenSecondaryCtaLabel: hiddenCfg.secondary.ctaLabel,
+    // Placeholder CTA targets — overwritten by renderMultiPageSiteInner from the
+    // LayoutPlan so section CTAs never point at a niche-invented hidden page.
+    hiddenPrimarySlug:    gallerySlug,
+    hiddenSecondarySlug:  gallerySlug,
+    hiddenPrimaryCtaLabel:   secondaryCta,
+    hiddenSecondaryCtaLabel: secondaryCta,
   };
 
   // Prompt-specific content produced by the in-house NLU engine takes precedence
@@ -2149,31 +2152,9 @@ function detectGallerySlug(puo: PromptUnderstandingObject): string {
   return 'gallery';
 }
 
-// ─────────────────────────────────────────────────────────────────
-// HIDDEN PAGE CONFIG — niche-specific pages bundled in the SPA but NOT
-// listed in the nav. Section CTAs route here instead of reusing nav pages.
-// ─────────────────────────────────────────────────────────────────
-
-interface HiddenPageCfg {
-  primary: { slug: string; ctaLabel: string };
-  secondary: { slug: string; ctaLabel: string };
-}
-
-const HIDDEN_PAGE_MAP: Record<string, HiddenPageCfg> = {
-  food:        { primary: { slug: 'reservations', ctaLabel: 'Reserve a Table'    }, secondary: { slug: 'our-story',    ctaLabel: 'Our Story'        } },
-  technology:  { primary: { slug: 'demo',         ctaLabel: 'Book a Demo'        }, secondary: { slug: 'case-studies', ctaLabel: 'Case Studies'     } },
-  photography: { primary: { slug: 'services',     ctaLabel: 'View Services'      }, secondary: { slug: 'process',      ctaLabel: 'Our Process'      } },
-  portfolio:   { primary: { slug: 'services',     ctaLabel: 'View Services'      }, secondary: { slug: 'process',      ctaLabel: 'Our Process'      } },
-  fashion:     { primary: { slug: 'lookbook',     ctaLabel: 'Browse Lookbook'    }, secondary: { slug: 'new-arrivals', ctaLabel: 'New Arrivals'     } },
-  ecommerce:   { primary: { slug: 'new-arrivals', ctaLabel: 'New Arrivals'       }, secondary: { slug: 'lookbook',     ctaLabel: 'Browse Lookbook'  } },
-  sports:      { primary: { slug: 'programs',     ctaLabel: 'View Programs'      }, secondary: { slug: 'coaches',      ctaLabel: 'Meet Our Coaches' } },
-  agency:      { primary: { slug: 'services',     ctaLabel: 'Our Services'       }, secondary: { slug: 'process',      ctaLabel: 'Our Process'      } },
-  general:     { primary: { slug: 'services',     ctaLabel: 'Our Services'       }, secondary: { slug: 'team',         ctaLabel: 'Meet the Team'    } },
-};
-
-function getHiddenPageConfig(normIndustry: string): HiddenPageCfg {
-  return HIDDEN_PAGE_MAP[normIndustry] || HIDDEN_PAGE_MAP.general;
-}
+// Phase 2B: HIDDEN_PAGE_MAP / getHiddenPageConfig removed. Niche-invented hidden
+// pages no longer exist. Section-CTA targets are resolved from the LayoutPlan's
+// real page set (plan.primaryCtaTarget / plan.secondaryCtaTarget).
 
 // ─────────────────────────────────────────────────────────────────
 // LAYOUT GRAPH COMPOSER INPUT BUILDER
@@ -4356,7 +4337,7 @@ function renderMultiPageSiteInner(
   const normIndustry2 = normalizeIndustry(puo.inferredIndustry);
   const spec = buildWebsiteSpec(prompt, puo);
   const layoutPlan = buildLayoutPlan(prompt, puo, spec, normIndustry2);
-  const { gallerySlug, hasCart, hasPricing } = layoutPlan;
+  const { gallerySlug, hasPricing } = layoutPlan;
   const navItems = layoutPlan.navigation;
 
   // 3. Generate root layout graph — pass allowedSectionKinds so the composer
@@ -4368,58 +4349,76 @@ function renderMultiPageSiteInner(
   // 4. Build site copy from PUO
   const copy = buildSiteCopy(puo, brand, fp);
 
+  // 4b. Retarget section CTAs onto REAL pages (Phase 2B). The LayoutPlan resolved
+  //     primary/secondary targets from the actual page set, so no CTA can point at
+  //     a niche-invented hidden page (which no longer exist).
+  copy.gallerySlug             = layoutPlan.primaryCtaTarget;
+  copy.hiddenPrimarySlug       = layoutPlan.secondaryCtaTarget;
+  copy.hiddenSecondarySlug     = layoutPlan.secondaryCtaTarget;
+  copy.hiddenPrimaryCtaLabel   = copy.secondaryCta || 'Learn More';
+  copy.hiddenSecondaryCtaLabel = copy.secondaryCta || 'Learn More';
+
   // 5. CSS built from PUO — entirely prompt-faithful
   const font = getFontConfig(puo);
   const css  = buildCSSFromPUO(puo, font);
 
-  // 6. Generate each page's main content (own graph / context per page)
+  // 6. Home page content.
   const homeResult  = buildHomeMain(rootGraph, puo, brand, navItems, copy, fp, spec, layoutPlan);
   const homeMain    = homeResult.html;
-  const aboutMain   = buildAboutMain(puo, brand, navItems, copy, fp + 1);
-  const galleryMain = buildGalleryMain(puo, brand, copy, fp + 2);
-  const contactMain = buildContactMain(brand, copy);
-  const pricingMain = hasPricing ? buildPricingMain(copy) : '';
 
-  // 7. Primary document = self-contained SPA (all pages, client-side routing).
-  //    Routes are driven by layoutPlan.pages — no ad-hoc conditionals here.
+  // Generic page-body builder for kinds without a bespoke page builder: renders
+  // the corresponding section as a standalone page body.
+  const sectionPageMain = (kind: SectionKind, salt: number): string => {
+    const photos = getPhotos(puo, fp + salt);
+    const ctx: RenderCtx = { puo, copy, photos, fp: fp + salt, pageName: kind, navItems, featSeg: 0, brandName: brand };
+    try { return renderInjectedKind(kind, ctx, {}); } catch { return ''; }
+  };
+
+  // 7. Primary document = self-contained SPA. Routes are driven ENTIRELY by
+  //    layoutPlan.pages.kind — there is no forced page set.
   const routes: Array<{ key: string; main: string }> = [];
   for (const page of layoutPlan.pages) {
-    switch (page.slug) {
-      case 'home':     routes.push({ key: 'home',     main: homeMain    }); break;
-      case 'about':    routes.push({ key: 'about',    main: aboutMain   }); break;
-      case 'contact':  routes.push({ key: 'contact',  main: contactMain }); break;
-      case 'pricing':  if (pricingMain) routes.push({ key: 'pricing', main: pricingMain }); break;
-      case 'cart':     routes.push({ key: 'cart',     main: buildCartMain(brand, copy) }); break;
-      case 'checkout': routes.push({ key: 'checkout', main: buildCheckoutMain(brand, copy) }); break;
-      default:
-        if (page.slug === gallerySlug) {
-          routes.push({ key: gallerySlug, main: galleryMain });
-        } else if (page.isHidden) {
-          // Hidden pages — bundled in the SPA but absent from nav.
-          const main = page.slug === layoutPlan.hiddenPrimarySlug
-            ? buildHiddenPrimaryPage(page.slug, normIndustry2, brand, copy, puo, fp + 5)
-            : buildHiddenSecondaryPage(page.slug, normIndustry2, brand, copy, puo, fp + 6);
-          routes.push({ key: page.slug, main });
-        }
+    let main = '';
+    switch (page.kind) {
+      case 'home':     main = homeMain;                          break;
+      case 'story':    main = buildAboutMain(puo, brand, navItems, copy, fp + 1); break;
+      case 'contact':  main = buildContactMain(brand, copy);     break;
+      case 'pricing':  main = buildPricingMain(copy);            break;
+      case 'gallery':  main = buildGalleryMain(puo, brand, copy, fp + 2); break;
+      case 'products': main = buildGalleryMain(puo, brand, copy, fp + 2); break;
+      case 'cart':     main = buildCartMain(brand, copy);        break;
+      case 'checkout': main = buildCheckoutMain(brand, copy);    break;
+      case 'team':     main = buildTeamMain(brand, copy, puo, fp + 3); break;
+      case 'booking':  main = buildReservationsMain(brand, copy); break;
+      default:         main = sectionPageMain(page.kind as SectionKind, 7); break;
     }
+    if (main) routes.push({ key: page.slug, main });
   }
   const spaDocument = buildSpaDocument(brand, navItems, copy, css, font, year, routes);
 
-  // 8. Per-page standalone documents — kept for direct-URL access on published
-  //    sites (served by the [section] route). Navigation primarily uses the SPA.
+  // 8. Per-page standalone documents — direct-URL access on published sites.
+  //    Built ONLY for pages that actually exist in the plan (no forced pages).
+  const planKinds = new Set(layoutPlan.pages.map(p => p.kind));
   const pages: Record<string, string> = {};
   pages['/'] = spaDocument;
-  pages['/about'] = renderAboutPage(puo, composePageGraph(puo, 'about', fp), brand, navItems, copy, css, font, base, fp + 1, year);
-  pages[`/${gallerySlug}`] = renderGalleryPageHtml(puo, brand, navItems, copy, css, font, base, fp + 2, year);
-  pages['/contact'] = renderContactPageHtml(puo, brand, navItems, copy, css, font, base, fp + 3, year);
+  if (planKinds.has('story')) {
+    pages['/about'] = renderAboutPage(puo, composePageGraph(puo, 'about', fp), brand, navItems, copy, css, font, base, fp + 1, year);
+  }
+  const galleryPage = layoutPlan.pages.find(p => p.kind === 'gallery' || p.kind === 'products');
+  if (galleryPage) {
+    pages[`/${galleryPage.slug}`] = renderGalleryPageHtml(puo, brand, navItems, copy, css, font, base, fp + 2, year);
+  }
+  if (planKinds.has('contact')) {
+    pages['/contact'] = renderContactPageHtml(puo, brand, navItems, copy, css, font, base, fp + 3, year);
+  }
   if (hasPricing) {
     pages['/pricing'] = renderPricingPageHtml(puo, brand, navItems, copy, css, font, base, fp + 4, year);
   }
 
-  // 9. Verify requirement fidelity on the rendered section bodies (NOT the full
-  //    document — its <style> block contains class names that aren't real sections).
-  //    The contact + gallery pages count toward required-section presence too.
-  const renderedSectionsHtml = [homeMain, aboutMain, galleryMain, contactMain, pricingMain].join('\n');
+  // 9. Verify requirement fidelity against the ACTUAL rendered SPA route bodies
+  //    (every page included in the SPA). The <style> block is excluded because we
+  //    score the section <main> bodies, not the full document.
+  const renderedSectionsHtml = routes.map(r => r.main).join('\n');
   const requirements = extractRequirements(prompt);
   const fidelity = scoreFidelity(requirements, renderedSectionsHtml);
 

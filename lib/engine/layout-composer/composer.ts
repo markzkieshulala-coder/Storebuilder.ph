@@ -821,14 +821,31 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
     list:    (s, i, r) => createListNode(s, i, r),
   };
 
-  // When allowedSectionKinds is provided, suppress node types whose semantic
-  // kind the caller has forbidden.  The 'list' type maps to either 'faq' or
-  // 'testimonials' — remove it when neither is permitted so the graph never
-  // produces nodes that buildHomeMain would have to discard.
+  // Each content factory's rendered output maps to one or more semantic section
+  // kinds (verified against the renderer's section markers):
+  //   cluster/frame → features,  split/stage/tile → story,  gallery → products,
+  //   list → faq|testimonials.
+  // When allowedSectionKinds is supplied (Phase 2B), DROP any factory whose kind
+  // is not allowed. The graph then physically cannot introduce a semantic section
+  // the WebsiteSpec did not require — generic story/feature filler is impossible.
+  const FACTORY_KINDS: Record<string, string[]> = {
+    cluster: ['features'],
+    stage:   ['story'],
+    split:   ['story'],
+    gallery: ['products'],
+    tile:    ['story'],
+    frame:   ['features'],
+    list:    ['faq', 'testimonials'],
+  };
   const allowed = input.allowedSectionKinds;
   if (allowed) {
-    const listAllowed = allowed.includes('faq') || allowed.includes('testimonials');
-    if (!listAllowed) delete (factories as Record<string, unknown>).list;
+    const allowSet = new Set(allowed);
+    for (const key of Object.keys(factories)) {
+      const kinds = FACTORY_KINDS[key] || [];
+      if (!kinds.some((k) => allowSet.has(k))) {
+        delete (factories as Record<string, unknown>)[key];
+      }
+    }
   }
 
   const typeKeys = Object.keys(factories);
@@ -851,22 +868,34 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
     list:    appDir ? 1.4 : 1.0,
   };
 
-  // How many content sections — a PROMPT-SEEDED value inside the complexity band,
-  // not one fixed number per niche, so section COUNT also varies prompt-to-prompt.
+  // How many content sections.
+  //  • With a spec (Phase 2B): EXACTLY one slot per allowed content section kind.
+  //    Count is requirement-driven, not a token-derived complexity band.
+  //  • Without a spec (legacy callers): a prompt-seeded value in the complexity band.
+  const CONTENT_KINDS = new Set([
+    'features', 'story', 'products', 'gallery', 'team', 'testimonials', 'faq',
+    'stats', 'pricing', 'events', 'blog', 'booking', 'location', 'newsletter', 'contact',
+  ]);
   const contentRange: Record<string, [number, number]> = {
     simple: [2, 3], moderate: [3, 5], complex: [5, 7], rich: [6, 9],
   };
-  const [loCount, hiCount] = contentRange[complexity] ?? [3, 5];
-  const targetContent = loCount + Math.floor(rng() * (hiCount - loCount + 1));
+  let targetContent: number;
+  if (allowed) {
+    targetContent = Math.max(1, allowed.filter((k) => CONTENT_KINDS.has(k)).length);
+  } else {
+    const [loCount, hiCount] = contentRange[complexity] ?? [3, 5];
+    targetContent = loCount + Math.floor(rng() * (hiCount - loCount + 1));
+  }
 
   // Weighted picking with per-use decay + no immediate repeats: varied yet able to
   // feature a favored type twice (with a different variant) when the bag warrants.
+  // Guard against an empty factory set (every kind injected by the renderer instead).
   const liveWeights: Record<string, number> = { ...baseWeights };
   let lastKey = "";
-  for (let i = 0; i < targetContent; i++) {
-    const opts = typeKeys
-      .filter((k) => k !== lastKey)
-      .map((k) => ({ value: k, weight: Math.max(0.05, liveWeights[k] * (0.85 + rng() * 0.3)) }));
+  for (let i = 0; i < targetContent && typeKeys.length > 0; i++) {
+    const pool = typeKeys.filter((k) => k !== lastKey);
+    const useKeys = pool.length ? pool : typeKeys;
+    const opts = useKeys.map((k) => ({ value: k, weight: Math.max(0.05, liveWeights[k] * (0.85 + rng() * 0.3)) }));
     const key = weightedPick(rng, opts);
     liveWeights[key] *= 0.45; // decay so the sequence keeps moving across types
     lastKey = key;

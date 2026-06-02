@@ -18,7 +18,7 @@
 // An explicit "do not include X" always beats any affirmative inference.
 // ---------------------------------------------------------------------------
 
-import { canonicalKind, extractRequirements, type SectionKind } from './requirements';
+import { canonicalKind, extractRequirements, isAutoPage, type SectionKind } from './requirements';
 import type { PromptUnderstandingObject } from './prompt-engine';
 
 export interface WebsiteSpec {
@@ -26,6 +26,15 @@ export interface WebsiteSpec {
   sections: SectionKind[];
   /** Canonical kinds that must never appear. Source: requirements + NLU exclusions. */
   forbiddenSections: SectionKind[];
+  /**
+   * Page-worthy kinds that must become STANDALONE PAGES (Phase 2B). Source:
+   *   • page-worthy kinds present in `sections` (a required catalog/gallery/etc.)
+   *   • explicit "X page" requests from the prompt
+   * minus any page the user explicitly forbade.
+   */
+  requiredPages: SectionKind[];
+  /** Page-worthy kinds that must NEVER become a standalone page. */
+  forbiddenPages: SectionKind[];
 }
 
 function canonicalKindsOf(raw: unknown): SectionKind[] {
@@ -59,6 +68,12 @@ export function buildWebsiteSpec(
   const nluSections  = canonicalKindsOf(llm?.sections);
   const nluExcluded  = canonicalKindsOf(llm?.excludedSections);
 
+  // NLU CONTENT implies a section: if the user enumerated products or FAQs, those
+  // sections are implicitly required even when no clause named them as a "section".
+  const nluContent: SectionKind[] = [];
+  if (Array.isArray(llm?.products) && (llm!.products as unknown[]).length) nluContent.push('products');
+  if (Array.isArray(llm?.faqs) && (llm!.faqs as unknown[]).length) nluContent.push('faq');
+
   // Forbidden is the union of prompt directives and NLU exclusions.
   // An explicit "do not include X" always wins — even over NLU inference.
   const forbidden = new Set<SectionKind>([
@@ -74,9 +89,30 @@ export function buildWebsiteSpec(
   for (const k of nluSections) {
     if (!forbidden.has(k)) required.add(k);
   }
+  for (const k of nluContent) {
+    if (!forbidden.has(k)) required.add(k);
+  }
+
+  // ── Pages (Phase 2B) ─────────────────────────────────────────────────────────
+  // A standalone page is justified by EITHER a page-worthy required section OR an
+  // explicit "X page" request — never by niche. forbiddenPages always wins.
+  const forbiddenPages = new Set<SectionKind>(requirements.forbiddenPages);
+  const requiredPages = new Set<SectionKind>();
+  // Explicit "X page" requests (Tier 3).
+  for (const k of requirements.requiredPages) {
+    if (!forbiddenPages.has(k)) requiredPages.add(k);
+  }
+  // Auto-page required sections (Tier 1) — products/gallery/pricing/blog/events/
+  // booking become standalone pages when required. contact/story/team/faq do NOT
+  // (per D3/D4 they stay home sections unless the Tier-3 loop above promoted them).
+  for (const k of required) {
+    if (isAutoPage(k) && !forbiddenPages.has(k)) requiredPages.add(k);
+  }
 
   return {
     sections:          [...required],
     forbiddenSections: [...forbidden],
+    requiredPages:     [...requiredPages],
+    forbiddenPages:    [...forbiddenPages],
   };
 }

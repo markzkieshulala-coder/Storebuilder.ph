@@ -1,26 +1,23 @@
 // ---------------------------------------------------------------------------
-// LAYOUT PLAN — Phase 2: single authority on page structure.
+// LAYOUT PLAN — Phase 2 + 2B: single authority on page structure.
 //
-// LayoutPlan owns every structural decision that was previously scattered
-// across html-renderer.ts as ad-hoc niche checks:
+// LayoutPlan owns every structural decision. After Phase 2B, NONE of these are
+// template- or niche-forced — they are all derived from the WebsiteSpec (which is
+// itself derived from explicit requirements + NLU):
 //
-//   • Which pages exist and their slugs
-//   • Which pages appear in the navigation
-//   • Which pages are hidden (reachable from CTAs, not from nav)
-//   • Gallery page URL slug
-//   • Whether the site has cart + checkout pages
-//   • Whether the site has a pricing page
-//   • Home-page section ordering — user's stated order, then inferred
+//   • Which pages exist          ← spec.requiredPages (+ home, + commerce)
+//   • Which pages are in nav      ← derived from spec, in user-intent order
+//   • Home-page section order     ← spec.sections in user clause order
+//   • Whether the site has cart   ← products required + commerce intent
+//   • Navigation anchors          ← required home sections that are not pages
 //
-// Previously owned by (now unreachable after this phase):
-//   • detectGallerySlug()            — gallery URL logic
-//   • HIDDEN_PAGE_MAP / getHiddenPageConfig()  — hidden page slugs
-//   • isProductBiz / PRODUCT_NICHES  — cart page gate
-//   • fixed routes array in renderMultiPageSiteInner — page set
-//   • diversity engine               — combats convergence by symptom
+// REMOVED in Phase 2B (no longer template/niche-driven):
+//   • Forced Home/About/Gallery/Contact page set
+//   • HIDDEN_SLUG_MAP + niche-generated hidden pages
+//   • gallerySlug / hasCart from niche classification
 //
-// buildLayoutPlan is the single call that replaces all of them. The renderer
-// iterates layoutPlan.pages instead of building routes ad-hoc.
+// A page exists ONLY when a requirement justifies it. Home is the single
+// unconditional page (the SPA root).
 // ---------------------------------------------------------------------------
 
 import { extractRequirements, type SectionKind } from './requirements';
@@ -31,89 +28,105 @@ import type { WebsiteSpec } from './spec';
 
 export interface SectionPlacement {
   kind: SectionKind;
-  /**
-   * Zero-based index of this kind in the user's positive-clause list.
-   * null = kind was inferred (NLU or niche-fill), not explicitly stated.
-   */
+  /** Index of this kind in the user's positive-clause list; null = inferred. */
   userOrder: number | null;
   source: 'required' | 'inferred';
 }
 
+/** A REAL page in the SPA. Nav anchors are NOT pages — see LayoutPlan.navigation. */
 export interface PageSpec {
   slug: string;
   label: string;
-  /** Appears in the top navigation. */
+  /** What the renderer must build: a section kind, the home root, or commerce. */
+  kind: 'home' | 'cart' | 'checkout' | SectionKind;
+  /** Appears as a page link in the top navigation. */
   isNav: boolean;
-  /** Reachable from section CTAs only; not listed in nav. */
-  isHidden: boolean;
 }
 
 export interface LayoutPlan {
   /** Home-page sections in user-intent order (null-order sections last). */
   homeSections: SectionPlacement[];
-  /** All pages for the SPA, including hidden. */
+  /** All real pages, home first. No hidden pages exist after Phase 2B. */
   pages: PageSpec[];
-  /** Top-nav items derived from nav pages. */
+  /** Top-nav items: page links + in-page anchors, in user-intent order. */
   navigation: Array<{ label: string; href: string }>;
-  /** URL slug for the gallery/portfolio/menu/shop page. */
+  /** Slug of the gallery page if one exists, else ''. */
   gallerySlug: string;
-  /** True → build cart + checkout pages and a Cart nav item. */
+  /** True → cart + checkout pages and a Cart nav item exist. */
   hasCart: boolean;
-  /** True → build a pricing page and a Pricing nav item. */
+  /** True → a pricing page exists. */
   hasPricing: boolean;
-  /** Slug for the niche primary hidden page (e.g. 'reservations', 'demo'). */
-  hiddenPrimarySlug: string;
-  /** Slug for the niche secondary hidden page (e.g. 'our-story', 'process'). */
-  hiddenSecondarySlug: string;
+  /** Primary section-CTA target (a real page slug or '#anchor' or '.'). */
+  primaryCtaTarget: string;
+  /** Secondary section-CTA target (a real page slug or '#anchor' or '.'). */
+  secondaryCtaTarget: string;
 }
 
-// ── Private constants ─────────────────────────────────────────────────────────
+// ── Page registry ──────────────────────────────────────────────────────────────
+// Maps a page-worthy kind → { slug, label }. Niche is consulted for LABELING ONLY
+// (Menu vs Shop), never for whether the page exists.
 
-// Niches whose primary commerce model is selling physical/digital products.
-// These get cart + checkout pages.
-const PRODUCT_NICHES = new Set([
-  'ecommerce', 'fashion', 'jewelry', 'florist', 'craft', 'pet',
-  'beauty', 'retail', 'shop', 'store', 'dessert', 'juicebar', 'bakery', 'coffee',
-]);
+function productsPage(normIndustry: string): { slug: string; label: string } {
+  if (normIndustry === 'food') return { slug: 'menu', label: 'Menu' };
+  return { slug: 'shop', label: 'Shop' };
+}
 
-// Hidden page slugs per normalized industry. Hidden pages are bundled in the SPA
-// but unreachable from navigation — only reachable via section CTAs.
-const HIDDEN_SLUG_MAP: Record<string, { primary: string; secondary: string }> = {
-  food:        { primary: 'reservations', secondary: 'our-story'    },
-  technology:  { primary: 'demo',         secondary: 'case-studies' },
-  photography: { primary: 'services',     secondary: 'process'      },
-  portfolio:   { primary: 'services',     secondary: 'process'      },
-  fashion:     { primary: 'lookbook',     secondary: 'new-arrivals'  },
-  ecommerce:   { primary: 'new-arrivals', secondary: 'lookbook'      },
-  sports:      { primary: 'programs',     secondary: 'coaches'       },
-  agency:      { primary: 'services',     secondary: 'process'       },
-  general:     { primary: 'services',     secondary: 'team'          },
+function galleryPage(normIndustry: string, direction: string): { slug: string; label: string } {
+  if (direction === 'portfolio' || normIndustry === 'photography' || normIndustry === 'design') {
+    return { slug: 'work', label: 'Work' };
+  }
+  if (normIndustry === 'fashion') return { slug: 'lookbook', label: 'Lookbook' };
+  return { slug: 'gallery', label: 'Gallery' };
+}
+
+const STATIC_PAGE: Partial<Record<SectionKind, { slug: string; label: string }>> = {
+  pricing: { slug: 'pricing', label: 'Pricing' },
+  blog:    { slug: 'blog',    label: 'Blog' },
+  events:  { slug: 'events',  label: 'Events' },
+  booking: { slug: 'book',    label: 'Book' },
+  contact: { slug: 'contact', label: 'Contact' },
+  story:   { slug: 'about',   label: 'About' },
+  team:    { slug: 'team',    label: 'Team' },
+  faq:     { slug: 'faq',     label: 'FAQ' },
 };
 
-function gallerySlugFor(direction: string, normIndustry: string): string {
-  if (direction === 'portfolio' || normIndustry === 'photography' || normIndustry === 'design') return 'work';
-  if (direction === 'e-commerce' || normIndustry === 'ecommerce' || normIndustry === 'fashion') return 'shop';
-  if (normIndustry === 'food') return 'menu';
-  return 'gallery';
+function pageSpecFor(kind: SectionKind, normIndustry: string, direction: string): { slug: string; label: string } | null {
+  if (kind === 'products') return productsPage(normIndustry);
+  if (kind === 'gallery')  return galleryPage(normIndustry, direction);
+  return STATIC_PAGE[kind] ?? null;
 }
 
-function galleryLabelFor(slug: string): string {
-  if (slug === 'menu')    return 'Menu';
-  if (slug === 'shop')    return 'Shop';
-  if (slug === 'work')    return 'Work';
-  return 'Gallery';
-}
+// Required home sections that are NOT pages but DO warrant a nav anchor.
+// Excluded: pure-chrome or footer-handled kinds.
+const NO_ANCHOR = new Set<SectionKind>(['cta', 'newsletter', 'stats', 'contact', 'booking']);
+
+// Anchor label for a home section in the nav.
+const ANCHOR_LABEL: Partial<Record<SectionKind, string>> = {
+  features:     'Features',
+  story:        'About',
+  team:         'Team',
+  testimonials: 'Reviews',
+  faq:          'FAQ',
+  gallery:      'Gallery',
+  products:     'Products',
+  pricing:      'Pricing',
+  events:       'Events',
+  location:     'Visit',
+  blog:         'Blog',
+};
+
+// Commerce intent — verbs/nouns that signal an actual store, not just a catalog.
+const COMMERCE_INTENT = /\b(buy|shop|store|purchase|checkout|check\s*out|add\s*to\s*cart|cart|order|sell|sale|for\s*sale|in\s*stock|shipping|deliver(?:y)?|merch|payment|ecommerce|e-commerce)\b/i;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Build the LayoutPlan for one render.
  *
- * @param prompt        The raw user prompt (for user-intent clause ordering).
- * @param puo           Resolved understanding (for layout direction + industry).
- * @param spec          WebsiteSpec (source of truth for required/forbidden sections).
- * @param normIndustry  Already-normalized industry string (caller computes to avoid
- *                      circular import — normalizeIndustry lives in html-renderer.ts).
+ * @param prompt        Raw user prompt (for user-intent clause ordering + commerce intent).
+ * @param puo           Resolved understanding (for layout direction).
+ * @param spec          WebsiteSpec — source of truth for sections AND pages.
+ * @param normIndustry  Normalized industry (for page LABELING only).
  */
 export function buildLayoutPlan(
   prompt: string,
@@ -121,24 +134,19 @@ export function buildLayoutPlan(
   spec: WebsiteSpec,
   normIndustry: string,
 ): LayoutPlan {
+  const direction = puo.layout?.direction || '';
 
   // ── 1. User intent order ────────────────────────────────────────────────────
-  // extractRequirements preserves positive-clause order, so required[i] is the
-  // i-th section the user mentioned. Build kind → clause-index lookup.
   const { required: userRequired } = extractRequirements(prompt);
   const userOrderMap = new Map<SectionKind, number>();
   userRequired.forEach((k, i) => userOrderMap.set(k, i));
 
-  // ── 2. Homepage section placements ─────────────────────────────────────────
-  // spec.sections already omits forbidden and deduplicates. Augment each with
-  // its user-stated position (null if the NLU inferred it rather than the user
-  // writing it explicitly).
+  // ── 2. Homepage section placements (user-ordered, inferred last) ─────────────
   const homeSections: SectionPlacement[] = spec.sections.map(kind => ({
     kind,
     userOrder: userOrderMap.has(kind) ? userOrderMap.get(kind)! : null,
-    source: userOrderMap.has(kind) ? 'required' : 'inferred',
+    source: (userOrderMap.has(kind) ? 'required' : 'inferred') as 'required' | 'inferred',
   }));
-  // Stable sort: user-ordered first (ascending clause index), inferred last.
   homeSections.sort((a, b) => {
     if (a.userOrder === null && b.userOrder === null) return 0;
     if (a.userOrder === null) return 1;
@@ -146,41 +154,71 @@ export function buildLayoutPlan(
     return a.userOrder - b.userOrder;
   });
 
-  // ── 3. Structural flags ─────────────────────────────────────────────────────
-  const direction     = puo.layout?.direction || '';
-  const gallerySlug   = gallerySlugFor(direction, normIndustry);
-  const galleryLabel  = galleryLabelFor(gallerySlug);
-  const hasCart       = PRODUCT_NICHES.has(normIndustry) || direction === 'e-commerce';
-  const hasPricing    = spec.sections.includes('pricing');
+  // ── 3. Commerce ─────────────────────────────────────────────────────────────
+  // Derived from a products requirement + commerce intent — NEVER from niche name.
+  const hasProducts = spec.sections.includes('products');
+  const hasCart = hasProducts && (direction === 'e-commerce' || COMMERCE_INTENT.test(prompt));
 
-  // ── 4. Hidden pages ─────────────────────────────────────────────────────────
-  const hiddenCfg          = HIDDEN_SLUG_MAP[normIndustry] ?? HIDDEN_SLUG_MAP.general;
-  const hiddenPrimarySlug   = hiddenCfg.primary;
-  const hiddenSecondarySlug = hiddenCfg.secondary;
-
-  // ── 5. Page set ─────────────────────────────────────────────────────────────
+  // ── 4. Pages ────────────────────────────────────────────────────────────────
+  // Home is the only unconditional page. Every other page comes from
+  // spec.requiredPages, in user-intent order. forbiddenPages already subtracted.
+  const pageKinds = new Set(spec.requiredPages);
   const pages: PageSpec[] = [
-    { slug: 'home',      label: 'Home',         isNav: true,  isHidden: false },
-    { slug: 'about',     label: 'About',        isNav: true,  isHidden: false },
-    { slug: gallerySlug, label: galleryLabel,   isNav: true,  isHidden: false },
-    { slug: 'contact',   label: 'Contact',      isNav: true,  isHidden: false },
+    { slug: 'home', label: 'Home', kind: 'home', isNav: true },
   ];
-  if (hasPricing) {
-    // Insert Pricing before Contact
-    pages.splice(3, 0, { slug: 'pricing', label: 'Pricing', isNav: true, isHidden: false });
-  }
-  if (hasCart) {
-    pages.push({ slug: 'cart',     label: 'Cart',     isNav: true,  isHidden: false });
-    pages.push({ slug: 'checkout', label: 'Checkout', isNav: false, isHidden: false });
-  }
-  // Hidden pages — bundled in SPA but absent from nav
-  pages.push({ slug: hiddenPrimarySlug,   label: hiddenPrimarySlug.replace(/-/g, ' '),   isNav: false, isHidden: true });
-  pages.push({ slug: hiddenSecondarySlug, label: hiddenSecondarySlug.replace(/-/g, ' '), isNav: false, isHidden: true });
 
-  // ── 6. Navigation ───────────────────────────────────────────────────────────
-  const navigation = pages
-    .filter(p => p.isNav && !p.isHidden)
-    .map(p => ({ label: p.label, href: p.slug === 'home' ? '.' : p.slug }));
+  // Order page-worthy kinds by user intent (fall back to spec order).
+  const orderedPageKinds = [...pageKinds].sort((a, b) => {
+    const oa = userOrderMap.has(a) ? userOrderMap.get(a)! : Number.MAX_SAFE_INTEGER;
+    const ob = userOrderMap.has(b) ? userOrderMap.get(b)! : Number.MAX_SAFE_INTEGER;
+    return oa - ob;
+  });
+
+  let gallerySlug = '';
+  let hasPricing = false;
+  for (const kind of orderedPageKinds) {
+    const ps = pageSpecFor(kind, normIndustry, direction);
+    if (!ps) continue;
+    pages.push({ slug: ps.slug, label: ps.label, kind, isNav: true });
+    if (kind === 'gallery') gallerySlug = ps.slug;
+    if (kind === 'pricing') hasPricing = true;
+  }
+
+  // Commerce pages — appended after content pages. Checkout is never in nav.
+  if (hasCart) {
+    if (!pages.some(p => p.kind === 'products')) {
+      // products required but not yet a page (e.g. forbidden as page but commerce on)
+      const ps = productsPage(normIndustry);
+      pages.push({ slug: ps.slug, label: ps.label, kind: 'products', isNav: true });
+    }
+    pages.push({ slug: 'cart',     label: 'Cart',     kind: 'cart',     isNav: true });
+    pages.push({ slug: 'checkout', label: 'Checkout', kind: 'checkout', isNav: false });
+  }
+
+  // ── 5. Navigation — page links + in-page anchors, in user-intent order ───────
+  const pageByKind = new Map<SectionKind, PageSpec>();
+  for (const p of pages) {
+    if (p.kind !== 'home' && p.kind !== 'cart' && p.kind !== 'checkout') {
+      pageByKind.set(p.kind, p);
+    }
+  }
+  const navigation: Array<{ label: string; href: string }> = [
+    { label: 'Home', href: '.' },
+  ];
+  for (const placement of homeSections) {
+    const k = placement.kind;
+    const page = pageByKind.get(k);
+    if (page) {
+      navigation.push({ label: page.label, href: page.slug });
+    } else if (!NO_ANCHOR.has(k)) {
+      navigation.push({ label: ANCHOR_LABEL[k] ?? cap(k), href: '#' + k });
+    }
+  }
+  if (hasCart) navigation.push({ label: 'Cart', href: 'cart' });
+
+  // ── 6. Section-CTA targets — always real, never a niche-invented page ────────
+  const primaryCtaTarget = resolvePrimaryTarget(pages, homeSections);
+  const secondaryCtaTarget = resolveSecondaryTarget(pages, homeSections, primaryCtaTarget);
 
   return {
     homeSections,
@@ -189,7 +227,37 @@ export function buildLayoutPlan(
     gallerySlug,
     hasCart,
     hasPricing,
-    hiddenPrimarySlug,
-    hiddenSecondarySlug,
+    primaryCtaTarget,
+    secondaryCtaTarget,
   };
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Primary CTA → the most action-oriented page that exists, else a home anchor.
+const PRIMARY_PREF: Array<PageSpec['kind']> = ['products', 'booking', 'pricing', 'gallery', 'events', 'blog'];
+function resolvePrimaryTarget(pages: PageSpec[], homeSections: SectionPlacement[]): string {
+  for (const pref of PRIMARY_PREF) {
+    const hit = pages.find(p => p.kind === pref);
+    if (hit) return hit.slug;
+  }
+  // No action page — anchor to the first required home section, else home root.
+  const firstSection = homeSections.find(s => s.kind !== 'cta');
+  return firstSection ? '#' + firstSection.kind : '.';
+}
+
+// Secondary CTA → contact page if one exists, else a different home anchor, else home.
+function resolveSecondaryTarget(pages: PageSpec[], homeSections: SectionPlacement[], primary: string): string {
+  const contact = pages.find(p => p.kind === 'contact');
+  if (contact) return contact.slug;
+  for (const s of homeSections) {
+    if (s.kind === 'cta') continue;
+    const anchor = '#' + s.kind;
+    if (anchor !== primary) return anchor;
+  }
+  return '.';
 }
