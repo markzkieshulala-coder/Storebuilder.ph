@@ -387,16 +387,6 @@ function detectBrandVoice(text: string): NluContent['brandVoice'] {
   return { register, usesExclamations: exclamations >= 1 };
 }
 
-// Niche-driven implicit sections — high-confidence affordances every site in
-// this niche benefits from, even if the user did not explicitly request them.
-const NICHE_IMPLICIT_SECTIONS: Record<string, string[]> = {
-  food:         ['Location'],
-  homeservices: ['Location'],
-  automotive:   ['Location'],
-  wellness:     ['Pricing'],
-  photography:  ['Gallery'],
-  hospitality:  ['Gallery'],
-};
 
 // ── Activity keywords ────────────────────────────────────────────────────────
 // Content-rich keywords extracted from the prompt with style/meta words removed.
@@ -790,7 +780,6 @@ export function understandPrompt(prompt: string): NluContent {
   const operatingHours = extractOperatingHours(text);
   const phone = extractPhone(text);
   const startingPrice = extractStartingPrice(text);
-  const implicit = NICHE_IMPLICIT_SECTIONS[slug] || NICHE_IMPLICIT_SECTIONS[broad] || [];
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
   const keywords = activityKeywords;
@@ -828,7 +817,7 @@ export function understandPrompt(prompt: string): NluContent {
     // "do not include X" directive can never re-add X. The renderer injects any
     // of these the composed page doesn't already cover.
     sections:     filterForbidden(
-                    mergeSections(explicit?.sections, [...functionalIntents, ...requirements.required, ...implicit]),
+                    mergeSections(explicit?.sections, [...functionalIntents, ...requirements.required]),
                     forbiddenKinds,
                   ),
     products,

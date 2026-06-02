@@ -802,7 +802,10 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
   nodes.push(createHeroNode(seed, 0));
 
   // ── 2. TRUST STRIP ── (optional, high-conversion layouts)
-  if (p.conversionStyle === "trust-first" || p.conversionStyle === "hard-sell" || rng() < 0.5) {
+  // Only insert when the spec allows 'stats', or when no spec was supplied
+  // (legacy callers that don't pass allowedSectionKinds).
+  const statsAllowed = !input.allowedSectionKinds || input.allowedSectionKinds.includes('stats');
+  if (statsAllowed && (p.conversionStyle === "trust-first" || p.conversionStyle === "hard-sell" || rng() < 0.5)) {
     nodes.push(createStripNode(seed, 0, "trust"));
   }
 
