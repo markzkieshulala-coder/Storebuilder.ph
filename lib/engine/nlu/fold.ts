@@ -87,6 +87,8 @@ export function foldNluIntoPuo(puo: PromptUnderstandingObject, nlu: NluContent):
     operatingHours: nlu.operatingHours,
     phone: nlu.phone,
     startingPrice: nlu.startingPrice,
+    // Forbidden sections — the renderer enforces absence of these.
+    excludedSections: Array.isArray(nlu.excludedSections) && nlu.excludedSections.length ? nlu.excludedSections : undefined,
   };
   const mergedLlm: Record<string, unknown> = { ...prevLlm };
   for (const [k, v] of Object.entries(fresh)) {

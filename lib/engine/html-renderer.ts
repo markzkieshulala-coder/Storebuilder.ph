@@ -19,6 +19,7 @@ import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
 import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
+import { canonicalKind, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -99,6 +100,8 @@ export interface MultiPageOutput {
   nav: Array<{ label: string; href: string }>;
   gallerySlug: string;
   primaryPage: string;
+  /** Requirement-fidelity verification of the rendered site against the prompt. */
+  fidelity: FidelityResult;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2625,6 +2628,15 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
 </section>`;
   }
 
+  return renderPhotoGallerySection(node, ctx);
+}
+
+// A genuine PHOTO gallery (gallery-grid) — distinct from a product grid. Used both
+// as the fallback for niches without products AND as the injector when a user
+// explicitly asks for a photo/Instagram gallery ALONGSIDE a product shop, so the
+// two are never conflated.
+function renderPhotoGallerySection(node: LayoutNode, ctx: RenderCtx, eyebrow = 'Showcase'): string {
+  const { copy, photos, fp } = ctx;
   const variant = node.variant as string;
   const gridClass = variant === 'filmstrip' ? 'filmstrip' : variant === 'panorama' ? 'panorama' : variant === 'masonry' ? 'masonry' : 'uniform';
   const count = gridClass === 'filmstrip' ? 6 : 6;
@@ -2640,7 +2652,7 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
 <section>
   <div class="wrap">
     <div class="sec-head centered reveal">
-      <span class="eyebrow">Showcase</span>
+      <span class="eyebrow">${esc(eyebrow)}</span>
       <h2>${esc(copy.galleryHeading)}</h2>
     </div>
     <div class="gallery-grid ${gridClass}">${items}</div>
@@ -3038,7 +3050,9 @@ function renderInjectedKind(kind: string, ctx: RenderCtx, counters: Record<strin
     case 'testimonials': return renderListSection({ type: 'list', variant: 'testimonials' } as LayoutNode, ctx);
     case 'faq':          return renderListSection({ type: 'list', variant: 'accordion' } as LayoutNode, ctx);
     case 'stats':        return renderStripSection({ type: 'strip', variant: 'stats-row' } as LayoutNode, ctx);
-    case 'gallery':      return renderGallerySection({ type: 'gallery', variant: 'masonry' } as LayoutNode, ctx);
+    // 'gallery' forces a real PHOTO gallery (never a product grid), so a user who
+    // asks for both a shop AND an "Instagram gallery" gets two distinct sections.
+    case 'gallery':      return renderPhotoGallerySection({ type: 'gallery', variant: 'masonry' } as LayoutNode, ctx, 'Gallery');
     case 'products':     return renderGallerySection({ type: 'gallery', variant: 'uniform' } as LayoutNode, ctx);
     case 'story':        return renderSplitSection({ type: 'split', variant: 'equal' } as LayoutNode, ctx, bump('split'));
     case 'features':     return renderClusterSection({ type: 'cluster', variant: 'grid', grid: { columnsDesktop: 3 } } as unknown as LayoutNode, ctx, bump('cluster'));
@@ -4125,42 +4139,35 @@ function buildHomeMain(
     return html;
   }).filter(Boolean);
 
-  // ── ON-DEMAND SECTION INJECTION ──────────────────────────────────────────
-  // If the user EXPLICITLY listed sections in their prompt, make sure each one
-  // actually appears. We only inject a section the composed page didn't already
-  // cover (e.g. "newsletter signup", "our team"), so the page structure adapts
-  // to the exact request instead of being a fixed template.
-  const requested = ((puo.customAttributes as { llm?: { sections?: unknown } } | undefined)?.llm?.sections);
-  if (Array.isArray(requested) && requested.length) {
-    const present = detectPresentKinds(rendered.join('\n'));
-    const wanted: string[] = [];
-    for (const raw of requested) {
-      const kind = canonicalSectionKind(String(raw));
-      if (kind && kind !== 'cta' && !present.has(kind) && !wanted.includes(kind)) wanted.push(kind);
-    }
-    const injected: string[] = [];
-    for (const kind of wanted) {
-      let html = '';
-      try { html = renderInjectedKind(kind, ctx, counters); } catch { html = ''; }
-      if (!html) continue;
-      const h = headingOf(html);
-      if (h && seenHeadings.has(h)) continue;
-      if (h) seenHeadings.add(h);
-      present.add(kind);
-      injected.push(html);
-    }
-    if (injected.length) {
-      // Slot the new sections in just before the closing CTA (the last
-      // signal-section), so the page still ends on its call-to-action.
-      let insertAt = rendered.length;
-      for (let i = rendered.length - 1; i >= 0; i--) {
-        if (/signal-section/.test(rendered[i])) { insertAt = i; break; }
-      }
-      rendered.splice(insertAt, 0, ...injected);
-    }
-  }
+  // ── REQUIREMENT ENFORCEMENT ────────────────────────────────────────────────
+  // Hard contract with the user's prompt:
+  //   • FORBIDDEN sections (e.g. "do not include testimonials") are DROPPED — even
+  //     when the layout composer emitted them on its own.
+  //   • REQUIRED sections (their explicit bullet list + functional intents) are
+  //     GUARANTEED present — injected if the composed page omitted them.
+  // This is what makes generation prompt-faithful instead of a fixed template.
+  const llmReq = (puo.customAttributes as { llm?: { sections?: unknown; excludedSections?: unknown } } | undefined)?.llm;
+  const required = canonicalKindsOf(llmReq?.sections);
+  const forbidden = canonicalKindsOf(llmReq?.excludedSections);
+  const enforced = enforceSections(
+    rendered,
+    required,
+    forbidden,
+    (kind) => renderInjectedKind(kind, ctx, counters),
+    headingOf,
+  );
+  return enforced.sections.join('\n');
+}
 
-  return rendered.join('\n');
+// Map a loose list of section labels/kinds → de-duped canonical kinds.
+function canonicalKindsOf(raw: unknown): SectionKind[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SectionKind[] = [];
+  for (const r of raw) {
+    const k = canonicalKind(String(r));
+    if (k && k !== 'cta' && !out.includes(k)) out.push(k);
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -4457,11 +4464,19 @@ function renderMultiPageSiteInner(
     pages['/pricing'] = renderPricingPageHtml(puo, brand, navItems, copy, css, font, base, fp + 4, year);
   }
 
+  // 9. Verify requirement fidelity on the rendered section bodies (NOT the full
+  //    document — its <style> block contains class names that aren't real sections).
+  //    The contact + gallery pages count toward required-section presence too.
+  const renderedSectionsHtml = [homeMain, aboutMain, galleryMain, contactMain, pricingMain].join('\n');
+  const requirements = extractRequirements(prompt);
+  const fidelity = scoreFidelity(requirements, renderedSectionsHtml);
+
   return {
     pages,
     nav: navItems,
     gallerySlug,
     primaryPage: spaDocument,
+    fidelity,
   };
 }
 

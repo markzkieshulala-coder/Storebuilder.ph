@@ -23,6 +23,7 @@ import type { PromptUnderstandingObject } from '../prompt-engine';
 import type { VisualMood, DesignStyle, WebsitePersonality, BusinessTone } from '../prompt-engine/types';
 import { extractPromptCopy } from '../prompt-copy';
 import { COLOR_HEX, NICHES, profileFor, type NicheCopyProfile } from './lexicon';
+import { extractRequirements, canonicalKind } from '../requirements';
 
 export interface NluProduct { name: string; desc?: string; price?: string }
 export interface NluFaq { q: string; a: string }
@@ -63,6 +64,9 @@ export interface NluContent {
   operatingHours?: string;  // "Monday to Saturday 9am–8pm", "Open daily 10am–9pm"
   phone?: string;           // "+63 917 123 4567", "0917-123-4567"
   startingPrice?: string;   // "₱2,500", "$99", "from $49" — lowest price mentioned
+  // Canonical section kinds the user EXPLICITLY forbade ("do not include X").
+  // The renderer drops any matching section and the fidelity gate verifies absence.
+  excludedSections?: string[];
 }
 
 // ── Small deterministic helpers ─────────────────────────────────────────────
@@ -470,6 +474,33 @@ function extractProducts(text: string): NluProduct[] | undefined {
   });
 }
 
+// ── Bullet-list product extraction ───────────────────────────────────────────────
+// Users frequently enumerate their catalog as a Requirements bullet list of
+// product CATEGORIES ("- Jersey collections", "- Basketball shoes catalog",
+// "- Limited edition products") rather than a prose "we sell X, Y, Z" sentence.
+// Pull those category phrases so the product grid shows the user's real catalog
+// instead of a generic niche-profile fallback. Only lines that read as products
+// (per the canonical-kind map) are taken — gallery/newsletter/contact bullets are
+// not products. "Do not" lines are skipped.
+const PRODUCT_TAIL = /\b(catalog|catalogue|section|page|program|programme|lineup|line\s*up|range|store|shop)\b\s*$/i;
+function extractBulletProducts(text: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const lines = text.split(/\n+|(?<=[.!?])\s+/).map(l => l.trim());
+  for (const line of lines) {
+    if (/\b(do not|don't|dont|without|exclude|no\s+\w+\s+section)\b/i.test(line)) continue;
+    const phrase = line.replace(/^[-*•·\d.)\s]+/, '').trim();
+    if (!phrase || phrase.length < 3 || phrase.length > 48) continue;
+    if (canonicalKind(phrase) !== 'products') continue;
+    // Strip trailing meta nouns so "Basketball shoes catalog" → "Basketball Shoes".
+    const cleaned = phrase.replace(PRODUCT_TAIL, '').replace(/\bproducts?\b\s*$/i, '').trim();
+    const name = titleCase(cleaned || phrase);
+    const key = name.toLowerCase();
+    if (name.length >= 3 && !seen.has(key)) { seen.add(key); out.push(name); }
+  }
+  return out.slice(0, 8);
+}
+
 // ── Audience inference from product names ────────────────────────────────────────
 // When no explicit "for [audience]" phrase exists, product names may reveal the
 // target audience — e.g. "Couples Package" → audience = "couples".
@@ -710,11 +741,20 @@ export function understandPrompt(prompt: string): NluContent {
   const differentiator = extractDifferentiator(lower);
   const activityKeywords = extractActivityKeywords(lower);
 
-  // Extract products early so we can infer audience from product names
+  // Extract products early so we can infer audience from product names.
+  // Priority: inline-listed products ("we offer X, Y, Z") → product/category items
+  // the user enumerated in a Requirements bullet list ("Jersey collections",
+  // "Basketball shoes catalog") → niche profile bank → inferred from activity.
+  // The bullet path matters because users often specify their catalog as a list of
+  // product CATEGORIES, not a prose sentence — and falling back to a generic niche
+  // bank ("Signature Tee") is exactly the "generic placeholder content" they reject.
   const namedProducts = extractProducts(text);
+  const bulletProducts = extractBulletProducts(text);
   let products: NluProduct[] | undefined;
   if (namedProducts && namedProducts.length) {
     products = enrichProducts(namedProducts, profile);
+  } else if (bulletProducts.length >= 2) {
+    products = bulletProducts.map(name => ({ name }));
   } else if (profile.products.length) {
     products = profile.products;
   } else {
@@ -724,7 +764,14 @@ export function understandPrompt(prompt: string): NluContent {
   // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
   // Audience: explicit "for [X]" phrase → implicit from product names → undefined
   const audience = extractAudience(text, lower) || inferAudienceFromProducts(namedProducts || []);
-  const functionalIntents = extractFunctionalIntents(lower);
+  // Requirement model — what the user explicitly REQUIRED vs FORBADE. Negative
+  // directives ("do not include testimonials") are parsed here, NOT as positive
+  // intents, so a forbidden word never leaks into the requested-sections list.
+  const requirements = extractRequirements(prompt);
+  const forbiddenKinds = new Set(requirements.forbidden);
+  const functionalIntents = extractFunctionalIntents(lower)
+    // Drop any functional intent that matched a word inside a "do not" clause.
+    .filter(label => { const k = canonicalKind(label); return !(k && forbiddenKinds.has(k)); });
   // Enrichment signals — elevate copy quality and uniqueness per prompt
   const credentialSignals = extractCredentialSignals(lower);
   const location = extractLocation(text, lower);
@@ -775,10 +822,15 @@ export function understandPrompt(prompt: string): NluContent {
     secondaryCta: explicit?.secondaryCta || undefined,
     about:        undefined,
     // Sections the user explicitly listed PLUS functional affordances detected
-    // from the prompt (booking, ordering, newsletter, map/location, blog…). The
-    // renderer injects any of these the composed page doesn't already cover.
-    // Sections: user-explicit → functional intents → niche implicit affordances.
-    sections:     mergeSections(explicit?.sections, [...functionalIntents, ...implicit]),
+    // from the prompt (booking, ordering, newsletter, map/location, blog…) PLUS
+    // canonical kinds parsed from the requirements bullet list (athletes→team,
+    // mission→story, jerseys→products…). Forbidden kinds are filtered out so a
+    // "do not include X" directive can never re-add X. The renderer injects any
+    // of these the composed page doesn't already cover.
+    sections:     filterForbidden(
+                    mergeSections(explicit?.sections, [...functionalIntents, ...requirements.required, ...implicit]),
+                    forbiddenKinds,
+                  ),
     products,
     faqs:         undefined, // FAQs are template content, not user-written — omit so renderer only shows them when explicitly requested
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy
@@ -796,6 +848,15 @@ export function understandPrompt(prompt: string): NluContent {
     operatingHours,
     phone,
     startingPrice,
+    // Forbidden sections — canonical kinds the user told us to omit.
+    excludedSections: requirements.forbidden.length ? requirements.forbidden : undefined,
   };
   return content;
+}
+
+// Remove any section label whose canonical kind is in the forbidden set.
+function filterForbidden(sections: string[] | undefined, forbidden: Set<string>): string[] | undefined {
+  if (!sections) return sections;
+  const kept = sections.filter(s => { const k = canonicalKind(s); return !(k && forbidden.has(k)); });
+  return kept.length ? kept : undefined;
 }

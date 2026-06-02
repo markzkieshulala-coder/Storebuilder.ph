@@ -4,6 +4,22 @@ import { fetchSiteImagery } from './image-provider';
 import type { ResolvedImagery } from './pexels';
 import type { ScoringArtifact } from './engines/scoring';
 import type { PromptUnderstandingObject } from './prompt-engine';
+import type { FidelityResult } from './requirements';
+
+// A site that violates an explicit "do not include X" directive, or is missing
+// an explicitly required section, fails this threshold. 0.95 = 95% fidelity goal.
+const FIDELITY_THRESHOLD = 0.95;
+
+export class RequirementFidelityError extends Error {
+  constructor(public fidelity: FidelityResult) {
+    super(
+      `Requirement fidelity ${(fidelity.score * 100).toFixed(0)}% < ${(FIDELITY_THRESHOLD * 100)}%. ` +
+      (fidelity.forbiddenPresent.length ? `Forbidden sections present: ${fidelity.forbiddenPresent.join(', ')}. ` : '') +
+      (fidelity.requiredMissing.length ? `Required sections missing: ${fidelity.requiredMissing.join(', ')}.` : ''),
+    );
+    this.name = 'RequirementFidelityError';
+  }
+}
 
 function fnv(s: string): number {
   let h = 2166136261;
@@ -22,6 +38,8 @@ export interface EngineGenerationResult {
   brandName: string;
   score: number;
   artifacts: Record<string, unknown>;
+  /** Requirement-fidelity verification of the rendered site against the prompt. */
+  fidelity: FidelityResult;
 }
 
 // Runs the full orchestration pipeline (planning -> blueprint -> design-dna ->
@@ -67,6 +85,15 @@ export async function generateWebsite(
   const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, imagery);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
+  // Requirement-fidelity gate. The renderer already ENFORCES forbidden-absence
+  // and required-presence; this is the verification that the contract held. If a
+  // forbidden section slipped through or a required section is missing, we FAIL
+  // generation rather than silently shipping a site that ignores the prompt.
+  const fidelity = multiPage.fidelity;
+  if (fidelity.forbiddenPresent.length > 0 || fidelity.score < FIDELITY_THRESHOLD) {
+    throw new RequirementFidelityError(fidelity);
+  }
+
   return {
     html: multiPage.primaryPage,
     pages: multiPage.pages,
@@ -76,5 +103,6 @@ export async function generateWebsite(
     brandName,
     score: scoring?.overall ?? 0,
     artifacts: context.artifacts,
+    fidelity,
   };
 }
