@@ -838,6 +838,7 @@ interface SiteCopy {
   faqs: Array<{ q: string; a: string }>;
   products: Array<{ name: string; desc: string; price: string }> | null;
   productEyebrow: string;
+  startingPrice: string;   // "₱2,500", "$99" — lowest/from price to show in hero/section
   hiddenPrimarySlug: string;
   hiddenSecondarySlug: string;
   hiddenPrimaryCtaLabel: string;
@@ -1283,6 +1284,9 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const credSignals    = Array.isArray(llmCtx.credentialSignals) ? (llmCtx.credentialSignals as string[]) : [];
   const actKws         = Array.isArray(llmCtx.activityKeywords) ? (llmCtx.activityKeywords as string[]) : [];
   const missionStatement = typeof llmCtx.missionStatement === 'string' ? llmCtx.missionStatement.trim() : '';
+  const operatingHours = typeof llmCtx.operatingHours === 'string' ? llmCtx.operatingHours.trim() : '';
+  const phone          = typeof llmCtx.phone === 'string' ? llmCtx.phone.trim() : '';
+  const startingPrice  = typeof llmCtx.startingPrice === 'string' ? llmCtx.startingPrice.trim() : '';
   const bVoice         = (llmCtx.brandVoice as { register?: string; usesExclamations?: boolean } | undefined);
   // The user's own descriptive sentences about their business — used verbatim
   // in heroSub and aboutBody so their words appear on the generated site.
@@ -1419,17 +1423,16 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const headlines = headlinePatterns[personality] || headlinePatterns['bold'];
 
   // When the user described their business, use THEIR words as the headline —
-  // the first selling point produces a 3-5 word key phrase (the most descriptive
-  // thing they said about what they do). If a second selling point contains a
-  // memorable number detail (18 hours, since 2010) it's appended as a dash clause.
+  // Use descriptiveSPs (verb-containing, non-CTA sentences) so brand-name-only
+  // sentences and CTA sentences don't become headlines.
   let heroHeadline: string;
-  if (sellingPoints.length >= 1) {
-    const kp = spToTitle(sellingPoints[0]);
+  if (descriptiveSPs.length >= 1) {
+    const kp = spToTitle(descriptiveSPs[0]);
     let detail = '';
-    if (sellingPoints.length >= 2) {
-      const numM = sellingPoints[1].match(/\b(\d+(?:\.\d+)?)\s*[-–]?\s*(?:hour|hr|year|star|location|item|piece|day)\b/i);
+    if (descriptiveSPs.length >= 2) {
+      const numM = descriptiveSPs[1].match(/\b(\d+(?:\.\d+)?)\s*[-–]?\s*(?:hour|hr|year|star|location|item|piece|day)\b/i);
       if (numM) {
-        const unitRaw = sellingPoints[1].match(/\b(hour|hr|year|star|location|item|piece|day)s?\b/i);
+        const unitRaw = descriptiveSPs[1].match(/\b(hour|hr|year|star|location|item|piece|day)s?\b/i);
         const unit = unitRaw ? unitRaw[1] : '';
         const unitLabel: Record<string,string> = { hour:'Hour', hr:'Hour', year:'Year', star:'Star', location:'Location', item:'Item', piece:'Piece', day:'Day' };
         detail = ` — ${numM[1]}-${unitLabel[unit.toLowerCase()] || unit.charAt(0).toUpperCase()+unit.slice(1)} ${unit.toLowerCase() === 'hour' || unit.toLowerCase() === 'hr' ? 'Crafted' : 'Proven'}`;
@@ -1466,9 +1469,9 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   ];
   // Prefer the user's own sentences as the hero sub-text when the engine found
   // descriptive selling-point statements in the prompt. This is the core of
-  // prompt-grounded copy: their words, on their site.
-  const heroSub = sellingPoints.length >= 1
-    ? sellingPoints.slice(0, 2).join(' ')
+  // Use descriptiveSPs (verb-filtered, no CTA/brand-name noise) as hero sub-text.
+  const heroSub = descriptiveSPs.length >= 1
+    ? descriptiveSPs.slice(0, 2).join(' ')
     : pick(heroSubPatterns, fp + 2);
 
   // CTA text — NICHE first (so a coffee shop says "View Menu", not "Get Started"),
@@ -1582,7 +1585,8 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     (kw, sf) => `${titleCase(kw)}: ${sf}`,
   ];
   // Build title priority: product name > selling-point-derived title > keyword template
-  const spTitles: string[] = sellingPoints.map(spToTitle);
+  // Use descriptiveSPs so verb-less brand-name sentences don't become feature titles.
+  const spTitles: string[] = descriptiveSPs.map(spToTitle);
   const productTitles: string[] = (Array.isArray(llmCtx.products)
     ? (llmCtx.products as Array<{name?: string}>).map(p => p?.name || '').filter(Boolean)
     : []) as string[];
@@ -1591,9 +1595,10 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     if (spTitles[i]) return spTitles[i];
     return FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length](kw, sf);
   };
-  // Use user's own sentences as feature descriptions; cycle through selling points.
+  // Use descriptiveSPs for feature descriptions — verb-containing sentences only,
+  // so CTA sentences ("Order now for delivery") don't appear as feature descriptions.
   const spDesc = (i: number): string | null =>
-    sellingPoints.length > 0 ? sellingPoints[i % sellingPoints.length] : null;
+    descriptiveSPs.length > 0 ? descriptiveSPs[i % descriptiveSPs.length] : null;
 
   const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => {
     const sf = pick(suffixes, fp + i);
@@ -1755,8 +1760,14 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     role: roles[i % roles.length] || roles[0],
   }));
 
-  // About — niche-aware body composed from prompt's own keywords, audience, and differentiator.
-  const aboutHeading = `The ${brand} Story`;
+  // About — heading derives from NLU signals so it reflects the actual business.
+  const aboutHeading = differentiator && mainKw
+    ? `${titleCase(differentiator)} ${mainKw}`
+    : missionStatement
+    ? `The ${brand} Mission`
+    : audience
+    ? `${brand}: For ${titleCase(audience)}`
+    : `The ${brand} Story`;
   type AboutFn = (b: string, mk: string, sk: string, aud: string, diff: string) => string;
   const ABOUT_BODY: Record<string, AboutFn> = {
     food: (b, mk, sk, aud, diff) => {
@@ -1861,18 +1872,20 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   // directly as the about body — their actual words, not a template.
   // With 1 sentence, blend it in as the final sentence of the template.
   // With 0, fall through to the niche template as before.
+  // Use descriptiveSPs — verb-filtered sentences only — so brand-name labels and
+  // CTA sentences don't appear in the about body.
   const aboutBody = (() => {
-    if (sellingPoints.length >= 2) {
-      return sellingPoints.slice(0, 3).join(' ');
+    if (descriptiveSPs.length >= 2) {
+      return descriptiveSPs.slice(0, 3).join(' ');
     }
     const tpl = aboutBodyFn
       ? aboutBodyFn(brand, mainKw, secKw, audience, differentiator)
       : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${audience ? ' for ' + audience : ''} should be${differentiator ? ' ' + differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and a relentless focus on quality to everything we do. Every client relationship is built on trust — and trust is built by showing up, doing the work, and doing it right.`;
-    if (sellingPoints.length === 1) {
+    if (descriptiveSPs.length === 1) {
       // Append the user's own sentence after the template intro
       const sentences = tpl.split(/(?<=[.!?])\s+/);
       const intro = sentences.slice(0, 2).join(' ');
-      return `${intro} ${sellingPoints[0]}`;
+      return `${intro} ${descriptiveSPs[0]}`;
     }
     return tpl;
   })();
@@ -1929,14 +1942,18 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     ? `${brand} — ${galleryLabelWord}`
     : `Our ${galleryLabelWord}`;
 
-  // Contact — personalised with audience and location when present.
+  // Contact — personalised with audience, location, hours, and phone when present.
   const contactHeading = audience ? `Ready, ${titleCase(audience)}?` : `Let's Talk ${mainKw}`;
   const locPhrase = location ? ` We're ${location.match(/^(in|at|near)\b/i) ? location : 'based in ' + location}.` : '';
+  const hoursPhrase = operatingHours ? ` Open ${operatingHours}.` : '';
+  const phonePhrase = phone ? ` Call us at ${phone}.` : '';
   const contactSub = [
-    `Ready to experience ${brand}?`,
+    operatingHours ? `We're open ${operatingHours}.` : `Ready to experience ${brand}?`,
     audience ? ` We work with ${audience}.` : '',
     locPhrase,
-    ' Have questions or want to get started? Reach out and our team will get back to you within 24 hours.',
+    phonePhrase,
+    hoursPhrase && !operatingHours ? hoursPhrase : '',
+    ' Have a question? Reach out and we\'ll get back to you soon.',
   ].join('');
 
   // CTA — NLU-first: user's intent > selling-point preview > audience/brand fallback
@@ -1964,7 +1981,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
   const productEyebrow = productBank?.eyebrow || 'Featured';
 
   // Footer tagline — NLU-first: explicit tagline > differentiator+location > fallback
-  const footerTagline = strVal(llmCtx.tagline)
+  const footerTaglineBase = strVal(llmCtx.tagline)
     || (differentiator && location
       ? `${titleCase(differentiator)} ${mainKw.toLowerCase()} in ${location}.`
       : differentiator
@@ -1974,6 +1991,12 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
       : audience
       ? `Made for ${audience}.`
       : `${brand} — ${mainKw.toLowerCase()} done right.`);
+  // Append hours/phone to footer when extracted, so logistics appear site-wide
+  const footerTagline = operatingHours
+    ? `${footerTaglineBase.replace(/\.$/, '')} · Open ${operatingHours}.`
+    : phone
+    ? `${footerTaglineBase.replace(/\.$/, '')} · ${phone}`
+    : footerTaglineBase;
 
   // Pricing plans (if saas/ecommerce)
   let pricingPlans: SiteCopy['pricingPlans'] = null;
@@ -1991,7 +2014,7 @@ function buildSiteCopy(puo: PromptUnderstandingObject, brand: string, fp: number
     aboutHeading, aboutBody, aboutBullets, missionHeading, missionBody,
     galleryHeading, gallerySlug,
     contactHeading, contactSub, ctaHeading, ctaSub, footerTagline,
-    pricingPlans, faqs, products, productEyebrow,
+    pricingPlans, faqs, products, productEyebrow, startingPrice,
     hiddenPrimarySlug:    hiddenCfg.primary.slug,
     hiddenSecondarySlug:  hiddenCfg.secondary.slug,
     hiddenPrimaryCtaLabel:   hiddenCfg.primary.ctaLabel,
@@ -2036,19 +2059,34 @@ function applyLlmCopy(copy: SiteCopy, puo: PromptUnderstandingObject): SiteCopy 
   if (missionStatement) copy.missionBody   = missionStatement;
   if (tagline)          copy.footerTagline = tagline;
 
-  // Contact — if the user explicitly told us who they serve or where they are
+  // Contact — if the user explicitly told us who they serve, where they are, or their hours
   const audience = str(llm.audience);
   const location = str(llm.location);
+  const operatingHours = str(llm.operatingHours);
+  const phone = str(llm.phone);
   if (audience) copy.contactHeading = `Ready, ${audience.charAt(0).toUpperCase() + audience.slice(1)}?`;
   if (location && !copy.contactSub.includes(location)) {
     copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Based in ${location}.`;
   }
+  if (operatingHours && !copy.contactSub.includes(operatingHours)) {
+    copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Open ${operatingHours}.`;
+  }
+  if (phone && !copy.contactSub.includes(phone)) {
+    copy.contactSub = copy.contactSub.replace(/\.$/, '') + ` Call us: ${phone}.`;
+  }
 
   // Products and FAQs — user's explicitly listed items replace niche defaults
+  const startingPriceLlm = str(llm.startingPrice) || '';
+  if (startingPriceLlm) copy.startingPrice = startingPriceLlm;
   if (Array.isArray(llm.products) && (llm.products as unknown[]).length) {
     const items = (llm.products as Array<{ name?: string; desc?: string; price?: string }>)
       .filter(p => str(p?.name))
-      .map(p => ({ name: str(p.name)!, desc: str(p.desc) || '', price: str(p.price) || '' }));
+      .map(p => ({
+        name: str(p.name)!,
+        desc: str(p.desc) || '',
+        // Fall back to "from [startingPrice]" when no per-product price was extracted
+        price: str(p.price) || (startingPriceLlm ? `from ${startingPriceLlm}` : ''),
+      }));
     if (items.length) copy.products = items;
   }
 

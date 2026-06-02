@@ -60,6 +60,9 @@ export interface NluContent {
   // as heroSub and aboutBody copy so their words appear on the site, verbatim.
   sellingPoints?: string[];
   missionStatement?: string; // "our mission is to...", "we exist to...", "we believe..."
+  operatingHours?: string;  // "Monday to Saturday 9am–8pm", "Open daily 10am–9pm"
+  phone?: string;           // "+63 917 123 4567", "0917-123-4567"
+  startingPrice?: string;   // "₱2,500", "$99", "from $49" — lowest price mentioned
 }
 
 // ── Small deterministic helpers ─────────────────────────────────────────────
@@ -192,6 +195,14 @@ function extractBrandName(text: string): string | undefined {
 // ── Audience extraction ─────────────────────────────────────────────────────
 // Pulls "for [audience]" and "serving [audience]" phrases. Skips matches that are
 // proper nouns / brand names (checked via capitalisation in the original text).
+// Words that are services/actions/logistics — NOT audience descriptors.
+// "Order now for delivery" → "delivery" is NOT an audience.
+const AUDIENCE_STOP = new Set([
+  'delivery','pickup','takeout','takeaway','dine-in','dinein','catering','online','offline',
+  'sale','hire','rent','lease','free','discount','order','booking','reservation','consultation',
+  'now','today','here','me','us','you','everyone','anyone','all',
+  'business','businesses','work','life','home','homes',
+]);
 function extractAudience(text: string, lower: string): string | undefined {
   // Try every "for X" occurrence, not just the first — the brand name comes before
   // the target audience in "for [Brand], a studio for [audience]" patterns.
@@ -202,6 +213,8 @@ function extractAudience(text: string, lower: string): string | undefined {
     const raw = m[1].trim().replace(/\s+/g, ' ');
     if (/\b(shop|store|studio|cafe|website|site|business|company|brand|platform|agency|firm|ramen|coffee|salon|spa|gym|restaurant|bar|bakery)\b/i.test(raw)) continue;
     if (raw.split(' ').length > 4) continue;
+    // Reject service/logistics/action words masquerading as audience
+    if (AUDIENCE_STOP.has(raw.split(' ')[0]) || AUDIENCE_STOP.has(raw)) continue;
     // If every word of the match is capitalized in the ORIGINAL text, it's a proper noun (brand name).
     const lowerRaw = raw;
     const origIdx = text.toLowerCase().indexOf(lowerRaw, m.index);
@@ -271,7 +284,8 @@ function extractCredentialSignals(lower: string): string[] {
 }
 
 // ── Location extraction ────────────────────────────────────────────────────────────
-// Pulls a city/area when the user says "serving X", "based in X", or "located in X".
+// Pulls a city/area when the user says "serving X", "based in X", "located in X",
+// or uses a brand-context phrase like "called [Brand] in [City]".
 function extractLocation(text: string, lower: string): string | undefined {
   const patterns: RegExp[] = [
     /\bserving\s+(?:the\s+)?([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)(?:\s+area|\s+metro|\s+region|\s+homeowners?|\s+residents?|\s+drivers?|\s+customers?|\s*[,.]|\s+and|$)/,
@@ -279,6 +293,10 @@ function extractLocation(text: string, lower: string): string | undefined {
     /\blocated in\s+([A-Z][a-zA-Z ]+?)(?:\s*[,.]|\s+and|$)/,
     /\bin\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s*[,.]\s+Philippines/,
     /\bin\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s*[,.]\s+(?:USA|UK|Australia|Canada)\b/,
+    // "called/named [Brand] in [City]" — brand-context location
+    /\b(?:called|named)\s+[A-Z][\w&'.-]*(?:\s+[A-Z][\w&'.-]*){0,3}\s+in\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b/,
+    // "I run/own/have a ... in [City]"
+    /\bI\s+(?:run|own|have|operate|am\s+running|am\s+opening)\s+[^.!?\n]{0,60}\bin\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b/,
   ];
   for (const re of patterns) {
     const m = text.match(re);
@@ -289,6 +307,53 @@ function extractLocation(text: string, lower: string): string | undefined {
     }
   }
   return undefined;
+}
+
+// ── Operating hours extraction ───────────────────────────────────────────────────
+// Extracts schedule info like "Open Monday to Saturday 9am-8pm" or "Mon–Fri 9am–5pm".
+function extractOperatingHours(text: string): string | undefined {
+  // Match a time range like "9am-8pm", "9:00am–10pm", "9 AM to 9 PM"
+  const TIME_PAIR = /(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*(?:-|–|to)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i;
+  const tm = TIME_PAIR.exec(text);
+  if (!tm) return undefined;
+  const timePart = tm[0].trim();
+  // Look at the text before the time match for day/open context
+  const before = text.slice(Math.max(0, tm.index - 80), tm.index);
+  const afterOpen = before.replace(/^[\s\S]*\bopen\b\s*/i, '').trim();
+  if (afterOpen && /\bopen\b/i.test(before)) {
+    return `${afterOpen} ${timePart}`.replace(/\s+/g, ' ').trim();
+  }
+  // Day range without "Open": "Monday to Saturday 9am-8pm"
+  const DAY_RE = /\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\s*(?:to|[-–])\s*(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i;
+  const dm = DAY_RE.exec(before);
+  if (dm) return `${dm[1]} to ${dm[2]} ${timePart}`.replace(/\s+/g, ' ').trim();
+  return undefined;
+}
+
+// ── Phone number extraction ──────────────────────────────────────────────────────
+// Extracts Philippine-format or international phone numbers from the prompt.
+function extractPhone(text: string): string | undefined {
+  // Philippine: 09XX XXX XXXX or +63 9XX XXX XXXX (with any separators)
+  const PH_RE = /(?:\+63|0)[\s-]?9\d{2}[\s-]?\d{3}[\s-]?\d{4}/;
+  // International: +X XXX XXX XXXX
+  const INTL_RE = /\+\d{1,3}[\s-]?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{4}/;
+  // US/local: (XXX) XXX-XXXX or XXX-XXX-XXXX (7+ consecutive digits)
+  const US_RE = /\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/;
+  const m = PH_RE.exec(text) || INTL_RE.exec(text) || US_RE.exec(text);
+  return m ? m[0].trim() : undefined;
+}
+
+// ── Starting price extraction ────────────────────────────────────────────────────
+// Pulls the lowest / starting price mentioned, for display in product cards and hero.
+function extractStartingPrice(text: string): string | undefined {
+  // "starting at ₱2,500" | "from $99" | "prices from £50" | "₱500 per session"
+  const STARTING_RE = /\b(?:starting\s+(?:at|from)|from\s+(?:just\s+)?|priced\s+(?:at|from)|prices?\s+(?:from|starting))\s*([$€£₱¥₩]\s*[\d,]+(?:\.\d{1,2})?)/i;
+  const m = STARTING_RE.exec(text);
+  if (m) return m[1].replace(/\s+/g, '').trim();
+  // Standalone price with currency symbol, only if preceded by list context
+  const PRICE_RE = /([$€£₱¥₩])\s*([\d,]+(?:\.\d{1,2})?)/;
+  const pm = PRICE_RE.exec(text);
+  return pm ? `${pm[1]}${pm[2]}` : undefined;
 }
 
 // ── Brand voice detection ────────────────────────────────────────────────────────
@@ -390,7 +455,31 @@ function extractProducts(text: string): NluProduct[] | undefined {
   }
   const finalList = suchAsList && suchAsList.length >= (bestList?.length ?? 0) ? suchAsList : bestList;
   if (!finalList) return undefined;
-  return finalList.slice(0, 8).map(name => ({ name }));
+  // Extract inline price if embedded in the item name, e.g. "Massage (₱2,500)"
+  const INLINE_PRICE = /([$€£₱¥₩]\s*[\d,]+(?:\.\d{1,2})?|\d+\s*[$€£₱¥])\s*(?:each|per\s+\w+|\/\w+)?/;
+  return finalList.slice(0, 8).map(name => {
+    const pm = INLINE_PRICE.exec(name);
+    if (pm) return { name: name.replace(pm[0], '').replace(/[\s()[\]-]+$/, '').trim(), price: pm[1].replace(/\s+/g, '').trim() };
+    return { name };
+  });
+}
+
+// ── Audience inference from product names ────────────────────────────────────────
+// When no explicit "for [audience]" phrase exists, product names may reveal the
+// target audience — e.g. "Couples Package" → audience = "couples".
+const PRODUCT_AUDIENCE_WORDS = new Set([
+  'couples','couple','kids','children','child','seniors','senior','women','men',
+  'family','families','students','student','athletes','athlete','beginners','beginner',
+  'teens','teen','adults','adult','professionals','professional','corporate','executive',
+  'bridal','bride','groom','wedding','birthday','anniversary',
+]);
+function inferAudienceFromProducts(products: NluProduct[]): string | undefined {
+  for (const p of products) {
+    const words = p.name.toLowerCase().split(/\s+/);
+    const match = words.find(w => PRODUCT_AUDIENCE_WORDS.has(w));
+    if (match) return match === 'couple' ? 'couples' : match === 'child' ? 'children' : match === 'bridal' ? 'couples' : match === 'bride' || match === 'groom' ? 'couples' : match;
+  }
+  return undefined;
 }
 
 // ── Product inference from activity keywords ─────────────────────────────────
@@ -529,11 +618,23 @@ function extractSellingPoints(text: string, actKws: string[], brandName?: string
     const hasKw = words.some(w => kwSet.has(w));
     const isFirstPerson = FIRST_PERSON_START.test(sent) && words.length >= 3;
     const isBusinessDesc = BUSINESS_DESC_RE.test(sent);
-    if (hasKw || isFirstPerson || isBusinessDesc) {
-      const cleaned = sent.replace(/^[-–—•·*\d.)\s]+/, '').trim();
-      if (cleaned.length < 20) continue;
-      if (!points.some(p => p.toLowerCase() === cleaned.toLowerCase())) points.push(cleaned);
+    // Qualify using three tiers:
+    //  1. First-person opener ("We serve...", "Our broth is...") — always include
+    //  2. Business descriptor signal + enough words — include
+    //  3. Keyword match alone — needs substantial content (≥6 words) so pure
+    //     brand-name labels like "Sweet Dreams Bakery." are excluded
+    if (isFirstPerson) {
+      // accept
+    } else if (isBusinessDesc && words.length >= 4) {
+      // accept
+    } else if (hasKw && words.length >= 6) {
+      // accept
+    } else {
+      continue;
     }
+    const cleaned = sent.replace(/^[-–—•·*\d.)\s]+/, '').trim();
+    if (cleaned.length < 20) continue;
+    if (!points.some(p => p.toLowerCase() === cleaned.toLowerCase())) points.push(cleaned);
   }
   return points.slice(0, 6);
 }
@@ -550,6 +651,8 @@ const INTENT_CTA_PATTERNS: Array<[RegExp, string]> = [
   [/\bbook\s+a\s+table\b/i,                                                                'Book a Table'],
   [/\breserve\s+(?:a\s+)?(?:table|spot|seat)\b/i,                                          'Reserve a Table'],
   [/\bmake\s+a\s+reservation\b/i,                                                          'Reserve a Table'],
+  // "book online" / "book now" — broad booking intent without specific noun
+  [/\bbook\s+(?:online|now|today|here|an?\s+appointment|with\s+us)\b/i,                   'Book Now'],
   [/\bbook\s+(?:a\s+)?(?:room|stay|appointment|session|class|slot|service)\b/i,            'Book Now'],
   [/\bshop\s+(?:now|our|the|online|collection)\b/i,                                       'Shop Now'],
   [/\bbuy\s+(?:now|online|today)\b/i,                                                      'Buy Now'],
@@ -598,10 +701,23 @@ export function understandPrompt(prompt: string): NluContent {
   const explicitPalette = extractColors(text, lower, profile);
   const palette = explicitPalette || (hasCue(lower, MOOD_CUES) ? undefined : profile.palette);
 
-  // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
-  const audience = extractAudience(text, lower);
   const differentiator = extractDifferentiator(lower);
   const activityKeywords = extractActivityKeywords(lower);
+
+  // Extract products early so we can infer audience from product names
+  const namedProducts = extractProducts(text);
+  let products: NluProduct[] | undefined;
+  if (namedProducts && namedProducts.length) {
+    products = enrichProducts(namedProducts, profile);
+  } else if (profile.products.length) {
+    products = profile.products;
+  } else {
+    products = inferProductsFromActivity(activityKeywords, slug, PRODUCT_INDUSTRIES.has(slug));
+  }
+
+  // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
+  // Audience: explicit "for [X]" phrase → implicit from product names → undefined
+  const audience = extractAudience(text, lower) || inferAudienceFromProducts(namedProducts || []);
   const functionalIntents = extractFunctionalIntents(lower);
   // Enrichment signals — elevate copy quality and uniqueness per prompt
   const credentialSignals = extractCredentialSignals(lower);
@@ -617,21 +733,14 @@ export function understandPrompt(prompt: string): NluContent {
   const BELIEF_RE = /we\s+believe\s+(?:that\s+)?([A-Za-z].{15,200}?)(?:\.|$)/i;
   const missionM = MISSION_RE.exec(text) || PURPOSE_RE.exec(text) || BELIEF_RE.exec(text);
   const missionStatement = missionM ? missionM[1].trim() : undefined;
+  // Business logistics — shown in contact/footer sections
+  const operatingHours = extractOperatingHours(text);
+  const phone = extractPhone(text);
+  const startingPrice = extractStartingPrice(text);
   const implicit = NICHE_IMPLICIT_SECTIONS[slug] || NICHE_IMPLICIT_SECTIONS[broad] || [];
 
   // Keywords for the prompt-engine parser (all content words, slightly broader set)
   const keywords = activityKeywords;
-
-  // Products: explicit user list → enriched from profile → inferred from activity
-  const namedProducts = extractProducts(text);
-  let products: NluProduct[] | undefined;
-  if (namedProducts && namedProducts.length) {
-    products = enrichProducts(namedProducts, profile);
-  } else if (profile.products.length) {
-    products = profile.products;
-  } else {
-    products = inferProductsFromActivity(activityKeywords, slug, PRODUCT_INDUSTRIES.has(slug));
-  }
 
   const content: NluContent = {
     industry: slug,
@@ -677,6 +786,10 @@ export function understandPrompt(prompt: string): NluContent {
     sellingPoints: sellingPoints.length ? sellingPoints : undefined,
     intentCta,
     missionStatement,
+    // Business logistics — rendered in contact, footer, and product sections
+    operatingHours,
+    phone,
+    startingPrice,
   };
   return content;
 }
