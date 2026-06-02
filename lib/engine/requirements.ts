@@ -35,8 +35,15 @@ const KIND_TABLE: Array<[RegExp, SectionKind]> = [
   // Athletes / players / roster belong to a "team / featured people" section
   [/team|staff|coaches|trainers|practitioners|athletes?|players?|roster|line\s*up|ambassadors?/, 'team'],
   [/pricing|price list|plans|packages|tiers?|rates|membership options|loyalty|rewards program|points program/, 'pricing'],
-  // Product / catalog / collection / merch / editions
-  [/menu|products?|shop|store|catalog|collections?|lookbook|new arrivals|jerseys?|shoes|sneakers|apparel|merch|limited edition|special edition|drops?/, 'products'],
+  // Product / catalog / collection / merch / editions.
+  // NOTE: bare "shop"/"store" are deliberately NOT here — they are business-type
+  // nouns ("a ramen shop", "a coffee store") far more often than a request for a
+  // catalog section, and matching them fabricated menus for narrative prompts
+  // (the Phase-3 D6 leak). A products section is only requested by (a) an explicit
+  // product/catalog noun, or (b) a genuine commerce phrase ("online store", "shop
+  // now", "add to cart", "e-commerce", "shop/store page"). User-listed items still
+  // activate products via the NLU `_fromUser` path in spec.ts.
+  [/menu|products?|catalog(?:ue)?s?|collections?|lookbook|new arrivals|jerseys?|shoes|sneakers|apparel|merch|limited edition|special edition|drops?|online (?:shop|store)|web\s?shops?|storefronts?|shopping cart|add to cart|e-?commerce|shop (?:now|online|here)|our (?:shop|store)|(?:shop|store) (?:page|section)/, 'products'],
   [/gallery|portfolio|showcase|photos|moments|instagram|lookbook/, 'gallery'],
   [/about|story|heritage|journey|mission|values|who we are/, 'story'],
   [/feature|benefit|why (us|choose)|what we (offer|do)|services|offerings|how it works|class(es)?|programs?|courses?|lessons?|sessions?|workouts?|treatments?/, 'features'],

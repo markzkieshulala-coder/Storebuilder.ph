@@ -2676,6 +2676,10 @@ function renderNewsletterSection(ctx: RenderCtx): string {
 </section>`;
 }
 
+// ── DEFERRED CONTENT (Phase 4) ──────────────────────────────────────────────
+// Team cards are STRUCTURAL PLACEHOLDERS (role-titled, no real names/bios) and are
+// NOT in the ContentPlan. Renders only when a team section is explicitly requested.
+// Carries NO ContentPlan provenance; prompt-first team content is a Phase 4 task.
 function renderTeamSection(ctx: RenderCtx): string {
   const { photos, fp, brandName } = ctx;
   const brand = brandName || 'our studio';
@@ -2776,6 +2780,10 @@ function renderLocationSection(ctx: RenderCtx): string {
 
 // Lightweight blog/news teaser — three article cards anchored on the brand's
 // subject so the section reads as real editorial, not lorem ipsum.
+// ── DEFERRED CONTENT (Phase 4) ──────────────────────────────────────────────
+// Blog post titles are STRUCTURAL PLACEHOLDERS, not prompt-derived, and NOT in the
+// ContentPlan. Renders only when a blog section is explicitly requested. Carries NO
+// ContentPlan provenance; prompt-first blog content is a Phase 4 task.
 function renderBlogSection(ctx: RenderCtx): string {
   const { copy, brandName, photos, fp } = ctx;
   const subject = copy.features[0]?.title?.split(' ')[0] || brandName;
@@ -2801,6 +2809,13 @@ function renderBlogSection(ctx: RenderCtx): string {
 }
 
 // Upcoming events / schedule — dated rows with a clear RSVP affordance.
+// ── DEFERRED CONTENT (Phase 4) ──────────────────────────────────────────────
+// The event rows below are STRUCTURAL PLACEHOLDERS, not prompt-derived content,
+// and they are NOT represented in the ContentPlan. This section renders only when
+// the user explicitly requests an events section, so it never appears
+// unsolicited; but its copy is generic scaffolding. It deliberately carries NO
+// ContentPlan provenance — moving events into the prompt-first ContentPlan is a
+// Phase 4 task (see content/PHASE5_MIGRATION.md).
 function renderEventsSection(ctx: RenderCtx): string {
   const { copy, brandName } = ctx;
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3154,13 +3169,17 @@ function buildPricingMain(copy: SiteCopy): string {
     </div>`;
   }).join('');
 
-  const faqs = [
-    { q:'Can I switch plans?', a:'Yes, upgrade or downgrade at any time.' },
-    { q:'Is there a free trial?', a:'The Starter plan is free forever, no credit card required.' },
-    { q:'What payment methods?', a:'All major credit cards, PayPal, and bank transfer for enterprise plans.' },
-    { q:'Refund policy?', a:'30-day money-back guarantee, no questions asked.' },
-  ];
-  const faqHtml = faqs.map(f => `<details style="border-bottom:1px solid var(--bdr);padding:18px 0"><summary style="font-weight:600;cursor:pointer">${esc(f.q)}</summary><p style="color:var(--muted);margin-top:8px;font-size:var(--small-size)">${esc(f.a)}</p></details>`).join('');
+  // Phase 3C: the pricing page no longer fabricates a hardcoded SaaS FAQ. A FAQ
+  // block appears here ONLY when the ContentPlan actually resolved FAQs (i.e. the
+  // user requested an FAQ section) — so this page can never leak an "FAQ" heading
+  // for a prompt that never asked for one. Content stays sourced from ContentPlan.
+  const faqBlock = (copy.faqs && copy.faqs.length)
+    ? `
+    <div style="max-width:680px;margin:clamp(52px,7vw,90px) auto 0">
+      <h2 class="reveal" style="font-size:var(--h2-size);margin-bottom:24px;text-align:left">FAQ</h2>
+      ${copy.faqs.map(f => `<details style="border-bottom:1px solid var(--bdr);padding:18px 0"><summary style="font-weight:600;cursor:pointer">${esc(f.q)}</summary><p style="color:var(--muted);margin-top:8px;font-size:var(--small-size)">${esc(f.a)}</p></details>`).join('')}
+    </div>`
+    : '';
 
   const main = `
 <section style="padding-top:140px;text-align:center">
@@ -3170,11 +3189,7 @@ function buildPricingMain(copy: SiteCopy): string {
       <h1 style="font-size:var(--h1-size)">Simple, Transparent Pricing</h1>
       <p>No hidden fees. No surprises. Cancel anytime.</p>
     </div>
-    <div class="price-grid reveal">${plansHtml}</div>
-    <div style="max-width:680px;margin:clamp(52px,7vw,90px) auto 0">
-      <h2 class="reveal" style="font-size:var(--h2-size);margin-bottom:24px;text-align:left">FAQ</h2>
-      ${faqHtml}
-    </div>
+    <div class="price-grid reveal">${plansHtml}</div>${faqBlock}
   </div>
 </section>`;
   return main;
@@ -3691,6 +3706,10 @@ function buildNewArrivalsMain(puo: PromptUnderstandingObject, brand: string, cop
 </section>`;
 }
 
+// ── DEFERRED CONTENT (Phase 4) ──────────────────────────────────────────────
+// The standalone team PAGE uses placeholder people (role-titled, generic bios) and
+// is NOT in the ContentPlan. Renders only when a team page is requested. Carries NO
+// ContentPlan provenance; prompt-first team content is a Phase 4 task.
 function buildTeamMain(brand: string, copy: SiteCopy, puo: PromptUnderstandingObject, fp: number): string {
   const photos = getPhotos(puo, fp);
   const kws = getContentWords(puo);

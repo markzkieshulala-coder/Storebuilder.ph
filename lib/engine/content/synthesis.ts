@@ -136,7 +136,10 @@ export interface NluSignals {
   tagline: string;
   about: string;
   brandVoice: { register?: string; usesExclamations?: boolean } | undefined;
-  products: Array<{ name: string; desc: string; price: string }>;
+  /** `_fromUser` is true ONLY when the user explicitly listed this item in the
+   *  prompt (inline "we offer X, Y" or a bullet list) — never for niche-bank or
+   *  activity-inferred fallbacks. Resolvers use it to keep provenance honest. */
+  products: Array<{ name: string; desc: string; price: string; fromUser: boolean }>;
   faqs: Array<{ q: string; a: string }>;
   sections: string[];
 }
@@ -151,9 +154,9 @@ export function extractNluSignals(puo: PromptUnderstandingObject): NluSignals {
   const sellingPoints = arr<string>(llm.sellingPoints).filter(Boolean);
   const descriptiveSPs = sellingPoints.filter(sp => !CTA_VERB_RE.test(sp));
 
-  const products = arr<{ name?: string; desc?: string; price?: string }>(llm.products)
+  const products = arr<{ name?: string; desc?: string; price?: string; _fromUser?: boolean }>(llm.products)
     .filter(p => str(p?.name))
-    .map(p => ({ name: str(p.name), desc: str(p.desc), price: str(p.price) }));
+    .map(p => ({ name: str(p.name), desc: str(p.desc), price: str(p.price), fromUser: p._fromUser === true }));
 
   const faqs = arr<{ q?: string; a?: string }>(llm.faqs)
     .filter(f => str(f?.q) && str(f?.a))

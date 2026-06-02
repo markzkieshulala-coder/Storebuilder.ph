@@ -273,7 +273,9 @@ function resolveFeatures(ctx: Ctx, iconPool: string[], featureHref: string): Con
   const descFor = FEATURE_DESC_BY_NICHE[normIndustry] || FEATURE_DESC_BY_NICHE.general;
   const featureKws = [...new Set([...nlu.activityKeywords.map(k => k.toLowerCase()), ...kws])].slice(0, 6);
   const spTitles = nlu.descriptiveSPs.map(spToTitle);
-  const productTitles = nlu.products.map(p => p.name).filter(Boolean);
+  // Only USER-listed product names are prompt-faithful feature titles; niche-bank
+  // product names must not masquerade as prompt-derived content.
+  const productTitles = nlu.products.filter(p => p.fromUser).map(p => p.name).filter(Boolean);
 
   const hasPromptContent = spTitles.length > 0 || productTitles.length > 0;
   const source = hasPromptContent ? 'prompt' : (featureKws.length > 0 ? 'nlu' : 'niche');
@@ -331,10 +333,12 @@ function resolveTestimonials(ctx: Ctx): ContentValue<TestimonialItem[]> {
   const { nlu, brand, mainKw, secKw, normIndustry, fp } = ctx;
   const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
 
+  // Only USER-listed products may appear in quotes / drive 'prompt' provenance.
+  const userProducts = nlu.products.filter(p => p.fromUser);
   const tSp0 = nlu.descriptiveSPs[0] ? spToTitle(nlu.descriptiveSPs[0]).toLowerCase() : mainKw.toLowerCase();
   const tSp1 = nlu.descriptiveSPs[1] ? spToTitle(nlu.descriptiveSPs[1]).toLowerCase() : secKw.toLowerCase();
-  const tProd0 = nlu.products[0]?.name || tSp0;
-  const tProd1 = nlu.products[1]?.name || tSp1;
+  const tProd0 = userProducts[0]?.name || tSp0;
+  const tProd1 = userProducts[1]?.name || tSp1;
 
   const nicheQuotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
   const interpolate = (q: string) =>
@@ -347,13 +351,13 @@ function resolveTestimonials(ctx: Ctx): ContentValue<TestimonialItem[]> {
           return `${brand}'s ${tSp0} is exactly what I was looking for. I've tried other places — nothing even comes close.`;
         return interpolate(nicheQuotes[0]);
       case 1:
-        if (nlu.products.length >= 1)
+        if (userProducts.length >= 1)
           return `The ${tProd0} at ${brand} exceeded every expectation. I've already recommended it to everyone I know.`;
         if (nlu.descriptiveSPs.length >= 2)
           return `${brand} delivers on every promise — especially the ${tSp1}. An experience worth coming back for again and again.`;
         return interpolate(nicheQuotes[1]);
       default:
-        if (nlu.products.length >= 2)
+        if (userProducts.length >= 2)
           return `Came for the ${tProd0}, stayed for the ${tProd1}. ${brand} is in a class of its own.`;
         if (nlu.descriptiveSPs.length >= 1)
           return `Once you've experienced ${tSp0} at ${brand}, you won't go anywhere else. The quality speaks for itself.`;
@@ -376,7 +380,7 @@ function resolveTestimonials(ctx: Ctx): ContentValue<TestimonialItem[]> {
     role: roles[i % roles.length] || roles[0],
   }));
 
-  const hasPrompt = nlu.descriptiveSPs.length > 0 || nlu.products.length > 0;
+  const hasPrompt = nlu.descriptiveSPs.length > 0 || userProducts.length > 0;
   return cv(items, hasPrompt ? 'prompt' : 'niche', 'testimonials');
 }
 
@@ -481,9 +485,9 @@ function resolveMissionBody(ctx: Ctx): ContentValue<string> {
 
 function resolveGalleryHeading(ctx: Ctx): ContentValue<string> {
   const { nlu, brand, normIndustry } = ctx;
-  const productTitles = nlu.products.map(p => p.name).filter(Boolean);
+  const userProductTitles = nlu.products.filter(p => p.fromUser).map(p => p.name).filter(Boolean);
   const galleryLabel = GALLERY_LABEL_BY_NICHE[normIndustry] || GALLERY_LABEL_BY_NICHE.general;
-  if (productTitles.length >= 2) return cv(`${brand} — ${galleryLabel}`, 'prompt', 'productTitles');
+  if (userProductTitles.length >= 2) return cv(`${brand} — ${galleryLabel}`, 'prompt', 'productTitles');
   return cv(`Our ${galleryLabel}`, 'niche', 'galleryLabel');
 }
 
@@ -501,28 +505,30 @@ function isRealProduct(p: { name: string; desc?: string; price?: string }): bool
 function resolveProducts(ctx: Ctx): ContentValue<Array<{ name: string; desc: string; price: string }> | null> {
   const { nlu, puo, spec, normIndustry } = ctx;
 
-  // D6: products ONLY when spec includes products section
+  // D6: products ONLY when spec includes products section. The section is in the
+  // spec only when the user (a) listed items (NLU `_fromUser` → spec.ts) or
+  // (b) explicitly requested products/menu/shop/catalog (requirements.ts).
   if (!spec.sections.includes('products')) {
     return cv(null, 'absent', 'spec.sections.no-products');
   }
 
-  // Tier 1: Prompt — explicit NLU-extracted products (filtered for quality)
-  const realProducts = nlu.products.filter(isRealProduct);
-  if (realProducts.length > 0) {
-    return cv(realProducts, 'prompt', 'llm.products');
+  // Tier 1: Prompt — items the USER explicitly listed. Only `_fromUser` products
+  // may be labeled 'prompt'. Niche-bank / activity-inferred items NEVER are.
+  const userProducts = nlu.products.filter(p => p.fromUser && isRealProduct(p));
+  if (userProducts.length > 0) {
+    return cv(userProducts.map(({ name, desc, price }) => ({ name, desc, price })), 'prompt', 'llm.products[_fromUser]');
   }
 
-  // D6: if spec has 'products' only because of generic NLU fallback, treat as absent
-  // The niche bank is only consulted when the user explicitly requests a products page
-  // (i.e., the spec.sections 'products' entry came from a real prompt signal).
-  if (nlu.products.length > 0 && realProducts.length === 0) {
-    // All NLU products were generic fallbacks — no real products in prompt
-    return cv(null, 'absent', 'all-products-are-generic-fallbacks');
-  }
-
-  // Tier 3: Niche bank (only if products section was genuinely requested)
+  // Section was requested (case b) but the user listed no items. Fill from the
+  // niche bank — labeled 'niche', because this content is NOT prompt-derived.
   const bank = resolveProductBank(puo.extractedKeywords, puo.inferredIndustry, normIndustry);
   if (bank) return cv(bank.items, 'niche', 'productBank');
+
+  // Last resort: NLU's own niche/activity-inferred items (still not user-listed).
+  const inferred = nlu.products.filter(isRealProduct);
+  if (inferred.length > 0) {
+    return cv(inferred.map(({ name, desc, price }) => ({ name, desc, price })), 'niche', 'nlu.inferred');
+  }
 
   return cv(null, 'absent', 'no-products');
 }
