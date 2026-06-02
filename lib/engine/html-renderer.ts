@@ -19,7 +19,8 @@ import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import { checkDiversity, registerGeneration } from './diversity-engine';
 import type { DiversityEngineInput } from './diversity-engine';
 import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
-import { canonicalKind, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
+import { canonicalKind, detectRenderedKinds, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
+import { buildWebsiteSpec, type WebsiteSpec } from './spec';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -102,6 +103,15 @@ export interface MultiPageOutput {
   primaryPage: string;
   /** Requirement-fidelity verification of the rendered site against the prompt. */
   fidelity: FidelityResult;
+  /** The WebsiteSpec that drove section inclusion for this render (Phase 1). */
+  spec: WebsiteSpec;
+  /**
+   * enforceSections result for the home page.
+   * After Phase 1, this must always be { dropped: [], injected: [] } — the spec
+   * pre-filters forbidden nodes and pre-renders required sections so the safety
+   * net has nothing to correct.
+   */
+  homeEnforcement: { dropped: SectionKind[]; injected: SectionKind[] };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2635,7 +2645,12 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
 // as the fallback for niches without products AND as the injector when a user
 // explicitly asks for a photo/Instagram gallery ALONGSIDE a product shop, so the
 // two are never conflated.
-function renderPhotoGallerySection(node: LayoutNode, ctx: RenderCtx, eyebrow = 'Showcase'): string {
+function renderPhotoGallerySection(
+  node: LayoutNode,
+  ctx: RenderCtx,
+  eyebrow = 'Showcase',
+  title?: string,
+): string {
   const { copy, photos, fp } = ctx;
   const variant = node.variant as string;
   const gridClass = variant === 'filmstrip' ? 'filmstrip' : variant === 'panorama' ? 'panorama' : variant === 'masonry' ? 'masonry' : 'uniform';
@@ -2648,12 +2663,16 @@ function renderPhotoGallerySection(node: LayoutNode, ctx: RenderCtx, eyebrow = '
     </div>`;
   }).join('');
 
+  // When an explicit title is passed (e.g. from spec-driven injection alongside a
+  // product grid), use it so the gallery gets a distinct h2 from the product section.
+  const heading = title ?? copy.galleryHeading;
+
   return `
 <section>
   <div class="wrap">
     <div class="sec-head centered reveal">
       <span class="eyebrow">${esc(eyebrow)}</span>
-      <h2>${esc(copy.galleryHeading)}</h2>
+      <h2>${esc(heading)}</h2>
     </div>
     <div class="gallery-grid ${gridClass}">${items}</div>
     <div style="text-align:center;margin-top:clamp(28px,4vw,44px)">
@@ -3050,9 +3069,10 @@ function renderInjectedKind(kind: string, ctx: RenderCtx, counters: Record<strin
     case 'testimonials': return renderListSection({ type: 'list', variant: 'testimonials' } as LayoutNode, ctx);
     case 'faq':          return renderListSection({ type: 'list', variant: 'accordion' } as LayoutNode, ctx);
     case 'stats':        return renderStripSection({ type: 'strip', variant: 'stats-row' } as LayoutNode, ctx);
-    // 'gallery' forces a real PHOTO gallery (never a product grid), so a user who
-    // asks for both a shop AND an "Instagram gallery" gets two distinct sections.
-    case 'gallery':      return renderPhotoGallerySection({ type: 'gallery', variant: 'masonry' } as LayoutNode, ctx, 'Gallery');
+    // 'gallery' forces a real PHOTO gallery (gallery-grid, never a product-grid).
+    // Pass an explicit title so heading dedup does not block this injection when a
+    // product grid (which uses copy.galleryHeading) is already on the page.
+    case 'gallery':      return renderPhotoGallerySection({ type: 'gallery', variant: 'masonry' } as LayoutNode, ctx, 'Gallery', 'Photo Gallery');
     case 'products':     return renderGallerySection({ type: 'gallery', variant: 'uniform' } as LayoutNode, ctx);
     case 'story':        return renderSplitSection({ type: 'split', variant: 'equal' } as LayoutNode, ctx, bump('split'));
     case 'features':     return renderClusterSection({ type: 'cluster', variant: 'grid', grid: { columnsDesktop: 3 } } as unknown as LayoutNode, ctx, bump('cluster'));
@@ -4085,8 +4105,29 @@ function buildHiddenSecondaryPage(slug: string, normIndustry: string, brand: str
 }
 
 // ─────────────────────────────────────────────────────────────────
-// HOMEPAGE BUILDER — driven by LayoutGraph nodes
+// HOMEPAGE BUILDER — spec-driven section inclusion (Phase 1)
 // ─────────────────────────────────────────────────────────────────
+//
+// Section inclusion is now decided entirely by WebsiteSpec, not by the layout
+// graph. The graph still controls visual structure (node variants, ordering,
+// density) — that is Phase 2. Here it can only supply visual nodes; which
+// semantic sections appear is owned by the spec.
+//
+// Four-step execution:
+//   1. Pre-filter graph nodes — drop any that would render a forbidden kind
+//      before rendering begins. composeLayoutGraph cannot add what is removed.
+//   2. Render the filtered node list — visual structure from the composer.
+//   3. Spec-driven section construction — render every spec-required kind not
+//      already present. This is proactive construction, not reactive correction.
+//   4. enforceSections — SAFETY NET ONLY. For a correctly-formed spec, this
+//      call produces dropped=[] and injected=[].
+
+interface HomeMainResult {
+  html: string;
+  /** enforceSections result — must be { dropped: [], injected: [] } after Phase 1. */
+  dropped: SectionKind[];
+  injected: SectionKind[];
+}
 
 function buildHomeMain(
   graph: LayoutGraph,
@@ -4094,29 +4135,38 @@ function buildHomeMain(
   brand: string,
   navItems: Array<{ label: string; href: string }>,
   copy: SiteCopy,
-  fp: number
-): string {
+  fp: number,
+  spec: WebsiteSpec,
+): HomeMainResult {
   const photos = getPhotos(puo, fp);
   const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0, brandName: brand };
   const counters: Record<string, number> = {};
 
-  // Singleton sections that must render at most once per page. The layout graph
-  // can emit two galleries or two FAQ/testimonial blocks; rendering both reads
-  // as a duplicate section. We keep the first occurrence and drop later repeats.
-  // 'signal' (CTA) is also capped to ONE on the home page — a professional page
-  // closes with a single call-to-action, not two competing ones.
+  const forbiddenSet = new Set(spec.forbiddenSections);
+
+  // ── STEP 1: Pre-filter graph nodes against spec.forbiddenSections ─────────
+  // List nodes are the only graph type with a deterministic semantic kind before
+  // rendering: accordion → faq, other → testimonials. Remove them here so they
+  // are never passed to renderNode — composeLayoutGraph cannot override the spec.
+  const filteredNodes = graph.nodes.filter(node => {
+    if (node.type === 'list') {
+      const kind: SectionKind = node.variant === 'accordion' ? 'faq' : 'testimonials';
+      return !forbiddenSet.has(kind);
+    }
+    return true;
+  });
+
+  // Singleton dedup: cap gallery, faq, testimonials, strip, and signal to one
+  // each. Hero/cluster/tile/stage/frame/split vary by content and may repeat.
   const seenKinds = new Set<string>();
-  const sectionKind = (node: LayoutNode): string | null => {
+  const nodeKind = (node: LayoutNode): string | null => {
     if (node.type === 'gallery') return 'gallery';
     if (node.type === 'list') return node.variant === 'accordion' ? 'faq' : 'testimonials';
     if (node.type === 'strip') return 'strip';
     if (node.type === 'signal') return 'signal';
-    return null; // hero/cluster/tile/stage/frame/split may repeat (varied content)
+    return null;
   };
 
-  // Final guard: never ship two sections with the SAME heading. Even varied-content
-  // types (split/stage/cluster) can land on the same generated <h2>; a duplicate
-  // heading is the clearest "unfinished/AI" tell, so we drop the later occurrence.
   const seenHeadings = new Set<string>();
   const headingOf = (htmlFrag: string): string | null => {
     const m = htmlFrag.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/);
@@ -4124,8 +4174,9 @@ function buildHomeMain(
     return m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase() || null;
   };
 
-  const rendered = graph.nodes.map(node => {
-    const kind = sectionKind(node);
+  // ── STEP 2: Render filtered graph nodes ───────────────────────────────────
+  const rendered = filteredNodes.map(node => {
+    const kind = nodeKind(node);
     if (kind) {
       if (seenKinds.has(kind)) return '';
       seenKinds.add(kind);
@@ -4139,35 +4190,58 @@ function buildHomeMain(
     return html;
   }).filter(Boolean);
 
-  // ── REQUIREMENT ENFORCEMENT ────────────────────────────────────────────────
-  // Hard contract with the user's prompt:
-  //   • FORBIDDEN sections (e.g. "do not include testimonials") are DROPPED — even
-  //     when the layout composer emitted them on its own.
-  //   • REQUIRED sections (their explicit bullet list + functional intents) are
-  //     GUARANTEED present — injected if the composed page omitted them.
-  // This is what makes generation prompt-faithful instead of a fixed template.
-  const llmReq = (puo.customAttributes as { llm?: { sections?: unknown; excludedSections?: unknown } } | undefined)?.llm;
-  const required = canonicalKindsOf(llmReq?.sections);
-  const forbidden = canonicalKindsOf(llmReq?.excludedSections);
+  // ── STEP 3: Spec-driven section construction ──────────────────────────────
+  // For each kind in spec.sections not yet covered by the graph output, render
+  // it now. This is PROACTIVE CONSTRUCTION from the spec — not reactive
+  // correction. After this step enforceSections should find nothing to do.
+  const renderedKinds = detectRenderedKinds(rendered.join('\n'));
+  const specBuilt: string[] = [];
+
+  // Slot spec-built sections before the closing CTA so the page ends on signal.
+  let insertAt = rendered.length;
+  for (let i = rendered.length - 1; i >= 0; i--) {
+    if (/signal-section/.test(rendered[i])) { insertAt = i; break; }
+  }
+
+  for (const kind of spec.sections) {
+    if (forbiddenSet.has(kind)) continue;
+    if (renderedKinds.has(kind)) continue;
+
+    let html = '';
+    try { html = renderInjectedKind(kind, ctx, counters); } catch { html = ''; }
+    if (!html) continue;
+
+    // Never let a spec-built fragment introduce a forbidden kind.
+    const builtKinds = detectRenderedKinds(html);
+    if ([...builtKinds].some(k => forbiddenSet.has(k))) continue;
+
+    const h = headingOf(html);
+    if (h && seenHeadings.has(h)) continue;
+    if (h) seenHeadings.add(h);
+
+    renderedKinds.add(kind);
+    specBuilt.push(html);
+  }
+
+  const preEnforced = [...rendered];
+  preEnforced.splice(insertAt, 0, ...specBuilt);
+
+  // ── STEP 4: Safety net ────────────────────────────────────────────────────
+  // enforceSections is now a safety net only. For a well-formed spec where
+  // Steps 1–3 executed correctly, dropped and injected will both be empty.
   const enforced = enforceSections(
-    rendered,
-    required,
-    forbidden,
+    preEnforced,
+    spec.sections,
+    spec.forbiddenSections,
     (kind) => renderInjectedKind(kind, ctx, counters),
     headingOf,
   );
-  return enforced.sections.join('\n');
-}
 
-// Map a loose list of section labels/kinds → de-duped canonical kinds.
-function canonicalKindsOf(raw: unknown): SectionKind[] {
-  if (!Array.isArray(raw)) return [];
-  const out: SectionKind[] = [];
-  for (const r of raw) {
-    const k = canonicalKind(String(r));
-    if (k && k !== 'cta' && !out.includes(k)) out.push(k);
-  }
-  return out;
+  return {
+    html:     enforced.sections.join('\n'),
+    dropped:  enforced.dropped,
+    injected: enforced.injected,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -4423,8 +4497,14 @@ function renderMultiPageSiteInner(
   const font = getFontConfig(puo);
   const css  = buildCSSFromPUO(puo, font);
 
+  // Phase 1 — Build the WebsiteSpec: the sole source of truth for which sections
+  // exist and which are forbidden. Built here, before any rendering, so every
+  // page builder works from the same authoritative decision.
+  const spec = buildWebsiteSpec(prompt, puo);
+
   // 6. Generate each page's main content (own graph / context per page)
-  const homeMain    = buildHomeMain(rootGraph, puo, brand, navItems, copy, fp);
+  const homeResult  = buildHomeMain(rootGraph, puo, brand, navItems, copy, fp, spec);
+  const homeMain    = homeResult.html;
   const aboutMain   = buildAboutMain(puo, brand, navItems, copy, fp + 1);
   const galleryMain = buildGalleryMain(puo, brand, copy, fp + 2);
   const contactMain = buildContactMain(brand, copy);
@@ -4477,6 +4557,8 @@ function renderMultiPageSiteInner(
     gallerySlug,
     primaryPage: spaDocument,
     fidelity,
+    spec,
+    homeEnforcement: { dropped: homeResult.dropped, injected: homeResult.injected },
   };
 }
 
