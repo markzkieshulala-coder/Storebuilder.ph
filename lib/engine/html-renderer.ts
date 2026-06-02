@@ -16,11 +16,10 @@ import { buildUnderstandingSync } from './understanding';
 import { composeLayout } from './layout-composer';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
-import { checkDiversity, registerGeneration } from './diversity-engine';
-import type { DiversityEngineInput } from './diversity-engine';
 import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
 import { canonicalKind, detectRenderedKinds, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
 import { buildWebsiteSpec, type WebsiteSpec } from './spec';
+import { buildLayoutPlan, type LayoutPlan, type SectionPlacement } from './layout';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -765,7 +764,7 @@ const INDUSTRY_KEY_MAP: Record<string, string> = {
   podcast: 'agency', winery: 'food', bookstore: 'ecommerce',
 };
 
-function normalizeIndustry(raw: string): string {
+export function normalizeIndustry(raw: string): string {
   return INDUSTRY_KEY_MAP[raw] || 'general';
 }
 
@@ -2177,134 +2176,10 @@ function getHiddenPageConfig(normIndustry: string): HiddenPageCfg {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// DIVERSITY ENGINE INPUT BUILDER — bridges LayoutGraph + PUO to fingerprinter
-// ─────────────────────────────────────────────────────────────────
-
-function buildDiversityInput(prompt: string, graph: LayoutGraph, puo: PromptUnderstandingObject): DiversityEngineInput {
-  const cp = puo.visual.colorPalette;
-  const colorPalette: Record<string, string> = {
-    primary: cp.primary,
-    secondary: cp.secondary,
-    accent: cp.accent,
-    background: cp.background,
-    surface: cp.surface,
-    text: cp.text,
-    muted: cp.muted,
-    border: cp.border,
-    ...cp.derived,
-  };
-
-  return {
-    prompt,
-    layoutGraph: {
-      nodes: graph.nodes.map(n => ({
-        id: n.id,
-        type: n.type,
-        variant: n.variant,
-        depth: n.depth,
-        density: n.density,
-        visualWeight: n.visualWeight,
-        rhythm: n.rhythm,
-        span: n.span,
-        height: n.height,
-        composition: {
-          balance: n.composition.balance,
-          tension: n.composition.tension,
-          primaryAxis: n.composition.primaryAxis,
-          focalPoints: n.composition.focalPoints.map(fp => ({ x: fp.x, y: fp.y })),
-          negativeSpaceRatio: n.composition.negativeSpaceRatio,
-          alignment: n.composition.alignment,
-        },
-        grid: {
-          type: n.grid.type,
-          columns: n.grid.columns,
-          gap: n.grid.gap,
-          autoFlow: n.grid.autoFlow,
-          alignment: n.grid.alignment,
-        },
-        spacing: {
-          before: n.spacing.before,
-          after: n.spacing.after,
-          internal: n.spacing.internal,
-          rhythm: n.spacing.rhythm,
-        },
-        zIndex: n.zIndex,
-        mediaPlacement: n.mediaPlacement,
-        ctaPlacement: n.ctaPlacement,
-        children: n.children,
-      })),
-      edges: graph.edges.map(e => ({
-        from: e.from,
-        to: e.to,
-        type: e.type,
-        weight: e.weight,
-        spacingMultiplier: e.spacingMultiplier,
-      })),
-      complexity: graph.complexity,
-      hasNesting: graph.hasNesting,
-      maxDepth: graph.maxDepth,
-      nodeCount: graph.nodeCount,
-      compositionProfile: graph.compositionProfile,
-      flowProfile: {
-        direction: graph.flowProfile.direction,
-        scrollBehavior: graph.flowProfile.scrollBehavior,
-        sectionTransitions: graph.flowProfile.sectionTransitions,
-        readingPattern: graph.flowProfile.readingPattern,
-      },
-      gridSystem: {
-        baseUnit: graph.gridSystem.baseUnit,
-        maxWidth: graph.gridSystem.maxWidth,
-        gutter: graph.gridSystem.gutter,
-        columnCount: graph.gridSystem.columnCount,
-        behavior: graph.gridSystem.behavior,
-      },
-      spacingRhythm: {
-        pattern: graph.spacingRhythm.pattern,
-        base: graph.spacingRhythm.base,
-        ratio: graph.spacingRhythm.ratio,
-        values: graph.spacingRhythm.values,
-      },
-      visualHierarchy: {
-        levels: graph.visualHierarchy.levels,
-        dominantElement: graph.visualHierarchy.dominantElement,
-        rhythm: graph.visualHierarchy.rhythm,
-        progression: graph.visualHierarchy.progression,
-      },
-    },
-    visualSystem: {
-      colorPalette,
-      typography: {
-        family: {
-          heading: puo.visual.typography.family.heading,
-          body: puo.visual.typography.family.body,
-          mono: puo.visual.typography.family.mono,
-        },
-        scale: puo.visual.typography.scale,
-        weight: puo.visual.typography.weight,
-        letterSpacing: {
-          heading: puo.visual.typography.letterSpacing.heading,
-          body: puo.visual.typography.letterSpacing.body,
-        },
-      },
-      borderRadius: { style: puo.visual.borderRadius.style },
-      shadows: { style: puo.visual.shadows.style },
-      spacing: {
-        unit: puo.visual.spacing.unit,
-        section: puo.visual.spacing.section,
-        container: puo.visual.spacing.container,
-        gutter: puo.visual.spacing.gutter,
-        gridGap: puo.visual.spacing.gridGap,
-        scale: puo.visual.spacing.scale,
-      },
-    },
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────
 // LAYOUT GRAPH COMPOSER INPUT BUILDER
 // ─────────────────────────────────────────────────────────────────
 
-function buildComposerInput(puo: PromptUnderstandingObject): ComposerInput {
+function buildComposerInput(puo: PromptUnderstandingObject, allowedSectionKinds?: string[]): ComposerInput {
   return {
     puo: {
       visualMood: puo.visualMood,
@@ -2320,6 +2195,7 @@ function buildComposerInput(puo: PromptUnderstandingObject): ComposerInput {
       pageStructure: puo.pageStructure.map(s => ({ id: s.id, type: s.type, importance: s.importance, order: s.order })),
       originalPrompt: puo.originalPrompt,
     },
+    allowedSectionKinds,
   };
 }
 
@@ -4137,6 +4013,7 @@ function buildHomeMain(
   copy: SiteCopy,
   fp: number,
   spec: WebsiteSpec,
+  layoutPlan: LayoutPlan,
 ): HomeMainResult {
   const photos = getPhotos(puo, fp);
   const ctx: RenderCtx = { puo, copy, photos, fp, pageName: 'home', navItems, featSeg: 0, brandName: brand };
@@ -4190,28 +4067,28 @@ function buildHomeMain(
     return html;
   }).filter(Boolean);
 
-  // ── STEP 3: Spec-driven section construction ──────────────────────────────
-  // For each kind in spec.sections not yet covered by the graph output, render
-  // it now. This is PROACTIVE CONSTRUCTION from the spec — not reactive
-  // correction. After this step enforceSections should find nothing to do.
+  // ── STEP 3: Spec-driven section construction in user-intent order ────────────
+  // Iterate layoutPlan.homeSections (already sorted: user-stated first by clause
+  // index, inferred last). For each kind not yet covered by the graph, render it
+  // and insert at a position proportional to its place in the user's stated list.
+  //
+  // User-stated sections (userOrder !== null) are spread proportionally across
+  // the rendered fragment list so the page order mirrors the prompt order.
+  // Inferred sections (null userOrder) are appended before the last signal node.
+  //
+  // After this step enforceSections should find nothing to do.
   const renderedKinds = detectRenderedKinds(rendered.join('\n'));
-  const specBuilt: string[] = [];
 
-  // Slot spec-built sections before the closing CTA so the page ends on signal.
-  let insertAt = rendered.length;
-  for (let i = rendered.length - 1; i >= 0; i--) {
-    if (/signal-section/.test(rendered[i])) { insertAt = i; break; }
-  }
-
-  for (const kind of spec.sections) {
-    if (forbiddenSet.has(kind)) continue;
-    if (renderedKinds.has(kind)) continue;
+  // Collect placements that need injection, in homeSections order.
+  const toInject: Array<{ placement: SectionPlacement; html: string }> = [];
+  for (const placement of layoutPlan.homeSections) {
+    if (forbiddenSet.has(placement.kind)) continue;
+    if (renderedKinds.has(placement.kind)) continue;
 
     let html = '';
-    try { html = renderInjectedKind(kind, ctx, counters); } catch { html = ''; }
+    try { html = renderInjectedKind(placement.kind, ctx, counters); } catch { html = ''; }
     if (!html) continue;
 
-    // Never let a spec-built fragment introduce a forbidden kind.
     const builtKinds = detectRenderedKinds(html);
     if ([...builtKinds].some(k => forbiddenSet.has(k))) continue;
 
@@ -4219,12 +4096,37 @@ function buildHomeMain(
     if (h && seenHeadings.has(h)) continue;
     if (h) seenHeadings.add(h);
 
-    renderedKinds.add(kind);
-    specBuilt.push(html);
+    renderedKinds.add(placement.kind);
+    toInject.push({ placement, html });
   }
 
   const preEnforced = [...rendered];
-  preEnforced.splice(insertAt, 0, ...specBuilt);
+
+  // Insert user-ordered sections proportionally (reverse order so earlier
+  // positions are unaffected by later insertions).
+  const userOrdered = toInject.filter(x => x.placement.userOrder !== null);
+  if (userOrdered.length > 0) {
+    const baseLen = preEnforced.length;
+    // Pre-compute target indices from the original array length
+    const insertPositions = userOrdered.map((x, i) => {
+      const ratio = 0.15 + 0.7 * ((i + 0.5) / userOrdered.length);
+      return Math.round(ratio * baseLen);
+    });
+    // Insert from highest to lowest position so earlier positions stay stable
+    for (let j = userOrdered.length - 1; j >= 0; j--) {
+      preEnforced.splice(insertPositions[j], 0, userOrdered[j].html);
+    }
+  }
+
+  // Append inferred sections before the last signal node
+  const inferred = toInject.filter(x => x.placement.userOrder === null);
+  if (inferred.length > 0) {
+    let signalPos = preEnforced.length;
+    for (let i = preEnforced.length - 1; i >= 0; i--) {
+      if (/signal-section/.test(preEnforced[i])) { signalPos = i; break; }
+    }
+    preEnforced.splice(signalPos, 0, ...inferred.map(x => x.html));
+  }
 
   // ── STEP 4: Safety net ────────────────────────────────────────────────────
   // enforceSections is now a safety net only. For a well-formed spec where
@@ -4448,89 +4350,59 @@ function renderMultiPageSiteInner(
 
   const fp = fnv(brand + '|' + prompt);
 
-  // 2. Generate root layout graph — unique section ordering per prompt
-  const rootResult = composeLayout(buildComposerInput(puo));
-  let rootGraph = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
-
-  // 2b. Diversity check — mutate if too similar to recent generations
-  const divInput = buildDiversityInput(prompt, rootGraph, puo);
-  const divResult = checkDiversity(divInput);
-  if (!divResult.isDiverse && divResult.report.exceedsThreshold) {
-    // Re-compose with mutation salt to produce a structurally different layout
-    const mutationSalt = ` [m${divResult.report.recommendedMutationStrategies.slice(0, 2).join('-')}]`;
-    const saltedPuo: PromptUnderstandingObject = {
-      ...puo,
-      originalPrompt: puo.originalPrompt + mutationSalt,
-    };
-    const remixed = composeLayout(buildComposerInput(saltedPuo));
-    if (remixed.success) rootGraph = remixed.graph;
-  }
-  // Register this generation in diversity history
-  registerGeneration(prompt, divResult.fingerprint);
-
-  // 3. Build site copy from PUO
-  const copy = buildSiteCopy(puo, brand, fp);
-  const gallerySlug = copy.gallerySlug;
-
-  // Detect product-selling websites — these get a cart + checkout page and a
-  // "Cart" nav item with a live badge showing item count.
+  // 2. Build spec + layout plan — single authorities on sections and page structure.
+  //    Both are derived from the prompt and puo before any rendering so every
+  //    downstream consumer works from the same authoritative decisions.
   const normIndustry2 = normalizeIndustry(puo.inferredIndustry);
-  const PRODUCT_NICHES = new Set(['ecommerce','fashion','jewelry','florist','craft','pet','beauty','retail','shop','store','dessert','juicebar','bakery','coffee']);
-  const isProductBiz = PRODUCT_NICHES.has(normIndustry2) || puo.layout.direction === 'e-commerce';
+  const spec = buildWebsiteSpec(prompt, puo);
+  const layoutPlan = buildLayoutPlan(prompt, puo, spec, normIndustry2);
+  const { gallerySlug, hasCart, hasPricing } = layoutPlan;
+  const navItems = layoutPlan.navigation;
 
-  // 4. Navigation — real routes
-  const navItems: Array<{ label: string; href: string }> = [
-    { label: 'Home',  href: '.' },
-    { label: 'About', href: 'about' },
-    { label: copy.galleryHeading.split(' ').pop() || 'Gallery', href: gallerySlug },
-    { label: 'Contact', href: 'contact' },
-  ];
-  if (copy.pricingPlans) {
-    navItems.splice(3, 0, { label: 'Pricing', href: 'pricing' });
-  }
-  if (isProductBiz) {
-    // Cart nav item — badge count is updated by JS on every page load
-    navItems.push({ label: 'Cart', href: 'cart' });
-  }
+  // 3. Generate root layout graph — pass allowedSectionKinds so the composer
+  //    avoids generating nodes the spec has already forbidden.
+  const allowedKinds = spec.sections as string[];
+  const rootResult = composeLayout(buildComposerInput(puo, allowedKinds));
+  const rootGraph = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
+
+  // 4. Build site copy from PUO
+  const copy = buildSiteCopy(puo, brand, fp);
 
   // 5. CSS built from PUO — entirely prompt-faithful
   const font = getFontConfig(puo);
   const css  = buildCSSFromPUO(puo, font);
 
-  // Phase 1 — Build the WebsiteSpec: the sole source of truth for which sections
-  // exist and which are forbidden. Built here, before any rendering, so every
-  // page builder works from the same authoritative decision.
-  const spec = buildWebsiteSpec(prompt, puo);
-
   // 6. Generate each page's main content (own graph / context per page)
-  const homeResult  = buildHomeMain(rootGraph, puo, brand, navItems, copy, fp, spec);
+  const homeResult  = buildHomeMain(rootGraph, puo, brand, navItems, copy, fp, spec, layoutPlan);
   const homeMain    = homeResult.html;
   const aboutMain   = buildAboutMain(puo, brand, navItems, copy, fp + 1);
   const galleryMain = buildGalleryMain(puo, brand, copy, fp + 2);
   const contactMain = buildContactMain(brand, copy);
-  const pricingMain = copy.pricingPlans ? buildPricingMain(copy) : '';
+  const pricingMain = hasPricing ? buildPricingMain(copy) : '';
 
   // 7. Primary document = self-contained SPA (all pages, client-side routing).
-  //    This is what gets stored in htmlContent and served everywhere, so every
-  //    button navigates to a real different page with no server/publish dependency.
-  const routes: Array<{ key: string; main: string }> = [
-    { key: 'home', main: homeMain },
-    { key: 'about', main: aboutMain },
-    { key: gallerySlug, main: galleryMain },
-    { key: 'contact', main: contactMain },
-  ];
-  if (pricingMain) routes.splice(3, 0, { key: 'pricing', main: pricingMain });
-  // Product businesses get cart + checkout as first-class pages in the SPA.
-  if (isProductBiz) {
-    routes.push({ key: 'cart',     main: buildCartMain(brand, copy) });
-    routes.push({ key: 'checkout', main: buildCheckoutMain(brand, copy) });
+  //    Routes are driven by layoutPlan.pages — no ad-hoc conditionals here.
+  const routes: Array<{ key: string; main: string }> = [];
+  for (const page of layoutPlan.pages) {
+    switch (page.slug) {
+      case 'home':     routes.push({ key: 'home',     main: homeMain    }); break;
+      case 'about':    routes.push({ key: 'about',    main: aboutMain   }); break;
+      case 'contact':  routes.push({ key: 'contact',  main: contactMain }); break;
+      case 'pricing':  if (pricingMain) routes.push({ key: 'pricing', main: pricingMain }); break;
+      case 'cart':     routes.push({ key: 'cart',     main: buildCartMain(brand, copy) }); break;
+      case 'checkout': routes.push({ key: 'checkout', main: buildCheckoutMain(brand, copy) }); break;
+      default:
+        if (page.slug === gallerySlug) {
+          routes.push({ key: gallerySlug, main: galleryMain });
+        } else if (page.isHidden) {
+          // Hidden pages — bundled in the SPA but absent from nav.
+          const main = page.slug === layoutPlan.hiddenPrimarySlug
+            ? buildHiddenPrimaryPage(page.slug, normIndustry2, brand, copy, puo, fp + 5)
+            : buildHiddenSecondaryPage(page.slug, normIndustry2, brand, copy, puo, fp + 6);
+          routes.push({ key: page.slug, main });
+        }
+    }
   }
-  // Hidden pages — bundled in the SPA but NOT in navItems, so they're unreachable
-  // from the nav but reachable via section CTAs.
-  const hiddenPrimaryMain  = buildHiddenPrimaryPage(copy.hiddenPrimarySlug, normIndustry2, brand, copy, puo, fp + 5);
-  const hiddenSecondaryMain = buildHiddenSecondaryPage(copy.hiddenSecondarySlug, normIndustry2, brand, copy, puo, fp + 6);
-  routes.push({ key: copy.hiddenPrimarySlug,  main: hiddenPrimaryMain  });
-  routes.push({ key: copy.hiddenSecondarySlug, main: hiddenSecondaryMain });
   const spaDocument = buildSpaDocument(brand, navItems, copy, css, font, year, routes);
 
   // 8. Per-page standalone documents — kept for direct-URL access on published
@@ -4540,7 +4412,7 @@ function renderMultiPageSiteInner(
   pages['/about'] = renderAboutPage(puo, composePageGraph(puo, 'about', fp), brand, navItems, copy, css, font, base, fp + 1, year);
   pages[`/${gallerySlug}`] = renderGalleryPageHtml(puo, brand, navItems, copy, css, font, base, fp + 2, year);
   pages['/contact'] = renderContactPageHtml(puo, brand, navItems, copy, css, font, base, fp + 3, year);
-  if (copy.pricingPlans) {
+  if (hasPricing) {
     pages['/pricing'] = renderPricingPageHtml(puo, brand, navItems, copy, css, font, base, fp + 4, year);
   }
 

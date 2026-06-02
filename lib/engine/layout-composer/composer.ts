@@ -820,6 +820,17 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
     frame:   (s, i, r) => createFrameNode(s, i, r),
     list:    (s, i, r) => createListNode(s, i, r),
   };
+
+  // When allowedSectionKinds is provided, suppress node types whose semantic
+  // kind the caller has forbidden.  The 'list' type maps to either 'faq' or
+  // 'testimonials' — remove it when neither is permitted so the graph never
+  // produces nodes that buildHomeMain would have to discard.
+  const allowed = input.allowedSectionKinds;
+  if (allowed) {
+    const listAllowed = allowed.includes('faq') || allowed.includes('testimonials');
+    if (!listAllowed) delete (factories as Record<string, unknown>).list;
+  }
+
   const typeKeys = Object.keys(factories);
 
   // Per-section affinity by design style + layout direction. Visual niches lean

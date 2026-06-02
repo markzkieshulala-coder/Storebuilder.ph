@@ -324,6 +324,13 @@ export interface ComposerInput {
     pageStructure: Array<{ id: string; type: string; importance: string; order: number }>;
     originalPrompt: string;
   };
+  /**
+   * When set, the composer will not emit graph node types whose semantic
+   * kind is not in this list.  Specifically, `list` nodes are suppressed
+   * when neither 'faq' nor 'testimonials' appears in allowedSectionKinds.
+   * Leave undefined to keep the full composer behaviour.
+   */
+  allowedSectionKinds?: string[];
 }
 
 export interface ComposerResult {

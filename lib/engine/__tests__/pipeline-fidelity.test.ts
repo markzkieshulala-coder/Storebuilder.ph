@@ -196,9 +196,10 @@ describe('FAQ section — only shown when requested', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Testimonials — no fabricated person identities', () => {
-  test('testimonial names are neutral role-based identifiers', () => {
+  test('testimonial names are neutral role-based identifiers when testimonials are rendered', () => {
+    // Explicitly request testimonials so the section is requirement-driven (Phase 2).
     const result = renderFor(
-      'Bliss Spa. We offer Swedish massage and hot stone therapy in Makati.',
+      'Bliss Spa. We offer Swedish massage and hot stone therapy in Makati. Include a testimonials section.',
       'Bliss Spa',
     );
     const html = result.primaryPage;
@@ -208,7 +209,9 @@ describe('Testimonials — no fabricated person identities', () => {
     for (const name of fabricatedNames) {
       expect(html).not.toContain(name);
     }
-    // Should contain neutral identifiers
+    // Testimonials section must exist (user explicitly requested it)
+    expect(html).toContain('testimonial-card');
+    // Names inside testimonials should be neutral role-based identifiers
     expect(html).toMatch(/A (Happy|Satisfied|Verified|Regular|Loyal|Weekly|Local|Devoted|Returning) (Customer|Client|Guest|Buyer|Visitor|Patron)/);
   });
 });
