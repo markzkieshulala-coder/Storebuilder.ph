@@ -1,48 +1,47 @@
 # Storebuilder.ph
 
-## Website Generation Engine — Hybrid (Claude planner → deterministic 3D renderer)
+## Website Generation Engine — AI engine writes the whole site
 
-The generator is a HYBRID pipeline: Claude interprets the prompt and produces a
-strict, validated **SitePlan**; a deterministic in-house engine renders that plan
-into ONE premium, "3D ultra-modern" HTML document. The model strictly follows the
-prompt — it includes only the sections, CTAs, and copy the prompt asks for, and
-honours explicit exclusions ("no FAQ", "no testimonials"). The renderer renders
-ONLY what the plan contains: it never injects a section, button, or line of copy
-that is not in the plan, uses no RNG, and uses no template/copy banks. This is what
-makes output prompt-specific instead of template-shaped.
+The generator is a TRUE AI pipeline: a configurable, provider-agnostic AI engine
+reads the prompt and writes the ENTIRE self-contained HTML document directly —
+structure, sections, pages, copy, CTAs and buttons. There is NO planner, NO fixed
+`SitePlan`/section list, NO deterministic template renderer, NO RNG and NO copy
+banks. The site reflects the prompt exactly: it includes only what the prompt asks
+for or clearly implies, honours explicit exclusions ("no FAQ", "no testimonials"),
+and two different prompts yield two visibly different sites. Anthropic/Claude has
+been removed; the engine is whatever OpenAI-compatible endpoint you configure.
 
-Flow: `prompt → buildSitePlan() [Claude] → SitePlan → renderSitePlan() → HTML`.
+Flow: `prompt → buildSite() [AI engine] → complete HTML document`.
 
-- **Plan contract:** `lib/ai/site-plan.ts` — the `SitePlan` zod schema (brand,
-  theme, nav, ordered `sections[]`, explicit `excluded[]`). The single source of
-  truth for what may appear on the site.
-- **Planner:** `lib/ai/planner.ts` → `buildSitePlan(prompt, brandName)`. Calls
-  Claude (`claude-opus-4-8`, adaptive thinking, `effort: high`) via
-  `@anthropic-ai/sdk` with a hand-authored strict JSON-Schema structured output
-  (`output_config.format`), then validates the JSON with the zod schema. A strong
-  system prompt enforces strict adherence + exclusions. Prompt-cached system block.
-  Uses a hand-written JSON Schema (not the SDK zod helper) because the project pins
-  zod v3 while the SDK helper targets zod v4.
-- **Client:** `lib/ai/client.ts` — lazily constructed Anthropic client. Importing
-  the module needs no key (keeps `next build` green offline); `getAnthropic()`
-  throws `MissingApiKeyError` only at call time. Env: `ANTHROPIC_API_KEY` (required).
-- **3D renderer:** `lib/render3d/render.ts` → `renderSitePlan(plan)`. Deterministic
-  premium design system (aurora lighting, glassmorphism, gradient text, 3D pointer
-  tilt, IntersectionObserver reveals, Google Fonts) with one renderer per section
-  type, each reading ONLY its plan data. Returns the same multi-page result shape
-  the route/DB/serving layer expects (`{ html, pages, nav, ... }`); the site is a
-  single rich page with in-page anchor nav (`pages = { '/': html }`).
-- **Entry:** `lib/ai/generate-ai.ts` → `generateWebsiteAI(prompt, brandName)` wires
-  planner→renderer and returns the legacy `EngineGenerationResult` shape so the DB
-  and iframe serving (`app/sites/[subdomain]`, `app/preview/[id]`) are unchanged.
+- **AI engine client:** `lib/ai/client.ts` — provider-agnostic, `fetch`-based
+  OpenAI-compatible chat client (`POST {AI_BASE_URL}/chat/completions`, Bearer
+  auth). No SDK, so importing the module needs no key (keeps `next build` green
+  offline); `getEngineConfig()`/`callChatModel()` throw `MissingApiKeyError` only
+  at call time. Env: `AI_API_KEY` (required), `AI_BASE_URL` (default
+  `https://api.openai.com/v1`), `AI_MODEL` (default `gpt-4o`). Point these at your
+  own engine, OpenAI, Ollama, vLLM, LM Studio, LocalAI, DeepSeek, Groq, Together, …
+- **Generator:** `lib/ai/generator.ts` → `buildSite(prompt, brandName)`. Sends a
+  strong system prompt that enforces (a) strict prompt-adherence + exclusions and
+  (b) an ultra-premium modern 3D aesthetic (glassmorphism, aurora gradients,
+  gradient text, 3D pointer tilt, IntersectionObserver reveals, Google Fonts,
+  responsive/accessible), then returns the engine's complete HTML document. It
+  strips any markdown fences and parses the AI's own markup with `cheerio` ONLY to
+  read metadata — `brandName` (`<meta name="sb-brand">`/`<title>`), `niche`
+  (`<meta name="sb-niche">`) and in-page anchor nav (`nav a[href^="#"]`). It never
+  mutates the markup.
+- **Entry:** `lib/ai/generate-ai.ts` → `generateWebsiteAI(prompt, brandName)` calls
+  `buildSite` and returns the legacy `EngineGenerationResult` shape (single rich
+  page → `pages = { '/': html }`) so the DB and iframe serving
+  (`app/sites/[subdomain]`, `app/preview/[id]`) are unchanged.
 - **API route:** `app/api/generate/route.ts` (POST) calls `generateWebsiteAI`,
   stores the HTML in `Website.htmlContent` + pages in `jsonContent`, deducts a
-  credit. Returns 503 if `ANTHROPIC_API_KEY` is missing. The raw INSERT casts the
+  credit. Returns 503 if `AI_API_KEY` is missing. The raw INSERT casts the
   `WebsiteType` enum (`$N::"WebsiteType"`) and includes the required `prompt` column.
 
-> Premium photography (Pexels) is currently not wired into the 3D renderer — image
-> slots use on-brand CSS gradient art. Re-integrating `lib/engine/pexels.ts` per
-> plan content is a natural follow-up.
+> Visuals are produced by the AI as CSS art (mesh/aurora gradients, glassmorphism,
+> inline SVG) so nothing hotlinks or breaks. Re-introducing real photography
+> (`lib/engine/pexels.ts`) as a post-process that swaps placeholder slots is a
+> natural follow-up.
 
 ### LEGACY (superseded) — in-house deterministic engine `lib/engine/`
 

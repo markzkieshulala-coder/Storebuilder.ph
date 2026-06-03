@@ -43,7 +43,7 @@ export function applyUltraModernDesignBaseline(puo: PromptUnderstandingObject): 
   out.motion = {
     ...out.motion,
     enabled: true,
-    complexity: 'high',
+    complexity: 'cinematic',
     duration: { ...out.motion.duration, normal: '0.55s', slow: '0.85s' },
     easing: { ...out.motion.easing, default: 'cubic-bezier(0.22, 1, 0.36, 1)' },
   };

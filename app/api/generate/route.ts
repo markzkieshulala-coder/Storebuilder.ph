@@ -55,14 +55,14 @@ export async function POST(req: NextRequest) {
     // Generate subdomain first so the renderer can embed correct <base href> links
     const subdomain = generateSubdomain(brandName);
 
-    console.log(`[generate] Hybrid pipeline for "${brandName}" — planning with Claude…`);
+    console.log(`[generate] Generating site for "${brandName}" with the AI engine…`);
 
-    // Hybrid pipeline: Claude interprets the prompt and plans the site (sections,
-    // CTAs, copy, exclusions); the deterministic 3D renderer renders that plan
-    // verbatim. The site reflects the prompt exactly — no template injection.
+    // AI-driven generation: the engine reads the prompt and writes the entire
+    // site directly (structure, sections, pages, CTAs, copy). The output reflects
+    // the prompt exactly — no templates, no fixed sections, no injected content.
     const result = await generateWebsiteAI(cleanPrompt, brandName, subdomain);
 
-    console.log(`[generate] Pipeline complete. Niche="${result.niche}", sections=${(result.artifacts as any)?.plan?.sections?.length ?? "?"}, excluded=${JSON.stringify((result.artifacts as any)?.excluded ?? [])}`);
+    console.log(`[generate] Generation complete. Niche="${result.niche}", htmlChars=${result.html.length}, navItems=${result.nav.length}`);
 
     // Determine website type from niche
     const niche = result.niche.toLowerCase();
@@ -107,14 +107,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       website,
-      model: "claude-opus-4-8-planner+3d-renderer",
+      model: process.env.AI_MODEL || "ai-engine",
     });
 
   } catch (err: any) {
     console.error("[POST /api/generate]", err);
     if (err instanceof MissingApiKeyError) {
       return NextResponse.json(
-        { error: "The site generator is not configured: ANTHROPIC_API_KEY is missing." },
+        { error: "The site generator is not configured: AI_API_KEY is missing." },
         { status: 503 }
       );
     }
