@@ -132,6 +132,10 @@ const VOCABULARY: VocabularyToken[] = [
   { terms: ["story-driven", "narrative", "journey", "storytelling", "arc"], category: "conversionStyle:story-driven", weight: 1.0, polarity: "positive" },
   { terms: ["product-first", "showcase", "demo", "feature", "screenshot"], category: "conversionStyle:product-first", weight: 1.0, polarity: "neutral" },
   { terms: ["trust-first", "credibility", "proof", "testimonials", "social proof"], category: "conversionStyle:trust-first", weight: 1.0, polarity: "positive" },
+  { terms: ["content-led", "thought leadership", "long-form", "editorial selling", "magazine-style"], category: "conversionStyle:editorial", weight: 1.0, polarity: "positive" },
+  { terms: ["urgency", "countdown", "act now", "deadline", "flash sale", "ending soon", "while supplies last"], category: "conversionStyle:urgency-driven", weight: 1.0, polarity: "neutral" },
+  { terms: ["community", "members", "belong", "movement", "join us", "grassroots", "together"], category: "conversionStyle:community-driven", weight: 1.0, polarity: "positive" },
+  { terms: ["transparent pricing", "no hidden fees", "honest", "upfront", "clarity", "open pricing"], category: "conversionStyle:transparent", weight: 1.0, polarity: "positive" },
 
   // ── Layout Direction ──
   { terms: ["single page", "one page", "no navigation", "scroll only", "landing"], category: "layoutDirection:single-page", weight: 1.0, polarity: "neutral" },
@@ -414,41 +418,43 @@ interface NicheDefaults {
   businessTone?: BusinessTone;
   conversionStyle?: ConversionStyle;
   layoutDirection?: LayoutDirection;
+  visualDensity?: VisualDensity;
+  animationExpectation?: AnimationExpectation;
   imageDirection?: ImageDirection;
   compositionExpectation?: CompositionExpectation;
 }
 
 const NICHE_DEFAULT_GROUPS: Array<{ match: string[]; defaults: NicheDefaults }> = [
   { match: ["food", "restaurant", "cafe", "coffee", "bakery", "bistro", "diner", "brewery", "dining"],
-    defaults: { visualMood: "warm", designStyle: "organic", websitePersonality: "friendly", businessTone: "casual", conversionStyle: "story-driven", imageDirection: "photography-heavy" } },
+    defaults: { visualMood: "warm", designStyle: "organic", websitePersonality: "friendly", businessTone: "casual", conversionStyle: "story-driven", layoutDirection: "lead-gen", visualDensity: "airy", animationExpectation: "subtle", imageDirection: "photography-heavy" } },
   { match: ["technology", "tech", "software", "saas", "startup", "ai", "crypto", "blockchain", "fintech"],
-    defaults: { designStyle: "startup", visualMood: "light", websitePersonality: "innovative", businessTone: "technical", conversionStyle: "product-first", layoutDirection: "saas", compositionExpectation: "bento", imageDirection: "data-visualization" } },
+    defaults: { designStyle: "startup", visualMood: "light", websitePersonality: "innovative", businessTone: "technical", conversionStyle: "product-first", layoutDirection: "saas", visualDensity: "dense", animationExpectation: "moderate", compositionExpectation: "bento", imageDirection: "data-visualization" } },
   { match: ["gaming"],
-    defaults: { designStyle: "cyberpunk", visualMood: "dark", websitePersonality: "bold", imageDirection: "abstract-visuals" } },
+    defaults: { designStyle: "cyberpunk", visualMood: "dark", websitePersonality: "bold", layoutDirection: "showcase", visualDensity: "packed", animationExpectation: "heavy", imageDirection: "abstract-visuals" } },
   { match: ["fashion", "streetwear", "apparel", "clothing", "boutique", "beauty"],
-    defaults: { designStyle: "editorial", websitePersonality: "bold", businessTone: "casual", conversionStyle: "product-first", layoutDirection: "e-commerce", imageDirection: "photography-heavy", compositionExpectation: "magazine" } },
+    defaults: { designStyle: "editorial", websitePersonality: "bold", businessTone: "casual", conversionStyle: "product-first", layoutDirection: "e-commerce", visualDensity: "airy", animationExpectation: "moderate", imageDirection: "photography-heavy", compositionExpectation: "magazine" } },
   { match: ["ecommerce", "retail"],
-    defaults: { designStyle: "minimal", websitePersonality: "bold", conversionStyle: "product-first", layoutDirection: "e-commerce", imageDirection: "photography-heavy" } },
+    defaults: { designStyle: "minimal", websitePersonality: "bold", conversionStyle: "product-first", layoutDirection: "e-commerce", visualDensity: "balanced", animationExpectation: "subtle", imageDirection: "photography-heavy" } },
   { match: ["photography", "photographer", "portfolio", "art"],
-    defaults: { designStyle: "minimal", websitePersonality: "sophisticated", conversionStyle: "story-driven", layoutDirection: "portfolio", imageDirection: "photography-heavy", compositionExpectation: "magazine" } },
+    defaults: { designStyle: "minimal", websitePersonality: "sophisticated", conversionStyle: "story-driven", layoutDirection: "portfolio", visualDensity: "sparse", animationExpectation: "scroll-driven", imageDirection: "photography-heavy", compositionExpectation: "magazine" } },
   { match: ["design", "architecture", "interior", "studio"],
-    defaults: { designStyle: "minimal", websitePersonality: "sophisticated", layoutDirection: "portfolio", imageDirection: "photography-heavy", compositionExpectation: "asymmetric" } },
+    defaults: { designStyle: "minimal", websitePersonality: "sophisticated", layoutDirection: "portfolio", visualDensity: "sparse", animationExpectation: "scroll-driven", imageDirection: "photography-heavy", compositionExpectation: "asymmetric" } },
   { match: ["sports", "athletic", "fitness", "gym", "crossfit", "workout"],
-    defaults: { visualMood: "vibrant", designStyle: "industrial", websitePersonality: "energetic", businessTone: "disruptive", imageDirection: "photography-heavy" } },
+    defaults: { visualMood: "vibrant", designStyle: "industrial", websitePersonality: "energetic", businessTone: "disruptive", layoutDirection: "landing", visualDensity: "dense", animationExpectation: "moderate", imageDirection: "photography-heavy" } },
   { match: ["law", "legal", "finance", "consulting", "accounting", "insurance"],
-    defaults: { designStyle: "corporate", visualMood: "light", websitePersonality: "authoritative", businessTone: "authoritative", conversionStyle: "trust-first" } },
+    defaults: { designStyle: "corporate", visualMood: "light", websitePersonality: "authoritative", businessTone: "authoritative", conversionStyle: "trust-first", layoutDirection: "multi-page", visualDensity: "balanced", animationExpectation: "subtle" } },
   { match: ["agency", "marketing", "advertising", "branding"],
-    defaults: { designStyle: "editorial", websitePersonality: "bold", businessTone: "disruptive", conversionStyle: "story-driven", compositionExpectation: "asymmetric" } },
+    defaults: { designStyle: "editorial", websitePersonality: "bold", businessTone: "disruptive", conversionStyle: "story-driven", layoutDirection: "showcase", visualDensity: "airy", animationExpectation: "moderate", compositionExpectation: "asymmetric" } },
   { match: ["health", "wellness", "yoga", "meditation", "spa", "salon", "medical"],
-    defaults: { designStyle: "minimal", visualMood: "light", websitePersonality: "calm", businessTone: "empathetic", conversionStyle: "trust-first" } },
+    defaults: { designStyle: "minimal", visualMood: "light", websitePersonality: "calm", businessTone: "empathetic", conversionStyle: "trust-first", layoutDirection: "lead-gen", visualDensity: "sparse", animationExpectation: "subtle" } },
   { match: ["travel", "hotel", "resort"],
-    defaults: { designStyle: "cinematic", visualMood: "vibrant", websitePersonality: "energetic", conversionStyle: "story-driven", imageDirection: "photography-heavy" } },
+    defaults: { designStyle: "cinematic", visualMood: "vibrant", websitePersonality: "energetic", conversionStyle: "story-driven", layoutDirection: "scrollytelling", visualDensity: "airy", animationExpectation: "scroll-driven", imageDirection: "photography-heavy" } },
   { match: ["music", "entertainment"],
-    defaults: { designStyle: "artistic", visualMood: "dark", websitePersonality: "bold", imageDirection: "photography-heavy" } },
+    defaults: { designStyle: "artistic", visualMood: "dark", websitePersonality: "bold", layoutDirection: "showcase", visualDensity: "packed", animationExpectation: "heavy", imageDirection: "photography-heavy" } },
   { match: ["education"],
-    defaults: { visualMood: "light", websitePersonality: "friendly", businessTone: "accessible", conversionStyle: "consultative" } },
+    defaults: { visualMood: "light", websitePersonality: "friendly", businessTone: "accessible", conversionStyle: "consultative", layoutDirection: "multi-page", visualDensity: "balanced", animationExpectation: "subtle" } },
   { match: ["nonprofit"],
-    defaults: { visualMood: "warm", websitePersonality: "friendly", businessTone: "empathetic", conversionStyle: "story-driven" } },
+    defaults: { visualMood: "warm", websitePersonality: "friendly", businessTone: "empathetic", conversionStyle: "story-driven", layoutDirection: "scrollytelling", visualDensity: "balanced", animationExpectation: "subtle" } },
 ];
 
 function nicheDefaults(industry: string): NicheDefaults {
@@ -1526,12 +1532,12 @@ export function parsePrompt(
     let visualMood = pickHighest<VisualMood>(aggregated, "visualMood", nd.visualMood ?? "neutral");
     let designStyle = pickHighest<DesignStyle>(aggregated, "designStyle", nd.designStyle ?? "minimal");
     let websitePersonality = pickHighest<WebsitePersonality>(aggregated, "websitePersonality", nd.websitePersonality ?? "friendly");
-    const visualDensity = pickHighest<VisualDensity>(aggregated, "visualDensity", "balanced");
+    const visualDensity = pickHighest<VisualDensity>(aggregated, "visualDensity", nd.visualDensity ?? "balanced");
     const modernityLevel = pickHighest<ModernityLevel>(aggregated, "modernityLevel", "modern");
     let businessTone = pickHighest<BusinessTone>(aggregated, "businessTone", nd.businessTone ?? "professional");
     const conversionStyle = pickHighest<ConversionStyle>(aggregated, "conversionStyle", nd.conversionStyle ?? "trust-first");
     const layoutDirection = pickHighest<LayoutDirection>(aggregated, "layoutDirection", nd.layoutDirection ?? "landing");
-    const animationExpectation = pickHighest<AnimationExpectation>(aggregated, "animationExpectation", "subtle");
+    const animationExpectation = pickHighest<AnimationExpectation>(aggregated, "animationExpectation", nd.animationExpectation ?? "subtle");
     const compositionType = pickHighest<CompositionExpectation>(aggregated, "compositionExpectation", nd.compositionExpectation ?? "centered");
     const interactionPrimary = pickHighest<InteractionExpectation>(aggregated, "interactionExpectation", "hover-reactive");
     let imageDirection = pickHighest<ImageDirection>(aggregated, "imageDirection", nd.imageDirection ?? "mixed-media");
