@@ -10,6 +10,23 @@
 // ---------------------------------------------------------------------------
 
 import type { SitePlan, Section, Cta, SectionItem, Theme } from '../ai/site-plan';
+import type { ResolvedImagery } from '../engine/pexels';
+
+/** Append per-slot sizing/crop params to a Pexels photo URL. */
+function ph(url: string, w: number, h: number): string {
+  if (!url) return '';
+  if (/images\.pexels\.com/.test(url)) {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}w=${w}&h=${h}&fit=crop&auto=compress`;
+  }
+  return url;
+}
+
+/** Inline background-image style for an art slot, or '' to fall back to CSS gradient art. */
+function artStyle(url: string | undefined, w: number, h: number): string {
+  const sized = ph(url || '', w, h);
+  return sized ? ` style="background-image:url('${esc(sized)}')"` : '';
+}
 
 export interface RenderResult {
   html: string;
@@ -100,14 +117,15 @@ function secHead(s: Section, centered = true): string {
 
 // ── Section renderers — each reads ONLY its plan data ──────────────────────
 
-function renderHero(s: Section): string {
+function renderHero(s: Section, imgUrl?: string): string {
   const eyebrow = s.eyebrow ? `<span class="hero-tag reveal">${esc(s.eyebrow)}</span>` : '';
   const heading = s.heading ? `<h1 class="reveal">${esc(s.heading)}</h1>` : '';
   const sub = s.subheading ? `<p class="hero-sub reveal">${esc(s.subheading)}</p>` : '';
   const body = s.body ? `<p class="hero-body reveal">${esc(s.body)}</p>` : '';
   const ctas = s.ctas && s.ctas.length ? renderCtas(s.ctas, 'reveal') : '';
-  return `<section id="${esc(s.id)}" class="hero">
-  <div class="hero-glow"></div>
+  const bg = imgUrl ? `<div class="hero-bg"${artStyle(imgUrl, 1600, 1000)}></div>` : '';
+  return `<section id="${esc(s.id)}" class="hero${imgUrl ? ' has-bg' : ''}">
+  ${bg}<div class="hero-glow"></div>
   <div class="wrap hero-inner">${eyebrow}${heading}${sub}${body}${ctas}</div>
 </section>`;
 }
@@ -142,11 +160,11 @@ function renderAbout(s: Section): string {
 </section>`;
 }
 
-function renderGallery(s: Section): string {
+function renderGallery(s: Section, imagery?: ResolvedImagery): string {
   const tiles = (s.items || [])
     .map(
       (it, i) => `<figure class="tile tilt reveal" style="--i:${i}">
-      <div class="tile-art"></div>
+      <div class="tile-art"${artStyle(imagery?.byName[`gallery-${i}`], 800, 600)}></div>
       ${it.title ? `<figcaption>${esc(it.title)}</figcaption>` : ''}
     </figure>`,
     )
@@ -156,11 +174,11 @@ function renderGallery(s: Section): string {
 </section>`;
 }
 
-function renderProducts(s: Section): string {
+function renderProducts(s: Section, imagery?: ResolvedImagery): string {
   const cards = (s.items || [])
     .map(
-      (it) => `<article class="card product tilt reveal">
-      <div class="product-art"></div>
+      (it, i) => `<article class="card product tilt reveal">
+      <div class="product-art"${artStyle(imagery?.byName[`product-${i}`], 800, 600)}></div>
       <div class="product-body">
         ${it.title ? `<h3>${esc(it.title)}</h3>` : ''}
         ${it.description ? `<p>${esc(it.description)}</p>` : ''}
@@ -319,13 +337,13 @@ function renderNewsletter(s: Section): string {
 </section>`;
 }
 
-function renderSection(s: Section): string {
+function renderSection(s: Section, imagery?: ResolvedImagery): string {
   switch (s.type) {
-    case 'hero': return renderHero(s);
+    case 'hero': return renderHero(s, imagery?.byName['hero']);
     case 'features': return renderFeatures(s);
     case 'about': return renderAbout(s);
-    case 'gallery': return renderGallery(s);
-    case 'products': return renderProducts(s);
+    case 'gallery': return renderGallery(s, imagery);
+    case 'products': return renderProducts(s, imagery);
     case 'pricing': return renderPricing(s);
     case 'testimonials': return renderTestimonials(s);
     case 'faq': return renderFaq(s);
@@ -431,7 +449,9 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop
 .sec-sub{color:var(--muted);font-size:1.08rem}
 /* Hero */
 .hero{position:relative;padding:clamp(140px,20vw,200px) 0 clamp(80px,10vw,120px);text-align:center}
-.hero-inner{max-width:880px;margin:0 auto;display:flex;flex-direction:column;align-items:center}
+.hero-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:${theme.mode === 'dark' ? '.32' : '.22'};filter:saturate(1.05)}
+.hero.has-bg::after{content:'';position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,transparent,var(--bg) 92%)}
+.hero-inner{max-width:880px;margin:0 auto;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
 .hero-tag{padding:7px 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:.82rem;font-weight:600;color:var(--primary);margin-bottom:24px;backdrop-filter:blur(10px)}
 .hero h1{font-size:clamp(2.7rem,7vw,5rem);margin-bottom:22px;background:linear-gradient(180deg,var(--text),color-mix(in srgb,var(--text) 55%,var(--primary)));-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero-sub{font-size:clamp(1.05rem,2vw,1.35rem);color:var(--muted);max-width:640px;margin-bottom:14px}
@@ -559,10 +579,10 @@ const SCRIPT = `
 })();
 `;
 
-/** Render a full premium HTML document from a SitePlan. */
-export function renderSitePlan(plan: SitePlan): RenderResult {
+/** Render a full premium HTML document from a SitePlan, with optional resolved photos. */
+export function renderSitePlan(plan: SitePlan, imagery?: ResolvedImagery): RenderResult {
   const css = buildCss(plan.theme);
-  const sectionsHtml = plan.sections.map(renderSection).filter(Boolean).join('\n');
+  const sectionsHtml = plan.sections.map((s) => renderSection(s, imagery)).filter(Boolean).join('\n');
 
   // Nav links come from the plan; primary CTA reuses the hero's primary CTA if present.
   const navLinks = plan.nav

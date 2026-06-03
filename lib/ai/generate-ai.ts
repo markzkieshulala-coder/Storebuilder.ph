@@ -9,9 +9,17 @@
 
 import { buildSitePlan } from './planner';
 import { renderSitePlan } from '../render3d/render';
+import { planImageRequests } from '../render3d/imagery';
+import { fetchSiteImagery } from '../engine/image-provider';
 import type { EngineGenerationResult } from '../engine/generate';
 import type { FidelityResult } from '../engine/requirements';
 import type { SitePlan } from './site-plan';
+
+function seedFor(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
 
 // Prompt-adherence is now structural: the planner records exclusions and the
 // renderer renders only the plan, so a rendered site cannot contain a forbidden
@@ -35,7 +43,13 @@ export async function generateWebsiteAI(
   subdomain = '',
 ): Promise<EngineGenerationResult> {
   const plan = await buildSitePlan(prompt, brandName);
-  const rendered = renderSitePlan(plan);
+
+  // Resolve content-aware Pexels photos for the plan's image slots (hero, gallery,
+  // products). Bounded by a time budget and degrades to branded CSS art on any
+  // failure / when PEXELS_API_KEY is unset — imagery is purely additive.
+  const imagery = await fetchSiteImagery(planImageRequests(plan), seedFor(subdomain || brandName || prompt));
+
+  const rendered = renderSitePlan(plan, imagery);
 
   return {
     html: rendered.html,
