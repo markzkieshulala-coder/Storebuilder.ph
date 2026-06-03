@@ -455,12 +455,87 @@ export const NICHE_SUBJECT: Record<string, string> = {
   general: 'Excellence',
 };
 
-// ── Pricing plan generator ────────────────────────────────────────────────────
+// ── Pricing plan generator (Phase 4C: niche-aware) ────────────────────────────
+// Tiers are keyed by the canonical normalizeIndustry() value with a 'general'
+// fallback for unknown niches. Restaurants get menus, wellness gets memberships,
+// agencies get engagements — instead of a universal Starter/Pro/Enterprise SaaS
+// ladder. Authored/prompt-driven pricing still wins upstream; this only fills the
+// explicit-but-unauthored case.
+export const PRICING_BANK: Record<string, PricingPlan[]> = {
+  food: [
+    { name: 'Lunch Menu',     price: '$18',    period: '/person', desc: 'A curated midday selection.',        features: ['Seasonal starters', 'Choice of main', 'House beverage'], featured: false },
+    { name: 'Dinner Menu',    price: '$42',    period: '/person', desc: 'Our full evening experience.',       features: ['Everything in Lunch', 'Multi-course tasting', 'Wine pairing', 'Dessert selection'], featured: true },
+    { name: 'Private Dining', price: 'Custom', period: 'by request', desc: 'Tailored events and group bookings.', features: ['Dedicated space', 'Bespoke menu', 'Personal service', 'Event coordination'], featured: false },
+  ],
+  wellness: [
+    { name: 'Single Session',     price: '$35',  period: '/session', desc: 'Drop in whenever it suits you.',     features: ['One class or session', 'Mat & equipment', 'Newcomer guidance'], featured: false },
+    { name: 'Monthly Membership', price: '$99',  period: '/mo',      desc: 'Unlimited access, month to month.',  features: ['Unlimited sessions', 'Priority booking', 'Member events'], featured: true },
+    { name: 'Annual Membership',  price: '$899', period: '/yr',      desc: 'Best value for the committed.',      features: ['Everything monthly', 'Two months free', 'Guest passes', 'Wellness consultation'], featured: false },
+  ],
+  sports: [
+    { name: 'Day Pass',           price: '$20',  period: '/day', desc: 'Full access for the day.', features: ['Gym floor access', 'One group class', 'Locker & towel'], featured: false },
+    { name: 'Monthly Membership', price: '$59',  period: '/mo',  desc: 'Train on your schedule.',  features: ['Unlimited access', 'All group classes', 'Fitness assessment'], featured: true },
+    { name: 'Annual Membership',  price: '$599', period: '/yr',  desc: 'Commit and save.',         features: ['Everything monthly', 'Two months free', 'Personal training intro', 'Guest passes'], featured: false },
+  ],
+  agency: [
+    { name: 'Starter',    price: '$1,500', period: '/project', desc: 'For focused, single-goal work.',          features: ['Discovery session', 'Core deliverables', 'Two revision rounds'], featured: false },
+    { name: 'Growth',     price: '$4,500', period: '/mo',      desc: 'Ongoing partnership for scaling brands.', features: ['Everything in Starter', 'Dedicated strategist', 'Monthly reporting', 'Priority turnaround'], featured: true },
+    { name: 'Enterprise', price: 'Custom', period: 'let’s talk', desc: 'Full-service for established teams.',   features: ['Everything in Growth', 'Multi-channel campaigns', 'Dedicated team', 'Quarterly strategy'], featured: false },
+  ],
+  technology: [
+    { name: 'Starter',      price: 'Free',   period: 'forever',   desc: 'Perfect for getting started.',  features: ['Core features', 'Up to 3 projects', 'Community support'], featured: false },
+    { name: 'Professional', price: '$79',    period: '/mo',       desc: 'For teams ready to scale.',      features: ['Everything in Starter', 'Priority support', 'Unlimited projects', 'Advanced analytics'], featured: true },
+    { name: 'Enterprise',   price: 'Custom', period: 'contact us', desc: 'Tailored to your organisation.', features: ['Everything in Professional', 'Dedicated manager', 'Custom integrations', 'SLA & onboarding'], featured: false },
+  ],
+  ecommerce: [
+    { name: 'Standard', price: 'Free', period: '',    desc: 'Shop our full collection.',    features: ['Browse all products', 'Standard shipping', 'Easy returns'], featured: false },
+    { name: 'Member',   price: '$9',   period: '/mo', desc: 'Perks for regular shoppers.',  features: ['Free shipping', 'Early access', 'Member pricing'], featured: true },
+    { name: 'VIP',      price: '$25',  period: '/mo', desc: 'The full insider experience.', features: ['Everything in Member', 'Exclusive drops', 'Personal styling', 'Priority support'], featured: false },
+  ],
+  photography: [
+    { name: 'Portrait Session', price: '$250',   period: '/session', desc: 'A focused personal shoot.',   features: ['One-hour session', 'One location', 'Edited gallery'], featured: false },
+    { name: 'Event Coverage',   price: '$1,200', period: '/event',   desc: 'Full coverage for your day.', features: ['Up to 6 hours', 'Two photographers', 'Online gallery', 'Print release'], featured: true },
+    { name: 'Custom Package',   price: 'Custom', period: 'by request', desc: 'Tailored to your project.', features: ['Bespoke planning', 'Multiple sessions', 'Album design', 'Commercial license'], featured: false },
+  ],
+  fashion: [
+    { name: 'Studio Visit',     price: 'Free',   period: '',         desc: 'Explore the latest collection.', features: ['Browse collections', 'Style guidance', 'Lookbook access'], featured: false },
+    { name: 'Styling Session',  price: '$150',   period: '/session', desc: 'Personalized styling support.',  features: ['One-on-one session', 'Curated edit', 'Fit consultation'], featured: true },
+    { name: 'Wardrobe Package', price: 'Custom', period: 'by request', desc: 'A full seasonal wardrobe.',    features: ['Everything in Styling', 'Seasonal refresh', 'Priority access', 'Personal shopper'], featured: false },
+  ],
+  portfolio: [
+    { name: 'Single Project', price: '$800',   period: '/project', desc: 'One focused engagement.',       features: ['Discovery call', 'One deliverable', 'Two revisions'], featured: false },
+    { name: 'Full Project',   price: '$2,500', period: '/project', desc: 'End-to-end creative work.',     features: ['Everything in Single', 'Concept development', 'Multiple deliverables', 'Source files'], featured: true },
+    { name: 'Retainer',       price: 'Custom', period: 'monthly',  desc: 'Ongoing creative partnership.', features: ['Everything in Full', 'Monthly allocation', 'Priority scheduling', 'Strategy sessions'], featured: false },
+  ],
+  professional: [
+    { name: 'Consultation',        price: '$200',   period: '/hour', desc: 'Expert advice when you need it.', features: ['Initial assessment', 'Written summary', 'Follow-up call'], featured: false },
+    { name: 'Standard Engagement', price: '$1,500', period: '/mo',   desc: 'Ongoing professional support.',   features: ['Everything in Consultation', 'Dedicated advisor', 'Priority response', 'Monthly review'], featured: true },
+    { name: 'Full Retainer',       price: 'Custom', period: 'tailored', desc: 'Comprehensive representation.', features: ['Everything in Standard', 'Unlimited consultations', 'Dedicated team', 'Strategic planning'], featured: false },
+  ],
+  hospitality: [
+    { name: 'Standard Room',   price: '$120',   period: '/night', desc: 'Comfort and convenience.',       features: ['Queen room', 'Daily housekeeping', 'Wi-Fi & breakfast'], featured: false },
+    { name: 'Deluxe Suite',    price: '$240',   period: '/night', desc: 'Elevated space and amenities.',   features: ['Everything in Standard', 'Suite upgrade', 'Lounge access', 'Late checkout'], featured: true },
+    { name: 'Private Retreat', price: 'Custom', period: 'by request', desc: 'The full exclusive experience.', features: ['Everything in Deluxe', 'Private villa', 'Personal concierge', 'Curated experiences'], featured: false },
+  ],
+  homeservices: [
+    { name: 'Standard Service', price: '$89',    period: '/visit', desc: 'A single scheduled visit.', features: ['On-site assessment', 'Standard repair', 'Workmanship guarantee'], featured: false },
+    { name: 'Service Plan',     price: '$29',    period: '/mo',    desc: 'Routine care, year-round.', features: ['Priority scheduling', 'Seasonal tune-ups', 'Discounted repairs'], featured: true },
+    { name: 'Full Coverage',    price: 'Custom', period: 'annual', desc: 'Complete peace of mind.',   features: ['Everything in Plan', 'Emergency callouts', 'Parts & labor', 'Annual inspection'], featured: false },
+  ],
+  automotive: [
+    { name: 'Standard Service', price: '$99',    period: '/visit', desc: 'Essential maintenance.', features: ['Multi-point inspection', 'Oil & filter', 'Fluid top-up'], featured: false },
+    { name: 'Service Plan',     price: '$39',    period: '/mo',    desc: 'Keep it running right.', features: ['Priority booking', 'Scheduled servicing', 'Discounted parts'], featured: true },
+    { name: 'Full Coverage',    price: 'Custom', period: 'annual', desc: 'Total vehicle care.',    features: ['Everything in Plan', 'Major repairs', 'Loaner vehicle', 'Annual safety check'], featured: false },
+  ],
+  general: [
+    { name: 'Basic',    price: '$29',    period: '/mo', desc: 'Everything you need to begin.', features: ['Core features', 'Email support', 'Up to 3 projects'], featured: false },
+    { name: 'Standard', price: '$79',    period: '/mo', desc: 'For growing needs.',            features: ['Everything in Basic', 'Priority support', 'Unlimited projects', 'Advanced features'], featured: true },
+    { name: 'Premium',  price: 'Custom', period: 'tailored', desc: 'Tailored to you.',          features: ['Everything in Standard', 'Dedicated manager', 'Custom solutions', 'Onboarding & SLA'], featured: false },
+  ],
+};
 
-export function buildNichePricingPlans(mainKw: string): PricingPlan[] {
-  return [
-    { name: 'Starter', price: 'Free', period: 'forever', desc: 'Perfect for individuals and small projects', features: [`Core ${mainKw} tools`, 'Up to 3 projects', 'Community support', '1GB storage'], featured: false },
-    { name: 'Pro', price: '$49', period: '/month', desc: `Full ${mainKw} power for growing teams`, features: [`Unlimited ${mainKw}`, 'Advanced analytics', 'Priority support', '50GB storage', 'Custom integrations'], featured: true },
-    { name: 'Enterprise', price: 'Custom', period: 'contact us', desc: `Enterprise-grade ${mainKw} at scale`, features: ['Everything in Pro', 'Dedicated support', 'Custom SLA', 'Unlimited storage', 'On-premise option'], featured: false },
-  ];
+export function buildNichePricingPlans(normIndustry: string): PricingPlan[] {
+  const tiers = PRICING_BANK[normIndustry] || PRICING_BANK.general;
+  // Deep-clone so the shared bank arrays/feature lists are never mutated downstream.
+  return tiers.map(t => ({ ...t, features: [...t.features] }));
 }

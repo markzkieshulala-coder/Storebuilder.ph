@@ -4,6 +4,7 @@ export type {
 } from './types';
 export { computeProvenance, unwrap } from './types';
 export { buildContentPlan } from './plan';
+export { buildNichePricingPlans } from './banks';
 export { contentPlanToSiteCopy } from './adapter';
 export type { SiteCopyLike } from './adapter';
 export {

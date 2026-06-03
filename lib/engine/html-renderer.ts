@@ -20,7 +20,7 @@ import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
 import { canonicalKind, detectRenderedKinds, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
 import { buildWebsiteSpec, type WebsiteSpec } from './spec';
 import { buildLayoutPlan, type LayoutPlan, type SectionPlacement } from './layout';
-import { buildContentPlan, contentPlanToSiteCopy, type ContentPlan } from './content';
+import { buildContentPlan, contentPlanToSiteCopy, buildNichePricingPlans, type ContentPlan } from './content';
 // Image engines were removed; images come only from the pluggable image provider
 // (lib/engine/image-provider.ts), injected via renderMultiPageSite. Empty slots
 // render as a neutral CSS placeholder.
@@ -2413,7 +2413,7 @@ function renderStripSection(node: LayoutNode, ctx: RenderCtx): string {
     return `<section class="strip-section"><div class="wrap"><div class="stat-row">${statsHtml}</div></div></section>`;
   }
   if (node.variant === 'logo-wall' || node.variant === 'marquee') {
-    const items = ['Trusted Partner', 'Enterprise Ready', 'Award Winning', 'Industry Leader', 'Global Reach', 'Certified', '10K+ Users', 'Top Rated'];
+    const items = nicheTrustItems(ctx.puo);
     const marqItems = [...items, ...items].map(i => `<span class="marquee-item">${esc(i)}</span>`).join('');
     return `<section class="strip-section"><div class="marquee-wrap"><div class="marquee-track">${marqItems}</div></div></section>`;
   }
@@ -2706,6 +2706,59 @@ function renderNewsletterSection(ctx: RenderCtx): string {
 </section>`;
 }
 
+// ── NICHE CONTENT BANKS (Phase 4C) ──────────────────────────────────────────
+// Niche-aware fallback content for the three components that previously emitted
+// generic startup/SaaS boilerplate regardless of industry: team roles, pricing
+// tiers, and the trust strip. Keyed by the canonical normalizeIndustry() value
+// with a 'general' fallback for unknown niches. These are STRUCTURAL fallbacks —
+// authored/prompt-driven content (e.g. copy.pricingPlans) still wins.
+
+// Team role titles — four role-titled cards per niche so an injected team
+// section reads like real staff for the industry, not a generic startup org.
+const TEAM_ROLE_BANK: Record<string, string[]> = {
+  food:         ['Executive Chef', 'Sous Chef', 'Front of House Manager', 'Pastry Chef'],
+  sports:       ['Head Coach', 'Personal Trainer', 'Class Instructor', 'Member Support'],
+  technology:   ['Founder', 'Product Lead', 'Engineering Lead', 'Customer Success'],
+  photography:  ['Lead Photographer', 'Creative Director', 'Studio Producer', 'Client Relations'],
+  fashion:      ['Creative Director', 'Head Designer', 'Studio Manager', 'Client Relations'],
+  ecommerce:    ['Founder', 'Head of Product', 'Operations Manager', 'Customer Care'],
+  portfolio:    ['Founder & Director', 'Creative Lead', 'Design Lead', 'Project Manager'],
+  agency:       ['Founder & Director', 'Creative Lead', 'Head of Strategy', 'Client Success'],
+  wellness:     ['Lead Instructor', 'Wellness Coach', 'Studio Manager', 'Member Support'],
+  professional: ['Managing Partner', 'Senior Associate', 'Legal Assistant', 'Client Relations'],
+  hospitality:  ['General Manager', 'Head Concierge', 'Guest Relations', 'Events Coordinator'],
+  homeservices: ['Owner & Operator', 'Lead Technician', 'Service Manager', 'Customer Care'],
+  automotive:   ['Owner & Operator', 'Lead Technician', 'Service Advisor', 'Customer Care'],
+  general:      ['Founder & Director', 'Creative Lead', 'Head of Operations', 'Client Success'],
+};
+
+// Trust strip items — short evergreen credibility signals tuned to the niche,
+// replacing the universal "Trusted Partner / Enterprise Ready / …" list.
+const TRUST_STRIP_BANK: Record<string, string[]> = {
+  food:         ['Fresh Ingredients', 'Local Favorites', 'Family Owned', 'Made Daily', 'Seasonal Menu', 'Community Loved'],
+  sports:       ['Certified Trainers', 'Modern Equipment', 'Flexible Hours', 'All Fitness Levels', 'Proven Results', 'Supportive Community'],
+  technology:   ['Secure Platform', '99.9% Uptime', 'Trusted by Teams', 'Fast Performance', 'Always Improving', 'Expert Support'],
+  photography:  ['Award Winning', 'Fully Insured', 'Quick Turnaround', 'Personal Approach', 'Print Ready', 'Years of Experience'],
+  fashion:      ['Ethically Made', 'Limited Runs', 'Seasonal Drops', 'Quality Fabrics', 'Sustainably Sourced', 'Timeless Design'],
+  ecommerce:    ['Free Shipping', 'Easy Returns', 'Secure Checkout', 'Quality Guaranteed', 'Fast Delivery', 'Trusted by Thousands'],
+  portfolio:    ['Award Winning', 'Fully Bespoke', 'Detail Obsessed', 'On-Time Delivery', 'Years of Craft', 'Trusted Worldwide'],
+  agency:       ['Award Winning', 'Results Driven', 'Trusted Partners', 'Strategy First', 'Proven Process', 'Dedicated Team'],
+  wellness:     ['Certified Instructors', 'Small Classes', 'Flexible Scheduling', 'Welcoming Space', 'Personal Guidance', 'All Levels Welcome'],
+  professional: ['Trusted Advisors', 'Proven Track Record', 'Confidential', 'Years of Experience', 'Client First', 'Results Focused'],
+  hospitality:  ['Warm Hospitality', 'Prime Location', '5-Star Service', 'Curated Comfort', 'Local Expertise', 'Memorable Stays'],
+  homeservices: ['Licensed & Insured', 'On-Time Service', 'Upfront Pricing', 'Satisfaction Guaranteed', 'Local & Trusted', 'Years of Experience'],
+  automotive:   ['Certified Technicians', 'Honest Pricing', 'Quality Parts', 'Fast Turnaround', 'Warranty Backed', 'Locally Trusted'],
+  general:      ['Trusted Partner', 'Award Winning', 'Industry Leader', 'Certified', 'Top Rated', 'Quality First'],
+};
+
+function nicheTeamRoles(puo: PromptUnderstandingObject): string[] {
+  return TEAM_ROLE_BANK[normalizeIndustry(puo.inferredIndustry)] || TEAM_ROLE_BANK.general;
+}
+
+function nicheTrustItems(puo: PromptUnderstandingObject): string[] {
+  return TRUST_STRIP_BANK[normalizeIndustry(puo.inferredIndustry)] || TRUST_STRIP_BANK.general;
+}
+
 // ── DEFERRED CONTENT (Phase 4) ──────────────────────────────────────────────
 // Team cards are STRUCTURAL PLACEHOLDERS (role-titled, no real names/bios) and are
 // NOT in the ContentPlan. Renders only when a team section is explicitly requested.
@@ -2714,8 +2767,8 @@ function renderTeamSection(ctx: RenderCtx): string {
   const { copy, photos, fp, brandName } = ctx;
   const brand = brandName || 'our studio';
   // Role-titled cards (never "Team Member 1") so an injected team section reads
-  // like real staff. Roles adapt loosely to the niche register.
-  const roles = ['Founder & Director', 'Creative Lead', 'Head of Operations', 'Client Success'];
+  // like real staff. Roles adapt to the niche register (Phase 4C).
+  const roles = nicheTeamRoles(ctx.puo);
   const cards = roles.map((role, i) => `
     <div class="card reveal reveal-delay-${i % 3}" style="text-align:center">
       <img src="${ph(photos[(fp + i + 5) % Math.max(1, photos.length)] || '', 480, 480)}" alt="${esc(role)} at ${esc(brand)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius);margin-bottom:14px"/>
@@ -2951,7 +3004,7 @@ function renderInjectedKind(kind: string, ctx: RenderCtx, counters: Record<strin
 // buildPricingMain, which is the full standalone /pricing page. Used when a user
 // lists "pricing" as a section so it sits cleanly inside the home page.
 function renderPricingSection(ctx: RenderCtx): string {
-  const plans = ctx.copy.pricingPlans || genericPricingPlans(ctx.copy);
+  const plans = ctx.copy.pricingPlans || nichePricingPlans(ctx.puo);
   const cards = plans.map((p) => {
     const feats = p.features.map((f) => `<li><span class="price-check">✓</span> ${esc(f)}</li>`).join('');
     return `
@@ -2974,16 +3027,13 @@ function renderPricingSection(ctx: RenderCtx): string {
 </section>`;
 }
 
-// A clean 3-tier pricing set, synthesised when the user EXPLICITLY asks for a
-// pricing section but the niche carries no authored plans. Generic but polished
-// — a real starting point rather than an empty slot.
-function genericPricingPlans(copy: SiteCopy): NonNullable<SiteCopy['pricingPlans']> {
-  const cta = copy.primaryCta || 'Get Started';
-  return [
-    { name: 'Starter', price: '$29', period: '/mo', desc: 'Everything you need to begin.', features: ['Core features', 'Email support', 'Up to 3 projects', 'Monthly updates'], featured: false },
-    { name: 'Professional', price: '$79', period: '/mo', desc: 'For teams ready to scale.', features: ['Everything in Starter', 'Priority support', 'Unlimited projects', 'Advanced analytics', 'Custom branding'], featured: true },
-    { name: 'Enterprise', price: 'Custom', period: '', desc: 'Tailored to your organisation.', features: ['Everything in Professional', 'Dedicated manager', 'Custom integrations', 'SLA & onboarding', `Talk to us — ${cta}`], featured: false },
-  ];
+// Defensive fallback when a pricing section renders without authored plans.
+// Phase 4C: delegates to the single niche-aware pricing bank in content/banks.ts
+// (restaurant menus, wellness memberships, etc.) rather than a universal
+// Starter/Professional/Enterprise SaaS ladder. In the normal path the ContentPlan
+// already fills copy.pricingPlans, so this only covers the explicit-but-empty case.
+function nichePricingPlans(puo: PromptUnderstandingObject): NonNullable<SiteCopy['pricingPlans']> {
+  return buildNichePricingPlans(normalizeIndustry(puo.inferredIndustry));
 }
 
 // Dispatch to the right renderer

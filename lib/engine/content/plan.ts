@@ -648,15 +648,15 @@ function resolveFaqs(ctx: Ctx): ContentValue<FaqItem[] | null> {
 // ── Pricing resolver ──────────────────────────────────────────────────────────
 
 function resolvePricingPlans(ctx: Ctx): ContentValue<PricingPlan[] | null> {
-  const { puo, spec, mainKw } = ctx;
+  const { spec, normIndustry } = ctx;
 
   // Only emit pricing when spec requires it
   if (!spec.sections.includes('pricing')) {
     return cv(null, 'absent', 'spec.sections.no-pricing');
   }
 
-  // Pricing is always niche-templated in Phase 3 (no prompt extraction yet)
-  return cv(buildNichePricingPlans(mainKw), 'niche', 'pricingTemplate');
+  // Phase 4C: niche-aware pricing tiers (no prompt extraction yet)
+  return cv(buildNichePricingPlans(normIndustry), 'niche', 'pricingTemplate');
 }
 
 // ── StartingPrice resolver ────────────────────────────────────────────────────
