@@ -75,6 +75,13 @@ export const SectionSchema = z.object({
   type: z.enum(SECTION_TYPES),
   /** Stable slug used as the anchor id and nav target (e.g. "features"). */
   id: z.string(),
+  /**
+   * Optional layout variant for the section renderer:
+   * hero     → "left" (left-aligned) | "" (centred, default)
+   * features → "list" (icon+text rows) | "" (card grid, default)
+   * contact  → "with-form" (include a contact form) | "" (info + CTAs only)
+   */
+  layout: z.string().optional(),
   eyebrow: z.string().optional(),
   heading: z.string().optional(),
   subheading: z.string().optional(),

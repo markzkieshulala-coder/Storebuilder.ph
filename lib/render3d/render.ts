@@ -1,18 +1,17 @@
 // ---------------------------------------------------------------------------
-// 3D RENDERER — turns a SitePlan into ONE self-contained, premium, 3D
-// ultra-modern HTML document.
+// 3D RENDERER — turns a SitePlan into ONE self-contained, premium HTML document.
 //
-// Hard rule: this renderer renders ONLY what the plan contains. It never adds a
-// section, button, stat, or line of copy that is not present in the plan. There
-// is no RNG, no template bank, no "required section" injection. Order and content
-// come verbatim from the plan; the only thing applied deterministically is the
-// premium 3D *design system* (depth, glass, aurora lighting, motion).
+// Hard rule: this renderer outputs ONLY what the plan contains. It never adds a
+// section, button, stat, or line of copy that is not in the plan. No RNG, no
+// template banks, no "required section" injection. Content comes verbatim from
+// the plan; the renderer contributes only visual presentation (CSS design system,
+// layout, motion). Five theme styles produce genuinely distinct visual treatments.
 // ---------------------------------------------------------------------------
 
-import type { SitePlan, Section, Cta, SectionItem, Theme } from '../ai/site-plan';
+import type { SitePlan, Section, Cta, Theme } from '../ai/site-plan';
 import type { ResolvedImagery } from '../engine/pexels';
 
-/** Append per-slot sizing/crop params to a Pexels photo URL. */
+/** Append per-slot Pexels sizing params to a photo URL. */
 function ph(url: string, w: number, h: number): string {
   if (!url) return '';
   if (/images\.pexels\.com/.test(url)) {
@@ -22,7 +21,7 @@ function ph(url: string, w: number, h: number): string {
   return url;
 }
 
-/** Inline background-image style for an art slot, or '' to fall back to CSS gradient art. */
+/** Inline background-image style for a photo slot, or '' to fall back to CSS gradient art. */
 function artStyle(url: string | undefined, w: number, h: number): string {
   const sized = ph(url || '', w, h);
   return sized ? ` style="background-image:url('${esc(sized)}')"` : '';
@@ -45,7 +44,6 @@ function esc(s: string | undefined | null): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Normalise a CTA href into something that works inside the static iframe. */
 function href(h: string): string {
   const v = (h || '').trim();
   if (!v) return '#';
@@ -62,32 +60,32 @@ function initials(name: string): string {
     .join('');
 }
 
-// A compact inline-SVG icon set. Unknown keywords fall back to a spark glyph.
+// Compact inline-SVG icon set. Unknown keywords fall back to a spark glyph.
 const ICONS: Record<string, string> = {
-  rocket: '<path d="M5 13c-1.5.5-3 2-3 5 3 0 4.5-1.5 5-3M9 11l4-4a6 6 0 0 1 8-2 6 6 0 0 1-2 8l-4 4-3-1-3-3-1-3z"/><circle cx="15" cy="9" r="1.5"/>',
-  shield: '<path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3z"/>',
-  spark: '<path d="M12 2v6m0 8v6m10-10h-6M8 12H2m15.5-5.5-4 4m-3 3-4 4m11 0-4-4m-3-3-4-4"/>',
-  bolt: '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
-  star: '<path d="m12 2 3 7 7 .5-5.5 4.5 2 7-6.5-4-6.5 4 2-7L2 9.5 9 9z"/>',
-  heart: '<path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/>',
-  check: '<path d="m4 12 5 5L20 6"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/>',
-  chart: '<path d="M4 20V10m6 10V4m6 16v-7m4 7H2"/>',
-  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  users: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 6a3 3 0 0 1 0 6m5 8c0-2.5-2-4-4-4.5"/>',
-  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
-  phone: '<path d="M5 4h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
-  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
-  map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14m6-12v14"/>',
-  leaf: '<path d="M4 20c0-9 7-16 16-16 0 9-7 16-16 16zm0 0c4-4 8-6 12-7"/>',
-  fire: '<path d="M12 2c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 1.5 0 2-1.5 1-4-1-2 0-4 0-5z"/>',
-  gift: '<rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 12h18M12 8v13M12 8S9 3 6.5 5 9 8 12 8s5.5.5 5.5-3S12 8 12 8z"/>',
-  truck: '<path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
-  code: '<path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16"/>',
+  rocket:  '<path d="M5 13c-1.5.5-3 2-3 5 3 0 4.5-1.5 5-3M9 11l4-4a6 6 0 0 1 8-2 6 6 0 0 1-2 8l-4 4-3-1-3-3-1-3z"/><circle cx="15" cy="9" r="1.5"/>',
+  shield:  '<path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3z"/>',
+  spark:   '<path d="M12 2v6m0 8v6m10-10h-6M8 12H2m15.5-5.5-4 4m-3 3-4 4m11 0-4-4m-3-3-4-4"/>',
+  bolt:    '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
+  star:    '<path d="m12 2 3 7 7 .5-5.5 4.5 2 7-6.5-4-6.5 4 2-7L2 9.5 9 9z"/>',
+  heart:   '<path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/>',
+  check:   '<path d="m4 12 5 5L20 6"/>',
+  gear:    '<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/>',
+  chart:   '<path d="M4 20V10m6 10V4m6 16v-7m4 7H2"/>',
+  globe:   '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  clock:   '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  users:   '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 6a3 3 0 0 1 0 6m5 8c0-2.5-2-4-4-4.5"/>',
+  lock:    '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  phone:   '<path d="M5 4h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  mail:    '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  map:     '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14m6-12v14"/>',
+  leaf:    '<path d="M4 20c0-9 7-16 16-16 0 9-7 16-16 16zm0 0c4-4 8-6 12-7"/>',
+  fire:    '<path d="M12 2c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 1.5 0 2-1.5 1-4-1-2 0-4 0-5z"/>',
+  gift:    '<rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 12h18M12 8v13M12 8S9 3 6.5 5 9 8 12 8s5.5.5 5.5-3S12 8 12 8z"/>',
+  truck:   '<path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  code:    '<path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16"/>',
   palette: '<path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2 0-1.5 1-2 2-2h2a3 3 0 0 0 3-3c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="11" r="1"/>',
-  camera: '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M9 7l1.5-2h3L15 7"/>',
-  music: '<circle cx="6" cy="18" r="2.5"/><circle cx="17" cy="16" r="2.5"/><path d="M8.5 18V6l11-2v10"/>',
+  camera:  '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M9 7l1.5-2h3L15 7"/>',
+  music:   '<circle cx="6" cy="18" r="2.5"/><circle cx="17" cy="16" r="2.5"/><path d="M8.5 18V6l11-2v10"/>',
 };
 
 function icon(keyword?: string): string {
@@ -99,10 +97,7 @@ function icon(keyword?: string): string {
 function renderCtas(ctas: Cta[] | undefined, extraClass = ''): string {
   if (!ctas || !ctas.length) return '';
   const btns = ctas
-    .map(
-      (c) =>
-        `<a class="btn btn-${esc(c.variant)}" href="${esc(href(c.href))}">${esc(c.label)}</a>`,
-    )
+    .map((c) => `<a class="btn btn-${esc(c.variant)}" href="${esc(href(c.href))}">${esc(c.label)}</a>`)
     .join('');
   return `<div class="cta-row ${extraClass}">${btns}</div>`;
 }
@@ -118,19 +113,37 @@ function secHead(s: Section, centered = true): string {
 // ── Section renderers — each reads ONLY its plan data ──────────────────────
 
 function renderHero(s: Section, imgUrl?: string): string {
+  const isLeft = s.layout === 'left';
   const eyebrow = s.eyebrow ? `<span class="hero-tag reveal">${esc(s.eyebrow)}</span>` : '';
   const heading = s.heading ? `<h1 class="reveal">${esc(s.heading)}</h1>` : '';
   const sub = s.subheading ? `<p class="hero-sub reveal">${esc(s.subheading)}</p>` : '';
   const body = s.body ? `<p class="hero-body reveal">${esc(s.body)}</p>` : '';
   const ctas = s.ctas && s.ctas.length ? renderCtas(s.ctas, 'reveal') : '';
   const bg = imgUrl ? `<div class="hero-bg"${artStyle(imgUrl, 1600, 1000)}></div>` : '';
-  return `<section id="${esc(s.id)}" class="hero${imgUrl ? ' has-bg' : ''}">
+  const innerClass = isLeft ? 'hero-inner hero-inner--left' : 'hero-inner';
+  return `<section id="${esc(s.id)}" class="hero${isLeft ? ' hero--left' : ''}${imgUrl ? ' has-bg' : ''}">
   ${bg}<div class="hero-glow"></div>
-  <div class="wrap hero-inner">${eyebrow}${heading}${sub}${body}${ctas}</div>
+  <div class="wrap ${innerClass}">${eyebrow}${heading}${sub}${body}${ctas}</div>
 </section>`;
 }
 
 function renderFeatures(s: Section): string {
+  if (s.layout === 'list') {
+    const items = (s.items || [])
+      .map(
+        (it, i) => `<div class="feat-row reveal" style="--d:${i * 55}ms">
+        <div class="card-ico">${icon(it.icon)}</div>
+        <div>
+          ${it.title ? `<h3>${esc(it.title)}</h3>` : ''}
+          ${it.description ? `<p>${esc(it.description)}</p>` : ''}
+        </div>
+      </div>`,
+      )
+      .join('');
+    return `<section id="${esc(s.id)}" class="section">
+  <div class="wrap">${secHead(s)}<div class="feat-list">${items}</div></div>
+</section>`;
+  }
   const cards = (s.items || [])
     .map(
       (it, i) => `<article class="card tilt reveal" style="--d:${(i % 4) * 70}ms">
@@ -145,13 +158,21 @@ function renderFeatures(s: Section): string {
 </section>`;
 }
 
-function renderAbout(s: Section): string {
+function renderAbout(s: Section, imgUrl?: string): string {
   const bullets = (s.items || [])
     .filter((it) => it.title)
     .map((it) => `<li><span class="dot">${icon('check')}</span>${esc(it.title)}</li>`)
     .join('');
   const list = bullets ? `<ul class="about-list reveal">${bullets}</ul>` : '';
   const body = s.body ? `<p class="about-body reveal">${esc(s.body)}</p>` : '';
+  if (imgUrl) {
+    return `<section id="${esc(s.id)}" class="section">
+  <div class="wrap about-grid">
+    <div>${secHead(s, false)}${body}${list}</div>
+    <div class="about-img tilt reveal"${artStyle(imgUrl, 700, 520)}></div>
+  </div>
+</section>`;
+  }
   return `<section id="${esc(s.id)}" class="section">
   <div class="wrap about-grid">
     <div>${secHead(s, false)}</div>
@@ -164,7 +185,7 @@ function renderGallery(s: Section, imagery?: ResolvedImagery): string {
   const tiles = (s.items || [])
     .map(
       (it, i) => `<figure class="tile tilt reveal" style="--i:${i}">
-      <div class="tile-art"${artStyle(imagery?.byName[`gallery-${i}`], 800, 600)}></div>
+      <div class="tile-art"${artStyle(imagery?.byName[`name:gallery-${i}`], 800, 600)}></div>
       ${it.title ? `<figcaption>${esc(it.title)}</figcaption>` : ''}
     </figure>`,
     )
@@ -178,7 +199,7 @@ function renderProducts(s: Section, imagery?: ResolvedImagery): string {
   const cards = (s.items || [])
     .map(
       (it, i) => `<article class="card product tilt reveal">
-      <div class="product-art"${artStyle(imagery?.byName[`product-${i}`], 800, 600)}></div>
+      <div class="product-art"${artStyle(imagery?.byName[`name:product-${i}`], 800, 600)}></div>
       <div class="product-body">
         ${it.title ? `<h3>${esc(it.title)}</h3>` : ''}
         ${it.description ? `<p>${esc(it.description)}</p>` : ''}
@@ -198,11 +219,12 @@ function renderProducts(s: Section, imagery?: ResolvedImagery): string {
 function renderPricing(s: Section): string {
   const cards = (s.items || [])
     .map((it) => {
+      const badgeText = it.featured ? (it.subtitle || 'Most Popular') : '';
       const feats = (it.features || [])
         .map((f) => `<li><span class="dot">${icon('check')}</span>${esc(f)}</li>`)
         .join('');
       return `<article class="card price-card tilt reveal${it.featured ? ' featured' : ''}">
-      ${it.featured ? '<span class="badge">Most popular</span>' : ''}
+      ${badgeText ? `<span class="badge">${esc(badgeText)}</span>` : ''}
       ${it.title ? `<h3>${esc(it.title)}</h3>` : ''}
       <div class="price-amt">${esc(it.price || '')}${it.period ? `<span>${esc(it.period)}</span>` : ''}</div>
       ${it.description ? `<p>${esc(it.description)}</p>` : ''}
@@ -310,21 +332,29 @@ function renderCtaBand(s: Section): string {
 }
 
 function renderContact(s: Section): string {
-  return `<section id="${esc(s.id)}" class="section section-narrow">
-  <div class="wrap contact-grid">
-    <div>${secHead(s, false)}${s.body ? `<p class="muted">${esc(s.body)}</p>` : ''}${renderCtas(s.ctas)}</div>
-    <form class="card contact-form glass reveal" onsubmit="return false">
+  const showForm = s.layout === 'with-form';
+  // Use the plan's primary CTA label for the form submit button.
+  const submitLabel = s.ctas?.find((c) => c.variant === 'primary')?.label
+    || s.ctas?.[0]?.label
+    || 'Send Message';
+  const formHtml = showForm
+    ? `<form class="card contact-form glass reveal" onsubmit="return false">
       <label>Name<input type="text" placeholder="Your name" /></label>
-      <label>Email<input type="email" placeholder="you@example.com" /></label>
-      <label>Message<textarea rows="4" placeholder="How can we help?"></textarea></label>
-      <button class="btn btn-primary" type="submit">Send message</button>
-    </form>
+      <label>Email<input type="email" placeholder="your@email.com" /></label>
+      <label>Message<textarea rows="4" placeholder="Tell us how we can help"></textarea></label>
+      <button class="btn btn-primary" type="submit">${esc(submitLabel)}</button>
+    </form>`
+    : '';
+  return `<section id="${esc(s.id)}" class="section section-narrow">
+  <div class="wrap${showForm ? ' contact-grid' : ''}">
+    <div>${secHead(s, false)}${s.body ? `<p class="muted reveal">${esc(s.body)}</p>` : ''}${renderCtas(s.ctas)}</div>
+    ${formHtml}
   </div>
 </section>`;
 }
 
 function renderNewsletter(s: Section): string {
-  const label = s.ctas && s.ctas[0] ? s.ctas[0].label : 'Subscribe';
+  const label = s.ctas?.[0]?.label || 'Subscribe';
   return `<section id="${esc(s.id)}" class="section section-narrow">
   <div class="wrap"><div class="news glass reveal">
     ${s.heading ? `<h2 class="grad">${esc(s.heading)}</h2>` : ''}
@@ -339,22 +369,22 @@ function renderNewsletter(s: Section): string {
 
 function renderSection(s: Section, imagery?: ResolvedImagery): string {
   switch (s.type) {
-    case 'hero': return renderHero(s, imagery?.byName['hero']);
-    case 'features': return renderFeatures(s);
-    case 'about': return renderAbout(s);
-    case 'gallery': return renderGallery(s, imagery);
-    case 'products': return renderProducts(s, imagery);
-    case 'pricing': return renderPricing(s);
+    case 'hero':         return renderHero(s, imagery?.byName['name:hero']);
+    case 'features':     return renderFeatures(s);
+    case 'about':        return renderAbout(s, imagery?.byName['name:about']);
+    case 'gallery':      return renderGallery(s, imagery);
+    case 'products':     return renderProducts(s, imagery);
+    case 'pricing':      return renderPricing(s);
     case 'testimonials': return renderTestimonials(s);
-    case 'faq': return renderFaq(s);
-    case 'stats': return renderStats(s);
-    case 'team': return renderTeam(s);
-    case 'steps': return renderSteps(s);
-    case 'cta': return renderCtaBand(s);
-    case 'contact': return renderContact(s);
-    case 'logos': return renderLogos(s);
-    case 'newsletter': return renderNewsletter(s);
-    default: return '';
+    case 'faq':          return renderFaq(s);
+    case 'stats':        return renderStats(s);
+    case 'team':         return renderTeam(s);
+    case 'steps':        return renderSteps(s);
+    case 'cta':          return renderCtaBand(s);
+    case 'contact':      return renderContact(s);
+    case 'logos':        return renderLogos(s);
+    case 'newsletter':   return renderNewsletter(s);
+    default:             return '';
   }
 }
 
@@ -375,6 +405,7 @@ function fontsFor(theme: Theme): { href: string; display: string; body: string }
       body: "'Inter', system-ui, sans-serif",
     };
   }
+  // aurora, glass, neon all use Space Grotesk as display
   return {
     href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap',
     display: "'Space Grotesk', system-ui, sans-serif",
@@ -385,26 +416,32 @@ function fontsFor(theme: Theme): { href: string; display: string; body: string }
 function buildCss(theme: Theme): string {
   const f = fontsFor(theme);
   const dark = theme.mode === 'dark';
-  const bg = dark ? '#08080c' : '#f6f6fb';
-  const text = dark ? '#f4f4f8' : '#15151d';
-  const muted = dark ? '#a7a7b8' : '#5b5b6b';
-  const surface = dark ? 'rgba(255,255,255,.045)' : 'rgba(255,255,255,.72)';
-  const border = dark ? 'rgba(255,255,255,.1)' : 'rgba(20,20,40,.09)';
-  const glowOpacity = theme.style === 'neon' ? '.55' : theme.style === 'minimal' ? '.18' : '.34';
+  const bg       = dark ? '#08080c' : '#f6f6fb';
+  const text      = dark ? '#f4f4f8' : '#15151d';
+  const muted     = dark ? '#a7a7b8' : '#5b5b6b';
+  const surface   = dark ? 'rgba(255,255,255,.045)' : 'rgba(255,255,255,.72)';
+  const border    = dark ? 'rgba(255,255,255,.1)'   : 'rgba(20,20,40,.09)';
+  const isMinimal = theme.style === 'minimal';
+  const isNeon    = theme.style === 'neon';
+  const isLuxe    = theme.style === 'luxe';
+  const isGlass   = theme.style === 'glass';
+  const glowOp    = isNeon ? '.45' : isMinimal ? '0' : isGlass ? '.3' : isLuxe ? '.13' : '.34';
+  const radius    = isLuxe ? '6px' : isMinimal ? '12px' : '20px';
+  const btnRadius = isLuxe ? '4px' : '999px';
+
   return `
 :root{
   --primary:${theme.primary};--accent:${theme.accent};
   --bg:${bg};--text:${text};--muted:${muted};--surface:${surface};--border:${border};
   --display:${f.display};--body:${f.body};
   --grad:linear-gradient(120deg,var(--primary),var(--accent));
-  --glow:${glowOpacity};
-  --radius:20px;
+  --glow:${glowOp};
+  --radius:${radius};
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{font-family:var(--body);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-/* Aurora background */
-body::before,body::after{content:'';position:fixed;z-index:0;width:55vmax;height:55vmax;border-radius:50%;filter:blur(90px);opacity:var(--glow);pointer-events:none;animation:float 18s ease-in-out infinite}
+body::before,body::after{content:'';position:fixed;z-index:0;width:55vmax;height:55vmax;border-radius:50%;filter:blur(${isGlass ? '120px' : '90px'});opacity:var(--glow);pointer-events:none;animation:float 18s ease-in-out infinite}
 body::before{top:-12vmax;left:-10vmax;background:radial-gradient(circle,var(--primary),transparent 70%)}
 body::after{bottom:-16vmax;right:-12vmax;background:radial-gradient(circle,var(--accent),transparent 70%);animation-delay:-9s}
 @keyframes float{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(4vmax,3vmax) scale(1.12)}}
@@ -430,7 +467,7 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop
 .mobile.open{display:flex}
 .mobile a{padding:12px 0;border-bottom:1px solid var(--border);color:var(--text)}
 /* Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 26px;border-radius:999px;font-family:var(--body);font-weight:600;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform .2s,box-shadow .2s,background .2s}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 26px;border-radius:${btnRadius};font-family:var(--body);font-weight:600;font-size:.95rem;cursor:pointer;border:1px solid transparent;transition:transform .2s,box-shadow .2s,background .2s}
 .btn-sm{padding:9px 18px;font-size:.85rem}
 .btn:hover{transform:translateY(-2px)}
 .btn-primary{background:var(--grad);color:#fff;box-shadow:0 14px 34px -12px var(--primary)}
@@ -449,14 +486,17 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop
 .sec-sub{color:var(--muted);font-size:1.08rem}
 /* Hero */
 .hero{position:relative;padding:clamp(140px,20vw,200px) 0 clamp(80px,10vw,120px);text-align:center}
-.hero-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:${theme.mode === 'dark' ? '.32' : '.22'};filter:saturate(1.05)}
+.hero--left{text-align:left}
+.hero-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:${dark ? '.32' : '.22'};filter:saturate(1.05)}
 .hero.has-bg::after{content:'';position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,transparent,var(--bg) 92%)}
 .hero-inner{max-width:880px;margin:0 auto;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
+.hero-inner--left{max-width:700px;margin:0;display:flex;flex-direction:column;align-items:flex-start;position:relative;z-index:1}
+.hero-inner--left .cta-row{justify-content:flex-start}
 .hero-tag{padding:7px 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:.82rem;font-weight:600;color:var(--primary);margin-bottom:24px;backdrop-filter:blur(10px)}
 .hero h1{font-size:clamp(2.7rem,7vw,5rem);margin-bottom:22px;background:linear-gradient(180deg,var(--text),color-mix(in srgb,var(--text) 55%,var(--primary)));-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero-sub{font-size:clamp(1.05rem,2vw,1.35rem);color:var(--muted);max-width:640px;margin-bottom:14px}
 .hero-body{color:var(--muted);max-width:600px}
-/* Cards & 3D */
+/* Cards & 3D tilt */
 .grid{display:grid;gap:24px}
 .grid-feat{grid-template-columns:repeat(3,1fr)}
 .grid-products{grid-template-columns:repeat(3,1fr)}
@@ -473,18 +513,24 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop
 .card-ico svg{width:24px;height:24px}
 .dot svg{width:15px;height:15px}
 .dot{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:color-mix(in srgb,var(--primary) 18%,transparent);color:var(--primary);flex:0 0 auto}
+/* Features list layout */
+.feat-list{display:flex;flex-direction:column;gap:16px}
+.feat-row{display:flex;align-items:flex-start;gap:18px;padding:22px 26px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.feat-row h3{font-size:1.1rem;margin-bottom:4px}
+.feat-row p{color:var(--muted);font-size:.95rem;margin:0}
 /* About */
 .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
 .about-body{color:var(--muted);font-size:1.06rem;margin-bottom:20px}
 .about-list{list-style:none;display:flex;flex-direction:column;gap:14px}
 .about-list li{display:flex;align-items:center;gap:12px;font-weight:500}
+.about-img{border-radius:var(--radius);aspect-ratio:4/3;background-size:cover;background-position:center;background-color:color-mix(in srgb,var(--primary) 22%,transparent);overflow:hidden;border:1px solid var(--border)}
 /* Gallery */
 .tile{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
-.tile-art{aspect-ratio:4/3;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 40%,transparent),color-mix(in srgb,var(--accent) 40%,transparent))}
+.tile-art{aspect-ratio:4/3;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 40%,transparent),color-mix(in srgb,var(--accent) 40%,transparent));background-size:cover;background-position:center}
 .tile figcaption{padding:14px 18px;font-size:.92rem;color:var(--muted);background:var(--surface)}
 /* Products */
 .product{padding:0;overflow:hidden}
-.product-art{aspect-ratio:16/10;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 38%,transparent),color-mix(in srgb,var(--accent) 38%,transparent))}
+.product-art{aspect-ratio:16/10;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 38%,transparent),color-mix(in srgb,var(--accent) 38%,transparent));background-size:cover;background-position:center}
 .product-body{padding:24px}
 .product-foot{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
 .price{font-family:var(--display);font-weight:700;font-size:1.3rem}
@@ -497,7 +543,7 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop
 .price-feats{list-style:none;display:flex;flex-direction:column;gap:11px;margin:16px 0 22px}
 .price-feats li{display:flex;align-items:center;gap:10px;font-size:.94rem}
 .price-card .btn{margin-top:auto}
-/* Quotes */
+/* Quotes/Testimonials */
 .quote{display:flex;flex-direction:column;gap:14px;position:relative}
 .quote-mark{font-family:var(--display);font-size:3rem;line-height:.6;color:var(--primary);opacity:.5}
 .quote blockquote{font-size:1.02rem;color:var(--text)}
@@ -534,15 +580,16 @@ header.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop
 /* Contact */
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
 .contact-form{display:flex;flex-direction:column;gap:16px;padding:30px;border-radius:var(--radius)}
-.contact-form label,.news-form label{display:flex;flex-direction:column;gap:7px;font-size:.85rem;font-weight:600;color:var(--muted)}
-.contact-form input,.contact-form textarea,.news-form input{padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:color-mix(in srgb,var(--bg) 60%,transparent);color:var(--text);font-family:var(--body);font-size:.95rem}
-.contact-form input:focus,.contact-form textarea:focus,.news-form input:focus{outline:none;border-color:var(--primary)}
+.contact-form label{display:flex;flex-direction:column;gap:7px;font-size:.85rem;font-weight:600;color:var(--muted)}
+.contact-form input,.contact-form textarea{padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:color-mix(in srgb,var(--bg) 60%,transparent);color:var(--text);font-family:var(--body);font-size:.95rem}
+.contact-form input:focus,.contact-form textarea:focus{outline:none;border-color:var(--primary)}
 /* Newsletter */
 .news{border-radius:28px;padding:clamp(40px,6vw,64px);text-align:center}
 .news h2{font-size:clamp(1.7rem,3.5vw,2.4rem);margin-bottom:10px}
 .news p{color:var(--muted);max-width:480px;margin:0 auto 22px}
 .news-form{display:flex;gap:12px;max-width:460px;margin:0 auto;flex-wrap:wrap}
-.news-form input{flex:1;min-width:200px}
+.news-form input{flex:1;min-width:200px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:color-mix(in srgb,var(--bg) 60%,transparent);color:var(--text);font-family:var(--body);font-size:.95rem}
+.news-form input:focus{outline:none;border-color:var(--primary)}
 /* Footer */
 footer{border-top:1px solid var(--border);padding:48px 0;position:relative;z-index:1;margin-top:40px}
 .foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;align-items:center}
@@ -550,13 +597,54 @@ footer{border-top:1px solid var(--border);padding:48px 0;position:relative;z-ind
 .foot-links{display:flex;gap:22px;flex-wrap:wrap}
 .foot-links a{color:var(--muted);font-size:.9rem}
 .foot-copy{color:var(--muted);font-size:.85rem;width:100%;border-top:1px solid var(--border);margin-top:24px;padding-top:24px}
-/* Reveal */
+/* Scroll reveal */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0ms)}
 .reveal.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}body::before,body::after{animation:none}}
 /* Responsive */
-@media(max-width:960px){.grid-feat,.grid-products,.grid-pricing,.grid-quotes,.grid-steps{grid-template-columns:repeat(2,1fr)}.grid-team,.grid-gallery{grid-template-columns:repeat(2,1fr)}.about-grid,.contact-grid{grid-template-columns:1fr}}
-@media(max-width:640px){.nav-links{display:none}.burger{display:flex}.grid-feat,.grid-products,.grid-pricing,.grid-quotes,.grid-steps,.grid-team,.grid-gallery{grid-template-columns:1fr}}
+@media(max-width:960px){
+  .grid-feat,.grid-products,.grid-pricing,.grid-quotes,.grid-steps{grid-template-columns:repeat(2,1fr)}
+  .grid-team,.grid-gallery{grid-template-columns:repeat(2,1fr)}
+  .about-grid,.contact-grid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .nav-links{display:none}.burger{display:flex}
+  .grid-feat,.grid-products,.grid-pricing,.grid-quotes,.grid-steps,.grid-team,.grid-gallery{grid-template-columns:1fr}
+  .hero--left{text-align:center}
+  .hero-inner--left{align-items:center}
+  .hero-inner--left .cta-row{justify-content:center}
+}
+/* ── Theme style overrides ──────────────────────────────────────────────────
+   Each theme style produces a genuinely distinct visual treatment beyond
+   the primary/accent color swap.                                            */
+${isMinimal ? `
+body::before,body::after{display:none}
+.glass,.card,.feat-row,.faq-row{backdrop-filter:none;-webkit-backdrop-filter:none;background:${dark ? 'rgba(255,255,255,.06)' : '#fff'};border-color:${dark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.09)'}}
+.stat-row{backdrop-filter:none;-webkit-backdrop-filter:none}
+.grad{background:none;-webkit-background-clip:unset;background-clip:unset;color:var(--primary)}
+.hero h1{background:none;-webkit-background-clip:unset;background-clip:unset;color:var(--text)}
+` : ''}${isNeon ? `
+.card{border-color:color-mix(in srgb,var(--primary) 38%,transparent);box-shadow:0 0 16px -8px var(--primary)}
+.card:hover{border-color:color-mix(in srgb,var(--primary) 70%,transparent);box-shadow:0 0 40px -6px var(--primary),0 0 80px -30px var(--accent)}
+.btn-primary{box-shadow:0 0 22px -5px var(--primary)}
+.btn-primary:hover{box-shadow:0 0 50px -5px var(--primary)}
+.stat-num,.price-amt{text-shadow:0 0 28px color-mix(in srgb,var(--primary) 55%,transparent)}
+.hero h1{text-shadow:0 0 60px color-mix(in srgb,var(--primary) 30%,transparent)}
+.brand .mark{box-shadow:0 0 22px -4px var(--primary)}
+` : ''}${isGlass ? `
+body::before,body::after{opacity:.28;filter:blur(130px)}
+.card{background:${dark ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.7)'};backdrop-filter:blur(36px);-webkit-backdrop-filter:blur(36px);border-color:${dark ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.9)'};box-shadow:0 4px 24px -8px rgba(0,0,0,.12)}
+.glass{backdrop-filter:blur(36px);-webkit-backdrop-filter:blur(36px)}
+header.scrolled{backdrop-filter:blur(48px);-webkit-backdrop-filter:blur(48px)}
+` : ''}${isLuxe ? `
+body::before,body::after{opacity:.12;width:38vmax;height:38vmax;animation-duration:28s}
+.card{backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:4px}
+.faq-row{backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:6px}
+.hero{padding:clamp(160px,22vw,240px) 0 clamp(100px,12vw,150px)}
+.section{padding:clamp(80px,11vw,130px) 0}
+.card:hover{box-shadow:0 20px 50px -25px rgba(0,0,0,.2);border-color:color-mix(in srgb,var(--primary) 28%,var(--border))}
+h1,h2,h3{letter-spacing:-.03em}
+` : ''}
 `;
 }
 
@@ -568,10 +656,11 @@ const SCRIPT = `
   if(b&&m){b.addEventListener('click',function(){m.classList.toggle('open')});m.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){m.classList.remove('open')})});}
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{threshold:.12});
   document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
-  // 3D pointer tilt
   document.querySelectorAll('.tilt').forEach(function(c){
     c.addEventListener('pointermove',function(e){
-      var r=c.getBoundingClientRect();var px=(e.clientX-r.left)/r.width-.5;var py=(e.clientY-r.top)/r.height-.5;
+      var r=c.getBoundingClientRect();
+      var px=(e.clientX-r.left)/r.width-.5;
+      var py=(e.clientY-r.top)/r.height-.5;
       c.style.transform='perspective(900px) rotateX('+(-py*6)+'deg) rotateY('+(px*6)+'deg) translateY(-4px)';
     });
     c.addEventListener('pointerleave',function(){c.style.transform='';});
@@ -579,12 +668,11 @@ const SCRIPT = `
 })();
 `;
 
-/** Render a full premium HTML document from a SitePlan, with optional resolved photos. */
+/** Render a full premium HTML document from a SitePlan, with optional resolved Pexels photos. */
 export function renderSitePlan(plan: SitePlan, imagery?: ResolvedImagery): RenderResult {
   const css = buildCss(plan.theme);
   const sectionsHtml = plan.sections.map((s) => renderSection(s, imagery)).filter(Boolean).join('\n');
 
-  // Nav links come from the plan; primary CTA reuses the hero's primary CTA if present.
   const navLinks = plan.nav
     .map((n) => `<a href="${esc(href(n.href))}">${esc(n.label)}</a>`)
     .join('');
@@ -593,7 +681,6 @@ export function renderSitePlan(plan: SitePlan, imagery?: ResolvedImagery): Rende
   const navCtaHtml = navCta
     ? `<a class="btn btn-primary btn-sm" href="${esc(href(navCta.href))}">${esc(navCta.label)}</a>`
     : '';
-
   const footLinks = plan.nav
     .map((n) => `<a href="${esc(href(n.href))}">${esc(n.label)}</a>`)
     .join('');

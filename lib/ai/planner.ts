@@ -36,7 +36,7 @@ SECTION FIELD CONVENTIONS (populate only the relevant fields per type; leave the
 - features/services: eyebrow, heading, items[] with {title, description, icon} (icon = one short lowercase keyword like "rocket", "shield", "spark", "bolt", "star", "heart", "chart", "globe", "clock", "users", "lock", "leaf", "camera", "code", "palette").
 - about: eyebrow, heading, body. Optional items[] as bullet highlights {title}.
 - products: heading, items[] with {title (name), description, price, cta (button label)}.
-- pricing: heading, items[] with {title (plan), price, period, description, features[] (bullets), featured (true for ONE highlighted plan), cta (button label)}.
+- pricing: heading, items[] with {title (plan), price, period, description, features[] (bullets), featured (true for ONE highlighted plan), subtitle (badge text for featured, e.g. "Best Value"), cta (button label)}.
 - testimonials: heading, items[] with {description (quote), title (person name), subtitle (role/company)}.
 - faq: heading, items[] with {title (question), description (answer)}.
 - stats: optional heading, items[] with {value (e.g. "10k+"), title (label)}.
@@ -45,8 +45,14 @@ SECTION FIELD CONVENTIONS (populate only the relevant fields per type; leave the
 - gallery: heading, items[] with {title (caption)} — one per image slot.
 - logos: optional heading, items[] with {title (brand name)}.
 - cta: heading, body, ctas[].
-- contact: heading, body, ctas[] (e.g. email / phone actions).
+- contact: heading, body, ctas[] (e.g. email / phone action links). Set layout:"with-form" ONLY if the prompt explicitly asks for a contact form; otherwise leave layout:"" so only the contact info and CTA links are shown.
 - newsletter: heading, body, ctas[] (e.g. "Subscribe").
+
+LAYOUT FIELD — set on sections where a non-default presentation is needed:
+- hero: layout:"left" for a left-aligned hero; leave "" for centred (default).
+- features: layout:"list" when items have long descriptions (renders as icon+text rows instead of cards).
+- contact: layout:"with-form" to include a contact form; leave "" for contact info / links only.
+- All other sections: leave layout:"".
 
 Keep copy tight and editorial. Section ids are short slugs ("features", "pricing", "contact"). Produce a complete plan in one pass.`;
 
@@ -87,6 +93,7 @@ const SECTION_SCHEMA = {
   properties: {
     type: { type: 'string', enum: SECTION_TYPES as unknown as string[] },
     id: str,
+    layout: str,
     eyebrow: str,
     heading: str,
     subheading: str,
@@ -94,7 +101,7 @@ const SECTION_SCHEMA = {
     ctas: { type: 'array', items: CTA_SCHEMA },
     items: { type: 'array', items: ITEM_SCHEMA },
   },
-  required: ['type', 'id', 'eyebrow', 'heading', 'subheading', 'body', 'ctas', 'items'],
+  required: ['type', 'id', 'layout', 'eyebrow', 'heading', 'subheading', 'body', 'ctas', 'items'],
 };
 const SITE_PLAN_JSON_SCHEMA = {
   type: 'object',
