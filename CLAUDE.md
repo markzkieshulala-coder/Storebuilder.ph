@@ -1,60 +1,43 @@
 # Storebuilder.ph
 
-## Website Generation Engine — AI engine writes the whole site
+## Website Generation Engine — in-house engines (`lib/engine/`), no external AI
 
-The generator is a TRUE AI pipeline: a configurable, provider-agnostic AI engine
-reads the prompt and writes the ENTIRE self-contained HTML document directly —
-structure, sections, pages, copy, CTAs and buttons. There is NO planner, NO fixed
-`SitePlan`/section list, NO deterministic template renderer, NO RNG and NO copy
-banks. The site reflects the prompt exactly: it includes only what the prompt asks
-for or clearly implies, honours explicit exclusions ("no FAQ", "no testimonials"),
-and two different prompts yield two visibly different sites. Anthropic/Claude has
-been removed; the engine is whatever OpenAI-compatible endpoint you configure.
+The generator is 100% in-house and runs entirely in-process. There is NO external
+AI of any kind (no Claude/Anthropic, OpenAI, Google/Gemini, or Ollama) and NO
+third-party API in the understand→generate path — no network call at all (the only
+optional outbound call anywhere is the Pexels photo lookup, which degrades to CSS
+placeholders without a key). The in-house engines understand the prompt and render
+the site directly from the user's instructions; a strict prompt contract keeps the
+output prompt-specific — only the sections, CTAs, and copy the prompt motivates,
+with explicit exclusions ("no FAQ", "no testimonials") honoured.
 
-Flow: `prompt → buildSite() [AI engine] → complete HTML document`.
+Flow: `prompt → buildUnderstanding() → generateWebsite() → HTML`.
 
-- **AI engine client:** `lib/ai/client.ts` — provider-agnostic, `fetch`-based
-  OpenAI-compatible chat client (`POST {AI_BASE_URL}/chat/completions`, Bearer
-  auth). No SDK, so importing the module needs no key (keeps `next build` green
-  offline); `getEngineConfig()`/`callChatModel()` throw `MissingApiKeyError` only
-  at call time. Env: `AI_API_KEY` (required), `AI_BASE_URL` (default
-  `https://api.openai.com/v1`), `AI_MODEL` (default `gpt-4o`). Point these at your
-  own engine, OpenAI, Ollama, vLLM, LM Studio, LocalAI, DeepSeek, Groq, Together, …
-- **Generator:** `lib/ai/generator.ts` → `buildSite(prompt, brandName)`. Sends a
-  strong system prompt that enforces (a) strict prompt-adherence + exclusions and
-  (b) an ultra-premium modern 3D aesthetic (glassmorphism, aurora gradients,
-  gradient text, 3D pointer tilt, IntersectionObserver reveals, Google Fonts,
-  responsive/accessible), then returns the engine's complete HTML document. It
-  strips any markdown fences and parses the AI's own markup with `cheerio` ONLY to
-  read metadata — `brandName` (`<meta name="sb-brand">`/`<title>`), `niche`
-  (`<meta name="sb-niche">`) and in-page anchor nav (`nav a[href^="#"]`). It never
-  mutates the markup.
-- **Entry:** `lib/ai/generate-ai.ts` → `generateWebsiteAI(prompt, brandName)` calls
-  `buildSite` and returns the legacy `EngineGenerationResult` shape (single rich
-  page → `pages = { '/': html }`) so the DB and iframe serving
-  (`app/sites/[subdomain]`, `app/preview/[id]`) are unchanged.
-- **API route:** `app/api/generate/route.ts` (POST) calls `generateWebsiteAI`,
+- **Entry / API route:** `app/api/generate/route.ts` (POST) calls
+  `generateWebsite(prompt, brandName, subdomain)` from `lib/engine/generate.ts`,
   stores the HTML in `Website.htmlContent` + pages in `jsonContent`, deducts a
-  credit. Returns 503 if `AI_API_KEY` is missing. The raw INSERT casts the
-  `WebsiteType` enum (`$N::"WebsiteType"`) and includes the required `prompt` column.
+  credit. No generation key is required. The raw INSERT casts the `WebsiteType`
+  enum (`$N::"WebsiteType"`) and includes the required `prompt` column.
+- **Engine entry:** `lib/engine/generate.ts` → `generateWebsite()` builds a shared
+  context from the prompt, optionally resolves content-aware photos (degrades to
+  CSS placeholders), renders the multi-page site, and runs a requirement-fidelity
+  gate that FAILS generation rather than shipping a site that ignores the prompt.
+  Returns `EngineGenerationResult` (`{ html, pages, nav, niche, fidelity, … }`) so
+  the DB and iframe serving (`app/sites/[subdomain]`, `app/preview/[id]`) work
+  unchanged.
 
-> Visuals are produced by the AI as CSS art (mesh/aurora gradients, glassmorphism,
-> inline SVG) so nothing hotlinks or breaks. Re-introducing real photography
-> (`lib/engine/pexels.ts`) as a post-process that swaps placeholder slots is a
-> natural follow-up.
+> The previous experiment that used Anthropic/Claude as a planner (plus a separate
+> `lib/ai/` + `lib/render3d/` template renderer) has been REMOVED — no external AI
+> or third-party generation API remains in the tree. The in-house engines below
+> are the active and only pipeline.
 
-### LEGACY (superseded) — in-house deterministic engine `lib/engine/`
+### In-house deterministic engine `lib/engine/`
 
-The previous generator was a 100%-in-house, zero-AI engine: an NLU + deterministic
-parser produced design tokens and copy from niche template banks, and
-`lib/engine/html-renderer.ts` composed the HTML. It is **no longer on the
-`/api/generate` critical path** (it produced repetitive, template-shaped sites and
-sometimes emitted sections the prompt excluded — the reason for the hybrid rewrite).
-The code remains in the tree and its `__tests__` still pass; treat it as reference,
-not the active pipeline. The historical "no external AI / no network" description
-below applies to that legacy engine only.
+The generator is a 100%-in-house, zero-AI engine: an NLU + deterministic parser
+produces design tokens and copy, and `lib/engine/html-renderer.ts` composes the
+HTML. It is the active `/api/generate` pipeline and its `__tests__` pass.
 
-### (Legacy) In-house NLU understanding (zero external AI, one process)
+### In-house NLU understanding (zero external AI, one process)
 Prompt comprehension is 100% in-house and runs in the SAME process as the
 generator — there is NO external AI of any kind (no Claude, OpenAI, Google/Gemini,
 or Ollama) and NO network call anywhere in the understand→generate path.

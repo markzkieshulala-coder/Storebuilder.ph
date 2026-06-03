@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateWebsiteAI } from "@/lib/ai/generate-ai";
-import { MissingApiKeyError } from "@/lib/ai/client";
+import { generateWebsite } from "@/lib/engine/generate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -55,12 +54,14 @@ export async function POST(req: NextRequest) {
     // Generate subdomain first so the renderer can embed correct <base href> links
     const subdomain = generateSubdomain(brandName);
 
-    console.log(`[generate] Generating site for "${brandName}" with the AI engine…`);
+    console.log(`[generate] Generating site for "${brandName}" with the in-house engine…`);
 
-    // AI-driven generation: the engine reads the prompt and writes the entire
-    // site directly (structure, sections, pages, CTAs, copy). The output reflects
-    // the prompt exactly — no templates, no fixed sections, no injected content.
-    const result = await generateWebsiteAI(cleanPrompt, brandName, subdomain);
+    // In-house generation engine — 100% in-process, no external AI and no
+    // third-party API. It understands the prompt and renders the site directly
+    // from the user's instructions (strict prompt contract: only requested
+    // sections/CTAs/copy, honours exclusions). The fidelity gate inside fails
+    // generation rather than shipping a site that ignores the prompt.
+    const result = await generateWebsite(cleanPrompt, brandName, subdomain);
 
     console.log(`[generate] Generation complete. Niche="${result.niche}", htmlChars=${result.html.length}, navItems=${result.nav.length}`);
 
@@ -107,17 +108,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       website,
-      model: process.env.AI_MODEL || "ai-engine",
+      model: "in-house-engine",
     });
 
   } catch (err: any) {
     console.error("[POST /api/generate]", err);
-    if (err instanceof MissingApiKeyError) {
-      return NextResponse.json(
-        { error: "The site generator is not configured: AI_API_KEY is missing." },
-        { status: 503 }
-      );
-    }
     return NextResponse.json(
       { error: `Generation failed: ${err?.message ?? "unknown error"}` },
       { status: 500 }
