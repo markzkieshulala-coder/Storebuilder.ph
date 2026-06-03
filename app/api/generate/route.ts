@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateWebsite } from "@/lib/engine";
-import { buildUnderstanding } from "@/lib/engine/understanding";
+import { generateWebsiteAI } from "@/lib/ai/generate-ai";
+import { MissingApiKeyError } from "@/lib/ai/client";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 function generateSubdomain(brandName: string): string {
   return brandName
@@ -55,16 +55,14 @@ export async function POST(req: NextRequest) {
     // Generate subdomain first so the renderer can embed correct <base href> links
     const subdomain = generateSubdomain(brandName);
 
-    // Build the canonical understanding — same function /api/analyze calls,
-    // so the concept the user sees and the site that gets built are identical.
-    const understanding = await buildUnderstanding(cleanPrompt);
+    console.log(`[generate] Hybrid pipeline for "${brandName}" — planning with Claude…`);
 
-    console.log(`[generate] Pipeline for "${brandName}" — niche="${understanding.inferredIndustry}" mood="${understanding.visualMood}" style="${understanding.designStyle}"`);
+    // Hybrid pipeline: Claude interprets the prompt and plans the site (sections,
+    // CTAs, copy, exclusions); the deterministic 3D renderer renders that plan
+    // verbatim. The site reflects the prompt exactly — no template injection.
+    const result = await generateWebsiteAI(cleanPrompt, brandName, subdomain);
 
-    // Run the in-process orchestration engine (no external AI calls for rendering)
-    const result = await generateWebsite(cleanPrompt, brandName, subdomain, understanding);
-
-    console.log(`[generate] Pipeline complete. Pages: ${Object.keys(result.pages).length}, score: ${result.score}`);
+    console.log(`[generate] Pipeline complete. Niche="${result.niche}", sections=${(result.artifacts as any)?.plan?.sections?.length ?? "?"}, excluded=${JSON.stringify((result.artifacts as any)?.excluded ?? [])}`);
 
     // Determine website type from niche
     const niche = result.niche.toLowerCase();
@@ -109,11 +107,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       website,
-      model: "orchestration-engine-v1",
+      model: "claude-opus-4-8-planner+3d-renderer",
     });
 
   } catch (err: any) {
     console.error("[POST /api/generate]", err);
+    if (err instanceof MissingApiKeyError) {
+      return NextResponse.json(
+        { error: "The site generator is not configured: ANTHROPIC_API_KEY is missing." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: `Generation failed: ${err?.message ?? "unknown error"}` },
       { status: 500 }

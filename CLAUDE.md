@@ -1,31 +1,61 @@
 # Storebuilder.ph
 
-## Website Generation Engine
+## Website Generation Engine — Hybrid (Claude planner → deterministic 3D renderer)
 
-The primary website generator is an in-process TypeScript orchestration engine
-at `lib/engine/`. It runs a 9-stage pipeline (planning → blueprint → design-dna
-→ component → frontend → motion → validation → scoring → final-rendering). The
-generation/rendering itself is fully deterministic and self-contained — no
-external API is required to build a site.
+The generator is a HYBRID pipeline: Claude interprets the prompt and produces a
+strict, validated **SitePlan**; a deterministic in-house engine renders that plan
+into ONE premium, "3D ultra-modern" HTML document. The model strictly follows the
+prompt — it includes only the sections, CTAs, and copy the prompt asks for, and
+honours explicit exclusions ("no FAQ", "no testimonials"). The renderer renders
+ONLY what the plan contains: it never injects a section, button, or line of copy
+that is not in the plan, uses no RNG, and uses no template/copy banks. This is what
+makes output prompt-specific instead of template-shaped.
 
-- Entry point: `lib/engine/generate.ts` → `generateWebsite(prompt, brandName)`
-- Orchestration: `lib/engine/bootstrap.ts` wires the engines into a
-  `PipelineOrchestrator` (registry, retry, event bus, in-memory persistence).
-- Premium HTML composition: `lib/engine/html-renderer.ts` turns the design-dna
-  (palette, typography, spacing, motion tokens, light/dark theme) and planning
-  artifacts into ONE self-contained, responsive, animated HTML document —
-  niche-aware copy (restaurant / portfolio / ecommerce / agency / saas /
-  business), Google Fonts, glassmorphism nav, cinematic hero, feature grid,
-  showcase, gallery, stats, testimonials, CTA, contact form, footer, and
-  IntersectionObserver scroll reveals. No external assets beyond Google Fonts.
-- API route: `app/api/generate/route.ts` (POST) runs the engine, stores the HTML
-  in `Website.htmlContent`, and deducts a credit. The raw INSERT casts the
-  `WebsiteType` enum (`$N::"WebsiteType"`) and includes the required `prompt`
-  column.
-- Generated sites are served via iframe through `app/sites/[subdomain]` and
-  `app/preview/[id]`.
+Flow: `prompt → buildSitePlan() [Claude] → SitePlan → renderSitePlan() → HTML`.
 
-### In-house NLU understanding (zero external AI, one process)
+- **Plan contract:** `lib/ai/site-plan.ts` — the `SitePlan` zod schema (brand,
+  theme, nav, ordered `sections[]`, explicit `excluded[]`). The single source of
+  truth for what may appear on the site.
+- **Planner:** `lib/ai/planner.ts` → `buildSitePlan(prompt, brandName)`. Calls
+  Claude (`claude-opus-4-8`, adaptive thinking, `effort: high`) via
+  `@anthropic-ai/sdk` with a hand-authored strict JSON-Schema structured output
+  (`output_config.format`), then validates the JSON with the zod schema. A strong
+  system prompt enforces strict adherence + exclusions. Prompt-cached system block.
+  Uses a hand-written JSON Schema (not the SDK zod helper) because the project pins
+  zod v3 while the SDK helper targets zod v4.
+- **Client:** `lib/ai/client.ts` — lazily constructed Anthropic client. Importing
+  the module needs no key (keeps `next build` green offline); `getAnthropic()`
+  throws `MissingApiKeyError` only at call time. Env: `ANTHROPIC_API_KEY` (required).
+- **3D renderer:** `lib/render3d/render.ts` → `renderSitePlan(plan)`. Deterministic
+  premium design system (aurora lighting, glassmorphism, gradient text, 3D pointer
+  tilt, IntersectionObserver reveals, Google Fonts) with one renderer per section
+  type, each reading ONLY its plan data. Returns the same multi-page result shape
+  the route/DB/serving layer expects (`{ html, pages, nav, ... }`); the site is a
+  single rich page with in-page anchor nav (`pages = { '/': html }`).
+- **Entry:** `lib/ai/generate-ai.ts` → `generateWebsiteAI(prompt, brandName)` wires
+  planner→renderer and returns the legacy `EngineGenerationResult` shape so the DB
+  and iframe serving (`app/sites/[subdomain]`, `app/preview/[id]`) are unchanged.
+- **API route:** `app/api/generate/route.ts` (POST) calls `generateWebsiteAI`,
+  stores the HTML in `Website.htmlContent` + pages in `jsonContent`, deducts a
+  credit. Returns 503 if `ANTHROPIC_API_KEY` is missing. The raw INSERT casts the
+  `WebsiteType` enum (`$N::"WebsiteType"`) and includes the required `prompt` column.
+
+> Premium photography (Pexels) is currently not wired into the 3D renderer — image
+> slots use on-brand CSS gradient art. Re-integrating `lib/engine/pexels.ts` per
+> plan content is a natural follow-up.
+
+### LEGACY (superseded) — in-house deterministic engine `lib/engine/`
+
+The previous generator was a 100%-in-house, zero-AI engine: an NLU + deterministic
+parser produced design tokens and copy from niche template banks, and
+`lib/engine/html-renderer.ts` composed the HTML. It is **no longer on the
+`/api/generate` critical path** (it produced repetitive, template-shaped sites and
+sometimes emitted sections the prompt excluded — the reason for the hybrid rewrite).
+The code remains in the tree and its `__tests__` still pass; treat it as reference,
+not the active pipeline. The historical "no external AI / no network" description
+below applies to that legacy engine only.
+
+### (Legacy) In-house NLU understanding (zero external AI, one process)
 Prompt comprehension is 100% in-house and runs in the SAME process as the
 generator — there is NO external AI of any kind (no Claude, OpenAI, Google/Gemini,
 or Ollama) and NO network call anywhere in the understand→generate path.
