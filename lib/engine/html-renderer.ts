@@ -856,6 +856,32 @@ interface SiteCopy {
   hiddenSecondarySlug: string;
   hiddenPrimaryCtaLabel: string;
   hiddenSecondaryCtaLabel: string;
+  // Section labels (Phase 4F) — niche/prompt-aware eyebrows & headings that the
+  // section renderers previously hardcoded. Optional so the dead legacy builder
+  // and any partial caller still type-check; renderers fall back to a literal
+  // when a value is absent.
+  faqEyebrow?: string;
+  faqHeading?: string;
+  testimonialsEyebrow?: string;
+  testimonialsHeading?: string;
+  storyEyebrow?: string;
+  highlightEyebrow?: string;
+  galleryEyebrow?: string;
+  contactEyebrow?: string;
+  newsletterEyebrow?: string;
+  newsletterHeading?: string;
+  teamEyebrow?: string;
+  teamHeading?: string;
+  bookingEyebrow?: string;
+  bookingHeading?: string;
+  locationEyebrow?: string;
+  locationHeading?: string;
+  blogEyebrow?: string;
+  blogHeading?: string;
+  eventsEyebrow?: string;
+  eventsHeading?: string;
+  pricingEyebrow?: string;
+  pricingHeading?: string;
 }
 
 // Words that describe HOW a site should look/feel rather than WHAT it is about.
@@ -2469,10 +2495,13 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
 function renderPhotoGallerySection(
   node: LayoutNode,
   ctx: RenderCtx,
-  eyebrow = 'Showcase',
+  eyebrow?: string,
   title?: string,
 ): string {
   const { copy, photos, fp } = ctx;
+  // Explicit eyebrow (e.g. spec-driven injection) wins; otherwise use the
+  // niche/prompt-aware gallery eyebrow, falling back to a literal.
+  const eb = eyebrow || copy.galleryEyebrow || 'Showcase';
   const variant = node.variant as string;
   const gridClass = variant === 'filmstrip' ? 'filmstrip' : variant === 'panorama' ? 'panorama' : variant === 'masonry' ? 'masonry' : 'uniform';
   const count = gridClass === 'filmstrip' ? 6 : 6;
@@ -2492,7 +2521,7 @@ function renderPhotoGallerySection(
 <section>
   <div class="wrap">
     <div class="sec-head centered reveal">
-      <span class="eyebrow">${esc(eyebrow)}</span>
+      <span class="eyebrow">${esc(eb)}</span>
       <h2>${esc(heading)}</h2>
     </div>
     <div class="gallery-grid ${gridClass}">${items}</div>
@@ -2548,7 +2577,7 @@ function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
     return `
 <section>
   <div class="wrap">
-    <div class="sec-head reveal"><span class="eyebrow">FAQ</span><h2>Common Questions</h2></div>
+    <div class="sec-head reveal"><span class="eyebrow">${esc(copy.faqEyebrow || 'FAQ')}</span><h2>${esc(copy.faqHeading || 'Common Questions')}</h2></div>
     <div class="faq-list reveal">${items}</div>
   </div>
 </section>`;
@@ -2571,7 +2600,7 @@ function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
   return `
 <section>
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">Testimonials</span><h2>What People Say</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.testimonialsEyebrow || 'Testimonials')}</span><h2>${esc(copy.testimonialsHeading || 'What People Say')}</h2></div>
     <div class="g3">${testimHtml}</div>
   </div>
 </section>`;
@@ -2613,7 +2642,7 @@ function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
     <div class="split-section${flip ? ' flip' : ''}">
       <div class="split-text">
         <div class="sec-head reveal">
-          <span class="eyebrow">Featured</span>
+          <span class="eyebrow">${esc(copy.storyEyebrow || 'Featured')}</span>
           <h2>${esc(copy.missionHeading)}</h2>
         </div>
         <p class="split-body reveal">${esc(copy.missionBody)}</p>
@@ -2628,6 +2657,7 @@ function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
 }
 
 function renderFrameSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
+  const { copy } = ctx;
   const { cards: feats, heading } = nextFeatureSegment(ctx, 2);
   const cards = feats.slice(0, 2).map((f, i) => `
     <div class="card reveal reveal-delay-${i}">
@@ -2640,7 +2670,7 @@ function renderFrameSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
 <section>
   <div class="wrap">
     <div class="frame-block reveal">
-      <div class="sec-head"><span class="eyebrow">Highlight</span><h2>${esc(heading)}</h2></div>
+      <div class="sec-head"><span class="eyebrow">${esc(copy.highlightEyebrow || 'Highlight')}</span><h2>${esc(heading)}</h2></div>
       <div class="g2" style="margin-top:28px">${cards}</div>
     </div>
   </div>
@@ -2664,8 +2694,8 @@ function renderNewsletterSection(ctx: RenderCtx): string {
 <section class="newsletter-section signal-section">
   <div class="wrap">
     <div class="signal-inner">
-      <span class="eyebrow">Stay in the Loop</span>
-      <h2 class="reveal">Join the ${esc(brandName)} List</h2>
+      <span class="eyebrow">${esc(copy.newsletterEyebrow || 'Stay in the Loop')}</span>
+      <h2 class="reveal">${esc(copy.newsletterHeading || `Join the ${brandName} List`)}</h2>
       <p class="reveal">${esc(copy.ctaSub || 'Be the first to hear about new arrivals, stories, and members-only offers.')}</p>
       <form class="newsletter-form reveal" onsubmit="return false">
         <input type="email" placeholder="you@example.com" aria-label="Email address" required/>
@@ -2681,7 +2711,7 @@ function renderNewsletterSection(ctx: RenderCtx): string {
 // NOT in the ContentPlan. Renders only when a team section is explicitly requested.
 // Carries NO ContentPlan provenance; prompt-first team content is a Phase 4 task.
 function renderTeamSection(ctx: RenderCtx): string {
-  const { photos, fp, brandName } = ctx;
+  const { copy, photos, fp, brandName } = ctx;
   const brand = brandName || 'our studio';
   // Role-titled cards (never "Team Member 1") so an injected team section reads
   // like real staff. Roles adapt loosely to the niche register.
@@ -2695,7 +2725,7 @@ function renderTeamSection(ctx: RenderCtx): string {
   return `
 <section>
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">Our Team</span><h2>The People Behind ${esc(brand)}</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.teamEyebrow || 'Our Team')}</span><h2>${esc(copy.teamHeading || `The People Behind ${brand}`)}</h2></div>
     <div class="g4">${cards}</div>
   </div>
 </section>`;
@@ -2704,10 +2734,10 @@ function renderTeamSection(ctx: RenderCtx): string {
 function renderContactBandSection(ctx: RenderCtx): string {
   const { copy } = ctx;
   return `
-<section class="signal-section">
+<section class="signal-section contact-band">
   <div class="wrap">
     <div class="signal-inner">
-      <span class="eyebrow">Get in Touch</span>
+      <span class="eyebrow">${esc(copy.contactEyebrow || 'Get in Touch')}</span>
       <h2 class="reveal">${esc(copy.contactHeading)}</h2>
       <p class="reveal">${esc(copy.contactSub)}</p>
       <div class="signal-ctas reveal">
@@ -2733,7 +2763,7 @@ function renderBookingSection(ctx: RenderCtx): string {
   return `
 <section class="booking-section">
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">Booking</span><h2>Book with ${esc(brandName)}</h2><p>Tell us what you need and a preferred time — we'll confirm by email shortly.</p></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.bookingEyebrow || 'Booking')}</span><h2>${esc(copy.bookingHeading || `Book with ${brandName}`)}</h2><p>Tell us what you need and a preferred time — we'll confirm by email shortly.</p></div>
     <form class="reveal" style="max-width:640px;margin:0 auto" onsubmit="return false">
       <div class="g2">
         <div><label>Full name</label><input type="text" placeholder="Your name" required/></div>
@@ -2762,7 +2792,7 @@ function renderLocationSection(ctx: RenderCtx): string {
   return `
 <section class="location-section">
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">Visit Us</span><h2>Find ${esc(brandName)}</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.locationEyebrow || 'Visit Us')}</span><h2>${esc(copy.locationHeading || `Find ${brandName}`)}</h2></div>
     <div class="contact-form-grid reveal">
       <div class="contact-info">
         <h3>Opening Hours</h3>
@@ -2802,7 +2832,7 @@ function renderBlogSection(ctx: RenderCtx): string {
   return `
 <section class="blog-section">
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">From the Blog</span><h2>Latest from ${esc(brandName)}</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.blogEyebrow || 'From the Blog')}</span><h2>${esc(copy.blogHeading || `Latest from ${brandName}`)}</h2></div>
     <div class="g3">${cards}</div>
   </div>
 </section>`;
@@ -2834,7 +2864,7 @@ function renderEventsSection(ctx: RenderCtx): string {
   return `
 <section class="events-section">
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">What's On</span><h2>Upcoming Events</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.eventsEyebrow || "What's On")}</span><h2>${esc(copy.eventsHeading || 'Upcoming Events')}</h2></div>
     <div style="display:flex;flex-direction:column;gap:14px;max-width:720px;margin:0 auto">${rows}</div>
   </div>
 </section>`;
@@ -2938,7 +2968,7 @@ function renderPricingSection(ctx: RenderCtx): string {
   return `
 <section>
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">Pricing</span><h2>Simple, Transparent Pricing</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(ctx.copy.pricingEyebrow || 'Pricing')}</span><h2>${esc(ctx.copy.pricingHeading || 'Simple, Transparent Pricing')}</h2></div>
     <div class="price-grid reveal">${cards}</div>
   </div>
 </section>`;
@@ -3021,7 +3051,7 @@ function buildAboutMain(puo: PromptUnderstandingObject, brand: string, navItems:
 </section>
 <section>
   <div class="wrap">
-    <div class="sec-head centered reveal"><span class="eyebrow">Our Team</span><h2>The People Behind ${esc(brand)}</h2></div>
+    <div class="sec-head centered reveal"><span class="eyebrow">${esc(copy.teamEyebrow || 'Our Team')}</span><h2>${esc(copy.teamHeading || `The People Behind ${brand}`)}</h2></div>
     <div class="g4">${teamAvatars}</div>
   </div>
 </section>

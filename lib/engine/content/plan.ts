@@ -666,6 +666,258 @@ function resolveStartingPrice(ctx: Ctx): ContentValue<string> {
   return cv('', 'absent', 'no-starting-price');
 }
 
+// ── Section label resolvers (Phase 4F) ────────────────────────────────────────
+// These replace eyebrows/headings the section renderers previously hardcoded
+// ("FAQ"/"Common Questions", "Featured", "Highlight", "Stay in the Loop", etc.).
+// Each resolves prompt-signal (audience) > niche bank > generic, so different
+// niches and prompts produce different copy. Renderers still keep their own
+// literal fallback for safety, but in practice always receive a value here.
+
+interface SectionLabel { eyebrow: string; heading: string }
+
+// niche → {eyebrow, heading}. 'general' is the guaranteed fallback key.
+const FAQ_LABELS: Record<string, SectionLabel> = {
+  food:         { eyebrow: 'Good to Know',     heading: 'Questions, Answered' },
+  sports:       { eyebrow: 'Good to Know',     heading: 'Common Questions' },
+  technology:   { eyebrow: 'FAQ',              heading: 'Frequently Asked Questions' },
+  photography:  { eyebrow: 'Good to Know',     heading: 'Questions Clients Ask' },
+  fashion:      { eyebrow: 'Help',             heading: 'Your Questions, Answered' },
+  ecommerce:    { eyebrow: 'Help',             heading: 'Shopping Questions' },
+  portfolio:    { eyebrow: 'Good to Know',     heading: 'Questions Clients Ask' },
+  agency:       { eyebrow: 'FAQ',              heading: 'Questions We Hear Often' },
+  wellness:     { eyebrow: 'Before You Begin', heading: 'Common Questions' },
+  professional: { eyebrow: 'FAQ',              heading: 'Frequently Asked Questions' },
+  hospitality:  { eyebrow: 'Before You Visit', heading: 'Guest Questions' },
+  homeservices: { eyebrow: 'Good to Know',     heading: 'Common Questions' },
+  automotive:   { eyebrow: 'Good to Know',     heading: 'Common Questions' },
+  general:      { eyebrow: 'FAQ',              heading: 'Common Questions' },
+};
+
+const TESTIMONIAL_LABELS: Record<string, SectionLabel> = {
+  food:         { eyebrow: 'Reviews',       heading: 'Loved by Our Regulars' },
+  sports:       { eyebrow: 'Results',       heading: 'What Our Members Say' },
+  technology:   { eyebrow: 'Testimonials',  heading: 'Trusted by Teams' },
+  photography:  { eyebrow: 'Kind Words',    heading: 'What Clients Say' },
+  fashion:      { eyebrow: 'Reviews',       heading: 'What Shoppers Say' },
+  ecommerce:    { eyebrow: 'Reviews',       heading: 'What Customers Say' },
+  portfolio:    { eyebrow: 'Kind Words',    heading: 'What Clients Say' },
+  agency:       { eyebrow: 'Testimonials',  heading: 'What Our Partners Say' },
+  wellness:     { eyebrow: 'Kind Words',    heading: 'What Our Clients Feel' },
+  professional: { eyebrow: 'Testimonials',  heading: 'What Our Clients Say' },
+  hospitality:  { eyebrow: 'Guest Reviews', heading: 'What Our Guests Say' },
+  homeservices: { eyebrow: 'Reviews',       heading: 'What Homeowners Say' },
+  automotive:   { eyebrow: 'Reviews',       heading: 'What Drivers Say' },
+  general:      { eyebrow: 'Testimonials',  heading: 'What People Say' },
+};
+
+const PRICING_LABELS: Record<string, SectionLabel> = {
+  food:         { eyebrow: 'Menu Pricing', heading: 'Simple, Honest Pricing' },
+  sports:       { eyebrow: 'Membership',   heading: 'Plans for Every Goal' },
+  technology:   { eyebrow: 'Pricing',      heading: 'Simple, Transparent Pricing' },
+  photography:  { eyebrow: 'Packages',     heading: 'Photography Packages' },
+  fashion:      { eyebrow: 'Pricing',      heading: 'Pricing & Packages' },
+  ecommerce:    { eyebrow: 'Pricing',      heading: 'Pricing & Packages' },
+  portfolio:    { eyebrow: 'Packages',     heading: 'Project Packages' },
+  agency:       { eyebrow: 'Engagements',  heading: 'Ways to Work Together' },
+  wellness:     { eyebrow: 'Memberships',  heading: 'Plans & Packages' },
+  professional: { eyebrow: 'Pricing',      heading: 'Transparent Fees' },
+  hospitality:  { eyebrow: 'Rates',        heading: 'Rooms & Rates' },
+  homeservices: { eyebrow: 'Pricing',      heading: 'Upfront, Honest Pricing' },
+  automotive:   { eyebrow: 'Pricing',      heading: 'Service Pricing' },
+  general:      { eyebrow: 'Pricing',      heading: 'Simple, Transparent Pricing' },
+};
+
+const EVENTS_LABELS: Record<string, SectionLabel> = {
+  food:         { eyebrow: "What's On",   heading: 'Upcoming Tastings & Events' },
+  sports:       { eyebrow: 'Schedule',    heading: 'Upcoming Classes & Events' },
+  technology:   { eyebrow: "What's On",   heading: 'Upcoming Events' },
+  photography:  { eyebrow: 'Calendar',    heading: 'Upcoming Sessions' },
+  fashion:      { eyebrow: "What's On",   heading: 'Upcoming Drops & Events' },
+  ecommerce:    { eyebrow: "What's On",   heading: 'Upcoming Events' },
+  portfolio:    { eyebrow: 'Calendar',    heading: 'Upcoming Showings' },
+  agency:       { eyebrow: "What's On",   heading: 'Upcoming Events' },
+  wellness:     { eyebrow: 'Schedule',    heading: 'Upcoming Workshops' },
+  professional: { eyebrow: "What's On",   heading: 'Upcoming Seminars' },
+  hospitality:  { eyebrow: "What's On",   heading: 'Upcoming Experiences' },
+  homeservices: { eyebrow: "What's On",   heading: 'Upcoming Events' },
+  automotive:   { eyebrow: "What's On",   heading: 'Upcoming Events' },
+  general:      { eyebrow: "What's On",   heading: 'Upcoming Events' },
+};
+
+// Single-eyebrow banks (heading is derived elsewhere or embeds the brand).
+const STORY_EYEBROW: Record<string, string> = {
+  food: 'Our Story', sports: 'Our Mission', technology: 'Our Approach',
+  photography: 'Behind the Lens', fashion: 'The Label', ecommerce: 'Featured',
+  portfolio: 'Selected Work', agency: 'Our Approach', wellness: 'Our Philosophy',
+  professional: 'Our Practice', hospitality: 'The Experience', homeservices: 'Our Promise',
+  automotive: 'Our Workshop', general: 'Featured',
+};
+
+const HIGHLIGHT_EYEBROW: Record<string, string> = {
+  food: 'Signature', sports: 'Why Train Here', technology: 'Highlights',
+  photography: 'Spotlight', fashion: 'Spotlight', ecommerce: 'Featured',
+  portfolio: 'Spotlight', agency: 'Highlights', wellness: 'Why Choose Us',
+  professional: 'Highlights', hospitality: 'Highlights', homeservices: 'Why Choose Us',
+  automotive: 'Why Choose Us', general: 'Highlight',
+};
+
+const GALLERY_EYEBROW: Record<string, string> = {
+  food: 'On the Plate', sports: 'In Action', technology: 'Showcase',
+  photography: 'Portfolio', fashion: 'Lookbook', ecommerce: 'Showcase',
+  portfolio: 'Portfolio', agency: 'Our Work', wellness: 'The Space',
+  professional: 'Showcase', hospitality: 'The Property', homeservices: 'Our Work',
+  automotive: 'Our Work', general: 'Showcase',
+};
+
+const CONTACT_EYEBROW: Record<string, string> = {
+  food: 'Visit Us', sports: 'Join Us', technology: 'Get in Touch',
+  photography: "Let's Create", fashion: 'Get in Touch', ecommerce: 'Get in Touch',
+  portfolio: "Let's Work Together", agency: "Let's Talk", wellness: 'Get in Touch',
+  professional: 'Get in Touch', hospitality: 'Plan Your Visit', homeservices: 'Get a Quote',
+  automotive: 'Book a Visit', general: 'Get in Touch',
+};
+
+const NEWSLETTER_EYEBROW: Record<string, string> = {
+  food: 'Stay in the Loop', sports: 'Stay Motivated', technology: 'Stay Updated',
+  photography: 'Stay Inspired', fashion: 'Stay in the Loop', ecommerce: 'Stay in the Loop',
+  portfolio: 'Stay Inspired', agency: 'Stay in the Loop', wellness: 'Stay Well',
+  professional: 'Stay Informed', hospitality: 'Stay in the Loop', homeservices: 'Stay in the Loop',
+  automotive: 'Stay in the Loop', general: 'Stay in the Loop',
+};
+
+const TEAM_EYEBROW: Record<string, string> = {
+  food: 'Our Kitchen', sports: 'Our Coaches', technology: 'Our Team',
+  photography: 'The Studio', fashion: 'Our Team', ecommerce: 'Our Team',
+  portfolio: 'The Studio', agency: 'The Team', wellness: 'Our Practitioners',
+  professional: 'Our People', hospitality: 'Our Team', homeservices: 'Our Crew',
+  automotive: 'Our Technicians', general: 'Our Team',
+};
+
+const BOOKING_EYEBROW: Record<string, string> = {
+  food: 'Reservations', sports: 'Book a Session', technology: 'Request Access',
+  photography: 'Book a Shoot', fashion: 'Book an Appointment', ecommerce: 'Get in Touch',
+  portfolio: 'Start a Project', agency: 'Start a Project', wellness: 'Book a Session',
+  professional: 'Book a Consultation', hospitality: 'Reservations', homeservices: 'Request a Quote',
+  automotive: 'Book a Service', general: 'Booking',
+};
+
+const LOCATION_EYEBROW: Record<string, string> = {
+  food: 'Find Us', sports: 'Visit the Gym', technology: 'Our Office',
+  photography: 'The Studio', fashion: 'Visit the Store', ecommerce: 'Visit Us',
+  portfolio: 'The Studio', agency: 'Our Office', wellness: 'Visit Us',
+  professional: 'Our Office', hospitality: 'Find Us', homeservices: 'Service Area',
+  automotive: 'Find the Shop', general: 'Visit Us',
+};
+
+const BLOG_EYEBROW: Record<string, string> = {
+  food: 'From the Kitchen', sports: 'Training Tips', technology: 'From the Blog',
+  photography: 'Journal', fashion: 'The Edit', ecommerce: 'From the Blog',
+  portfolio: 'Journal', agency: 'Insights', wellness: 'The Journal',
+  professional: 'Insights', hospitality: 'Travel Journal', homeservices: 'Tips & Advice',
+  automotive: 'Tips & Advice', general: 'From the Blog',
+};
+
+function nicheVal(bank: Record<string, string>, niche: string): { value: string; niched: boolean } {
+  const hit = bank[niche];
+  return hit ? { value: hit, niched: true } : { value: bank.general, niched: false };
+}
+
+function resolveFaqEyebrow(ctx: Ctx): ContentValue<string> {
+  const l = FAQ_LABELS[ctx.normIndustry];
+  return cv((l || FAQ_LABELS.general).eyebrow, l ? 'niche' : 'generic', 'faqLabel');
+}
+function resolveFaqHeading(ctx: Ctx): ContentValue<string> {
+  const { nlu, normIndustry } = ctx;
+  if (nlu.audience) return cv(`Questions ${titleCase(nlu.audience)} Ask`, 'nlu', 'audience');
+  const l = FAQ_LABELS[normIndustry];
+  return cv((l || FAQ_LABELS.general).heading, l ? 'niche' : 'generic', 'faqLabel');
+}
+
+function resolveTestimonialsEyebrow(ctx: Ctx): ContentValue<string> {
+  const l = TESTIMONIAL_LABELS[ctx.normIndustry];
+  return cv((l || TESTIMONIAL_LABELS.general).eyebrow, l ? 'niche' : 'generic', 'testimonialLabel');
+}
+function resolveTestimonialsHeading(ctx: Ctx): ContentValue<string> {
+  const l = TESTIMONIAL_LABELS[ctx.normIndustry];
+  return cv((l || TESTIMONIAL_LABELS.general).heading, l ? 'niche' : 'generic', 'testimonialLabel');
+}
+
+function resolvePricingEyebrow(ctx: Ctx): ContentValue<string> {
+  const l = PRICING_LABELS[ctx.normIndustry];
+  return cv((l || PRICING_LABELS.general).eyebrow, l ? 'niche' : 'generic', 'pricingLabel');
+}
+function resolvePricingHeading(ctx: Ctx): ContentValue<string> {
+  const l = PRICING_LABELS[ctx.normIndustry];
+  return cv((l || PRICING_LABELS.general).heading, l ? 'niche' : 'generic', 'pricingLabel');
+}
+
+function resolveEventsEyebrow(ctx: Ctx): ContentValue<string> {
+  const l = EVENTS_LABELS[ctx.normIndustry];
+  return cv((l || EVENTS_LABELS.general).eyebrow, l ? 'niche' : 'generic', 'eventsLabel');
+}
+function resolveEventsHeading(ctx: Ctx): ContentValue<string> {
+  const l = EVENTS_LABELS[ctx.normIndustry];
+  return cv((l || EVENTS_LABELS.general).heading, l ? 'niche' : 'generic', 'eventsLabel');
+}
+
+function resolveStoryEyebrow(ctx: Ctx): ContentValue<string> {
+  if (ctx.nlu.differentiator) return cv(`The ${titleCase(ctx.nlu.differentiator)} Difference`, 'nlu', 'differentiator');
+  const r = nicheVal(STORY_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'storyEyebrow');
+}
+function resolveHighlightEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(HIGHLIGHT_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'highlightEyebrow');
+}
+function resolveGalleryEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(GALLERY_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'galleryEyebrow');
+}
+function resolveContactEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(CONTACT_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'contactEyebrow');
+}
+
+function resolveNewsletterEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(NEWSLETTER_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'newsletterEyebrow');
+}
+function resolveNewsletterHeading(ctx: Ctx): ContentValue<string> {
+  return cv(`Join the ${ctx.brand} List`, 'generic', 'brand');
+}
+
+function resolveTeamEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(TEAM_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'teamEyebrow');
+}
+function resolveTeamHeading(ctx: Ctx): ContentValue<string> {
+  return cv(`The People Behind ${ctx.brand}`, 'generic', 'brand');
+}
+
+function resolveBookingEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(BOOKING_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'bookingEyebrow');
+}
+function resolveBookingHeading(ctx: Ctx): ContentValue<string> {
+  return cv(`Book with ${ctx.brand}`, 'generic', 'brand');
+}
+
+function resolveLocationEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(LOCATION_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'locationEyebrow');
+}
+function resolveLocationHeading(ctx: Ctx): ContentValue<string> {
+  return cv(`Find ${ctx.brand}`, 'generic', 'brand');
+}
+
+function resolveBlogEyebrow(ctx: Ctx): ContentValue<string> {
+  const r = nicheVal(BLOG_EYEBROW, ctx.normIndustry);
+  return cv(r.value, r.niched ? 'niche' : 'generic', 'blogEyebrow');
+}
+function resolveBlogHeading(ctx: Ctx): ContentValue<string> {
+  return cv(`Latest from ${ctx.brand}`, 'generic', 'brand');
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
 /**
@@ -716,6 +968,30 @@ export function buildContentPlan(
     faqs:           resolveFaqs(ctx),
     pricingPlans:   resolvePricingPlans(ctx),
     startingPrice:  resolveStartingPrice(ctx),
+
+    // Section labels (Phase 4F)
+    faqEyebrow:          resolveFaqEyebrow(ctx),
+    faqHeading:          resolveFaqHeading(ctx),
+    testimonialsEyebrow: resolveTestimonialsEyebrow(ctx),
+    testimonialsHeading: resolveTestimonialsHeading(ctx),
+    storyEyebrow:        resolveStoryEyebrow(ctx),
+    highlightEyebrow:    resolveHighlightEyebrow(ctx),
+    galleryEyebrow:      resolveGalleryEyebrow(ctx),
+    contactEyebrow:      resolveContactEyebrow(ctx),
+    newsletterEyebrow:   resolveNewsletterEyebrow(ctx),
+    newsletterHeading:   resolveNewsletterHeading(ctx),
+    teamEyebrow:         resolveTeamEyebrow(ctx),
+    teamHeading:         resolveTeamHeading(ctx),
+    bookingEyebrow:      resolveBookingEyebrow(ctx),
+    bookingHeading:      resolveBookingHeading(ctx),
+    locationEyebrow:     resolveLocationEyebrow(ctx),
+    locationHeading:     resolveLocationHeading(ctx),
+    blogEyebrow:         resolveBlogEyebrow(ctx),
+    blogHeading:         resolveBlogHeading(ctx),
+    eventsEyebrow:       resolveEventsEyebrow(ctx),
+    eventsHeading:       resolveEventsHeading(ctx),
+    pricingEyebrow:      resolvePricingEyebrow(ctx),
+    pricingHeading:      resolvePricingHeading(ctx),
   };
 
   return { ...partial, _provenance: computeProvenance(partial) };

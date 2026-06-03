@@ -79,7 +79,7 @@ const RENDER_MARKERS: Array<[RegExp, SectionKind]> = [
   [/gallery-grid/, 'gallery'],
   [/split-section/, 'story'],
   [/card-icon/, 'features'],
-  [/contact-detail|>Get in Touch<|>Contact</, 'contact'],
+  [/contact-detail|>Get in Touch<|>Contact<|contact-band/, 'contact'],
   [/signal-section/, 'cta'],
 ];
 

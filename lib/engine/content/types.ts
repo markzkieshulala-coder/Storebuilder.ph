@@ -134,6 +134,32 @@ export interface ContentPlan {
   // Commerce metadata
   startingPrice:  ContentValue<string>;
 
+  // ── Section labels (Phase 4F) ───────────────────────────────────────────────
+  // Eyebrows and headings that the section renderers previously hardcoded. Now
+  // niche- and prompt-aware so different niches/prompts produce different copy.
+  faqEyebrow:            ContentValue<string>;
+  faqHeading:            ContentValue<string>;
+  testimonialsEyebrow:   ContentValue<string>;
+  testimonialsHeading:   ContentValue<string>;
+  storyEyebrow:          ContentValue<string>;
+  highlightEyebrow:      ContentValue<string>;
+  galleryEyebrow:        ContentValue<string>;
+  contactEyebrow:        ContentValue<string>;
+  newsletterEyebrow:     ContentValue<string>;
+  newsletterHeading:     ContentValue<string>;
+  teamEyebrow:           ContentValue<string>;
+  teamHeading:           ContentValue<string>;
+  bookingEyebrow:        ContentValue<string>;
+  bookingHeading:        ContentValue<string>;
+  locationEyebrow:       ContentValue<string>;
+  locationHeading:       ContentValue<string>;
+  blogEyebrow:           ContentValue<string>;
+  blogHeading:           ContentValue<string>;
+  eventsEyebrow:         ContentValue<string>;
+  eventsHeading:         ContentValue<string>;
+  pricingEyebrow:        ContentValue<string>;
+  pricingHeading:        ContentValue<string>;
+
   // Provenance report
   _provenance: ProvenanceSummary;
 }

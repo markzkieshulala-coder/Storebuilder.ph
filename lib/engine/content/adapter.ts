@@ -47,6 +47,29 @@ export interface SiteCopyLike {
   hiddenSecondarySlug: string;
   hiddenPrimaryCtaLabel: string;
   hiddenSecondaryCtaLabel: string;
+  // Section labels (Phase 4F)
+  faqEyebrow: string;
+  faqHeading: string;
+  testimonialsEyebrow: string;
+  testimonialsHeading: string;
+  storyEyebrow: string;
+  highlightEyebrow: string;
+  galleryEyebrow: string;
+  contactEyebrow: string;
+  newsletterEyebrow: string;
+  newsletterHeading: string;
+  teamEyebrow: string;
+  teamHeading: string;
+  bookingEyebrow: string;
+  bookingHeading: string;
+  locationEyebrow: string;
+  locationHeading: string;
+  blogEyebrow: string;
+  blogHeading: string;
+  eventsEyebrow: string;
+  eventsHeading: string;
+  pricingEyebrow: string;
+  pricingHeading: string;
 }
 
 /**
@@ -88,5 +111,28 @@ export function contentPlanToSiteCopy(plan: ContentPlan, gallerySlug = 'gallery'
     hiddenSecondarySlug:  gallerySlug,
     hiddenPrimaryCtaLabel:   plan.secondaryCta.value || 'Learn More',
     hiddenSecondaryCtaLabel: plan.secondaryCta.value || 'Learn More',
+    // Section labels (Phase 4F)
+    faqEyebrow:          plan.faqEyebrow.value,
+    faqHeading:          plan.faqHeading.value,
+    testimonialsEyebrow: plan.testimonialsEyebrow.value,
+    testimonialsHeading: plan.testimonialsHeading.value,
+    storyEyebrow:        plan.storyEyebrow.value,
+    highlightEyebrow:    plan.highlightEyebrow.value,
+    galleryEyebrow:      plan.galleryEyebrow.value,
+    contactEyebrow:      plan.contactEyebrow.value,
+    newsletterEyebrow:   plan.newsletterEyebrow.value,
+    newsletterHeading:   plan.newsletterHeading.value,
+    teamEyebrow:         plan.teamEyebrow.value,
+    teamHeading:         plan.teamHeading.value,
+    bookingEyebrow:      plan.bookingEyebrow.value,
+    bookingHeading:      plan.bookingHeading.value,
+    locationEyebrow:     plan.locationEyebrow.value,
+    locationHeading:     plan.locationHeading.value,
+    blogEyebrow:         plan.blogEyebrow.value,
+    blogHeading:         plan.blogHeading.value,
+    eventsEyebrow:       plan.eventsEyebrow.value,
+    eventsHeading:       plan.eventsHeading.value,
+    pricingEyebrow:      plan.pricingEyebrow.value,
+    pricingHeading:      plan.pricingHeading.value,
   };
 }
