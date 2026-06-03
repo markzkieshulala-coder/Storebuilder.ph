@@ -90,9 +90,8 @@ describe('provenance accuracy — derived fields honest when catalog is niche', 
     expect(plan.galleryHeading.source).not.toBe('prompt');
   });
 
-  test('prompt WITH descriptive sentences: features/testimonials may be prompt', () => {
-    const plan = planFor('A ramen shop. We serve authentic 18-hour tonkotsu broth. Slow-cooked pork bone soup.');
-    // descriptiveSPs exist → prompt provenance is legitimate here
+  test('prompt WITH descriptive sentences: features/testimonials prompt when sections requested', () => {
+    const plan = planFor('A ramen shop. Features section. Testimonials. We serve authentic 18-hour tonkotsu broth. Slow-cooked pork bone soup.');
     expect(plan.features.source).toBe('prompt');
     expect(plan.testimonials.source).toBe('prompt');
   });

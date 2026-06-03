@@ -2,6 +2,7 @@ import { parsePrompt } from './prompt-engine/parser';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import { understandPrompt } from './nlu';
 import { foldNluIntoPuo } from './nlu/fold';
+import { applyUltraModernDesignBaseline } from './prompt-contract';
 
 // Single source of truth for prompt understanding.
 //
@@ -35,6 +36,7 @@ function understand(prompt: string): PromptUnderstandingObject {
   let puo = parsed.success ? parsed.object : parsePrompt('modern professional website').object;
 
   puo = foldNluIntoPuo(puo, nlu);
+  puo = applyUltraModernDesignBaseline(puo);
   return puo;
 }
 

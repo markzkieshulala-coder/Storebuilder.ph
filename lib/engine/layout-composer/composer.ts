@@ -805,7 +805,7 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
   // Only insert when the spec allows 'stats', or when no spec was supplied
   // (legacy callers that don't pass allowedSectionKinds).
   const statsAllowed = !input.allowedSectionKinds || input.allowedSectionKinds.includes('stats');
-  if (statsAllowed && (p.conversionStyle === "trust-first" || p.conversionStyle === "hard-sell" || rng() < 0.5)) {
+  if (statsAllowed && input.allowedSectionKinds?.includes('stats')) {
     nodes.push(createStripNode(seed, 0, "trust"));
   }
 
@@ -884,7 +884,7 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
   };
   let targetContent: number;
   if (allowed) {
-    targetContent = Math.max(1, allowed.filter((k) => CONTENT_KINDS.has(k)).length);
+    targetContent = allowed.filter((k) => CONTENT_KINDS.has(k)).length;
   } else {
     const [loCount, hiCount] = contentRange[complexity] ?? [3, 5];
     targetContent = loCount + Math.floor(rng() * (hiCount - loCount + 1));
@@ -939,8 +939,9 @@ function composeLayoutGraph(input: ComposerInput, seed: CompositionSeed): Layout
 
   nodes.push(...contentNodes);
 
-  // ── 4. CTAs ── (placed strategically)
-  for (let i = 0; i < ctaCount; i++) {
+  // ── 4. CTAs ── only when the spec explicitly includes a CTA section
+  const ctaSlots = allowed?.includes('cta') ? ctaCount : (allowed ? 0 : ctaCount);
+  for (let i = 0; i < ctaSlots; i++) {
     const signal = createSignalNode(seed, i);
     // Place CTAs at different positions based on conversion style
     let insertIndex: number;

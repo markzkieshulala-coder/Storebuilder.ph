@@ -23,7 +23,7 @@ import type { PromptUnderstandingObject } from '../prompt-engine';
 import type { VisualMood, DesignStyle, WebsitePersonality, BusinessTone } from '../prompt-engine/types';
 import { extractPromptCopy } from '../prompt-copy';
 import { COLOR_HEX, NICHES, profileFor, type NicheCopyProfile } from './lexicon';
-import { extractRequirements, canonicalKind } from '../requirements';
+import { extractRequirements, canonicalKind, type SectionKind } from '../requirements';
 
 export interface NluProduct { name: string; desc?: string; price?: string; _fromUser?: boolean }
 export interface NluFaq { q: string; a: string }
@@ -730,6 +730,8 @@ export function understandPrompt(prompt: string): NluContent {
 
   const differentiator = extractDifferentiator(lower);
   const activityKeywords = extractActivityKeywords(lower);
+  const requirements = extractRequirements(prompt);
+  const forbiddenKinds = new Set(requirements.forbidden);
 
   // Extract products early so we can infer audience from product names.
   // Priority: inline-listed products ("we offer X, Y, Z") → product/category items
@@ -745,23 +747,17 @@ export function understandPrompt(prompt: string): NluContent {
     products = enrichProducts(namedProducts, profile).map(p => ({ ...p, _fromUser: true }));
   } else if (bulletProducts.length >= 2) {
     products = bulletProducts.map(name => ({ name, _fromUser: true }));
-  } else if (profile.products.length) {
-    products = profile.products;
+  } else if (requirements.required.includes('products' as SectionKind) || PRODUCT_INDUSTRIES.has(slug)) {
+    products = profile.products.length
+      ? profile.products
+      : inferProductsFromActivity(activityKeywords, slug, PRODUCT_INDUSTRIES.has(slug));
   } else {
-    products = inferProductsFromActivity(activityKeywords, slug, PRODUCT_INDUSTRIES.has(slug));
+    products = undefined;
   }
 
   // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
   // Audience: explicit "for [X]" phrase → implicit from product names → undefined
   const audience = extractAudience(text, lower) || inferAudienceFromProducts(namedProducts || []);
-  // Requirement model — what the user explicitly REQUIRED vs FORBADE. Negative
-  // directives ("do not include testimonials") are parsed here, NOT as positive
-  // intents, so a forbidden word never leaks into the requested-sections list.
-  const requirements = extractRequirements(prompt);
-  const forbiddenKinds = new Set(requirements.forbidden);
-  const functionalIntents = extractFunctionalIntents(lower)
-    // Drop any functional intent that matched a word inside a "do not" clause.
-    .filter(label => { const k = canonicalKind(label); return !(k && forbiddenKinds.has(k)); });
   // Enrichment signals — elevate copy quality and uniqueness per prompt
   const credentialSignals = extractCredentialSignals(lower);
   const location = extractLocation(text, lower);
@@ -810,14 +806,11 @@ export function understandPrompt(prompt: string): NluContent {
     primaryCta:   explicit?.primaryCta   || undefined,
     secondaryCta: explicit?.secondaryCta || undefined,
     about:        undefined,
-    // Sections the user explicitly listed PLUS functional affordances detected
-    // from the prompt (booking, ordering, newsletter, map/location, blog…) PLUS
-    // canonical kinds parsed from the requirements bullet list (athletes→team,
-    // mission→story, jerseys→products…). Forbidden kinds are filtered out so a
-    // "do not include X" directive can never re-add X. The renderer injects any
-    // of these the composed page doesn't already cover.
+    // Sections: ONLY what the user explicitly listed in "sections:" lines or named
+    // in requirement bullets (extractRequirements). Functional-intent regex is NOT
+    // merged here — casual words like "reviews" in prose must not auto-add sections.
     sections:     filterForbidden(
-                    mergeSections(explicit?.sections, [...functionalIntents, ...requirements.required]),
+                    mergeSections(explicit?.sections, requirements.required),
                     forbiddenKinds,
                   ),
     products,

@@ -102,9 +102,8 @@ describe('content divergence — CTA text', () => {
 
 describe('content divergence — testimonials', () => {
   test('different product descriptions lead to different testimonial copy', () => {
-    const planA = planFor('A basketball gear shop. High-performance sneakers. Professional training equipment.');
-    const planB = planFor('A coffee equipment shop. Commercial espresso machines. Premium grinders. Barista tools.');
-    // When products differ, testimonials differ
+    const planA = planFor('A basketball gear shop. Products. Testimonials. High-performance sneakers. Professional training equipment.');
+    const planB = planFor('A coffee equipment shop. Products. Testimonials. Commercial espresso machines. Premium grinders. Barista tools.');
     expect(planA.testimonials.value[0].quote).not.toBe(planB.testimonials.value[0].quote);
   });
 });

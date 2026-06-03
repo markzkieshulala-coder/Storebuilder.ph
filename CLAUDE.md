@@ -57,6 +57,18 @@ unified pipeline:
 The whole path is synchronous, in-process, and dependency-free, so `next build`
 stays green offline.
 
+### Strict prompt contract + ultra-modern 3D baseline
+Every build applies `lib/engine/prompt-contract.ts` after NLU fold:
+- **Sections** appear only when named in requirement bullets or an explicit
+  `sections:` list — functional-intent regex no longer auto-adds FAQ/testimonials.
+- **CTAs** render only when the user wrote CTA text or an intent phrase (`order now`, etc.).
+- **Layout graph** nodes are filtered to `WebsiteSpec.sections`; composer never
+  falls back to an unrestricted graph.
+- **Visual baseline**: glassmorphism + dark mood + high motion unless the prompt
+  names other design tokens. Global CSS includes premium 3D depth (perspective cards,
+  glass surfaces, floating hero media).
+- **Fidelity gate** scores rendered HTML against `requirementSetFromSpec(prompt, spec)`.
+
 ### Images: content-aware Pexels photos (unique per build)
 Real visuals come from the **Pexels Search API**, resolved per section from the
 EXACT content that section displays — not a single broad keyword.

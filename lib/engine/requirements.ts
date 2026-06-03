@@ -100,6 +100,9 @@ const NEG_DIRECTIVE = new RegExp(
     '\\bno\\s+\\w+(?:\\s+\\w+)?\\s+(?:section|sections|page|pages|block|blocks)\\b',
     '\\bi\\s+(?:do\\s+not|don\'?t)\\s+want\\b',
     '\\bwe\\s+(?:do\\s+not|don\'?t)\\s+want\\b',
+    // Bare exclusions: "no FAQ", "no testimonials", "without reviews"
+    '\\bno\\s+(?:faqs?|testimonials?|reviews?|pricing|gallery|team|stats|blog|newsletter|booking)\\b',
+    '\\bwithout\\s+(?:any\\s+)?(?:faqs?|testimonials?|reviews?)\\b',
   ].join('|'),
   'i',
 );

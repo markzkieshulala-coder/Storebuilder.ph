@@ -66,16 +66,22 @@ describe('content provenance — fallback chain', () => {
     expect(plan.aboutBody.value.length).toBeGreaterThan(30);
   });
 
-  test('sparse prompt: testimonials are never absent', () => {
+  test('sparse prompt: testimonials absent unless section requested', () => {
     const plan = planFor('A coffee shop.');
+    expect(plan.testimonials.source).toBe('absent');
+    expect(plan.testimonials.value).toEqual([]);
+  });
+
+  test('testimonials present when user requests reviews section', () => {
+    const plan = planFor('A coffee shop. Testimonials section.');
     expect(plan.testimonials.source).not.toBe('absent');
     expect(plan.testimonials.value.length).toBeGreaterThanOrEqual(3);
   });
 
-  test('sparse prompt: stats are never absent', () => {
+  test('sparse prompt: stats absent unless section requested', () => {
     const plan = planFor('A fitness studio.');
-    expect(plan.stats.source).not.toBe('absent');
-    expect(plan.stats.value.length).toBeGreaterThan(0);
+    expect(plan.stats.source).toBe('absent');
+    expect(plan.stats.value).toEqual([]);
   });
 });
 
@@ -96,17 +102,14 @@ describe('content provenance — tier coverage', () => {
     expect(plan.featureHeading.value.length).toBeGreaterThan(5);
   });
 
-  test('niche tier: CTA uses niche bank for known industry', () => {
+  test('strict CTA: absent without explicit user CTA phrase', () => {
     const plan = planFor('A photography studio.');
-    // photography CTA is well-known: "View Portfolio" is niche-tier
-    expect(['niche', 'generic']).toContain(plan.primaryCta.source);
-    expect(plan.primaryCta.value.length).toBeGreaterThan(3);
+    expect(plan.primaryCta.source).toBe('absent');
   });
 
-  test('generic tier: minimal prompt falls to generic CTA fallback', () => {
-    const plan = planFor('A business.');
-    // Very generic prompt — might produce generic CTA
-    expect(plan.primaryCta.source).not.toBe('absent');
+  test('strict CTA: prompt tier when user writes action phrase', () => {
+    const plan = planFor('A business. Get started today.');
+    expect(plan.primaryCta.source).toBe('prompt');
     expect(plan.primaryCta.value.length).toBeGreaterThan(3);
   });
 

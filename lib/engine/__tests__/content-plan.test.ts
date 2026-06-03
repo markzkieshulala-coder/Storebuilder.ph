@@ -196,17 +196,22 @@ describe('buildContentPlan — contact sub', () => {
 
 // ── 9. CTA: explicit user CTA text ───────────────────────────────────────────
 
-describe('buildContentPlan — CTA provenance', () => {
-  test('primaryCta never absent', () => {
+describe('buildContentPlan — CTA provenance (strict)', () => {
+  test('primaryCta absent when user did not name a CTA', () => {
     const plan = planFor('A minimal landing page.');
-    expect(plan.primaryCta.source).not.toBe('absent');
-    expect(plan.primaryCta.value.length).toBeGreaterThan(2);
+    expect(plan.primaryCta.source).toBe('absent');
+    expect(plan.primaryCta.value).toBe('');
   });
 
-  test('secondaryCta never absent', () => {
+  test('primaryCta from prompt when user writes intent phrase', () => {
+    const plan = planFor('A SaaS product. Shop now. Features. Pricing.');
+    expect(plan.primaryCta.source).toBe('prompt');
+    expect(plan.primaryCta.value).toMatch(/shop now/i);
+  });
+
+  test('secondaryCta absent unless explicitly stated', () => {
     const plan = planFor('A SaaS product. Features. Pricing.');
-    expect(plan.secondaryCta.source).not.toBe('absent');
-    expect(plan.secondaryCta.value.length).toBeGreaterThan(2);
+    expect(plan.secondaryCta.source).toBe('absent');
   });
 });
 

@@ -194,47 +194,20 @@ function resolveHeroTag(ctx: Ctx): ContentValue<string> {
 // ── CTA resolvers ─────────────────────────────────────────────────────────────
 
 function resolvePrimaryCta(ctx: Ctx): ContentValue<string> {
-  const { nlu, puo, normIndustry, fp } = ctx;
+  const { nlu } = ctx;
 
-  // Tier 1: Prompt — explicit CTA
   if (nlu.primaryCta) return cv(nlu.primaryCta, 'prompt', 'llm.primaryCta');
   if (nlu.intentCta) return cv(nlu.intentCta, 'prompt', 'intentCta');
 
-  // Tier 3: Niche CTA
-  const ctaByNiche: Record<string, string> = {
-    food: 'View Menu', sports: 'Start Training', technology: 'Start Free Trial',
-    photography: 'View Portfolio', fashion: 'Shop the Collection', ecommerce: 'Shop Now',
-    portfolio: 'View Work', agency: 'Start a Project', wellness: 'Book a Session',
-    hospitality: 'Book Your Stay', professional: 'Get a Consultation',
-    homeservices: 'Get a Free Quote', automotive: 'Book a Service',
-  };
-  if (ctaByNiche[normIndustry]) return cv(ctaByNiche[normIndustry], 'niche', 'ctaByNiche');
-
-  // Tier 3: Direction CTA
-  const ctaMap: Record<string, string> = {
-    'e-commerce': 'Shop Now', saas: 'Start Free Trial', 'lead-gen': 'Get Started Free',
-    landing: 'Get Started', portfolio: 'View My Work', editorial: 'Read More',
-  };
-  if (ctaMap[puo.layout.direction]) return cv(ctaMap[puo.layout.direction], 'niche', 'ctaMap');
-
-  return cv('Get Started', 'generic', 'fallback');
+  return cv('', 'absent', 'no-explicit-cta');
 }
 
 function resolveSecondaryCta(ctx: Ctx): ContentValue<string> {
-  const { nlu, normIndustry, fp } = ctx;
+  const { nlu } = ctx;
 
   if (nlu.secondaryCta) return cv(nlu.secondaryCta, 'prompt', 'llm.secondaryCta');
 
-  const secByNiche: Record<string, string> = {
-    food: 'Book a Table', sports: 'See Programs', technology: 'Watch Demo',
-    photography: 'See Our Work', fashion: 'New Arrivals', ecommerce: 'Browse Shop',
-    portfolio: 'View Work', agency: 'Our Process', wellness: 'Learn More',
-    hospitality: 'Explore Rooms', professional: 'Learn More',
-    homeservices: 'Our Services', automotive: 'Our Services',
-  };
-  if (secByNiche[normIndustry]) return cv(secByNiche[normIndustry], 'niche', 'secByNiche');
-
-  return cv(pick(['Learn More', 'See How It Works', 'Explore', 'Discover More'], fp + 1), 'generic', 'pick');
+  return cv('', 'absent', 'no-explicit-secondary-cta');
 }
 
 // ── Features resolvers ────────────────────────────────────────────────────────
@@ -267,7 +240,11 @@ const FEAT_TITLE_FNS: Array<(kw: string, sf: string) => string> = [
 ];
 
 function resolveFeatures(ctx: Ctx, iconPool: string[], featureHref: string): ContentValue<FeatureItem[]> {
-  const { nlu, kws, normIndustry, fp, mainKw } = ctx;
+  const { nlu, kws, normIndustry, fp, mainKw, spec } = ctx;
+
+  if (!spec.sections.includes('features')) {
+    return cv([], 'absent', 'features-not-requested');
+  }
 
   const suffixes = FEATURE_SUFFIXES_BY_NICHE[normIndustry] || FEATURE_SUFFIXES_BY_NICHE.general;
   const descFor = FEATURE_DESC_BY_NICHE[normIndustry] || FEATURE_DESC_BY_NICHE.general;
@@ -313,7 +290,12 @@ function resolveFeatures(ctx: Ctx, iconPool: string[], featureHref: string): Con
 // ── Stats resolver ────────────────────────────────────────────────────────────
 
 function resolveStats(ctx: Ctx): ContentValue<StatItem[]> {
-  const { puo, normIndustry, prompt } = ctx;
+  const { puo, normIndustry, prompt, spec } = ctx;
+
+  if (!spec.sections.includes('stats')) {
+    return cv([], 'absent', 'stats-not-requested');
+  }
+
   const promptStats = extractPromptStats(puo.originalPrompt || prompt);
   const fallback = GENERIC_TRUST_SIGNALS[normIndustry] || GENERIC_TRUST_SIGNALS.general;
 
@@ -330,7 +312,12 @@ function resolveStats(ctx: Ctx): ContentValue<StatItem[]> {
 // ── Testimonials resolver ─────────────────────────────────────────────────────
 
 function resolveTestimonials(ctx: Ctx): ContentValue<TestimonialItem[]> {
-  const { nlu, brand, mainKw, secKw, normIndustry, fp } = ctx;
+  const { nlu, brand, mainKw, secKw, normIndustry, fp, spec } = ctx;
+
+  if (!spec.sections.includes('testimonials')) {
+    return cv([], 'absent', 'testimonials-not-requested');
+  }
+
   const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
 
   // Only USER-listed products may appear in quotes / drive 'prompt' provenance.

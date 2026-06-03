@@ -61,7 +61,8 @@ export function buildWebsiteSpec(
   // Priority 1: what the prompt text directly and unambiguously states.
   const requirements = extractRequirements(prompt);
 
-  // Priority 2: NLU-inferred sections and exclusions from the understanding object.
+  // Priority 2: NLU-inferred sections — only labels the user explicitly listed
+  // (folded from extractRequirements + "sections:" lines). No functional-intent gap-fill.
   const llm = (
     puo.customAttributes as { llm?: Record<string, unknown> } | undefined
   )?.llm;

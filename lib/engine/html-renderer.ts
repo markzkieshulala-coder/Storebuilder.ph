@@ -18,6 +18,7 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import type { LayoutGraph, LayoutNode, ComposerInput } from './layout-composer';
 import type { ImageRequest, Orientation, ResolvedImagery } from './pexels';
 import { canonicalKind, detectRenderedKinds, enforceSections, extractRequirements, scoreFidelity, type SectionKind, type FidelityResult } from './requirements';
+import { requirementSetFromSpec } from './prompt-contract';
 import { buildWebsiteSpec, type WebsiteSpec } from './spec';
 import { buildLayoutPlan, type LayoutPlan, type SectionPlacement } from './layout';
 import { buildContentPlan, contentPlanToSiteCopy, buildNichePricingPlans, type ContentPlan } from './content';
@@ -396,7 +397,8 @@ function buildCSSFromPUO(puo: PromptUnderstandingObject, font: FontConfig): stri
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{font-family:var(--body-font);background:var(--bg);color:var(--text);line-height:var(--leading-body);-webkit-font-smoothing:antialiased;overflow-x:hidden;font-size:var(--body-size)}
+body{font-family:var(--body-font);background:var(--bg);color:var(--text);line-height:var(--leading-body);-webkit-font-smoothing:antialiased;overflow-x:hidden;font-size:var(--body-size);perspective:1200px}
+.scene-3d{transform-style:preserve-3d}
 h1,h2,h3,h4,.display{font-family:var(--display);line-height:var(--leading-heading);letter-spacing:var(--tracking-heading);font-weight:var(--weight-heading);text-transform:${headingCase}}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block;object-fit:cover;background:linear-gradient(135deg,var(--surf),var(--bg))}
@@ -2311,11 +2313,33 @@ function nextFeatureSegment(ctx: RenderCtx, cols: number): { cards: SiteCopy['fe
   return { cards, eyebrow, heading };
 }
 
+function renderHeroCtas(copy: SiteCopy, outlineStyle = ''): string {
+  const primary = (copy.primaryCta || '').trim();
+  const secondary = (copy.secondaryCta || '').trim();
+  if (!primary && !secondary) return '';
+  const parts: string[] = [];
+  if (primary) {
+    parts.push(`<a href="${copy.gallerySlug}" class="btn btn-primary">${esc(primary)}</a>`);
+  }
+  if (secondary) {
+    const styleAttr = outlineStyle ? ` style="${outlineStyle}"` : '';
+    parts.push(`<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline"${styleAttr}>${esc(secondary)} →</a>`);
+  }
+  return `<div class="hero-ctas reveal reveal-delay-3">${parts.join('\n          ')}</div>`;
+}
+
 function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolean): string {
   const { puo, copy, photos, fp } = ctx;
   if (!isFirstHero) return ''; // only render one hero per page
   const photo = photos[fp % photos.length];
   const isDark = ['dark','dramatic','contrast'].includes(puo.visualMood);
+  const outlineOnDark = isDark || node.depth === 'immersed'
+    ? 'border-color:rgba(255,255,255,.4);color:#fff'
+    : '';
+  const heroCtas = renderHeroCtas(copy, outlineOnDark);
+  const heroTagHtml = copy.heroTag?.trim()
+    ? `<span class="hero-tag reveal">${esc(copy.heroTag)}</span>`
+    : '';
 
   if (node.variant === 'split-screen' || node.variant === 'centerpiece' || node.span === 'contained') {
     return `
@@ -2323,13 +2347,10 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
   <div class="wrap">
     <div class="hero-inner hero-split-grid">
       <div class="hero-content">
-        <span class="hero-tag reveal">${esc(copy.heroTag)}</span>
+        ${heroTagHtml}
         <h1 class="reveal reveal-delay-1">${esc(copy.heroHeadline)}</h1>
         <p class="lead reveal reveal-delay-2">${esc(copy.heroSub)}</p>
-        <div class="hero-ctas reveal reveal-delay-3">
-          <a href="${ctx.copy.gallerySlug}" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-          <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.secondaryCta)} →</a>
-        </div>
+        ${heroCtas}
       </div>
       <div class="hero-media reveal reveal-delay-2">
         <img src="${ph(photo,800,1000)}" alt="${esc(copy.heroHeadline)}" loading="eager"/>
@@ -2346,13 +2367,10 @@ function renderHeroSection(node: LayoutNode, ctx: RenderCtx, isFirstHero: boolea
     <img src="${ph(photo,1600,900)}" alt="${esc(copy.heroHeadline)}" loading="eager"/>
   </div>
   <div class="wrap" style="position:relative;z-index:1;width:100%;padding-top:40px;padding-bottom:40px">
-    <span class="hero-tag reveal">${esc(copy.heroTag)}</span>
+    ${heroTagHtml}
     <h1 class="reveal reveal-delay-1" style="color:${isDark||node.depth==='immersed'?'#fff':'var(--text)'};max-width:820px">${esc(copy.heroHeadline)}</h1>
     <p class="lead reveal reveal-delay-2" style="color:${isDark||node.depth==='immersed'?'rgba(255,255,255,.8)':'var(--muted)'}">${esc(copy.heroSub)}</p>
-    <div class="hero-ctas reveal reveal-delay-3">
-      <a href="${ctx.copy.gallerySlug}" class="btn btn-primary">${esc(copy.primaryCta)}</a>
-      <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="${isDark||node.depth==='immersed'?'border-color:rgba(255,255,255,.4);color:#fff':''}">${esc(copy.secondaryCta)} →</a>
-    </div>
+    ${heroCtas}
   </div>
 </section>`;
 }
@@ -2582,6 +2600,8 @@ function renderListSection(node: LayoutNode, ctx: RenderCtx): string {
   </div>
 </section>`;
   }
+
+  if (!copy.testimonials?.length) return '';
 
   // Testimonials / cards
   const testimHtml = copy.testimonials.map(t => `
@@ -4069,12 +4089,26 @@ function buildHomeMain(
   // List nodes are the only graph type with a deterministic semantic kind before
   // rendering: accordion → faq, other → testimonials. Remove them here so they
   // are never passed to renderNode — composeLayoutGraph cannot override the spec.
-  const filteredNodes = graph.nodes.filter(node => {
-    if (node.type === 'list') {
-      const kind: SectionKind = node.variant === 'accordion' ? 'faq' : 'testimonials';
-      return !forbiddenSet.has(kind);
+  const graphKindsForNode = (node: LayoutNode): SectionKind[] => {
+    switch (node.type) {
+      case 'list': return [node.variant === 'accordion' ? 'faq' : 'testimonials'];
+      case 'cluster':
+      case 'frame': return ['features'];
+      case 'split':
+      case 'stage':
+      case 'tile': return ['story'];
+      case 'gallery': return ['products', 'gallery'];
+      case 'strip': return ['stats'];
+      case 'signal': return ['cta'];
+      default: return [];
     }
-    return true;
+  };
+
+  const filteredNodes = graph.nodes.filter(node => {
+    const kinds = graphKindsForNode(node);
+    if (!kinds.length) return true;
+    if (kinds.some(k => forbiddenSet.has(k))) return false;
+    return kinds.some(k => spec.sections.includes(k));
   });
 
   // Singleton dedup: cap gallery, faq, testimonials, strip, and signal to one
@@ -4407,10 +4441,13 @@ function renderMultiPageSiteInner(
   //    avoids generating nodes the spec has already forbidden.
   const allowedKinds = spec.sections as string[];
   const rootResult = composeLayout(buildComposerInput(puo, allowedKinds));
-  const rootGraph = rootResult.success ? rootResult.graph : composeLayout(buildComposerInput(puo)).graph;
+  if (!rootResult.success) {
+    throw new Error(`Layout composition failed: ${rootResult.errors?.join('; ') || 'unknown'}`);
+  }
+  const rootGraph = rootResult.graph;
 
-  // 4. Build site copy from PUO
-  const copy = buildSiteCopy(puo, brand, fp);
+  // 4. Build site copy from PUO + authoritative spec (section gating, CTA strictness)
+  const copy = buildSiteCopy(puo, brand, fp, spec, layoutPlan);
 
   // 4b. Retarget section CTAs onto REAL pages (Phase 2B). The LayoutPlan resolved
   //     primary/secondary targets from the actual page set, so no CTA can point at
@@ -4482,8 +4519,7 @@ function renderMultiPageSiteInner(
   //    (every page included in the SPA). The <style> block is excluded because we
   //    score the section <main> bodies, not the full document.
   const renderedSectionsHtml = routes.map(r => r.main).join('\n');
-  const requirements = extractRequirements(prompt);
-  const fidelity = scoreFidelity(requirements, renderedSectionsHtml);
+  const fidelity = scoreFidelity(requirementSetFromSpec(prompt, spec), renderedSectionsHtml);
 
   return {
     pages,
