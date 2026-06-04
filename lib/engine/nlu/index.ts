@@ -22,6 +22,7 @@
 import type { PromptUnderstandingObject } from '../prompt-engine';
 import type { VisualMood, DesignStyle, WebsitePersonality, BusinessTone } from '../prompt-engine/types';
 import { extractPromptCopy } from '../prompt-copy';
+import { parseBrief, type Brief } from '../brief/parse';
 import { COLOR_HEX, NICHES, profileFor, type NicheCopyProfile } from './lexicon';
 import { extractRequirements, canonicalKind, type SectionKind } from '../requirements';
 
@@ -868,6 +869,33 @@ export function understandPrompt(prompt: string): NluContent {
   const contentText = stripNonContentSections(text);
   const contentLower = contentText.toLowerCase();
 
+  // STRUCTURED-BRIEF parse — when the user wrote an explicit document (headers,
+  // labelled fields, lists), this is the AUTHORITATIVE source for sections,
+  // their order, navigation, and per-section content. It reproduces exactly what
+  // the user specified instead of inferring from keywords.
+  const brief: Brief = parseBrief(prompt);
+  const briefKinds: SectionKind[] = [];
+  const briefProducts: NluProduct[] = [];
+  let briefHeadline: string | undefined;
+  let briefSub: string | undefined;
+  let briefAbout: string | undefined;
+  if (brief.isStructured) {
+    for (const s of brief.sections) {
+      if (s.kind === 'hero') {
+        briefHeadline = briefHeadline || s.headline;
+        briefSub = briefSub || s.subheadline;
+      } else if (s.kind === 'story') {
+        if (!briefAbout && s.body && s.body.length > 20) briefAbout = s.body;
+        if (!briefKinds.includes('story')) briefKinds.push('story');
+      } else if (s.kind === 'products') {
+        for (const name of s.items) briefProducts.push({ name, _fromUser: true });
+        if (!briefKinds.includes('products')) briefKinds.push('products');
+      } else if (s.kind !== 'unknown') {
+        if (!briefKinds.includes(s.kind)) briefKinds.push(s.kind);
+      }
+    }
+  }
+
   const { slug, broad } = detectNiche(lower);
   const profile = profileFor(slug, broad);
 
@@ -891,7 +919,10 @@ export function understandPrompt(prompt: string): NluContent {
   const namedProducts = extractProducts(contentText);
   const bulletProducts = extractBulletProducts(contentText);
   let products: NluProduct[] | undefined;
-  if (namedProducts && namedProducts.length) {
+  if (briefProducts.length) {
+    // Structured brief listed product/category items — these are authoritative.
+    products = briefProducts;
+  } else if (namedProducts && namedProducts.length) {
     products = enrichProducts(namedProducts, profile).map(p => ({ ...p, _fromUser: true }));
   } else if (bulletProducts.length >= 2) {
     products = bulletProducts.map(name => ({ name, _fromUser: true }));
@@ -945,8 +976,9 @@ export function understandPrompt(prompt: string): NluContent {
     // they are generated dynamically in buildSiteCopy from the extracted
     // keywords, audience, and differentiator below, so every site's copy is
     // unique and anchored in the real prompt content.
-    heroHeadline: explicit?.heroHeadline || undefined,
-    heroSub:      explicit?.heroSub      || undefined,
+    // Structured brief wins, then explicit prompt-copy, then dynamic synthesis.
+    heroHeadline: briefHeadline || explicit?.heroHeadline || undefined,
+    heroSub:      briefSub      || explicit?.heroSub      || undefined,
     tagline:      explicit?.tagline      || undefined,
     heroTag:      explicit?.heroTag      || undefined,
     // Only set these when the user EXPLICITLY wrote CTA text (quoted or cued).
@@ -954,16 +986,18 @@ export function understandPrompt(prompt: string): NluContent {
     // them here would overwrite the intentCta that was extracted from the prompt.
     primaryCta:   explicit?.primaryCta   || undefined,
     secondaryCta: explicit?.secondaryCta || undefined,
-    about:        undefined,
-    // Sections: ONLY what the user explicitly listed in "sections:" lines or named
-    // in requirement bullets (extractRequirements). Functional-intent regex is NOT
-    // merged here — casual words like "reviews" in prose must not auto-add sections.
+    // About body comes from the brief's About/Story section when present.
+    about:        briefAbout || undefined,
+    // Sections: a structured brief is authoritative (its exact section set, in
+    // order); otherwise fall back to explicit "sections:" lines + requirements.
     sections:     filterForbidden(
-                    mergeSections(explicit?.sections, requirements.required),
+                    brief.isStructured && briefKinds.length
+                      ? briefKinds
+                      : mergeSections(explicit?.sections, requirements.required),
                     forbiddenKinds,
                   ),
-    // Explicit navigation the user typed — authoritative for nav + section set.
-    navItems:     explicit?.navItems && explicit.navItems.length ? explicit.navItems : undefined,
+    // Navigation: the brief's nav list wins, then an inline "Navigation:" list.
+    navItems:     brief.nav.length ? brief.nav : (explicit?.navItems && explicit.navItems.length ? explicit.navItems : undefined),
     products,
     faqs:         undefined, // FAQs are template content, not user-written — omit so renderer only shows them when explicitly requested
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy
