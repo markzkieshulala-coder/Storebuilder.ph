@@ -181,13 +181,13 @@ describe('FAQ section — only shown when requested', () => {
     expect(result.primaryPage).not.toMatch(/<div class="faq-list reveal"><details>/);
   });
 
-  test('FAQ accordion content appears when user explicitly requests it', () => {
+  test('FAQ stays absent when the section is requested but no Q&A is provided', () => {
+    // NO FABRICATION: requesting an FAQ does not license inventing questions.
     const result = renderFor(
       'Build a spa website. Include a FAQ section with common questions about pricing and bookings.',
       'Bliss Spa',
     );
-    // Should have actual FAQ details/summary elements in a faq-list div
-    expect(result.primaryPage).toMatch(/<div class="faq-list reveal"><details>/);
+    expect(result.primaryPage).not.toMatch(/<div class="faq-list reveal"><details>/);
   });
 });
 
@@ -195,24 +195,20 @@ describe('FAQ section — only shown when requested', () => {
 // 5. Testimonials — neutral names
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Testimonials — no fabricated person identities', () => {
-  test('testimonial names are neutral role-based identifiers when testimonials are rendered', () => {
-    // Explicitly request testimonials so the section is requirement-driven (Phase 2).
+describe('Testimonials — never fabricated', () => {
+  test('no testimonials render when the user supplies none (even if the section is requested)', () => {
+    // NO FABRICATION: the engine never invents quotes or customer identities.
     const result = renderFor(
       'Bliss Spa. We offer Swedish massage and hot stone therapy in Makati. Include a testimonials section.',
       'Bliss Spa',
     );
     const html = result.primaryPage;
-    // The old fabricated names should NOT appear
+    // Neither fabricated real-sounding names nor neutral placeholder identities.
     const fabricatedNames = ['Alex Chen', 'Sarah Miller', 'Marcus Johnson', 'Priya Sharma',
       "James O'Brien", 'David Kim', 'Rachel Wong', 'Nathan Brooks'];
-    for (const name of fabricatedNames) {
-      expect(html).not.toContain(name);
-    }
-    // Testimonials section must exist (user explicitly requested it)
-    expect(html).toContain('testimonial-card');
-    // Names inside testimonials should be neutral role-based identifiers
-    expect(html).toMatch(/A (Happy|Satisfied|Verified|Regular|Loyal|Weekly|Local|Devoted|Returning) (Customer|Client|Guest|Buyer|Visitor|Patron)/);
+    for (const name of fabricatedNames) expect(html).not.toContain(name);
+    // Match the rendered card element, not the CSS rule (.testimonial-card{...}).
+    expect(html).not.toMatch(/class="testimonial-card/);
   });
 });
 

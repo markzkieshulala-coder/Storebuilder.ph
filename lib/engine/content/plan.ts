@@ -240,51 +240,33 @@ const FEAT_TITLE_FNS: Array<(kw: string, sf: string) => string> = [
 ];
 
 function resolveFeatures(ctx: Ctx, iconPool: string[], featureHref: string): ContentValue<FeatureItem[]> {
-  const { nlu, kws, normIndustry, fp, mainKw, spec } = ctx;
+  const { nlu, fp, spec } = ctx;
 
   if (!spec.sections.includes('features')) {
     return cv([], 'absent', 'features-not-requested');
   }
 
-  const suffixes = FEATURE_SUFFIXES_BY_NICHE[normIndustry] || FEATURE_SUFFIXES_BY_NICHE.general;
-  const descFor = FEATURE_DESC_BY_NICHE[normIndustry] || FEATURE_DESC_BY_NICHE.general;
-  const featureKws = [...new Set([...nlu.activityKeywords.map(k => k.toLowerCase()), ...kws])].slice(0, 6);
-  const spTitles = nlu.descriptiveSPs.map(spToTitle);
-  // Only USER-listed product names are prompt-faithful feature titles; niche-bank
-  // product names must not masquerade as prompt-derived content.
-  const productTitles = nlu.products.filter(p => p.fromUser).map(p => p.name).filter(Boolean);
-
-  const hasPromptContent = spTitles.length > 0 || productTitles.length > 0;
-  const source = hasPromptContent ? 'prompt' : (featureKws.length > 0 ? 'nlu' : 'niche');
-
-  const getBestTitle = (i: number, kw: string, sf: string): string => {
-    if (productTitles[i]) return productTitles[i];
-    if (spTitles[i]) return spTitles[i];
-    return FEAT_TITLE_FNS[(fp + i * 3) % FEAT_TITLE_FNS.length](kw, sf);
+  // NO FABRICATION: feature cards come ONLY from what the user actually described
+  // — the services / selling points they wrote, and the items they explicitly
+  // listed. We never synthesise titles/descriptions from niche suffix banks or
+  // hardcoded "Peak Performance" defaults. If the user described no features, the
+  // section is omitted (resolved as absent) rather than filled with template copy.
+  const items: FeatureItem[] = [];
+  const seen = new Set<string>();
+  const push = (title: string, desc: string) => {
+    const t = (title || '').trim();
+    if (!t || seen.has(t.toLowerCase()) || items.length >= 6) return;
+    seen.add(t.toLowerCase());
+    items.push({ icon: iconPool[(fp + items.length) % iconPool.length], title: t, desc: (desc || '').trim(), href: featureHref });
   };
-  const spDesc = (i: number): string | null =>
-    nlu.descriptiveSPs.length > 0 ? nlu.descriptiveSPs[i % nlu.descriptiveSPs.length] : null;
 
-  const allKwFeatures = (featureKws.length > 0 ? featureKws : kws).slice(0, 6).map((kw, i) => {
-    const sf = pick(suffixes, fp + i);
-    return {
-      icon: iconPool[(fp + i) % iconPool.length],
-      title: getBestTitle(i, kw, sf),
-      desc: spDesc(i) ?? descFor(kw),
-      href: featureHref,
-    };
-  });
+  // Prefer the user's own descriptive sentences (title = condensed phrase, desc =
+  // the sentence verbatim). Then any services/products the user explicitly listed.
+  for (const sp of nlu.descriptiveSPs) push(spToTitle(sp), sp);
+  for (const p of nlu.products.filter(p => p.fromUser)) push(p.name, p.desc || '');
 
-  while (allKwFeatures.length < 3) {
-    const defaults: FeatureItem[] = [
-      { icon: iconPool[9 % iconPool.length], title: 'Peak Performance', desc: `Our ${mainKw} approach delivers measurable results from day one.`, href: featureHref },
-      { icon: iconPool[2 % iconPool.length], title: 'Trusted Quality', desc: `Every aspect of ${ctx.brand} is built on a foundation of quality and trust.`, href: 'about' },
-      { icon: iconPool[7 % iconPool.length], title: 'Proven Results', desc: `Hundreds of clients have already experienced the ${ctx.brand} difference.`, href: featureHref },
-    ];
-    allKwFeatures.push(defaults[allKwFeatures.length % defaults.length]);
-  }
-
-  return cv(allKwFeatures.slice(0, 4), source, 'features');
+  if (items.length === 0) return cv([], 'absent', 'no-user-features');
+  return cv(items, 'prompt', 'features');
 }
 
 // ── Stats resolver ────────────────────────────────────────────────────────────
@@ -296,79 +278,23 @@ function resolveStats(ctx: Ctx): ContentValue<StatItem[]> {
     return cv([], 'absent', 'stats-not-requested');
   }
 
+  // NO FABRICATION: stats render ONLY from real numbers the user wrote (e.g.
+  // "10 years", "500+ clients"). We never pad with generic trust-signal banks
+  // ("Trusted by Thousands"). No real numbers → section omitted.
   const promptStats = extractPromptStats(puo.originalPrompt || prompt);
-  const fallback = GENERIC_TRUST_SIGNALS[normIndustry] || GENERIC_TRUST_SIGNALS.general;
-
-  const merged = [...promptStats];
-  for (const ts of fallback) {
-    if (merged.length >= 4) break;
-    if (!promptStats.some(ps => ps.label === ts.label)) merged.push(ts);
-  }
-
-  const source = promptStats.length > 0 ? 'prompt' : 'niche';
-  return cv(merged.slice(0, 4), source, 'stats');
+  if (promptStats.length === 0) return cv([], 'absent', 'no-prompt-stats');
+  return cv(promptStats.slice(0, 4), 'prompt', 'stats');
 }
 
 // ── Testimonials resolver ─────────────────────────────────────────────────────
 
-function resolveTestimonials(ctx: Ctx): ContentValue<TestimonialItem[]> {
-  const { nlu, brand, mainKw, secKw, normIndustry, fp, spec } = ctx;
-
-  if (!spec.sections.includes('testimonials')) {
-    return cv([], 'absent', 'testimonials-not-requested');
-  }
-
-  const roles = TESTIMONIAL_ROLES[normIndustry] || TESTIMONIAL_ROLES.general;
-
-  // Only USER-listed products may appear in quotes / drive 'prompt' provenance.
-  const userProducts = nlu.products.filter(p => p.fromUser);
-  const tSp0 = nlu.descriptiveSPs[0] ? spToTitle(nlu.descriptiveSPs[0]).toLowerCase() : mainKw.toLowerCase();
-  const tSp1 = nlu.descriptiveSPs[1] ? spToTitle(nlu.descriptiveSPs[1]).toLowerCase() : secKw.toLowerCase();
-  const tProd0 = userProducts[0]?.name || tSp0;
-  const tProd1 = userProducts[1]?.name || tSp1;
-
-  const nicheQuotes = TESTIMONIAL_QUOTES[normIndustry] || TESTIMONIAL_QUOTES.general;
-  const interpolate = (q: string) =>
-    q.replace(/\[brand\]/g, brand).replace(/\[mainKw\]/g, mainKw).replace(/\[secKw\]/g, secKw);
-
-  const buildQ = (idx: number): string => {
-    switch (idx % 3) {
-      case 0:
-        if (nlu.descriptiveSPs.length >= 1)
-          return `${brand}'s ${tSp0} is exactly what I was looking for. I've tried other places — nothing even comes close.`;
-        return interpolate(nicheQuotes[0]);
-      case 1:
-        if (userProducts.length >= 1)
-          return `The ${tProd0} at ${brand} exceeded every expectation. I've already recommended it to everyone I know.`;
-        if (nlu.descriptiveSPs.length >= 2)
-          return `${brand} delivers on every promise — especially the ${tSp1}. An experience worth coming back for again and again.`;
-        return interpolate(nicheQuotes[1]);
-      default:
-        if (userProducts.length >= 2)
-          return `Came for the ${tProd0}, stayed for the ${tProd1}. ${brand} is in a class of its own.`;
-        if (nlu.descriptiveSPs.length >= 1)
-          return `Once you've experienced ${tSp0} at ${brand}, you won't go anywhere else. The quality speaks for itself.`;
-        return interpolate(nicheQuotes[2] || nicheQuotes[0]);
-    }
-  };
-
-  const NAME_POOL = [
-    ['A Happy Customer', 'A Regular Client', 'A Returning Customer'],
-    ['A Satisfied Client', 'A Verified Buyer', 'A Loyal Customer'],
-    ['A Weekly Regular', 'A Happy Client', 'A Long-Time Customer'],
-    ['A Local Customer', 'A First-Time Visitor', 'A Returning Guest'],
-    ['A Devoted Regular', 'A Happy Customer', 'A Repeat Client'],
-    ['A Verified Client', 'A Regular Guest', 'A Satisfied Customer'],
-  ];
-  const names = NAME_POOL[fp % NAME_POOL.length];
-  const items = names.map((name, i) => ({
-    quote: buildQ(i),
-    name,
-    role: roles[i % roles.length] || roles[0],
-  }));
-
-  const hasPrompt = nlu.descriptiveSPs.length > 0 || userProducts.length > 0;
-  return cv(items, hasPrompt ? 'prompt' : 'niche', 'testimonials');
+function resolveTestimonials(_ctx: Ctx): ContentValue<TestimonialItem[]> {
+  // NO FABRICATION: the engine never invents quotes, customer names, or roles.
+  // Fake social proof is exactly the kind of "content the user never wrote" we
+  // must not generate. A testimonials section renders only when the user supplies
+  // real testimonials; none are extracted from the prompt today, so this is always
+  // absent and the section is omitted.
+  return cv([], 'absent', 'no-user-testimonials');
 }
 
 // ── About resolvers ───────────────────────────────────────────────────────────
@@ -382,56 +308,24 @@ function resolveAboutHeading(ctx: Ctx): ContentValue<string> {
 }
 
 function resolveAboutBody(ctx: Ctx): ContentValue<string> {
-  const { nlu, brand, mainKw, secKw, normIndustry } = ctx;
+  const { nlu } = ctx;
 
-  // Tier 1: Prompt — explicit about text from NLU
+  // NO FABRICATION: the about/story body is the user's own words only. We never
+  // generate a founder-myth from a niche template. No user description → absent.
   if (nlu.about) return cv(nlu.about, 'prompt', 'llm.about');
-
-  // Tier 1: Prompt — 2+ descriptive selling points → use verbatim
-  if (nlu.descriptiveSPs.length >= 2) {
-    return cv(nlu.descriptiveSPs.slice(0, 3).join(' '), 'prompt', 'descriptiveSPs');
-  }
-
-  // Tier 3: Niche template, optionally enriched with 1 descriptive SP
-  const tplFn = ABOUT_BODY_BY_NICHE[normIndustry];
-  const tpl = tplFn
-    ? tplFn(brand, mainKw, secKw, nlu.audience, nlu.differentiator)
-    : `${brand} was founded with a single conviction: ${mainKw.toLowerCase()}${nlu.audience ? ' for ' + nlu.audience : ''} should be${nlu.differentiator ? ' ' + nlu.differentiator + ' and' : ''} exceptional. We bring genuine expertise, a passion for ${secKw.toLowerCase()}, and a relentless focus on quality to everything we do.`;
-
-  if (nlu.descriptiveSPs.length === 1) {
-    const sentences = tpl.split(/(?<=[.!?])\s+/);
-    const intro = sentences.slice(0, 2).join(' ');
-    return cv(`${intro} ${nlu.descriptiveSPs[0]}`, 'prompt', 'descriptiveSPs[0]+niche');
-  }
-
-  // Tier 3: Niche with NLU enrichment signals
-  const extras: string[] = [];
-  if (nlu.credSignals.length >= 1) extras.push(`As a ${nlu.credSignals.slice(0, 2).join(', ')} business, quality is built into every decision.`);
-  if (nlu.location) extras.push(`Proudly serving ${nlu.location}.`);
-  const body = extras.length ? `${tpl} ${extras.join(' ')}` : tpl;
-  return cv(body, extras.length ? 'nlu' : 'niche', 'aboutBodyTemplate');
+  if (nlu.descriptiveSPs.length >= 2) return cv(nlu.descriptiveSPs.slice(0, 3).join(' '), 'prompt', 'descriptiveSPs');
+  if (nlu.descriptiveSPs.length === 1) return cv(nlu.descriptiveSPs[0], 'prompt', 'descriptiveSPs[0]');
+  if (nlu.missionStatement) return cv(nlu.missionStatement, 'prompt', 'missionStatement');
+  return cv('', 'absent', 'no-user-about');
 }
 
 function resolveAboutBullets(ctx: Ctx): ContentValue<string[]> {
-  const { nlu, kws, mainKw } = ctx;
-
-  if (nlu.descriptiveSPs.length >= 3) {
+  const { nlu } = ctx;
+  // Bullets only from the user's own described points — never invented.
+  if (nlu.descriptiveSPs.length >= 2) {
     return cv(nlu.descriptiveSPs.slice(0, 4).map(sp => spToTitle(sp)), 'prompt', 'descriptiveSPs');
   }
-  if (nlu.descriptiveSPs.length >= 1) {
-    return cv([
-      spToTitle(nlu.descriptiveSPs[0]),
-      kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution',
-      nlu.differentiator ? titleCase(nlu.differentiator) + ' commitment' : nlu.audience ? 'Built for ' + nlu.audience : 'Uncompromising quality',
-      'Transparent, honest, and always improving',
-    ], 'prompt', 'descriptiveSPs[0]');
-  }
-  return cv([
-    kws[0] ? titleCase(kws[0]) + '-first approach' : 'Client-first approach',
-    kws[1] ? titleCase(kws[1]) + '-focused execution' : 'Results-focused execution',
-    nlu.differentiator ? titleCase(nlu.differentiator) + ' commitment' : nlu.audience ? 'Built for ' + nlu.audience : 'Uncompromising quality',
-    'Transparent, honest, and always improving',
-  ], nlu.differentiator || nlu.audience ? 'nlu' : 'generic', 'aboutBullets');
+  return cv([], 'absent', 'no-user-bullets');
 }
 
 // ── Mission resolvers ─────────────────────────────────────────────────────────
@@ -445,8 +339,9 @@ function resolveMissionHeading(ctx: Ctx): ContentValue<string> {
 }
 
 function resolveMissionBody(ctx: Ctx): ContentValue<string> {
-  const { nlu, brand, mainKw, secKw } = ctx;
-
+  const { nlu } = ctx;
+  // NO FABRICATION: the mission/highlight body is the user's stated mission or
+  // their own descriptive sentences — never an invented brand manifesto.
   if (nlu.missionStatement) {
     const body = nlu.differentiator
       ? `${nlu.missionStatement} — ${nlu.differentiator} at every step.`
@@ -456,16 +351,7 @@ function resolveMissionBody(ctx: Ctx): ContentValue<string> {
   if (nlu.descriptiveSPs.length >= 3) {
     return cv(nlu.descriptiveSPs.slice(2).join(' '), 'prompt', 'descriptiveSPs[2+]');
   }
-  if (nlu.differentiator && nlu.audience) {
-    return cv(`At ${brand}, we're ${nlu.differentiator} to the core — built specifically for ${nlu.audience}. Every ${mainKw.toLowerCase()} decision starts with one question: does this truly serve ${nlu.audience}? Our answer is always ${nlu.differentiator}, always genuine, and never shortcuts.`, 'nlu', 'differentiator+audience');
-  }
-  if (nlu.differentiator) {
-    return cv(`At ${brand}, ${nlu.differentiator} isn't just a tagline — it's how we operate. From our sourcing to our service, every detail reflects our commitment to doing ${mainKw.toLowerCase()} the ${nlu.differentiator} way. No shortcuts. Just work we're proud to put our name on.`, 'nlu', 'differentiator');
-  }
-  if (nlu.audience) {
-    return cv(`${brand} was built specifically for ${nlu.audience}. We understand what ${nlu.audience} need better than anyone — and that understanding shapes every decision we make, from the way we work to the results we deliver.`, 'nlu', 'audience');
-  }
-  return cv(`Every detail at ${brand} is intentional. We pair deep ${mainKw.toLowerCase()} expertise with an obsession for ${secKw.toLowerCase()}. No shortcuts — just work we're proud to put our name on.`, 'generic', 'template');
+  return cv('', 'absent', 'no-user-mission');
 }
 
 // ── Gallery / catalog resolvers ───────────────────────────────────────────────
@@ -499,25 +385,15 @@ function resolveProducts(ctx: Ctx): ContentValue<Array<{ name: string; desc: str
     return cv(null, 'absent', 'spec.sections.no-products');
   }
 
-  // Tier 1: Prompt — items the USER explicitly listed. Only `_fromUser` products
-  // may be labeled 'prompt'. Niche-bank / activity-inferred items NEVER are.
+  // NO FABRICATION: products/menu items come ONLY from what the user explicitly
+  // listed. We never fill the catalog from a niche bank ("Signature Tee") or from
+  // activity-inferred guesses. If the user named no items, the section is omitted
+  // — the engine cannot invent a menu the user didn't give.
   const userProducts = nlu.products.filter(p => p.fromUser && isRealProduct(p));
   if (userProducts.length > 0) {
     return cv(userProducts.map(({ name, desc, price }) => ({ name, desc, price })), 'prompt', 'llm.products[_fromUser]');
   }
-
-  // Section was requested (case b) but the user listed no items. Fill from the
-  // niche bank — labeled 'niche', because this content is NOT prompt-derived.
-  const bank = resolveProductBank(puo.extractedKeywords, puo.inferredIndustry, normIndustry);
-  if (bank) return cv(bank.items, 'niche', 'productBank');
-
-  // Last resort: NLU's own niche/activity-inferred items (still not user-listed).
-  const inferred = nlu.products.filter(isRealProduct);
-  if (inferred.length > 0) {
-    return cv(inferred.map(({ name, desc, price }) => ({ name, desc, price })), 'niche', 'nlu.inferred');
-  }
-
-  return cv(null, 'absent', 'no-products');
+  return cv(null, 'absent', 'no-user-products');
 }
 
 function resolveProductEyebrow(ctx: Ctx): ContentValue<string> {
@@ -625,25 +501,25 @@ function resolveFaqs(ctx: Ctx): ContentValue<FaqItem[] | null> {
     return cv(null, 'absent', 'spec.sections.no-faq');
   }
 
-  // Tier 1: Prompt — user-provided FAQs
+  // NO FABRICATION: FAQs come only from the user's own questions/answers. We never
+  // invent Q&A from a niche bank. No user FAQs → section omitted.
   if (nlu.faqs.length > 0) return cv(nlu.faqs, 'prompt', 'llm.faqs');
-
-  // Tier 3: Niche FAQ bank
-  return cv(resolveNicheFaqs(normIndustry), 'niche', 'nicheFaq');
+  return cv(null, 'absent', 'no-user-faqs');
 }
 
 // ── Pricing resolver ──────────────────────────────────────────────────────────
 
 function resolvePricingPlans(ctx: Ctx): ContentValue<PricingPlan[] | null> {
-  const { spec, normIndustry } = ctx;
+  const { spec } = ctx;
 
-  // Only emit pricing when spec requires it
   if (!spec.sections.includes('pricing')) {
     return cv(null, 'absent', 'spec.sections.no-pricing');
   }
 
-  // Phase 4C: niche-aware pricing tiers (no prompt extraction yet)
-  return cv(buildNichePricingPlans(normIndustry), 'niche', 'pricingTemplate');
+  // NO FABRICATION: the engine never invents price ladders (Basic/Pro/Enterprise
+  // with made-up numbers). Pricing renders only from plans/prices the user states.
+  // No structured user pricing → section omitted.
+  return cv(null, 'absent', 'no-user-pricing');
 }
 
 // ── StartingPrice resolver ────────────────────────────────────────────────────

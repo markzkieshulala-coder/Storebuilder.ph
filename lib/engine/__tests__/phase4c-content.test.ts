@@ -53,15 +53,11 @@ describe('Phase 4C — team roles are niche-aware', () => {
 });
 
 describe('Phase 4C — pricing fallback is niche-aware (no SaaS ladder)', () => {
-  test('restaurant pricing uses menus, not Starter/Professional/Enterprise', () => {
-    const names = priceNames(renderFor('A ramen restaurant serving tonkotsu.' + PRICE_PROMPT, 'Ichiban'));
-    expect(names).toEqual(['Lunch Menu', 'Dinner Menu', 'Private Dining']);
-    expect(names).not.toContain('Professional');
-  });
-
-  test('wellness/sports pricing uses memberships', () => {
-    const names = priceNames(renderFor('A yoga and pilates studio.' + PRICE_PROMPT, 'Zen'));
-    expect(names.some(n => /Membership|Session|Pass/.test(n))).toBe(true);
+  test('pricing is OMITTED when the user provides no prices (no fabricated ladder)', () => {
+    // NO FABRICATION: requesting a pricing section does not license inventing
+    // tiers/prices. The renderer omits pricing unless the user states real prices.
+    expect(priceNames(renderFor('A ramen restaurant serving tonkotsu.' + PRICE_PROMPT, 'Ichiban'))).toEqual([]);
+    expect(priceNames(renderFor('A yoga and pilates studio.' + PRICE_PROMPT, 'Zen'))).toEqual([]);
   });
 
   test('buildNichePricingPlans never returns the old generic SaaS trio for non-tech niches', () => {
@@ -105,19 +101,10 @@ describe('Phase 4C — trust strip items are niche-aware', () => {
     return [];
   }
 
-  test('technology trust strip uses tech credibility signals', () => {
-    const items = firstMarqueeFor('cloud database company');
-    expect(items.length).toBeGreaterThan(0);
-    expect(items).toContain('99.9% Uptime');
-    expect(items).not.toContain('Enterprise Ready'); // old generic item
-  });
-
-  test('professional trust strip differs from technology', () => {
-    const law = firstMarqueeFor('law firm for founders');
-    const tech = firstMarqueeFor('cloud database company');
-    expect(law.length).toBeGreaterThan(0);
-    expect(tech.length).toBeGreaterThan(0);
-    expect(law.join('|')).not.toBe(tech.join('|'));
-    expect(law).toContain('Proven Track Record');
+  test('trust strip / stats are never fabricated — omitted without real numbers', () => {
+    // NO FABRICATION: the engine never pads a stats marquee with generic trust
+    // signals. Without real numbers in the prompt, the stats section is omitted.
+    expect(firstMarqueeFor('cloud database company')).toEqual([]);
+    expect(firstMarqueeFor('law firm for founders')).toEqual([]);
   });
 });

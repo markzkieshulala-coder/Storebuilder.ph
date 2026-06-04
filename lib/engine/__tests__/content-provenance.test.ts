@@ -60,22 +60,31 @@ describe('content provenance — fallback chain', () => {
     expect(plan.heroHeadline.value).toBeTruthy();
   });
 
-  test('sparse prompt: about body is never absent or empty', () => {
+  test('sparse prompt: about body is ABSENT (no fabricated founder-myth)', () => {
+    // NO FABRICATION: with no user-written description, the engine must not invent
+    // an about/story body from a niche template.
     const plan = planFor('A law firm.');
-    expect(plan.aboutBody.source).not.toBe('absent');
-    expect(plan.aboutBody.value.length).toBeGreaterThan(30);
+    expect(plan.aboutBody.source).toBe('absent');
+    expect(plan.aboutBody.value).toBe('');
   });
 
-  test('sparse prompt: testimonials absent unless section requested', () => {
+  test('about body present (prompt) when the user describes the business', () => {
+    const plan = planFor('We are a boutique law firm. We defend small businesses in contract disputes. We have won over 200 cases.');
+    expect(plan.aboutBody.source).toBe('prompt');
+    expect(plan.aboutBody.value.length).toBeGreaterThan(20);
+  });
+
+  test('sparse prompt: testimonials absent', () => {
     const plan = planFor('A coffee shop.');
     expect(plan.testimonials.source).toBe('absent');
     expect(plan.testimonials.value).toEqual([]);
   });
 
-  test('testimonials present when user requests reviews section', () => {
+  test('testimonials stay ABSENT even when a reviews section is requested but none given', () => {
+    // NO FABRICATION: requesting the section does not license inventing quotes.
     const plan = planFor('A coffee shop. Testimonials section.');
-    expect(plan.testimonials.source).not.toBe('absent');
-    expect(plan.testimonials.value.length).toBeGreaterThanOrEqual(3);
+    expect(plan.testimonials.source).toBe('absent');
+    expect(plan.testimonials.value).toEqual([]);
   });
 
   test('sparse prompt: stats absent unless section requested', () => {

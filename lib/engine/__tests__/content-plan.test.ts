@@ -95,10 +95,10 @@ describe('buildContentPlan — about body provenance', () => {
     expect(plan.aboutBody.value.toLowerCase()).toMatch(/yoga|class/i);
   });
 
-  test('prompt with no descriptive sentences → aboutBody from niche or nlu', () => {
+  test('prompt with no descriptive sentences → aboutBody ABSENT (never templated)', () => {
     const plan = planFor('A restaurant.');
-    expect(['niche', 'nlu', 'generic']).toContain(plan.aboutBody.source);
-    expect(plan.aboutBody.value.length).toBeGreaterThan(20);
+    expect(plan.aboutBody.source).toBe('absent');
+    expect(plan.aboutBody.value).toBe('');
   });
 });
 

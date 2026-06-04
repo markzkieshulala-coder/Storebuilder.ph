@@ -129,19 +129,23 @@ describe('Required sections — source is WebsiteSpec, not the layout graph', ()
     expect(allSectionsHtml).toMatch(/newsletter-section/);
   });
 
-  test('pricing section is rendered (spec required loyalty/rewards → pricing)', () => {
-    expect(allSectionsHtml).toMatch(/price-grid|price-card/);
+  test('pricing section is OMITTED — loyalty/rewards implies pricing but no prices were given', () => {
+    // NO FABRICATION: the engine does not invent a Basic/Pro price ladder.
+    // Match the rendered element (class="price-grid"), not the CSS rule (.price-grid).
+    expect(allSectionsHtml).not.toMatch(/class="price-grid"/);
   });
 
-  test('fidelity report confirms all spec-required sections are present', () => {
+  test('fidelity report has no missing required sections and no forbidden present', () => {
+    // Fidelity requires only the sections that actually carry prompt-derived
+    // content; content-empty requested sections (pricing/story) are omitted.
     expect(result.fidelity.requiredMissing).toEqual([]);
+    expect(result.fidelity.forbiddenPresent).toEqual([]);
     expect(result.fidelity.score).toBe(1);
   });
 
-  test('spec.sections matches what the fidelity report marks as present', () => {
-    // Every kind in spec.sections must appear in fidelity.requiredPresent.
-    for (const kind of result.spec.sections) {
-      expect(result.fidelity.requiredPresent).toContain(kind);
+  test('everything the fidelity report marks present is genuinely a requested section', () => {
+    for (const kind of result.fidelity.requiredPresent) {
+      expect(result.spec.sections).toContain(kind);
     }
   });
 });

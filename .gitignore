@@ -51,3 +51,6 @@ public/generated/*.png
 tools/image-generator/.venv/
 tools/image-generator/.cache/
 public/generated/
+
+# Local engine preview output
+preview-output/

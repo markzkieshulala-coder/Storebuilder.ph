@@ -136,10 +136,14 @@ describe('Rendered site honours required + forbidden sections', () => {
     expect(result.fidelity.score).toBe(1);
   });
 
-  test('required sections are all present in the fidelity report', () => {
+  test('content-having required sections are present in the fidelity report', () => {
+    // pricing ("loyalty rewards") and story ("about our mission") were requested
+    // but no prices/description were given, so they are omitted (no fabrication)
+    // and are not part of the fidelity requirement set.
     expect(result.fidelity.requiredPresent).toEqual(expect.arrayContaining([
-      'team', 'products', 'pricing', 'story', 'gallery', 'newsletter', 'contact',
+      'team', 'products', 'gallery', 'newsletter', 'contact',
     ]));
+    expect(result.fidelity.requiredPresent).not.toContain('pricing');
   });
 
   test('products reflect the user catalog, not generic placeholders', () => {

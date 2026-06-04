@@ -4097,6 +4097,25 @@ interface HomeMainResult {
   injected: SectionKind[];
 }
 
+// A content-bearing section renders ONLY when it actually has prompt-derived
+// content. The content engine returns empty/absent for any section the user did
+// not supply content for (no fabricated testimonials, stats, products, etc.), and
+// this gate drops those sections so the page contains only what the prompt gave.
+// Structural/functional sections (gallery container, contact form, newsletter,
+// booking, location) are not content-gated.
+function sectionHasContent(kind: SectionKind, copy: SiteCopy): boolean {
+  switch (kind) {
+    case 'features':     return copy.features.length > 0;
+    case 'testimonials': return copy.testimonials.length > 0;
+    case 'stats':        return copy.stats.length > 0;
+    case 'products':     return !!(copy.products && copy.products.length > 0);
+    case 'faq':          return !!(copy.faqs && copy.faqs.length > 0);
+    case 'pricing':      return !!(copy.pricingPlans && copy.pricingPlans.length > 0);
+    case 'story':        return !!((copy.aboutBody && copy.aboutBody.trim()) || (copy.missionBody && copy.missionBody.trim()));
+    default:             return true;
+  }
+}
+
 function buildHomeMain(
   graph: LayoutGraph,
   puo: PromptUnderstandingObject,
@@ -4136,7 +4155,9 @@ function buildHomeMain(
     const kinds = graphKindsForNode(node);
     if (!kinds.length) return true;
     if (kinds.some(k => forbiddenSet.has(k))) return false;
-    return kinds.some(k => spec.sections.includes(k));
+    // Render a node only if at least one of its kinds is BOTH requested AND has
+    // real (prompt-derived) content — never an empty section from a template.
+    return kinds.some(k => spec.sections.includes(k) && sectionHasContent(k, ctx.copy));
   });
 
   // Singleton dedup: cap gallery, faq, testimonials, strip, and signal to one
@@ -4190,6 +4211,7 @@ function buildHomeMain(
   for (const placement of layoutPlan.homeSections) {
     if (forbiddenSet.has(placement.kind)) continue;
     if (renderedKinds.has(placement.kind)) continue;
+    if (!sectionHasContent(placement.kind, ctx.copy)) continue; // no fabricated empty sections
 
     let html = '';
     try { html = renderInjectedKind(placement.kind, ctx, counters); } catch { html = ''; }
@@ -4235,11 +4257,12 @@ function buildHomeMain(
   }
 
   // ── STEP 4: Safety net ────────────────────────────────────────────────────
-  // enforceSections is now a safety net only. For a well-formed spec where
-  // Steps 1–3 executed correctly, dropped and injected will both be empty.
+  // enforceSections is a safety net only. It must NOT re-inject the content-empty
+  // sections Steps 1–3 deliberately dropped, so we only require sections that
+  // actually have prompt-derived content.
   const enforced = enforceSections(
     preEnforced,
-    spec.sections,
+    spec.sections.filter(k => sectionHasContent(k, ctx.copy)),
     spec.forbiddenSections,
     (kind) => renderInjectedKind(kind, ctx, counters),
     headingOf,
@@ -4549,11 +4572,18 @@ function renderMultiPageSiteInner(
     pages['/pricing'] = renderPricingPageHtml(puo, brand, navItems, copy, css, font, base, fp + 4, year);
   }
 
-  // 9. Verify requirement fidelity against the ACTUAL rendered SPA route bodies
-  //    (every page included in the SPA). The <style> block is excluded because we
-  //    score the section <main> bodies, not the full document.
+  // 9. Verify requirement fidelity against the ACTUAL rendered SPA route bodies.
+  //    A section the user requested but supplied NO content for is intentionally
+  //    omitted (we never fabricate), so fidelity must require only the sections
+  //    that actually carry prompt-derived content — and still assert every
+  //    forbidden section is absent.
   const renderedSectionsHtml = routes.map(r => r.main).join('\n');
-  const fidelity = scoreFidelity(requirementSetFromSpec(prompt, spec), renderedSectionsHtml);
+  const baseReq = requirementSetFromSpec(prompt, spec);
+  const effectiveReq = {
+    ...baseReq,
+    required: baseReq.required.filter(k => sectionHasContent(k, copy)),
+  };
+  const fidelity = scoreFidelity(effectiveReq, renderedSectionsHtml);
 
   return {
     pages,

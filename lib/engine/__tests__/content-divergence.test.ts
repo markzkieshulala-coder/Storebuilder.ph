@@ -101,10 +101,14 @@ describe('content divergence — CTA text', () => {
 // ── 4. Testimonials divergence ────────────────────────────────────────────────
 
 describe('content divergence — testimonials', () => {
-  test('different product descriptions lead to different testimonial copy', () => {
-    const planA = planFor('A basketball gear shop. Products. Testimonials. High-performance sneakers. Professional training equipment.');
-    const planB = planFor('A coffee equipment shop. Products. Testimonials. Commercial espresso machines. Premium grinders. Barista tools.');
-    expect(planA.testimonials.value[0].quote).not.toBe(planB.testimonials.value[0].quote);
+  test('testimonials are never fabricated (absent for both); divergence is in real content', () => {
+    const planA = planFor('A basketball gear shop. We sell High-Performance Sneakers and Training Equipment.');
+    const planB = planFor('A coffee equipment shop. We sell Espresso Machines, Grinders, and Barista Tools.');
+    expect(planA.testimonials.source).toBe('absent');
+    expect(planB.testimonials.source).toBe('absent');
+    const aNames = (planA.products.value ?? []).map(p => p.name).join('|');
+    const bNames = (planB.products.value ?? []).map(p => p.name).join('|');
+    expect(aNames).not.toBe(bNames);
   });
 });
 

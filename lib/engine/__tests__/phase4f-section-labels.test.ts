@@ -125,23 +125,17 @@ describe('Phase 4F — rendered HTML uses niche labels and stays stable', () => 
     ` Include an FAQ section. Add a testimonials section. Add a pricing section.` +
     ` Add a team section. Add a newsletter signup.${kind}`;
 
-  test('wellness vs food render different FAQ/testimonial/pricing labels', () => {
+  test('FAQ / testimonials / pricing are omitted without user content (no fabricated labels)', () => {
+    // NO FABRICATION: these content sections render only when the user supplies the
+    // questions, quotes, or prices — never from a niche label/template bank.
     const wellness = renderFor('A wellness spa for mindful living.' + SECTION_PROMPT(''), 'Serenity');
     const food = renderFor('A ramen restaurant serving tonkotsu.' + SECTION_PROMPT(''), 'Ichiban');
-
-    // FAQ section present in both (structural marker intact = stability)
-    expect(wellness).toMatch(/faq-list/);
-    expect(food).toMatch(/faq-list/);
-
-    // Niche-specific FAQ eyebrows appear and differ
-    expect(wellness).toContain('Before You Begin');
-    expect(food).toContain('Good to Know');
-
-    // Pricing section present and niche headings differ
-    expect(wellness).toMatch(/price-grid/);
-    expect(food).toMatch(/price-grid/);
-    expect(wellness).toContain('Plans &amp; Packages');
-    expect(food).toContain('Simple, Honest Pricing');
+    // Match RENDERED markup (class="...") not the always-present CSS rules (.faq-list{...}).
+    for (const html of [wellness, food]) {
+      expect(html).not.toMatch(/class="faq-list reveal"/);
+      expect(html).not.toMatch(/class="price-grid"/);
+      expect(html).not.toMatch(/class="testimonial-card/);
+    }
   });
 
   test('no empty eyebrow spans are emitted', () => {
