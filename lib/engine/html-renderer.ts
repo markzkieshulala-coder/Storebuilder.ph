@@ -744,7 +744,7 @@ const INDUSTRY_KEY_MAP: Record<string, string> = {
   portfolio: 'portfolio', art: 'portfolio', design: 'portfolio', architecture: 'portfolio',
   interior: 'portfolio', illustration: 'portfolio', videography: 'portfolio',
   // Agency, marketing, events & music — story/brand-led content
-  agency: 'agency', marketing: 'agency', advertising: 'agency',
+  agency: 'agency', marketing: 'agency', advertising: 'agency', socialmedia: 'agency',
   branding: 'agency', studio: 'agency', pr: 'agency', event: 'agency', music: 'agency',
   // Wellness, beauty & personal care — service-led, booking-oriented content
   spa: 'wellness', wellness: 'wellness', meditation: 'wellness', massage: 'wellness',

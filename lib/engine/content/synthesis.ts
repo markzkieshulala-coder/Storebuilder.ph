@@ -197,7 +197,10 @@ const STYLE_WORDS = new Set([
   'professional','aesthetic','beautiful','stunning','amazing','gorgeous','fresh','trendy','crisp','smooth','polished','high-end','upscale',
   'classic','sharp','iconic','signature','curated','handcrafted','artisanal','bespoke','elevated','immersive',
   'great','best','good','nice','cool','awesome','simple','creative','unique','dynamic','energetic','friendly','powerful','strong','exclusive',
-  'website','site','page','pages','landing','homepage','layout','design','style','theme','color','colors','colour','font','fonts',
+  'website','site','page','pages','landing','homepage','webpage','webshop','layout','design','style','theme','color','colors','colour','font','fonts',
+  // Deliverable / role meta-words — describe the artifact or job title, not the
+  // business itself, so they must not pollute headlines or feature copy.
+  'portfolio','freelance','freelancer','freelancing','resume',
   'build','create','make','generate','want','need','please','with','that','this','for','the','and','have','has','look','feel','using','about',
   'red','blue','green','yellow','orange','purple','pink','black','white','gray','grey','brown','cyan','magenta','teal',
   'indigo','violet','gold','silver','beige','navy','maroon','olive','lime','turquoise','lavender','peach','cream','charcoal','slate','ivory','mint','coral','amber','rose',

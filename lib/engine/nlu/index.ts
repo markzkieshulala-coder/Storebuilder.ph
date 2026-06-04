@@ -106,10 +106,12 @@ const STYLE_META = new Set([
   'upscale','classic','sharp','iconic','signature','curated','artisanal','bespoke','elevated','immersive',
   'great','best','good','nice','cool','awesome','simple','creative','unique','dynamic','energetic',
   'friendly','powerful','strong','exclusive','inspired','authentic','genuine','real','true','pure',
-  'passionate','dedicated','committed','website','site','page','pages','landing','homepage','layout',
+  'passionate','dedicated','committed','website','site','page','pages','webpage','landing','homepage','layout',
   'design','designs','style','styles','theme','color','colors','colour','font','fonts','typography',
   'build','create','make','generate','want','need','please','with','that','this','for','the','and',
   'have','has','look','feel','vibe','using','about','scheme','palette','brand','branding','visual',
+  // Deliverable / role meta-words — the artifact or job title, not the business.
+  'portfolio','freelance','freelancer','freelancing','resume',
 ]);
 
 // ── Niche detection ─────────────────────────────────────────────────────────
@@ -646,6 +648,13 @@ const DIRECTIVE_RE = new RegExp(
   ].join('|'),
   'i',
 );
+
+// Sentences whose SUBJECT is the deliverable ("a portfolio website for…",
+// "build me a landing page…") describe the SITE to build, not the business — they
+// must never become a headline or feature card.
+const DELIVERABLE_RE = /^(?:a|an|the|my|our|this|build|create|make|design|develop|need|want|i\s+want|i\s+need|i'd\s+like|please|looking\s+for|here\s+is)\b[^.!?]{0,50}\b(?:web\s*site|website|web\s*page|webpage|landing\s+page|one[-\s]page\s+(?:site|website)|portfolio\s+(?:site|website|page)|online\s+store|web\s*shop|home\s*page)\b/i;
+// Imperative "show / showcase my X" openers are display instructions, not copy.
+const DISPLAY_DIRECTIVE_RE = /^(?:show|showcase|display|highlight|list|feature)\s+(?:me\s+)?(?:my|our|the|a|an)\b/i;
 // Matches sentences that start with first-person business ownership language.
 // NOTE: deliberately avoids `we\s+\w` with a trailing \b (broken — `we s[erve]`
 // would need \b after 's' which fails because 'e' follows). Instead, match the
@@ -664,7 +673,9 @@ function extractSellingPoints(text: string, actKws: string[], brandName?: string
   for (const sent of sentences) {
     if (sent.length < 20) continue;
     if (BUILD_INTENT_RE.test(sent)) continue;
-    if (DIRECTIVE_RE.test(sent)) continue;   // builder instruction, not a selling point
+    if (DIRECTIVE_RE.test(sent)) continue;        // builder instruction, not a selling point
+    if (DELIVERABLE_RE.test(sent)) continue;      // describes the site to build, not the business
+    if (DISPLAY_DIRECTIVE_RE.test(sent)) continue; // "show my services" — an instruction, not content
     // Skip bare brand-name references
     if (bNameLower && sent.toLowerCase().trim() === bNameLower) continue;
     if (bNameLower && /^(for|by|from|at)\s/i.test(sent) && sent.toLowerCase().includes(bNameLower) && sent.split(/\s+/).length <= 5) continue;

@@ -80,10 +80,18 @@ export const NICHES: NicheDef[] = [
   { slug: 'consulting', broad: 'consulting', triggers: ['consulting', 'consultancy', 'advisory'] },
   { slug: 'agency', broad: 'agency', triggers: ['agency', 'marketing agency', 'advertising', 'digital agency'] },
   { slug: 'realestate', broad: 'realestate', specific: true, triggers: ['real estate', 'realty', 'property', 'realtor'] },
-  // Tech
-  { slug: 'saas', broad: 'saas', specific: true, triggers: ['saas', 'software', 'platform', 'app', 'dashboard', 'api', 'developer tool', 'analytics', 'cloud', 'b2b software', 'productivity', 'automation', 'crm', 'no-code'] },
+  // Tech — only UNAMBIGUOUS software signals are "specific". Generic words like
+  // "platform"/"app"/"analytics" live in the non-specific `startup` niche below so
+  // they can't out-rank a clearly-named business (e.g. a social media manager who
+  // merely mentions "analytics" must not be classified as SaaS).
+  { slug: 'saas', broad: 'saas', specific: true, triggers: ['saas', 'b2b software', 'software company', 'software platform', 'software product', 'software', 'developer tool', 'developer tools', 'dev tool', 'api', 'sdk', 'no-code', 'low-code'] },
   { slug: 'ai', broad: 'saas', specific: true, triggers: ['ai', 'artificial intelligence', 'machine learning', 'ml', 'llm', 'ai startup', 'data platform', 'ai assistant', 'generative ai'] },
-  { slug: 'startup', broad: 'saas', triggers: ['startup', 'tech company', 'technology'] },
+  { slug: 'startup', broad: 'saas', triggers: ['startup', 'tech company', 'technology', 'platform', 'app', 'web app', 'mobile app', 'dashboard', 'analytics', 'automation', 'productivity', 'crm', 'cloud'] },
+  // Social media / content / marketing — a real services business, NOT SaaS. Uses
+  // business-role multi-word phrases so an incidental "follow us on social media"
+  // in another niche never triggers it.
+  { slug: 'socialmedia', broad: 'agency', specific: true, triggers: ['social media manager', 'social media management', 'social media marketing', 'social media agency', 'social media specialist', 'social media consultant', 'social media strategist', 'social media services', 'social media content', 'social media platforms', 'content creator', 'community manager', 'community management', 'influencer marketing', 'content strategy', 'content scheduling', 'content calendar', 'paid social'] },
+  { slug: 'marketing', broad: 'agency', specific: true, triggers: ['digital marketing', 'marketing consultant', 'content marketing', 'growth marketing', 'email marketing', 'performance marketing', 'seo agency', 'seo specialist', 'brand strategist'] },
   { slug: 'crypto', broad: 'saas', specific: true, triggers: ['crypto', 'blockchain', 'web3', 'nft', 'defi'] },
   { slug: 'gaming', broad: 'gaming', specific: true, triggers: ['gaming', 'game studio', 'esports'] },
   // Hospitality / travel
@@ -267,6 +275,22 @@ export const NICHE_PROFILES: Record<string, NicheCopyProfile> = {
     ],
     palette: { primary: '#7c3aed', accent: '#06b6d4', background: '#0b0b14' },
     cta: 'Start a Project', ctaSecondary: 'See Our Work',
+  },
+  socialmedia: {
+    mood: 'vibrant', designStyle: 'glassmorphism', personality: 'energetic', tone: 'accessible',
+    products: [
+      { name: 'Content Strategy', desc: 'A clear plan and content calendar tuned to your brand, audience, and goals.' },
+      { name: 'Community Management', desc: 'Daily posting, engagement, and DMs handled so your audience feels heard.' },
+      { name: 'Paid Social', desc: 'Targeted ad campaigns that turn scrolls into followers and customers.' },
+      { name: 'Analytics & Reporting', desc: 'Plain-English reports on what is working — and what to do next.' },
+    ],
+    faqs: [
+      { q: 'Which platforms do you manage?', a: 'Instagram, TikTok, Facebook, LinkedIn, and X — wherever your audience already is.' },
+      { q: 'How do we get started?', a: 'We start with a short discovery call, then build a content plan tailored to your brand.' },
+      { q: 'Do you create the content too?', a: 'Yes — strategy, copy, and creative direction are all part of the service.' },
+    ],
+    palette: { primary: '#8b5cf6', accent: '#ec4899', background: '#0b0b14' },
+    cta: 'Work With Me', ctaSecondary: 'View My Work',
   },
   homeservices: {
     mood: 'grounded', designStyle: 'corporate', personality: 'trustworthy', tone: 'professional',
