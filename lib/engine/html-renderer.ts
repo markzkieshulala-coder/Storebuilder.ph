@@ -2313,8 +2313,35 @@ function nextFeatureSegment(ctx: RenderCtx, cols: number): { cards: SiteCopy['fe
   return { cards, eyebrow, heading };
 }
 
+// A single, niche-appropriate PRIMARY action — used only when the user named no
+// CTA, so the hero and closing band always carry one meaningful conversion button
+// that fits the business, never a generic invented label. This never adds a
+// secondary button: secondary CTAs render only when the user explicitly asked.
+const NICHE_PRIMARY_CTA: Record<string, string> = {
+  food: 'View Menu', restaurant: 'View Menu', cafe: 'View Menu', bakery: 'View Menu',
+  sports: 'Start Training', fitness: 'Start Training', gym: 'Start Training',
+  technology: 'Get Started', saas: 'Get Started', software: 'Get Started',
+  photography: 'View Portfolio', fashion: 'Shop the Collection',
+  ecommerce: 'Shop Now', retail: 'Shop Now', beauty: 'Book Now',
+  portfolio: 'View Work', agency: 'Start a Project', creative: 'View Work',
+  wellness: 'Book a Session', healthcare: 'Book an Appointment', medical: 'Book an Appointment',
+  hospitality: 'Book Your Stay', travel: 'Plan Your Trip', realestate: 'View Listings',
+  professional: 'Get a Consultation', legal: 'Get a Consultation', finance: 'Get Started',
+  homeservices: 'Get a Free Quote', automotive: 'Book a Service',
+  education: 'Enroll Now', events: 'Get Tickets', nonprofit: 'Get Involved',
+};
+function nichePrimaryCta(industry: string): string {
+  const norm = normalizeIndustry(industry);
+  return (
+    NICHE_PRIMARY_CTA[norm] ||
+    NICHE_PRIMARY_CTA[String(industry || '').toLowerCase()] ||
+    'Get Started'
+  );
+}
+
 function renderHeroCtas(copy: SiteCopy, outlineStyle = ''): string {
   const primary = (copy.primaryCta || '').trim();
+  // Secondary renders only when the user explicitly named a second button.
   const secondary = (copy.secondaryCta || '').trim();
   if (!primary && !secondary) return '';
   const parts: string[] = [];
@@ -2389,7 +2416,6 @@ function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): st
         <div class="card-icon">${f.icon}</div>
         <h3>${esc(f.title)}</h3>
         <p>${esc(f.desc)}</p>
-        <a href="${esc(f.href)}" class="card-link">Learn more →</a>
       </div>`).join('');
     return `
 <section>
@@ -2405,7 +2431,6 @@ function renderClusterSection(node: LayoutNode, ctx: RenderCtx, idx: number): st
       <div class="card-icon">${f.icon}</div>
       <h3>${esc(f.title)}</h3>
       <p>${esc(f.desc)}</p>
-      <a href="${esc(f.href)}" class="card-link">Learn more →</a>
     </div>`).join('');
 
   return `
@@ -2456,7 +2481,7 @@ function renderSplitSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
         </div>
         <p class="split-body reveal">${esc(copy.aboutBody)}</p>
         <ul class="split-list reveal">${bullets}</ul>
-        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline reveal">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
+        ${copy.hiddenPrimaryCtaLabel?.trim() ? `<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline reveal">${esc(copy.hiddenPrimaryCtaLabel)} →</a>` : ''}
       </div>
       <div class="split-media reveal">
         <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.aboutHeading)}" loading="lazy"/>
@@ -2478,7 +2503,9 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
       const photoId = productPhoto(ctx.puo, p.name, fp, i);
       const cartBtn = isShop
         ? `<button onclick="sbAddToCart('${esc(p.name).replace(/'/g,"\\'")}','${esc(p.price).replace(/'/g,"\\'")}',this)" class="btn btn-primary" style="width:100%;margin-top:14px;font-size:.85rem">Add to Cart</button>`
-        : `<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="width:100%;margin-top:14px;display:block;text-align:center;font-size:.85rem">${esc(copy.hiddenPrimaryCtaLabel)}</a>`;
+        : (copy.hiddenPrimaryCtaLabel?.trim()
+            ? `<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline" style="width:100%;margin-top:14px;display:block;text-align:center;font-size:.85rem">${esc(copy.hiddenPrimaryCtaLabel)}</a>`
+            : '');
       return `<div class="product-card reveal reveal-delay-${i % 3}">
       <div class="product-media"><img src="${ph(photoId, 600, 440)}" alt="${esc(p.name)}" loading="lazy"/></div>
       <div class="product-body">
@@ -2551,12 +2578,16 @@ function renderPhotoGallerySection(
 }
 
 function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): string {
-  const { copy } = ctx;
+  const { copy, puo } = ctx;
   const isFullBleed = node.variant === 'full-bleed' || node.span === 'bleed';
-  // The CTA band is the page's closing action — use the hidden-primary label
-  // (e.g. "Reserve a Table", "Book a Demo", "View Services") so it's a distinct
-  // next step from the hero's primary button (e.g. "View Our Menu", "Get Started").
-  const ctaBtn = copy.hiddenPrimaryCtaLabel || copy.primaryCta;
+  // The closing band carries ONE meaningful primary action (the user's CTA, or a
+  // niche-appropriate fallback). A second button appears ONLY when the user
+  // explicitly named a secondary CTA — never a fabricated "Learn More".
+  const ctaBtn = (copy.primaryCta || '').trim() || nichePrimaryCta(puo.inferredIndustry);
+  const secondary = (copy.hiddenSecondaryCtaLabel || '').trim();
+  const secondaryBtn = secondary
+    ? `\n      <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(secondary)}</a>`
+    : '';
 
   if (isFullBleed) {
     return `
@@ -2565,8 +2596,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
     <h2 class="reveal">${esc(copy.ctaHeading)}</h2>
     <p class="reveal">${esc(copy.ctaSub)}</p>
     <div class="signal-ctas reveal">
-      <a href="contact" class="btn btn-primary">${esc(ctaBtn)}</a>
-      <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(copy.hiddenSecondaryCtaLabel)}</a>
+      <a href="contact" class="btn btn-primary">${esc(ctaBtn)}</a>${secondaryBtn}
     </div>
   </div>
 </section>`;
@@ -2579,8 +2609,7 @@ function renderSignalSection(node: LayoutNode, ctx: RenderCtx, idx: number): str
       <h2 class="reveal">${esc(copy.ctaHeading)}</h2>
       <p class="reveal">${esc(copy.ctaSub)}</p>
       <div class="signal-ctas reveal">
-        <a href="contact" class="btn btn-primary">${esc(ctaBtn)}</a>
-        <a href="${esc(copy.hiddenSecondarySlug)}" class="btn btn-outline">${esc(copy.hiddenSecondaryCtaLabel)}</a>
+        <a href="contact" class="btn btn-primary">${esc(ctaBtn)}</a>${secondaryBtn}
       </div>
     </div>
   </div>
@@ -2636,7 +2665,6 @@ function renderTileSection(node: LayoutNode, ctx: RenderCtx, idx: number): strin
       <img src="${ph(photo, 600, 300)}" alt="${esc(f.title)}" loading="lazy" style="border-radius:var(--radius-sm);margin-bottom:16px;width:100%;height:180px;object-fit:cover"/>
       <h3>${esc(f.title)}</h3>
       <p>${esc(f.desc)}</p>
-      <a href="${esc(f.href)}" class="card-link">Explore →</a>
     </div>`;
   }).join('');
 
@@ -2666,7 +2694,7 @@ function renderStageSection(node: LayoutNode, ctx: RenderCtx, idx: number): stri
           <h2>${esc(copy.missionHeading)}</h2>
         </div>
         <p class="split-body reveal">${esc(copy.missionBody)}</p>
-        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline reveal">${esc(copy.hiddenPrimaryCtaLabel)} →</a>
+        ${copy.hiddenPrimaryCtaLabel?.trim() ? `<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline reveal">${esc(copy.hiddenPrimaryCtaLabel)} →</a>` : ''}
       </div>
       <div class="split-media reveal">
         <img src="${ph(photo, 800, 1000)}" alt="${esc(copy.missionHeading)}" loading="lazy"/>
@@ -3200,7 +3228,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
       <p class="reveal">Let's create something amazing together.</p>
       <div class="signal-ctas reveal">
         <a href="contact" class="btn btn-primary">Get in Touch</a>
-        <a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.hiddenPrimaryCtaLabel)}</a>
+        ${copy.hiddenPrimaryCtaLabel?.trim() ? `<a href="${esc(copy.hiddenPrimarySlug)}" class="btn btn-outline">${esc(copy.hiddenPrimaryCtaLabel)}</a>` : ''}
       </div>
     </div>
   </div>
@@ -4455,8 +4483,14 @@ function renderMultiPageSiteInner(
   copy.gallerySlug             = layoutPlan.primaryCtaTarget;
   copy.hiddenPrimarySlug       = layoutPlan.secondaryCtaTarget;
   copy.hiddenSecondarySlug     = layoutPlan.secondaryCtaTarget;
-  copy.hiddenPrimaryCtaLabel   = copy.secondaryCta || 'Learn More';
-  copy.hiddenSecondaryCtaLabel = copy.secondaryCta || 'Learn More';
+  // Secondary / "explore another page" buttons render ONLY when the user actually
+  // named a second CTA. Otherwise these stay empty and every emission site omits
+  // the button — the engine never fabricates a CTA the prompt did not request.
+  copy.hiddenPrimaryCtaLabel   = (copy.secondaryCta || '').trim();
+  copy.hiddenSecondaryCtaLabel = (copy.secondaryCta || '').trim();
+  // Ensure the PRIMARY conversion action is always meaningful: when the user named
+  // no CTA, fall back to a single niche-appropriate label (relevant, not random).
+  if (!(copy.primaryCta || '').trim()) copy.primaryCta = nichePrimaryCta(puo.inferredIndustry);
 
   // 5. CSS built from PUO — entirely prompt-faithful
   const font = getFontConfig(puo);

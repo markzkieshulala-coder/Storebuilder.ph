@@ -109,8 +109,10 @@ export function contentPlanToSiteCopy(plan: ContentPlan, gallerySlug = 'gallery'
     // Placeholder CTA targets — overwritten by renderMultiPageSiteInner from the LayoutPlan
     hiddenPrimarySlug:    gallerySlug,
     hiddenSecondarySlug:  gallerySlug,
-    hiddenPrimaryCtaLabel:   plan.secondaryCta.value || 'Learn More',
-    hiddenSecondaryCtaLabel: plan.secondaryCta.value || 'Learn More',
+    // Empty when the user named no secondary CTA — the renderer omits the button
+    // entirely rather than fabricating a "Learn More" the prompt never requested.
+    hiddenPrimaryCtaLabel:   plan.secondaryCta.value,
+    hiddenSecondaryCtaLabel: plan.secondaryCta.value,
     // Section labels (Phase 4F)
     faqEyebrow:          plan.faqEyebrow.value,
     faqHeading:          plan.faqHeading.value,

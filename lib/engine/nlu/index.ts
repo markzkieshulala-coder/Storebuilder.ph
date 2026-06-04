@@ -413,6 +413,15 @@ const FILLER_FIRST = new Set([
   'such','including','like','and','or','but','also','plus','featuring',
 ]);
 
+// A list item that begins with a builder/imperative verb is an instruction
+// ("use a dark theme", "add a button"), not a product — never catalog it.
+const ITEM_VERB_FIRST = new Set([
+  'use','add','include','make','create','build','set','put','place',
+  'design','remove','exclude','omit','show','display','want','need','have',
+]);
+// A list item naming a page-structure element is chrome, not a product.
+const NON_PRODUCT_ITEM_RE = /\b(?:sections?|pages?|buttons?|ctas?|call to action|navbar|nav|navigation|footer|header|hero|headlines?|taglines?|layout|theme|palette)\b/i;
+
 function splitList(clause: string): string[] {
   const cleaned = clause.replace(/^[\s:;,–—-]+/, '');
   const parts = cleaned
@@ -427,6 +436,8 @@ function splitList(clause: string): string[] {
     if (!p || words.length > 4) continue;
     if (p.length < 2 || p.length > 40) continue;
     if (FILLER_FIRST.has(words[0].toLowerCase())) continue;
+    if (ITEM_VERB_FIRST.has(words[0].toLowerCase())) continue;   // builder directive, not a product
+    if (NON_PRODUCT_ITEM_RE.test(p)) continue;                   // page-structure noun, not a product
     items.push(titleCase(p));
   }
   return items;
@@ -619,6 +630,22 @@ const PRODUCT_INDUSTRIES = new Set([
 // sentence contains one of the activity keywords. Website-building instructions
 // are always excluded regardless.
 const BUILD_INTENT_RE = /\b(build|create|make|design|develop|generate|launch|set\s+up)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+)?(?:website|web\s*site|web\s*page|site|page|landing\s+page|online\s+store|ecommerce|e-commerce|store)\b/i;
+
+// Builder DIRECTIVES — instructions to the generator about the site's structure
+// or chrome ("Add an Order Now button", "Include a pricing section", "Use a dark
+// theme", "the headline should say X"). These describe HOW to build the page, not
+// the business itself, so they must never become selling points / feature cards.
+// The match requires an imperative verb AND a UI/structure noun nearby, so genuine
+// business prose ("We make custom cakes") is never caught (cakes is not a UI noun).
+const DIRECTIVE_RE = new RegExp(
+  [
+    '\\b(?:add|include|put|place|insert|use|feature|remove|exclude|omit|set\\s+up|give\\s+(?:me|us|it))\\b[^.!?]{0,40}\\b(?:buttons?|ctas?|call[- ]to[- ]actions?|links?|sections?|pages?|headlines?|sub-?head(?:line|ing)s?|taglines?|hero|nav(?:bar|igation)?|footer|colou?rs?|fonts?|theme|palette|layout)\\b',
+    '\\b(?:buttons?|ctas?|headlines?|taglines?|links?|sections?)\\b[^.!?]{0,20}\\b(?:that|which)\\s+says?\\b',
+    '\\b(?:buttons?|ctas?|headlines?|taglines?|sub-?head(?:line|ing)?)\\s+should\\s+(?:say|read|be)\\b',
+    '\\bcall[- ]to[- ]action\\b',
+  ].join('|'),
+  'i',
+);
 // Matches sentences that start with first-person business ownership language.
 // NOTE: deliberately avoids `we\s+\w` with a trailing \b (broken — `we s[erve]`
 // would need \b after 's' which fails because 'e' follows). Instead, match the
@@ -637,6 +664,7 @@ function extractSellingPoints(text: string, actKws: string[], brandName?: string
   for (const sent of sentences) {
     if (sent.length < 20) continue;
     if (BUILD_INTENT_RE.test(sent)) continue;
+    if (DIRECTIVE_RE.test(sent)) continue;   // builder instruction, not a selling point
     // Skip bare brand-name references
     if (bNameLower && sent.toLowerCase().trim() === bNameLower) continue;
     if (bNameLower && /^(for|by|from|at)\s/i.test(sent) && sent.toLowerCase().includes(bNameLower) && sent.split(/\s+/).length <= 5) continue;
