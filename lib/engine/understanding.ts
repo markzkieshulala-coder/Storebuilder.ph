@@ -3,8 +3,6 @@ import type { PromptUnderstandingObject } from './prompt-engine';
 import { understandPrompt } from './nlu';
 import { foldNluIntoPuo } from './nlu/fold';
 import { applyUltraModernDesignBaseline } from './prompt-contract';
-import { aiUnderstand } from './ai/understand';
-import type { Brief } from './brief/parse';
 
 // Single source of truth for prompt understanding.
 //
@@ -26,8 +24,8 @@ import type { Brief } from './brief/parse';
 //      explicit design words in the prompt still winning.
 //   3. Fold — the NLU's rich, prompt-specific content is layered onto the PUO's
 //      customAttributes.llm channel that the renderer already consumes.
-function understand(prompt: string, brief?: Brief): PromptUnderstandingObject {
-  const nlu = understandPrompt(prompt, brief);
+function understand(prompt: string): PromptUnderstandingObject {
+  const nlu = understandPrompt(prompt);
 
   // Lock the parser to the niche the NLU understood, and feed it the salient
   // keywords, so palette/typography/copy/pages cohere around the real subject.
@@ -42,14 +40,12 @@ function understand(prompt: string, brief?: Brief): PromptUnderstandingObject {
   return puo;
 }
 
-// Async path used by the live generator. It first asks OpenAI to UNDERSTAND the
-// prompt (turning any phrasing into a structured spec); the in-house engine then
-// renders that spec. If no OPENAI_API_KEY is set, or the call fails, aiUnderstand
-// returns null and we fall back to the deterministic parser — so the app always
-// works offline.
+// In-house understanding — 100% deterministic, no external AI and no network.
+// The structured-brief parser (lib/engine/brief) reads the user's document and the
+// NLU resolves the rest; the result drives the renderer. Async signature retained
+// for callers that await; it resolves immediately.
 export async function buildUnderstanding(prompt: string): Promise<PromptUnderstandingObject> {
-  const brief = await aiUnderstand(prompt).catch(() => null);
-  return understand(prompt, brief ?? undefined);
+  return understand(prompt);
 }
 
 // Synchronous understanding, for callers that cannot await.

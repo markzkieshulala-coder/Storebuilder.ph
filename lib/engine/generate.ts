@@ -1,6 +1,5 @@
 import { SharedContext } from './core';
 import { renderMultiPageSite, planSiteImagery, detectNiche } from './html-renderer';
-import { buildUnderstanding } from './understanding';
 import { fetchSiteImagery } from './image-provider';
 import type { ResolvedImagery } from './pexels';
 import type { ScoringArtifact } from './engines/scoring';
@@ -70,12 +69,6 @@ export async function generateWebsite(
     },
   });
 
-  // Understand the prompt with OpenAI (turning ANY prompt into a structured spec),
-  // then render with the in-house engine. Falls back to the deterministic parser
-  // when no key/failure. Computed ONCE here and threaded into imagery + render so
-  // both use the same understanding.
-  const resolved = understanding ?? (await buildUnderstanding(prompt));
-
   // Resolve content-aware visuals: plan one Unsplash query per section from the
   // exact content it will display (product/service names, niche, branding), then
   // fetch globally-unique photos. On any failure (no key, rate limit, timeout)
@@ -83,13 +76,13 @@ export async function generateWebsite(
   const fp = fnv((brandName || 'Brand') + '|' + prompt);
   let imagery: ResolvedImagery = { pool: [], byName: {} };
   try {
-    const plan = planSiteImagery(context, brandName, resolved);
+    const plan = planSiteImagery(context, brandName, understanding);
     imagery = await fetchSiteImagery(plan, fp);
   } catch (err) {
     console.warn('[generate] image provider failed, rendering without images:', (err as Error)?.message);
   }
 
-  const multiPage = renderMultiPageSite(context, brandName, subdomain, resolved, imagery);
+  const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, imagery);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
   // Requirement-fidelity gate. We HARD-FAIL only on a true violation: a section
@@ -111,7 +104,7 @@ export async function generateWebsite(
     pages: multiPage.pages,
     nav: multiPage.nav,
     gallerySlug: multiPage.gallerySlug,
-    niche: resolved?.inferredIndustry || detectNiche(prompt),
+    niche: understanding?.inferredIndustry || detectNiche(prompt),
     brandName,
     score: scoring?.overall ?? 0,
     artifacts: context.artifacts,
