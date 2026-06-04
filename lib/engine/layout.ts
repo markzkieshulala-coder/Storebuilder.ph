@@ -179,6 +179,26 @@ export function buildLayoutPlan(
     { slug: 'home', label: 'Home', kind: 'home', isNav: true },
   ];
 
+  // MULTI-PAGE: when the user gave an explicit navigation, EACH nav item (besides
+  // Home) becomes its own routed page, using the user's exact label and a slug
+  // derived from it. Clicking "About Me" / "Services" / "Contact" navigates to a
+  // dedicated page rendered from that section's content.
+  const navPageByKind = new Map<SectionKind, PageSpec>();
+  if (explicitNav.length) {
+    const usedSlugs = new Set<string>(['home', 'cart', 'checkout']);
+    for (const label of explicitNav) {
+      if (/^home$/i.test(label.trim())) continue;
+      const kind = canonicalKind(label);
+      if (!kind || navPageByKind.has(kind)) continue;
+      let slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || kind;
+      while (usedSlugs.has(slug)) slug += '-x';
+      usedSlugs.add(slug);
+      const ps: PageSpec = { slug, label: label.trim(), kind, isNav: true };
+      pages.push(ps);
+      navPageByKind.set(kind, ps);
+    }
+  }
+
   // Order page-worthy kinds by user intent (fall back to spec order).
   const orderedPageKinds = [...pageKinds].sort((a, b) => {
     const oa = userOrderMap.has(a) ? userOrderMap.get(a)! : Number.MAX_SAFE_INTEGER;
@@ -221,12 +241,13 @@ export function buildLayoutPlan(
     // NO_ANCHOR does not apply — if the user put Contact in their nav, it appears.
     for (const label of explicitNav) {
       const kind = canonicalKind(label);
-      if (!kind || /^home$/i.test(label)) {
+      if (!kind || /^home$/i.test(label.trim())) {
         navigation.push({ label, href: '.' });
         continue;
       }
-      const page = pageByKind.get(kind);
-      navigation.push({ label, href: page ? page.slug : '#' + kind });
+      // Each nav item routes to its own page (multi-page); fall back to an anchor.
+      const navPage = navPageByKind.get(kind) || pageByKind.get(kind);
+      navigation.push({ label, href: navPage ? navPage.slug : '#' + kind });
     }
     // Guarantee a Home entry leads the nav.
     if (!navigation.some(n => n.href === '.')) navigation.unshift({ label: 'Home', href: '.' });

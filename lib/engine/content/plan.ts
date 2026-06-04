@@ -252,10 +252,14 @@ function resolveFeatures(ctx: Ctx, iconPool: string[], featureHref: string): Con
     items.push({ icon: iconPool[(fp + items.length) % iconPool.length], title: t, desc: (desc || '').trim(), href: featureHref });
   };
 
-  // Prefer the user's own descriptive sentences (title = condensed phrase, desc =
-  // the sentence verbatim). Then any services/products the user explicitly listed.
-  for (const sp of nlu.descriptiveSPs) push(spToTitle(sp), sp);
+  // Prefer the services/items the user explicitly LISTED (clean card titles like
+  // "Content Strategy"). Only if they listed none do we fall back to condensing
+  // their descriptive sentences — never garbled sentence fragments when a clean
+  // list exists.
   for (const p of nlu.products.filter(p => p.fromUser)) push(p.name, p.desc || '');
+  if (items.length === 0) {
+    for (const sp of nlu.descriptiveSPs) push(spToTitle(sp), sp);
+  }
 
   if (items.length === 0) return cv([], 'absent', 'no-user-features');
   return cv(items, 'prompt', 'features');

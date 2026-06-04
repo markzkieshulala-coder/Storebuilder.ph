@@ -114,6 +114,11 @@ const STYLE_META = new Set([
   'have','has','look','feel','vibe','using','about','scheme','palette','brand','branding','visual',
   // Deliverable / role meta-words — the artifact or job title, not the business.
   'portfolio','freelance','freelancer','freelancing','resume',
+  // Design / UI vocabulary — describes the site's appearance, never its content.
+  'mobile','desktop','tablet','responsive','card','cards','ui','interface','shadow','shadows',
+  'border','borders','rounded','scrolling','scroll','hover','animation','animations','transition',
+  'transitions','accent','accents','soft','subtle','smooth','spacing','whitespace','grid','rgb',
+  'inspired','similar','trustworthy','professional','section','sections','page','pages',
 ]);
 
 // ── Niche detection ─────────────────────────────────────────────────────────
@@ -225,6 +230,13 @@ function extractAudience(text: string, lower: string): string | undefined {
   let m: RegExpExecArray | null;
   while ((m = re.exec(lower)) !== null) {
     const raw = m[1].trim().replace(/\s+/g, ' ');
+    // "[deliverable] for X" → X is who the SITE is for (the owner/business), not a
+    // target audience. "a portfolio website for a freelance manager" must not make
+    // "freelance manager" the audience.
+    const before = lower.slice(Math.max(0, m.index - 24), m.index);
+    if (/\b(?:web\s*site|website|web\s*page|webpage|site|page|portfolio|landing\s*page|home\s*page)\s*$/.test(before)) continue;
+    // The business's own role/title is not an audience.
+    if (/\b(freelance|freelancer|manager|specialist|consultant|owner|founder|agency|studio|practitioner)\b/.test(raw)) continue;
     if (/\b(shop|store|studio|cafe|website|site|business|company|brand|platform|agency|firm|ramen|coffee|salon|spa|gym|restaurant|bar|bakery)\b/i.test(raw)) continue;
     if (raw.split(' ').length > 4) continue;
     // Reject service/logistics/action words masquerading as audience
@@ -267,7 +279,19 @@ const DIFFERENTIATORS: string[] = [
 ];
 
 function extractDifferentiator(lower: string): string | undefined {
-  return DIFFERENTIATORS.find(d => lower.includes(d));
+  for (const d of DIFFERENTIATORS) {
+    if (!lower.includes(d)) continue;
+    // Guard the design-ambiguous "mobile": "mobile-first / mobile-friendly /
+    // mobile design" is a responsiveness spec, NOT a business differentiator —
+    // unless the prompt clearly means a mobile (on-location) SERVICE.
+    if (d === 'mobile'
+      && /\bmobile[\s-](?:first|friendly|responsive|design|app|site|optimi[sz]ed|view|layout|version)\b/.test(lower)
+      && !/\bmobile\s+(?:service|business|barber|salon|detailing|grooming|mechanic|vet|clinic|bar|cafe|coffee|spa|massage|pet|car\s*wash|notary|repair)\b/.test(lower)) {
+      continue;
+    }
+    return d;
+  }
+  return undefined;
 }
 
 // ── Credential signal extraction ──────────────────────────────────────────────
@@ -655,8 +679,21 @@ const DIRECTIVE_RE = new RegExp(
 // "build me a landing page…") describe the SITE to build, not the business — they
 // must never become a headline or feature card.
 const DELIVERABLE_RE = /^(?:a|an|the|my|our|this|build|create|make|design|develop|need|want|i\s+want|i\s+need|i'd\s+like|please|looking\s+for|here\s+is)\b[^.!?]{0,50}\b(?:web\s*site|website|web\s*page|webpage|landing\s+page|one[-\s]page\s+(?:site|website)|portfolio\s+(?:site|website|page)|online\s+store|web\s*shop|home\s*page)\b/i;
-// Imperative "show / showcase my X" openers are display instructions, not copy.
-const DISPLAY_DIRECTIVE_RE = /^(?:show|showcase|display|highlight|list|feature)\s+(?:me\s+)?(?:my|our|the|a|an)\b/i;
+// Imperative instruction openers ("Show my services", "Explain experience…",
+// "Mention platforms…", "Emphasize…", "Clearly state…") are directions to the
+// builder, not business copy.
+const DISPLAY_DIRECTIVE_RE = /^(?:clearly\s+|please\s+|kindly\s+|also\s+)?(?:show|showcase|display|highlight|list|feature|introduce|explain|describe|mention|emphasi[sz]e|state|focus\s+on|include|add|ensure|make\s+sure|use)\b/i;
+
+// DESIGN / VISUAL specifications describe how the SITE should LOOK, not the
+// business. These are everywhere in structured briefs ("Primary colors: …",
+// "Light card-based design with soft borders", "Clean typography", "Fully
+// responsive", "Inspired by Facebook's UI") and must never become content. The
+// design vocabulary here does not occur in genuine business descriptions.
+const DESIGN_SPEC_RE = /\b(?:colou?rs?|colour|palette|hex|#[0-9a-fA-F]{3,6}\b|typograph\w*|fonts?|font-|layout|card[- ]based|cards?\b|soft\s+borders?|borders?|subtle\s+shadows?|shadows?|rounded\s+corners?|responsive|mobile[- ]first|desktop|tablet|\bUI\b|user\s+interface|aesthetics?|theme|animations?|hover|smooth\s+scroll\w*|transitions?|inspired\s+by|whitespace|spacing|grid\s+layout|wireframe|mock[- ]?up|profile\s+card|design\s+style|visual\s+style|colou?r\s+scheme|clean\s+(?:ui|interface|layout|design|typography))\b/i;
+
+// Label/header lines from a structured brief — "Name:", "Business Name:",
+// "Primary colors:", "Design Style", "Visual:", "Navigation", "Hero Section".
+const META_LABEL_RE = /^\s*(?:business\s+name|name|brand(?:\s+name)?|primary\s+colou?rs?|secondary\s+colou?rs?|accent\s+colou?rs?|colou?r\s+scheme|design\s+style|design|visual(?:\s+requirements?)?|navigation|nav|hero(?:\s+section)?|footer|sub-?head(?:line|ing)?|headline|tagline|subheadline)\s*[:\-–—]/i;
 // Matches sentences that start with first-person business ownership language.
 // NOTE: deliberately avoids `we\s+\w` with a trailing \b (broken — `we s[erve]`
 // would need \b after 's' which fails because 'e' follows). Instead, match the
@@ -676,6 +713,8 @@ function extractSellingPoints(text: string, actKws: string[], brandName?: string
     if (sent.length < 20) continue;
     if (BUILD_INTENT_RE.test(sent)) continue;
     if (DIRECTIVE_RE.test(sent)) continue;        // builder instruction, not a selling point
+    if (DESIGN_SPEC_RE.test(sent)) continue;      // describes the site's look, not the business
+    if (META_LABEL_RE.test(sent)) continue;       // "Name:", "Primary colors:", header line
     if (DELIVERABLE_RE.test(sent)) continue;      // describes the site to build, not the business
     if (DISPLAY_DIRECTIVE_RE.test(sent)) continue; // "show my services" — an instruction, not content
     // Skip bare brand-name references
@@ -700,7 +739,17 @@ function extractSellingPoints(text: string, actKws: string[], brandName?: string
     } else {
       continue;
     }
-    const cleaned = sent.replace(/^[-–—•·*\d.)\s]+/, '').trim();
+    let cleaned = sent.replace(/^[-–—•·*\d.)\s]+/, '').trim();
+    // Strip a leading section/label prefix ("About Me: …", "Services: …"). If what
+    // follows the label is a comma list (the user enumerating items), it belongs to
+    // products/features — skip it as a selling point rather than turning the whole
+    // list into one garbled card title.
+    const labelMatch = cleaned.match(/^(?:about(?:\s+me|\s+us)?|services?|home|contact|menu|hero|story|mission|overview|products?|portfolio|gallery|offerings?)\s*[:\-–—]\s*(.*)$/i);
+    if (labelMatch) {
+      const rest = labelMatch[1].trim();
+      if ((rest.match(/,/g) || []).length >= 2) continue; // a list → handled as products/features
+      cleaned = rest;
+    }
     if (cleaned.length < 20) continue;
     if (!points.some(p => p.toLowerCase() === cleaned.toLowerCase())) points.push(cleaned);
   }
