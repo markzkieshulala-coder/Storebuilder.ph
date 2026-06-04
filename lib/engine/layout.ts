@@ -20,7 +20,7 @@
 // unconditional page (the SPA root).
 // ---------------------------------------------------------------------------
 
-import { extractRequirements, type SectionKind } from './requirements';
+import { canonicalKind, extractRequirements, type SectionKind } from './requirements';
 import type { PromptUnderstandingObject } from './prompt-engine';
 import type { WebsiteSpec } from './spec';
 
@@ -136,6 +136,11 @@ export function buildLayoutPlan(
 ): LayoutPlan {
   const direction = puo.layout?.direction || '';
 
+  // Explicit navigation the user typed (authoritative for nav labels + order).
+  const llm = (puo.customAttributes as { llm?: Record<string, unknown> } | undefined)?.llm;
+  const explicitNav: string[] = Array.isArray(llm?.navItems) ? (llm!.navItems as string[]) : [];
+  const navMentionsCommerce = explicitNav.some(l => /\b(cart|shop|store|checkout|basket|bag)\b/i.test(l));
+
   // ── 1. User intent order ────────────────────────────────────────────────────
   const { required: userRequired } = extractRequirements(prompt);
   const userOrderMap = new Map<SectionKind, number>();
@@ -157,7 +162,14 @@ export function buildLayoutPlan(
   // ── 3. Commerce ─────────────────────────────────────────────────────────────
   // Derived from a products requirement + commerce intent — NEVER from niche name.
   const hasProducts = spec.sections.includes('products');
-  const hasCart = hasProducts && (direction === 'e-commerce' || COMMERCE_INTENT.test(prompt));
+  // Commerce (cart/checkout) only with genuine shopping intent. When the user gave
+  // an explicit nav, respect it: a cart appears ONLY if their nav names it — a
+  // "Menu" that merely displays items with prices is NOT a store.
+  const hasCart = hasProducts && (
+    explicitNav.length
+      ? navMentionsCommerce
+      : (direction === 'e-commerce' || COMMERCE_INTENT.test(prompt))
+  );
 
   // ── 4. Pages ────────────────────────────────────────────────────────────────
   // Home is the only unconditional page. Every other page comes from
@@ -202,19 +214,35 @@ export function buildLayoutPlan(
       pageByKind.set(p.kind, p);
     }
   }
-  const navigation: Array<{ label: string; href: string }> = [
-    { label: 'Home', href: '.' },
-  ];
-  for (const placement of homeSections) {
-    const k = placement.kind;
-    const page = pageByKind.get(k);
-    if (page) {
-      navigation.push({ label: page.label, href: page.slug });
-    } else if (!NO_ANCHOR.has(k)) {
-      navigation.push({ label: ANCHOR_LABEL[k] ?? cap(k), href: '#' + k });
+  const navigation: Array<{ label: string; href: string }> = [];
+  if (explicitNav.length) {
+    // AUTHORITATIVE: use the user's exact nav labels, in their order. Each label
+    // links to its section anchor (or page, if one exists). "Home" links to root.
+    // NO_ANCHOR does not apply — if the user put Contact in their nav, it appears.
+    for (const label of explicitNav) {
+      const kind = canonicalKind(label);
+      if (!kind || /^home$/i.test(label)) {
+        navigation.push({ label, href: '.' });
+        continue;
+      }
+      const page = pageByKind.get(kind);
+      navigation.push({ label, href: page ? page.slug : '#' + kind });
     }
+    // Guarantee a Home entry leads the nav.
+    if (!navigation.some(n => n.href === '.')) navigation.unshift({ label: 'Home', href: '.' });
+  } else {
+    navigation.push({ label: 'Home', href: '.' });
+    for (const placement of homeSections) {
+      const k = placement.kind;
+      const page = pageByKind.get(k);
+      if (page) {
+        navigation.push({ label: page.label, href: page.slug });
+      } else if (!NO_ANCHOR.has(k)) {
+        navigation.push({ label: ANCHOR_LABEL[k] ?? cap(k), href: '#' + k });
+      }
+    }
+    if (hasCart) navigation.push({ label: 'Cart', href: 'cart' });
   }
-  if (hasCart) navigation.push({ label: 'Cart', href: 'cart' });
 
   // ── 6. Section-CTA targets — always real, never a niche-invented page ────────
   const primaryCtaTarget = resolvePrimaryTarget(pages, homeSections);

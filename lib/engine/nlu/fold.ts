@@ -70,6 +70,7 @@ export function foldNluIntoPuo(puo: PromptUnderstandingObject, nlu: NluContent):
     secondaryCta: nlu.secondaryCta,
     about: nlu.about,
     sections: Array.isArray(nlu.sections) ? nlu.sections : undefined,
+    navItems: Array.isArray(nlu.navItems) && nlu.navItems.length ? nlu.navItems : undefined,
     products: Array.isArray(nlu.products) ? nlu.products : undefined,
     faqs: Array.isArray(nlu.faqs) ? nlu.faqs : undefined,
     // Semantic qualifiers — used by buildSiteCopy to enrich dynamic copy

@@ -171,24 +171,16 @@ function resolveHeroSub(ctx: Ctx): ContentValue<string> {
 }
 
 function resolveHeroTag(ctx: Ctx): ContentValue<string> {
-  const { nlu, puo, brand, mainKw, fp, normIndustry } = ctx;
+  const { nlu } = ctx;
 
-  // Tier 1: Prompt — explicit heroTag
+  // NO FABRICATION: the hero eyebrow/tag appears only when the user gave one (an
+  // explicit tag, a credential they stated, or a location they named). We never
+  // invent "Coffee Specialists" / "Trusted by Thousands". No source → absent, and
+  // the renderer omits the eyebrow entirely.
   if (nlu.heroTag) return cv(nlu.heroTag, 'prompt', 'llm.heroTag');
-
-  // Tier 1: Prompt — credential signals
   if (nlu.credSignals.length > 0) return cv(titleCase(nlu.credSignals[0]), 'prompt', 'credSignals');
-
-  // Tier 2: NLU — location
   if (nlu.location) return cv(`Serving ${nlu.location}`, 'nlu', 'location');
-
-  // Tier 3: Niche — industry specialisation label
-  if (puo.inferredIndustry !== 'general') {
-    return cv(`${titleCase(puo.inferredIndustry)} Specialists`, 'niche', 'industry');
-  }
-
-  // Generic
-  return cv(pick(['Trusted by Thousands', `${mainKw} Experts`, 'Now Open', `Premium ${mainKw}`], fp + 3), 'generic', 'pick');
+  return cv('', 'absent', 'no-user-hero-tag');
 }
 
 // ── CTA resolvers ─────────────────────────────────────────────────────────────

@@ -4111,6 +4111,17 @@ interface HomeMainResult {
 // this gate drops those sections so the page contains only what the prompt gave.
 // Structural/functional sections (gallery container, contact form, newsletter,
 // booking, location) are not content-gated.
+// Give each rendered section a UNIQUE id matching its semantic kind, so the
+// in-page nav anchors (#story, #products, #contact, …) scroll to it. `seen`
+// dedupes so two story-ish sections don't both claim id="story".
+function injectSectionId(html: string, seen: Set<string>): string {
+  const kinds = detectRenderedKinds(html);
+  const kind = [...kinds].find(k => !seen.has(k));
+  if (!kind) return html;
+  seen.add(kind);
+  return html.replace(/<section(?![^>]*\sid=)/i, `<section id="${kind}"`);
+}
+
 function sectionHasContent(kind: SectionKind, copy: SiteCopy): boolean {
   switch (kind) {
     case 'features':     return copy.features.length > 0;
@@ -4276,8 +4287,9 @@ function buildHomeMain(
     headingOf,
   );
 
+  const seenIds = new Set<string>();
   return {
-    html:     enforced.sections.join('\n'),
+    html:     enforced.sections.map(frag => injectSectionId(frag, seenIds)).join('\n'),
     dropped:  enforced.dropped,
     injected: enforced.injected,
   };

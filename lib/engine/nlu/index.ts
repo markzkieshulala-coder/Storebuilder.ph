@@ -46,6 +46,8 @@ export interface NluContent {
   secondaryCta?: string;
   about?: string;
   sections?: string[];
+  /** Explicit navigation the user listed, in order, with exact labels. Authoritative. */
+  navItems?: string[];
   products?: NluProduct[];
   faqs?: NluFaq[];
   // Semantic content extracted from the prompt — fed into dynamic copy synthesis
@@ -852,6 +854,8 @@ export function understandPrompt(prompt: string): NluContent {
                     mergeSections(explicit?.sections, requirements.required),
                     forbiddenKinds,
                   ),
+    // Explicit navigation the user typed — authoritative for nav + section set.
+    navItems:     explicit?.navItems && explicit.navItems.length ? explicit.navItems : undefined,
     products,
     faqs:         undefined, // FAQs are template content, not user-written — omit so renderer only shows them when explicitly requested
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy

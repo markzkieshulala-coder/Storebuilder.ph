@@ -68,6 +68,10 @@ export function buildWebsiteSpec(
   )?.llm;
   const nluSections  = canonicalKindsOf(llm?.sections);
   const nluExcluded  = canonicalKindsOf(llm?.excludedSections);
+  // Explicit navigation the user typed is AUTHORITATIVE: when present, the site's
+  // navigable sections are EXACTLY the kinds those nav items map to — nothing the
+  // user did not put in their nav (no auto-detected location/gallery/etc.).
+  const navKinds     = canonicalKindsOf(llm?.navItems);
 
   // NLU CONTENT implies a section: if the user enumerated products or FAQs, those
   // sections are implicitly required even when no clause named them as a "section".
@@ -82,16 +86,18 @@ export function buildWebsiteSpec(
     ...nluExcluded,
   ]);
 
-  // Required: prompt requirements first, then NLU gap-fill, minus any forbidden.
+  // Required sections.
   const required = new Set<SectionKind>();
-  for (const k of requirements.required) {
-    if (!forbidden.has(k)) required.add(k);
-  }
-  for (const k of nluSections) {
-    if (!forbidden.has(k)) required.add(k);
-  }
-  for (const k of nluContent) {
-    if (!forbidden.has(k)) required.add(k);
+  if (navKinds.length) {
+    // Explicit nav wins: the section set is EXACTLY the user's nav items (plus any
+    // user-listed product/FAQ content that belongs to one of those nav items).
+    for (const k of navKinds) if (!forbidden.has(k)) required.add(k);
+    for (const k of nluContent) if (!forbidden.has(k) && navKinds.includes(k)) required.add(k);
+  } else {
+    // No explicit nav — prompt requirements first, then NLU gap-fill, minus forbidden.
+    for (const k of requirements.required) if (!forbidden.has(k)) required.add(k);
+    for (const k of nluSections) if (!forbidden.has(k)) required.add(k);
+    for (const k of nluContent) if (!forbidden.has(k)) required.add(k);
   }
 
   // ── Pages — STRICT: a standalone page exists ONLY when the user explicitly asks

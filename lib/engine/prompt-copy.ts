@@ -26,6 +26,57 @@ export interface ExtractedPromptCopy {
   heroTag?: string;
   tagline?: string;
   sections?: string[];
+  /** Explicit navigation the user listed, in order, with their exact labels. */
+  navItems?: string[];
+}
+
+// Extract an explicit navigation list the user typed, e.g.
+//   "Navigation:\nHome\nAbout Us\nMenu\nContact"   or
+//   "Navigation (IMPORTANT) Only include: Home, About Me, Services, Contact"
+// Returns the labels in order. This is authoritative: when present, the site's nav
+// and section set are built from EXACTLY these items — no auto-detected extras.
+const NAV_CUE = /\b(navigation|nav\s*bar|navbar|nav\s*menu|menu\s*items|page\s*links?|nav)\b/i;
+const NAV_STOP = /\b(no\s+extra|no\s+other|do\s+not|don'?t|hero|section|footer|headline|sub-?head|cta|button|colou?r|design|visual|layout|style|font|theme|primary|secondary)\b/i;
+export function extractNavItems(text: string): string[] {
+  const lines = text.split(/\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const header = lines[i].trim();
+    if (!NAV_CUE.test(header)) continue;
+    // The cue must be a short LABEL line ("Navigation:", "Nav (important):"), not
+    // prose that merely mentions navigation.
+    if (header.replace(/\(important\)/i, '').split(/\s+/).length > 6) continue;
+
+    const items: string[] = [];
+    const pushList = (raw: string) => {
+      const seed = raw.replace(/\(important\)/i, '').replace(/^\s*only\s+include\s*:?/i, '').split(/[.!?](?:\s|$)/)[0];
+      for (const p of seed.split(/\s*,\s*|\s+\/\s+|\s*\|\s*/)) {
+        const c = clean(p);
+        if (c) items.push(c);
+      }
+    };
+    // Inline items after a colon on the header line.
+    const colon = header.indexOf(':');
+    if (colon >= 0) pushList(header.slice(colon + 1));
+
+    // Following lines, one item per line, until a blank line or a sentence/stop.
+    for (let j = i + 1; j < lines.length && items.length < 12; j++) {
+      let l = lines[j].trim().replace(/^[-*•·\d.)\s]+/, '').trim();
+      if (!l) { if (items.length) break; else continue; }
+      if (/^only\s+include\s*:?/i.test(l)) { l = l.replace(/^only\s+include\s*:?/i, '').trim(); if (!l) continue; }
+      if (NAV_STOP.test(l)) break;
+      if (l.length > 24 || l.split(/\s+/).length > 4) break; // a sentence → list is over
+      pushList(l);
+    }
+
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const it of items) {
+      const k = it.toLowerCase();
+      if (it && it.length <= 24 && !seen.has(k)) { seen.add(k); out.push(it); }
+    }
+    if (out.length >= 2) return out.slice(0, 8);
+  }
+  return [];
 }
 
 function clean(s: string): string {
@@ -182,6 +233,10 @@ export function extractPromptCopy(prompt: string): ExtractedPromptCopy | null {
   const reSec = /\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\s+section\b/g;
   while ((m = reSec.exec(text)) !== null) addSection(m[1]);
   if (sections.length) out.sections = sections;
+
+  // ── 6. EXPLICIT NAVIGATION ────────────────────────────────────────────────
+  const navItems = extractNavItems(text);
+  if (navItems.length) out.navItems = navItems;
 
   return Object.keys(out).length ? out : null;
 }
