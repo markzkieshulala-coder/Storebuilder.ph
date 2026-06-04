@@ -858,7 +858,7 @@ export function stripNonContentSections(text: string): string {
  * from the extracted keywords and semantic context, so every site's copy is
  * unique to the prompt rather than pulled from a stored template pool.
  */
-export function understandPrompt(prompt: string): NluContent {
+export function understandPrompt(prompt: string, briefOverride?: Brief): NluContent {
   const text = (prompt || '').replace(/[""„‟″]/g, '"').replace(/[''‚‛′]/g, "'");
   const lower = text.toLowerCase();
   const seed = hash(lower);
@@ -869,13 +869,14 @@ export function understandPrompt(prompt: string): NluContent {
   const contentText = stripNonContentSections(text);
   const contentLower = contentText.toLowerCase();
 
-  // STRUCTURED-BRIEF parse — when the user wrote an explicit document (headers,
-  // labelled fields, lists), this is the AUTHORITATIVE source for sections,
-  // their order, navigation, and per-section content. It reproduces exactly what
-  // the user specified instead of inferring from keywords.
-  const brief: Brief = parseBrief(prompt);
+  // AUTHORITATIVE understanding model. When an AI understanding is supplied
+  // (briefOverride), it is used verbatim; otherwise the deterministic parseBrief
+  // reads the structured document. Either way this drives the sections, their
+  // order, navigation, and per-section content — exactly what the user asked for.
+  const brief = (briefOverride ?? parseBrief(prompt)) as Brief & { forbidden?: SectionKind[]; brandName?: string };
   const briefKinds: SectionKind[] = [];
   const briefProducts: NluProduct[] = [];
+  const briefCtas: string[] = [];
   let briefHeadline: string | undefined;
   let briefSub: string | undefined;
   let briefAbout: string | undefined;
@@ -884,14 +885,18 @@ export function understandPrompt(prompt: string): NluContent {
       if (s.kind === 'hero') {
         briefHeadline = briefHeadline || s.headline;
         briefSub = briefSub || s.subheadline;
+        for (const c of s.ctas) if (!briefCtas.includes(c)) briefCtas.push(c);
       } else if (s.kind === 'story') {
         if (!briefAbout && s.body && s.body.length > 20) briefAbout = s.body;
         if (!briefKinds.includes('story')) briefKinds.push('story');
-      } else if (s.kind === 'products') {
+      } else if (s.kind === 'products' || s.kind === 'features') {
+        // Listed items become user catalog/service items (priced & carded later).
         for (const name of s.items) briefProducts.push({ name, _fromUser: true });
-        if (!briefKinds.includes('products')) briefKinds.push('products');
+        if (!briefKinds.includes(s.kind)) briefKinds.push(s.kind);
       } else if (s.kind !== 'unknown') {
         if (!briefKinds.includes(s.kind)) briefKinds.push(s.kind);
+        // Section-level CTAs (e.g. contact "Send Message") are surfaced too.
+        for (const c of s.ctas) if (!briefCtas.includes(c)) briefCtas.push(c);
       }
     }
   }
@@ -908,6 +913,8 @@ export function understandPrompt(prompt: string): NluContent {
   const activityKeywords = extractActivityKeywords(contentLower);
   const requirements = extractRequirements(prompt);
   const forbiddenKinds = new Set(requirements.forbidden);
+  // Sections the AI understanding flagged as excluded are forbidden too.
+  for (const k of brief.forbidden ?? []) forbiddenKinds.add(k);
 
   // Extract products early so we can infer audience from product names.
   // Priority: inline-listed products ("we offer X, Y, Z") → product/category items
@@ -970,7 +977,7 @@ export function understandPrompt(prompt: string): NluContent {
     personality: hasCue(lower, PERSONALITY_CUES) ? undefined : profile.personality,
     tone:        hasCue(lower, TONE_CUES)        ? undefined : profile.tone,
     palette,
-    brandName,
+    brandName: brief.brandName || brandName,
     // EXPLICIT user copy wins (what they actually wrote in the prompt).
     // Hero headline/sub/about are NOT synthesised here from a profile bank —
     // they are generated dynamically in buildSiteCopy from the extracted
@@ -984,8 +991,8 @@ export function understandPrompt(prompt: string): NluContent {
     // Only set these when the user EXPLICITLY wrote CTA text (quoted or cued).
     // Profile defaults are handled by ctaByNiche in buildSiteCopy, so setting
     // them here would overwrite the intentCta that was extracted from the prompt.
-    primaryCta:   explicit?.primaryCta   || undefined,
-    secondaryCta: explicit?.secondaryCta || undefined,
+    primaryCta:   briefCtas[0] || explicit?.primaryCta   || undefined,
+    secondaryCta: briefCtas[1] || explicit?.secondaryCta || undefined,
     // About body comes from the brief's About/Story section when present.
     about:        briefAbout || undefined,
     // Sections: a structured brief is authoritative (its exact section set, in
