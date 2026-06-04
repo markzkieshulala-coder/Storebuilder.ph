@@ -46,9 +46,11 @@ describe('Phase 2B — structural divergence across prompts', () => {
     expect(navKey(pa)).not.toBe(navKey(pc));
   });
 
-  test('page structure diverges across prompts', () => {
-    const keys = new Set([pageKey(pa), pageKey(pb), pageKey(pc)]);
-    // At least two distinct page-structures among the three.
+  test('home-section structure diverges across prompts', () => {
+    // STRICT contract: sites default to a single page (no auto-pages), so structural
+    // divergence lives in the HOME SECTIONS, which are driven by each prompt.
+    const secKey = (p: ReturnType<typeof planFor>) => p.homeSections.map(s => s.kind).sort().join('|');
+    const keys = new Set([secKey(pa), secKey(pb), secKey(pc)]);
     expect(keys.size).toBeGreaterThanOrEqual(2);
   });
 
@@ -64,8 +66,9 @@ describe('Phase 2B — structural divergence across prompts', () => {
     }
   });
 
-  test('home section count reflects requirements, not a fixed band', () => {
-    // C states more sections than A → more home sections.
-    expect(pc.homeSections.length).toBeGreaterThan(pa.homeSections.length);
+  test('home sections reflect each prompt, not a fixed band', () => {
+    const secKey = (p: ReturnType<typeof planFor>) => p.homeSections.map(s => s.kind).sort().join('|');
+    // Different prompts → different section sets (no fixed scaffold).
+    expect(secKey(pa)).not.toBe(secKey(pc));
   });
 });

@@ -18,7 +18,7 @@
 // An explicit "do not include X" always beats any affirmative inference.
 // ---------------------------------------------------------------------------
 
-import { canonicalKind, extractRequirements, isAutoPage, type SectionKind } from './requirements';
+import { canonicalKind, extractRequirements, type SectionKind } from './requirements';
 import type { PromptUnderstandingObject } from './prompt-engine';
 
 export interface WebsiteSpec {
@@ -94,20 +94,16 @@ export function buildWebsiteSpec(
     if (!forbidden.has(k)) required.add(k);
   }
 
-  // ── Pages (Phase 2B) ─────────────────────────────────────────────────────────
-  // A standalone page is justified by EITHER a page-worthy required section OR an
-  // explicit "X page" request — never by niche. forbiddenPages always wins.
+  // ── Pages — STRICT: a standalone page exists ONLY when the user explicitly asks
+  // for one ("an X page", "separate X page", "multi-page"). Sections are NEVER
+  // auto-promoted to pages by niche or kind: a prompt that lists a gallery, menu,
+  // or services renders them as sections of a single page. Genuine commerce
+  // (cart/checkout) is handled separately in layout.ts from real shopping intent.
+  // This is what keeps the engine from generating pages the user never requested.
   const forbiddenPages = new Set<SectionKind>(requirements.forbiddenPages);
   const requiredPages = new Set<SectionKind>();
-  // Explicit "X page" requests (Tier 3).
   for (const k of requirements.requiredPages) {
     if (!forbiddenPages.has(k)) requiredPages.add(k);
-  }
-  // Auto-page required sections (Tier 1) — products/gallery/pricing/blog/events/
-  // booking become standalone pages when required. contact/story/team/faq do NOT
-  // (per D3/D4 they stay home sections unless the Tier-3 loop above promoted them).
-  for (const k of required) {
-    if (isAutoPage(k) && !forbiddenPages.has(k)) requiredPages.add(k);
   }
 
   return {

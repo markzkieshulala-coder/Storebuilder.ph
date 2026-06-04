@@ -77,12 +77,18 @@ describe('buildLayoutPlan — hidden pages removed', () => {
 
 // ── 3. Gallery only when required ───────────────────────────────────────────────
 
-describe('buildLayoutPlan — gallery page', () => {
-  test('gallery requested → gallery page exists with niche label', () => {
+describe('buildLayoutPlan — gallery is a section; page only on explicit request', () => {
+  // STRICT contract: a requested gallery renders as a SECTION of the single page.
+  // It is NOT auto-promoted to a standalone page the user never asked for.
+  test('gallery requested (no "page") → home section, not a standalone page', () => {
     const p = planFor('A photographer. Show a gallery of my work.', 'photography');
-    const g = p.pages.find(pg => pg.kind === 'gallery');
-    expect(g).toBeDefined();
-    expect(g?.slug).toBe('work');
+    expect(p.pages.some(pg => pg.kind === 'gallery')).toBe(false);
+    expect(p.homeSections.some(s => s.kind === 'gallery')).toBe(true);
+  });
+
+  test('explicit "gallery page" request → a gallery page exists', () => {
+    const p = planFor('A photographer. I want a separate gallery page for my work.', 'photography');
+    expect(p.pages.some(pg => pg.kind === 'gallery')).toBe(true);
   });
 
   test('gallery not requested → no gallery page', () => {
@@ -99,12 +105,14 @@ describe('buildLayoutPlan — navigation derived from spec', () => {
     expect(p.navigation[0]).toEqual({ label: 'Home', href: '.' });
   });
 
-  test('page-worthy required section → page nav link', () => {
+  test('commerce promotes products to a shop page; booking is NOT auto-promoted', () => {
     const p = planFor('A shop. Products. Online booking.', 'ecommerce');
     const hrefs = p.navigation.map(n => n.href);
-    // products → shop page; booking → book page
+    // Genuine commerce → products becomes a shop page (+ cart). Booking is a
+    // home section, never an auto-created page.
     expect(hrefs).toContain('shop');
-    expect(hrefs).toContain('book');
+    expect(p.pages.some(pg => pg.kind === 'booking')).toBe(false);
+    expect(p.homeSections.some(s => s.kind === 'booking')).toBe(true);
   });
 
   test('home-section kind (features) → anchor nav link, not a page', () => {

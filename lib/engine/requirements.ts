@@ -135,6 +135,19 @@ function forbiddenKindsInClause(clause: string): SectionKind[] {
   return [...out];
 }
 
+// Map a positive clause to EVERY section kind it names (not just the first), so a
+// clause that lists several sections — "a menu and a contact section", "an about
+// section, pricing, and an FAQ" — yields all of them. 'cta' is never a section.
+function requiredKindsInClause(clause: string): SectionKind[] {
+  const out: SectionKind[] = [];
+  const lc = clause.toLowerCase();
+  for (const [re, kind] of KIND_TABLE) {
+    if (kind === 'cta') continue;
+    if (re.test(lc) && !out.includes(kind)) out.push(kind);
+  }
+  return out;
+}
+
 // ── Page-worthy kinds ─────────────────────────────────────────────────────────
 // A subset of SectionKind that represents a destination (a real page) rather than
 // a homepage block. Only these may be promoted to a standalone page; everything
@@ -229,11 +242,13 @@ export function extractRequirements(prompt: string): RequirementSet {
     }
 
     const phrase = clause.replace(/^[-*•·\d.)\s]+/, '').trim();
-    if (!phrase || phrase.length > 80) continue;
-    const kind = canonicalKind(phrase);
-    if (!kind || kind === 'cta') continue;
-    if (forbidden.has(kind)) continue; // an explicit "do not" always wins
-    if (!required.has(kind)) { required.add(kind); rawRequired.push(phrase); }
+    if (!phrase || phrase.length > 160) continue;
+    // Capture EVERY section kind named in the clause, not just the first, so
+    // "a menu and a contact section" yields BOTH products and contact.
+    for (const kind of requiredKindsInClause(phrase)) {
+      if (forbidden.has(kind)) continue; // an explicit "do not" always wins
+      if (!required.has(kind)) { required.add(kind); rawRequired.push(phrase); }
+    }
   }
 
   // A kind requested as a page is implicitly a required section too.

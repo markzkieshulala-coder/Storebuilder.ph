@@ -2220,8 +2220,17 @@ function buildNav(brand: string, navItems: Array<{ label: string; href: string }
 }
 
 function buildFooter(brand: string, navItems: Array<{ label: string; href: string }>, copy: SiteCopy, year: number): string {
-  const navCols = navItems.map(n => `<li><a href="${esc(n.href)}">${esc(n.label)}</a></li>`).join('');
-  const legalLinks = ['Privacy Policy', 'Terms of Service', 'Contact'].map(l => `<li><a href="contact">${l}</a></li>`).join('');
+  // STRICT: the footer links ONLY to pages/sections that actually exist (the real
+  // nav). It never fabricates Contact / Support / Legal columns pointing at pages
+  // the prompt never requested.
+  const navCol = navItems.length
+    ? `
+      <div class="footer-col">
+        <h4>Navigation</h4>
+        <ul>${navItems.map(n => `<li><a href="${esc(n.href)}">${esc(n.label)}</a></li>`).join('')}</ul>
+      </div>`
+    : '';
+  const tagline = (copy.footerTagline || '').trim();
 
   return `
 <footer>
@@ -2229,28 +2238,11 @@ function buildFooter(brand: string, navItems: Array<{ label: string; href: strin
     <div class="footer-grid">
       <div class="footer-brand">
         <h3>${esc(brand)}</h3>
-        <p>${esc(copy.footerTagline)}</p>
-      </div>
-      <div class="footer-col">
-        <h4>Navigation</h4>
-        <ul>${navCols}</ul>
-      </div>
-      <div class="footer-col">
-        <h4>Legal</h4>
-        <ul>${legalLinks}</ul>
-      </div>
-      <div class="footer-col">
-        <h4>Contact</h4>
-        <ul>
-          <li><a href="contact">Get in Touch</a></li>
-          <li><a href="contact">Support</a></li>
-          <li><a href="contact">Partnership</a></li>
-        </ul>
-      </div>
+        ${tagline ? `<p>${esc(tagline)}</p>` : ''}
+      </div>${navCol}
     </div>
     <div class="footer-bottom">
       <p>&copy; ${year} ${esc(brand)}. All rights reserved.</p>
-      <p>Built with care.</p>
     </div>
   </div>
 </footer>`;
@@ -2337,6 +2329,14 @@ function nichePrimaryCta(industry: string): string {
     NICHE_PRIMARY_CTA[String(industry || '').toLowerCase()] ||
     'Get Started'
   );
+}
+
+// True only when `slug` points at a REAL standalone page (not an in-page anchor or
+// the home root). "View all / View full" links render only when such a page exists,
+// so a single-page site never shows a button that goes nowhere new.
+function isRealPageSlug(slug: string): boolean {
+  const s = (slug || '').trim();
+  return !!s && !s.startsWith('#') && s !== '.' && s !== 'gallery';
 }
 
 function renderHeroCtas(copy: SiteCopy, outlineStyle = ''): string {
@@ -2523,9 +2523,9 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
       <h2>${esc(copy.galleryHeading)}</h2>
     </div>
     <div class="product-grid">${cards}</div>
-    <div style="text-align:center;margin-top:clamp(28px,4vw,44px)">
+    ${isRealPageSlug(copy.gallerySlug) ? `<div style="text-align:center;margin-top:clamp(28px,4vw,44px)">
       <a href="${esc(copy.gallerySlug)}" class="btn btn-outline reveal">View Full ${esc(copy.productEyebrow.replace(/^Our\s+/i,''))} →</a>
-    </div>
+    </div>` : ''}
   </div>
 </section>`;
   }
@@ -2570,9 +2570,9 @@ function renderPhotoGallerySection(
       <h2>${esc(heading)}</h2>
     </div>
     <div class="gallery-grid ${gridClass}">${items}</div>
-    <div style="text-align:center;margin-top:clamp(28px,4vw,44px)">
+    ${isRealPageSlug(copy.gallerySlug) ? `<div style="text-align:center;margin-top:clamp(28px,4vw,44px)">
       <a href="${esc(copy.gallerySlug)}" class="btn btn-outline reveal">View All →</a>
-    </div>
+    </div>` : ''}
   </div>
 </section>`;
 }
@@ -4488,9 +4488,9 @@ function renderMultiPageSiteInner(
   // the button — the engine never fabricates a CTA the prompt did not request.
   copy.hiddenPrimaryCtaLabel   = (copy.secondaryCta || '').trim();
   copy.hiddenSecondaryCtaLabel = (copy.secondaryCta || '').trim();
-  // Ensure the PRIMARY conversion action is always meaningful: when the user named
-  // no CTA, fall back to a single niche-appropriate label (relevant, not random).
-  if (!(copy.primaryCta || '').trim()) copy.primaryCta = nichePrimaryCta(puo.inferredIndustry);
+  // NOTE: primaryCta is intentionally NOT given a niche fallback. A hero/CTA button
+  // appears only when the user wrote a CTA (explicit label or an intent phrase such
+  // as "order now"). When the prompt names no action, no button is fabricated.
 
   // 5. CSS built from PUO — entirely prompt-faithful
   const font = getFontConfig(puo);
