@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node --max-http-header-size=524288 ./node_modules/next/dist/bin/next dev",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && next build",
     "start": "node --max-http-header-size=524288 ./node_modules/next/dist/bin/next start",
     "test": "jest --no-coverage",
     "lint": "next lint",
