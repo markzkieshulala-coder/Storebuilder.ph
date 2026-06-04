@@ -2248,8 +2248,16 @@ function buildFooter(brand: string, navItems: Array<{ label: string; href: strin
 </footer>`;
 }
 
+// Bump this whenever the generation engine changes. It is stamped into every
+// generated document so you can confirm — from the browser's View Source — that
+// localhost is actually serving the LATEST engine and not a stale .next build or
+// an old site saved in the database.
+const ENGINE_VERSION = 'strict-prompt-only-2024-06 (no-fabrication)';
+
 function buildHead(brand: string, pageTitle: string, desc: string, font: FontConfig, css: string, base: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- STOREBUILDER ENGINE: ${ENGINE_VERSION} -->
+<meta name="sb-engine" content="${esc(ENGINE_VERSION)}">
 ${base ? `<base href="${esc(base)}">` : ''}
 <title>${esc(pageTitle)} — ${esc(brand)}</title>
 <meta name="description" content="${esc(desc.slice(0,160))}">
