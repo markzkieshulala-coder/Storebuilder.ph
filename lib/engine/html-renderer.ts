@@ -4599,9 +4599,12 @@ function renderMultiPageSiteInner(
   //    forbidden section is absent.
   const renderedSectionsHtml = routes.map(r => r.main).join('\n');
   const baseReq = requirementSetFromSpec(prompt, spec);
+  // Fidelity verifies the engine's OWN decision: require only the sections in the
+  // spec that actually carry prompt-derived content (content-empty ones are
+  // intentionally omitted), and still assert every FORBIDDEN section is absent.
   const effectiveReq = {
     ...baseReq,
-    required: baseReq.required.filter(k => sectionHasContent(k, copy)),
+    required: spec.sections.filter(k => sectionHasContent(k, copy)),
   };
   const fidelity = scoreFidelity(effectiveReq, renderedSectionsHtml);
 

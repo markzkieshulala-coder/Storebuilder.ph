@@ -73,14 +73,15 @@ describe('navigation honours the explicit list exactly', () => {
   });
 });
 
-describe('section set is restricted to the nav items', () => {
-  test('coffee sections are only story/products/contact (no location/gallery)', () => {
+describe('every nav item maps to a real section', () => {
+  // The explicit nav is additive: nav order/labels are authoritative, and each
+  // navigable item has a corresponding section so its anchor scrolls.
+  test('coffee: story/products/contact sections exist for About Us/Menu/Contact', () => {
     const { spec } = planFor(COFFEE);
-    expect(spec.sections.sort()).toEqual(['contact', 'products', 'story']);
+    expect(spec.sections).toEqual(expect.arrayContaining(['story', 'products', 'contact']));
   });
-  test('social sections are only story/features/contact (no gallery)', () => {
+  test('social: story/features/contact sections exist for About Me/Services/Contact', () => {
     const { spec } = planFor(SOCIAL);
-    expect(spec.sections).not.toContain('gallery');
-    expect(spec.sections.sort()).toEqual(['contact', 'features', 'story']);
+    expect(spec.sections).toEqual(expect.arrayContaining(['story', 'features', 'contact']));
   });
 });

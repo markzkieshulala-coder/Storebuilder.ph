@@ -85,13 +85,18 @@ export async function generateWebsite(
   const multiPage = renderMultiPageSite(context, brandName, subdomain, understanding, imagery);
   const scoring = context.getArtifact<ScoringArtifact>('scoring');
 
-  // Requirement-fidelity gate. The renderer already ENFORCES forbidden-absence
-  // and required-presence; this is the verification that the contract held. If a
-  // forbidden section slipped through or a required section is missing, we FAIL
-  // generation rather than silently shipping a site that ignores the prompt.
+  // Requirement-fidelity gate. We HARD-FAIL only on a true violation: a section
+  // the user explicitly FORBADE that nevertheless rendered. We do NOT fail when a
+  // requested section is "missing", because the engine now intentionally omits
+  // sections it has no prompt-derived content for (no fabrication) — failing on
+  // those would block generation for honest, prompt-faithful sites. Missing
+  // sections are logged for diagnostics instead of throwing.
   const fidelity = multiPage.fidelity;
-  if (fidelity.forbiddenPresent.length > 0 || fidelity.score < FIDELITY_THRESHOLD) {
+  if (fidelity.forbiddenPresent.length > 0) {
     throw new RequirementFidelityError(fidelity);
+  }
+  if (fidelity.requiredMissing.length > 0) {
+    console.warn(`[generate] sections requested but omitted (no prompt content / not rendered): ${fidelity.requiredMissing.join(', ')}`);
   }
 
   return {

@@ -86,19 +86,16 @@ export function buildWebsiteSpec(
     ...nluExcluded,
   ]);
 
-  // Required sections.
+  // Required sections = everything the user explicitly requested/described. The
+  // explicit nav contributes its kinds too (so every nav item has a section to
+  // scroll to) but is ADDITIVE — it never deletes sections the user described
+  // elsewhere in the prompt. (Navigation order/labels are applied separately in
+  // layout.ts.) Niche-only inference never adds sections here.
   const required = new Set<SectionKind>();
-  if (navKinds.length) {
-    // Explicit nav wins: the section set is EXACTLY the user's nav items (plus any
-    // user-listed product/FAQ content that belongs to one of those nav items).
-    for (const k of navKinds) if (!forbidden.has(k)) required.add(k);
-    for (const k of nluContent) if (!forbidden.has(k) && navKinds.includes(k)) required.add(k);
-  } else {
-    // No explicit nav — prompt requirements first, then NLU gap-fill, minus forbidden.
-    for (const k of requirements.required) if (!forbidden.has(k)) required.add(k);
-    for (const k of nluSections) if (!forbidden.has(k)) required.add(k);
-    for (const k of nluContent) if (!forbidden.has(k)) required.add(k);
-  }
+  for (const k of requirements.required) if (!forbidden.has(k)) required.add(k);
+  for (const k of nluSections) if (!forbidden.has(k)) required.add(k);
+  for (const k of nluContent) if (!forbidden.has(k)) required.add(k);
+  for (const k of navKinds) if (!forbidden.has(k)) required.add(k);
 
   // ── Pages — STRICT: a standalone page exists ONLY when the user explicitly asks
   // for one ("an X page", "separate X page", "multi-page"). Sections are NEVER
