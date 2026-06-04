@@ -116,7 +116,11 @@ const ANCHOR_LABEL: Partial<Record<SectionKind, string>> = {
 };
 
 // Commerce intent — verbs/nouns that signal an actual store, not just a catalog.
-const COMMERCE_INTENT = /\b(buy|shop|store|purchase|checkout|check\s*out|add\s*to\s*cart|cart|order|sell|sale|for\s*sale|in\s*stock|shipping|deliver(?:y)?|merch|payment|ecommerce|e-commerce)\b/i;
+// STRONG shopping signals only. Deliberately excludes bare "shop"/"store"/"cart"
+// because they appear in business-type nouns ("coffee shop", "barber store") that
+// are NOT e-commerce. A real store says "add to cart", "checkout", "buy now",
+// "online store", "e-commerce", "shopping cart", etc.
+const COMMERCE_INTENT = /\b(?:add\s*to\s*cart|shopping\s*cart|check\s*out|checkout|buy\s+now|shop\s+now|online\s+(?:store|shop)|e-?commerce|purchase|place\s+(?:an\s+)?order|add\s+to\s+bag|for\s+sale\b)\b/i;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -165,10 +169,12 @@ export function buildLayoutPlan(
   // Commerce (cart/checkout) only with genuine shopping intent. When the user gave
   // an explicit nav, respect it: a cart appears ONLY if their nav names it — a
   // "Menu" that merely displays items with prices is NOT a store.
+  // A real store gets cart/checkout. Commerce is detected from genuine shopping
+  // intent anywhere in the prompt (buy/shop/store/cart/checkout/e-commerce/…) or
+  // the nav naming it — NOT merely from a priced menu (a coffee "menu" with no
+  // buy/cart language is not a store).
   const hasCart = hasProducts && (
-    explicitNav.length
-      ? navMentionsCommerce
-      : (direction === 'e-commerce' || COMMERCE_INTENT.test(prompt))
+    navMentionsCommerce || direction === 'e-commerce' || COMMERCE_INTENT.test(prompt)
   );
 
   // ── 4. Pages ────────────────────────────────────────────────────────────────
@@ -183,19 +189,22 @@ export function buildLayoutPlan(
   // Home) becomes its own routed page, using the user's exact label and a slug
   // derived from it. Clicking "About Me" / "Services" / "Contact" navigates to a
   // dedicated page rendered from that section's content.
-  const navPageByKind = new Map<SectionKind, PageSpec>();
+  // One DISTINCT page per nav LABEL (so "Shoes" and "Jerseys" are separate pages
+  // even though both map to the 'products' kind).
+  const navPageByLabel = new Map<string, PageSpec>();
   if (explicitNav.length) {
     const usedSlugs = new Set<string>(['home', 'cart', 'checkout']);
     for (const label of explicitNav) {
-      if (/^home$/i.test(label.trim())) continue;
-      const kind = canonicalKind(label);
-      if (!kind || navPageByKind.has(kind)) continue;
-      let slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || kind;
+      const trimmed = label.trim();
+      if (/^home$/i.test(trimmed)) continue;
+      const kind = canonicalKind(trimmed);
+      if (!kind) continue;
+      let slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || kind;
       while (usedSlugs.has(slug)) slug += '-x';
       usedSlugs.add(slug);
-      const ps: PageSpec = { slug, label: label.trim(), kind, isNav: true };
+      const ps: PageSpec = { slug, label: trimmed, kind, isNav: true };
       pages.push(ps);
-      navPageByKind.set(kind, ps);
+      navPageByLabel.set(trimmed.toLowerCase(), ps);
     }
   }
 
@@ -246,7 +255,7 @@ export function buildLayoutPlan(
         continue;
       }
       // Each nav item routes to its own page (multi-page); fall back to an anchor.
-      const navPage = navPageByKind.get(kind) || pageByKind.get(kind);
+      const navPage = navPageByLabel.get(label.trim().toLowerCase()) || pageByKind.get(kind);
       navigation.push({ label, href: navPage ? navPage.slug : '#' + kind });
     }
     // Guarantee a Home entry leads the nav.

@@ -29,9 +29,13 @@ describe('CTA fidelity — no fabricated buttons', () => {
     expect(html).not.toMatch(/Learn More/i);
   });
 
-  test('still renders at least one primary action button', () => {
+  test('renders NO hero/CTA button when the prompt names none (strict, no fabrication)', () => {
+    // A non-commerce prompt that requests no CTA must not invent one. The hero has
+    // no button, and a menu with no shopping intent has no Add-to-Cart.
     const html = renderFor(NO_CTA_PROMPT, 'Bean & Brew');
-    expect(html).toMatch(/class="btn btn-primary"/);
+    const buttons = [...html.matchAll(/class="btn[^"]*"[^>]*>([\s\S]*?)<\/(?:a|button)>/gi)]
+      .map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+    expect(buttons).toEqual([]);
   });
 
   test('does not render empty button anchors', () => {

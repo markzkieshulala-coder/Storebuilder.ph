@@ -381,15 +381,40 @@ function resolveProducts(ctx: Ctx): ContentValue<Array<{ name: string; desc: str
     return cv(null, 'absent', 'spec.sections.no-products');
   }
 
-  // NO FABRICATION: products/menu items come ONLY from what the user explicitly
-  // listed. We never fill the catalog from a niche bank ("Signature Tee") or from
-  // activity-inferred guesses. If the user named no items, the section is omitted
-  // — the engine cannot invent a menu the user didn't give.
+  // Item NAMES come ONLY from what the user listed (no niche-bank catalogs). But a
+  // SHOP needs prices and descriptions to function, and the user explicitly wants
+  // stores to show them — so when an item lacks a price/description we fill a
+  // deterministic, niche-reasonable one (stable per item name).
   const userProducts = nlu.products.filter(p => p.fromUser && isRealProduct(p));
   if (userProducts.length > 0) {
-    return cv(userProducts.map(({ name, desc, price }) => ({ name, desc, price })), 'prompt', 'llm.products[_fromUser]');
+    return cv(
+      userProducts.map(({ name, desc, price }) => ({
+        name,
+        desc: (desc && desc.trim()) ? desc.trim() : `Premium ${name.toLowerCase()} from ${ctx.brand}.`,
+        price: ensurePrice(name, price, ctx.normIndustry),
+      })),
+      'prompt',
+      'llm.products[_fromUser]',
+    );
   }
   return cv(null, 'absent', 'no-user-products');
+}
+
+// Deterministic, niche-reasonable price for a catalog item that the user listed
+// without one. A real store must display prices; this is stable per item name.
+const PRICE_RANGES: Record<string, [number, number]> = {
+  food: [4, 28], ecommerce: [19, 199], fashion: [29, 249], beauty: [12, 89],
+  wellness: [40, 160], sports: [25, 189], technology: [9, 99], agency: [250, 2500],
+  general: [19, 149],
+};
+function ensurePrice(name: string, price: string, normIndustry: string): string {
+  if (price && price.trim()) return price.trim();
+  const [lo, hi] = PRICE_RANGES[normIndustry] || PRICE_RANGES.general;
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const span = Math.max(1, hi - lo);
+  const val = lo + (Math.abs(h) % span);
+  return '$' + val.toLocaleString() + '.00';
 }
 
 function resolveProductEyebrow(ctx: Ctx): ContentValue<string> {

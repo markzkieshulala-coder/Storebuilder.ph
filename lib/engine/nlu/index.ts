@@ -435,6 +435,8 @@ const LIST_CUES = [
   'serve','serving','offer','offering','sell','selling','specialize in','specialise in',
   'menu','products','product','drinks','dishes','items','services','such as','including',
   'include','like','feature','featuring',
+  // Catalog/category enumerations common in e-commerce briefs.
+  'categories','category','collections','collection','catalog','catalogue','shop',
 ];
 
 const FILLER_FIRST = new Set([
@@ -520,6 +522,11 @@ function extractBulletProducts(text: string): string[] {
     if (/\b(do not|don't|dont|without|exclude|no\s+\w+\s+section)\b/i.test(line)) continue;
     const phrase = line.replace(/^[-*•·\d.)\s]+/, '').trim();
     if (!phrase || phrase.length < 3 || phrase.length > 48) continue;
+    // Skip directive / spec / label lines that merely MENTION products
+    // ("Buttons: Shop Shoes…", "Categories:", "Product cards should include…",
+    // "Add to Cart button", "Available sizes"). These are instructions, not items.
+    if (/^(?:buttons?|categor(?:y|ies)|display|each|product\s+cards?|form|fields?|sizes?|available|price|rating|add\s+to\s+cart|quick\s+view|product\s+(?:image|name|description)|include|create|generate)\b/i.test(phrase)) continue;
+    if (/\b(?:add to cart|quick view|button|should include|product image|product name)\b/i.test(phrase)) continue;
     if (canonicalKind(phrase) !== 'products') continue;
     // Strip trailing meta nouns so "Basketball shoes catalog" → "Basketball Shoes".
     const cleaned = phrase.replace(PRODUCT_TAIL, '').replace(/\bproducts?\b\s*$/i, '').trim();
@@ -793,6 +800,51 @@ function extractIntentCta(text: string): string | undefined {
   return undefined;
 }
 
+// ── Section-aware content extraction ─────────────────────────────────────────
+// Structured briefs group instructions under headers ("## Design Style",
+// "## Visual Requirements", "## Navigation", "## IMPORTANT REQUIREMENTS"). The
+// text under those headers describes the SITE'S APPEARANCE / rules — not the
+// business — and must NEVER be mined for About copy, feature cards, or products.
+// stripNonContentSections removes those blocks so the CONTENT extractors only see
+// real business sections (Home, About/Story, Shoes, Jerseys, Products, Contact …).
+// (Colours, niche, brand, nav, and forbidden-section rules are still read from the
+// FULL prompt elsewhere.)
+// NOTE: bare "Requirements:" is often a CONTENT list (the user enumerating
+// sections/products), so it is NOT stripped. Only QUALIFIED meta headers are
+// ("Visual Requirements" → visual, "IMPORTANT REQUIREMENTS" → important, etc.).
+const NON_CONTENT_HEADER_RE = /\b(?:design|visual|navigation|nav|important|technical|tech\s+stack|seo|performance|accessibility|animations?|interactions?|colou?rs?|typography|layout|branding|styling|aesthetics?|guidelines?)\b/i;
+// Content headers we always keep, even if they incidentally contain a stop word.
+const CONTENT_HEADER_RE = /\b(?:home|hero|about|story|mission|shoes?|jerseys?|products?|collections?|catalog|menu|services?|features?|contact|pricing|gallery|team|shop|store|page)\b/i;
+
+export function stripNonContentSections(text: string): string {
+  const lines = text.split(/\n/);
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    // A markdown (## …) or bold (**…**) line is always a block boundary.
+    const strong = line.match(/^\s*#{1,6}\s+(.+?)\s*#*\s*$/) || line.match(/^\s*\*\*(.+?)\*\*\s*:?\s*$/);
+    // A bare header is a SHORT line where EVERY word is Title-Case ("Design Style",
+    // "Visual Requirements"). Requiring every word capitalised avoids matching
+    // instruction lines like "Only include:" or "Add to cart".
+    const bare = !strong && line.match(/^\s*([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z&/]*){0,4})\s*:?\s*$/);
+    const header = (strong ? strong[1] : bare ? bare[1] : '').replace(/[*:#]/g, '').trim();
+
+    if (strong) {
+      // Markdown/bold header: re-evaluate the skip state in either direction.
+      skipping = NON_CONTENT_HEADER_RE.test(header) && !CONTENT_HEADER_RE.test(header);
+      continue;
+    }
+    if (bare) {
+      if (NON_CONTENT_HEADER_RE.test(header) && !CONTENT_HEADER_RE.test(header)) { skipping = true; continue; }
+      if (CONTENT_HEADER_RE.test(header)) { skipping = false; continue; }
+      // An unrecognised bare line is NOT a header — fall through and treat as content
+      // (unless we're already inside a skipped block).
+    }
+    if (!skipping) out.push(line);
+  }
+  return out.join('\n');
+}
+
 // ── Main entry point ─────────────────────────────────────────────────────────
 /**
  * Read a prompt and produce a structured, in-house understanding. Always returns
@@ -810,6 +862,12 @@ export function understandPrompt(prompt: string): NluContent {
   const lower = text.toLowerCase();
   const seed = hash(lower);
 
+  // CONTENT text = the prompt with design/visual/meta instruction blocks removed,
+  // so business-content extractors never mine appearance specs. Niche, brand,
+  // colours, navigation, and forbidden-section rules still use the FULL prompt.
+  const contentText = stripNonContentSections(text);
+  const contentLower = contentText.toLowerCase();
+
   const { slug, broad } = detectNiche(lower);
   const profile = profileFor(slug, broad);
 
@@ -818,8 +876,8 @@ export function understandPrompt(prompt: string): NluContent {
   const explicitPalette = extractColors(text, lower, profile);
   const palette = explicitPalette || (hasCue(lower, MOOD_CUES) ? undefined : profile.palette);
 
-  const differentiator = extractDifferentiator(lower);
-  const activityKeywords = extractActivityKeywords(lower);
+  const differentiator = extractDifferentiator(contentLower);
+  const activityKeywords = extractActivityKeywords(contentLower);
   const requirements = extractRequirements(prompt);
   const forbiddenKinds = new Set(requirements.forbidden);
 
@@ -830,8 +888,8 @@ export function understandPrompt(prompt: string): NluContent {
   // The bullet path matters because users often specify their catalog as a list of
   // product CATEGORIES, not a prose sentence — and falling back to a generic niche
   // bank ("Signature Tee") is exactly the "generic placeholder content" they reject.
-  const namedProducts = extractProducts(text);
-  const bulletProducts = extractBulletProducts(text);
+  const namedProducts = extractProducts(contentText);
+  const bulletProducts = extractBulletProducts(contentText);
   let products: NluProduct[] | undefined;
   if (namedProducts && namedProducts.length) {
     products = enrichProducts(namedProducts, profile).map(p => ({ ...p, _fromUser: true }));
@@ -847,20 +905,21 @@ export function understandPrompt(prompt: string): NluContent {
 
   // Semantic extraction — drives the DYNAMIC copy generator in buildSiteCopy
   // Audience: explicit "for [X]" phrase → implicit from product names → undefined
-  const audience = extractAudience(text, lower) || inferAudienceFromProducts(namedProducts || []);
+  const audience = extractAudience(contentText, contentLower) || inferAudienceFromProducts(namedProducts || []);
   // Enrichment signals — elevate copy quality and uniqueness per prompt
-  const credentialSignals = extractCredentialSignals(lower);
-  const location = extractLocation(text, lower);
+  const credentialSignals = extractCredentialSignals(contentLower);
+  const location = extractLocation(contentText, contentLower);
   const brandVoice = detectBrandVoice(text);
-  // The user's own descriptive sentences — used verbatim in heroSub / aboutBody
-  const sellingPoints = extractSellingPoints(text, activityKeywords, brandName);
+  // The user's own descriptive sentences — used verbatim in heroSub / aboutBody.
+  // Mined from CONTENT sections only (design/visual blocks already stripped).
+  const sellingPoints = extractSellingPoints(contentText, activityKeywords, brandName);
   // Action phrases the user wrote ("order now", "book a table") → hero CTA label
   const intentCta = extractIntentCta(text);
   // Mission/purpose statements — "our mission is to...", "we exist to...", "we believe..."
   const MISSION_RE = /(?:^|\.\s+|\n)(?:our\s+)?mission\s+(?:statement\s+)?(?:is\s+(?:to\s+)?)?([A-Za-z].{15,200}?)(?:\.|$)/im;
   const PURPOSE_RE = /we\s+(?:exist\s+to|(?:was\s+)?(?:built|created|founded|started)\s+(?:to|for)\s+)([A-Za-z].{15,200}?)(?:\.|$)/i;
   const BELIEF_RE = /we\s+believe\s+(?:that\s+)?([A-Za-z].{15,200}?)(?:\.|$)/i;
-  const missionM = MISSION_RE.exec(text) || PURPOSE_RE.exec(text) || BELIEF_RE.exec(text);
+  const missionM = MISSION_RE.exec(contentText) || PURPOSE_RE.exec(contentText) || BELIEF_RE.exec(contentText);
   const missionStatement = missionM ? missionM[1].trim() : undefined;
   // Business logistics — shown in contact/footer sections
   const operatingHours = extractOperatingHours(text);

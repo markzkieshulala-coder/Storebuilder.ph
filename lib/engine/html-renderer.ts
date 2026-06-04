@@ -858,6 +858,10 @@ interface SiteCopy {
   hiddenSecondarySlug: string;
   hiddenPrimaryCtaLabel: string;
   hiddenSecondaryCtaLabel: string;
+  // True when the site is a real store (commerce intent) — products then show
+  // Add-to-Cart and the page wires the cart/checkout flow. Set post-build from
+  // the LayoutPlan (layoutPlan.hasCart).
+  isShop?: boolean;
   // Section labels (Phase 4F) — niche/prompt-aware eyebrows & headings that the
   // section renderers previously hardcoded. Optional so the dead legacy builder
   // and any partial caller still type-check; renderers fall back to a literal
@@ -2506,7 +2510,7 @@ function renderGallerySection(node: LayoutNode, ctx: RenderCtx): string {
   // collection), render a genuine PRODUCT grid — image + name + description +
   // price — instead of a bare photo gallery. This is what the user asked for.
   if (copy.products && copy.products.length) {
-    const isShop = copy.gallerySlug === 'shop' || copy.gallerySlug === 'menu';
+    const isShop = copy.isShop === true || copy.gallerySlug === 'shop' || copy.gallerySlug === 'menu';
     const cards = copy.products.map((p, i) => {
       const photoId = productPhoto(ctx.puo, p.name, fp, i);
       const cartBtn = isShop
@@ -3191,7 +3195,7 @@ function buildGalleryMain(puo: PromptUnderstandingObject, brand: string, copy: S
   // Real product/menu grid when the niche has purchasable items.
   let body: string;
   if (copy.products && copy.products.length) {
-    const isShop = copy.gallerySlug === 'shop' || copy.gallerySlug === 'menu';
+    const isShop = copy.isShop === true || copy.gallerySlug === 'shop' || copy.gallerySlug === 'menu';
     const cards = copy.products.map((p, i) => {
       const photoId = productPhoto(puo, p.name, fp, i);
       const cartBtn = isShop
@@ -4534,6 +4538,8 @@ function renderMultiPageSiteInner(
   // NOTE: primaryCta is intentionally NOT given a niche fallback. A hero/CTA button
   // appears only when the user wrote a CTA (explicit label or an intent phrase such
   // as "order now"). When the prompt names no action, no button is fabricated.
+  // Commerce flag — drives Add-to-Cart on product cards (independent of slug).
+  copy.isShop = layoutPlan.hasCart;
 
   // 5. CSS built from PUO — entirely prompt-faithful
   const font = getFontConfig(puo);

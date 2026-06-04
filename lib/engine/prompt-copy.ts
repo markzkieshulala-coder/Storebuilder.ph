@@ -58,8 +58,10 @@ export function extractNavItems(text: string): string[] {
     const colon = header.indexOf(':');
     if (colon >= 0) pushList(header.slice(colon + 1));
 
-    // Following lines, one item per line, until a blank line or a sentence/stop.
+    // Following lines, one item per line, until a blank line, a new header, or a
+    // sentence/stop word.
     for (let j = i + 1; j < lines.length && items.length < 12; j++) {
+      if (/^\s*#{1,6}\s/.test(lines[j])) break;        // next markdown header → list over
       let l = lines[j].trim().replace(/^[-*•·\d.)\s]+/, '').trim();
       if (!l) { if (items.length) break; else continue; }
       if (/^only\s+include\s*:?/i.test(l)) { l = l.replace(/^only\s+include\s*:?/i, '').trim(); if (!l) continue; }
