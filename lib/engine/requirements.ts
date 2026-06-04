@@ -47,7 +47,7 @@ const KIND_TABLE: Array<[RegExp, SectionKind]> = [
   [/gallery|portfolio|showcase|photos|moments|instagram|lookbook/, 'gallery'],
   [/about|story|heritage|journey|mission|values|who we are/, 'story'],
   [/feature|benefit|why (us|choose)|what we (offer|do)|services|offerings|how it works|class(es)?|programs?|courses?|lessons?|sessions?|workouts?|treatments?/, 'features'],
-  [/contact|get in touch|reach us|visit us|contact page/, 'contact'],
+  [/contact|get in touch|reach\s+(?:us|out)|visit us|contact page|say hello|drop\s+(?:us\s+)?a\s+line|talk to us|let'?s\s+(?:talk|connect|chat)|book a call|enquir(?:e|y)|inquir(?:e|y)/, 'contact'],
   [/cta|call to action/, 'cta'],
 ];
 

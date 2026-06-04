@@ -204,6 +204,11 @@ function resolveSecondaryCta(ctx: Ctx): ContentValue<string> {
 
 // ── Features resolvers ────────────────────────────────────────────────────────
 
+// The user's exact heading/body for a section kind, when they wrote one in the
+// brief. These take priority over any synthesised label/copy.
+function userHeading(ctx: Ctx, kind: string): string { return ctx.nlu.sectionHeadings?.[kind]?.trim() || ''; }
+function userBody(ctx: Ctx, kind: string): string { return ctx.nlu.sectionBodies?.[kind]?.trim() || ''; }
+
 function resolveSectionEyebrow(ctx: Ctx): ContentValue<string> {
   const { nlu, fp } = ctx;
   if (nlu.differentiator) return cv(`What Makes Us ${titleCase(nlu.differentiator)}`, 'nlu', 'differentiator');
@@ -214,6 +219,7 @@ function resolveSectionEyebrow(ctx: Ctx): ContentValue<string> {
 
 function resolveFeatureHeading(ctx: Ctx): ContentValue<string> {
   const { nlu, brand, mainKw } = ctx;
+  const uh = userHeading(ctx, 'features'); if (uh) return cv(uh, 'prompt', 'brief.heading');
   if (nlu.differentiator && nlu.audience) {
     return cv(`${titleCase(nlu.differentiator)} ${mainKw} for ${titleCase(nlu.audience)}`, 'nlu', 'differentiator+audience');
   }
@@ -297,6 +303,7 @@ function resolveTestimonials(_ctx: Ctx): ContentValue<TestimonialItem[]> {
 
 function resolveAboutHeading(ctx: Ctx): ContentValue<string> {
   const { nlu, brand, mainKw } = ctx;
+  const uh = userHeading(ctx, 'story'); if (uh) return cv(uh, 'prompt', 'brief.heading');
   if (nlu.differentiator && mainKw) return cv(`${titleCase(nlu.differentiator)} ${mainKw}`, 'nlu', 'differentiator+mainKw');
   if (nlu.missionStatement) return cv(`The ${brand} Mission`, 'nlu', 'missionStatement');
   if (nlu.audience) return cv(`${brand}: For ${titleCase(nlu.audience)}`, 'nlu', 'audience');
@@ -308,6 +315,7 @@ function resolveAboutBody(ctx: Ctx): ContentValue<string> {
 
   // NO FABRICATION: the about/story body is the user's own words only. We never
   // generate a founder-myth from a niche template. No user description → absent.
+  const ub = userBody(ctx, 'story'); if (ub) return cv(ub, 'prompt', 'brief.body');
   if (nlu.about) return cv(nlu.about, 'prompt', 'llm.about');
   if (nlu.descriptiveSPs.length >= 2) return cv(nlu.descriptiveSPs.slice(0, 3).join(' '), 'prompt', 'descriptiveSPs');
   if (nlu.descriptiveSPs.length === 1) return cv(nlu.descriptiveSPs[0], 'prompt', 'descriptiveSPs[0]');
@@ -354,6 +362,7 @@ function resolveMissionBody(ctx: Ctx): ContentValue<string> {
 
 function resolveGalleryHeading(ctx: Ctx): ContentValue<string> {
   const { nlu, brand, normIndustry } = ctx;
+  const uh = userHeading(ctx, 'products') || userHeading(ctx, 'gallery'); if (uh) return cv(uh, 'prompt', 'brief.heading');
   const userProductTitles = nlu.products.filter(p => p.fromUser).map(p => p.name).filter(Boolean);
   const galleryLabel = GALLERY_LABEL_BY_NICHE[normIndustry] || GALLERY_LABEL_BY_NICHE.general;
   if (userProductTitles.length >= 2) return cv(`${brand} — ${galleryLabel}`, 'prompt', 'productTitles');
@@ -429,12 +438,14 @@ function resolveProductEyebrow(ctx: Ctx): ContentValue<string> {
 
 function resolveContactHeading(ctx: Ctx): ContentValue<string> {
   const { nlu, mainKw } = ctx;
+  const uh = userHeading(ctx, 'contact'); if (uh) return cv(uh, 'prompt', 'brief.heading');
   if (nlu.audience) return cv(`Ready, ${titleCase(nlu.audience)}?`, 'nlu', 'audience');
   return cv(`Let's Talk ${mainKw}`, 'nlu', 'mainKw');
 }
 
 function resolveContactSub(ctx: Ctx): ContentValue<string> {
   const { nlu, brand } = ctx;
+  const ub = userBody(ctx, 'contact'); if (ub) return cv(ub, 'prompt', 'brief.body');
   const parts: string[] = [
     nlu.operatingHours ? `We're open ${nlu.operatingHours}.` : `Ready to experience ${brand}?`,
     nlu.audience ? ` We work with ${nlu.audience}.` : '',
@@ -451,6 +462,7 @@ function resolveContactSub(ctx: Ctx): ContentValue<string> {
 
 function resolveCtaHeading(ctx: Ctx): ContentValue<string> {
   const { nlu, brand, mainKw } = ctx;
+  const uh = userHeading(ctx, 'cta'); if (uh) return cv(uh, 'prompt', 'brief.heading');
   if (nlu.intentCta && nlu.intentCta !== 'Get Started') {
     return cv(`${nlu.intentCta.replace(/\s*now\s*/gi, '').trim()} — ${brand} Is Ready`, 'prompt', 'intentCta');
   }

@@ -49,6 +49,10 @@ export interface NluContent {
   sections?: string[];
   /** Explicit navigation the user listed, in order, with exact labels. Authoritative. */
   navItems?: string[];
+  /** The user's exact section heading per kind (e.g. story -> "Our Story"). */
+  sectionHeadings?: Record<string, string>;
+  /** The user's exact prose body per section kind. */
+  sectionBodies?: Record<string, string>;
   products?: NluProduct[];
   faqs?: NluFaq[];
   // Semantic content extracted from the prompt — fed into dynamic copy synthesis
@@ -877,11 +881,20 @@ export function understandPrompt(prompt: string, briefOverride?: Brief): NluCont
   const briefKinds: SectionKind[] = [];
   const briefProducts: NluProduct[] = [];
   const briefCtas: string[] = [];
+  // The user's EXACT heading/body per section — so the site shows their words and
+  // their section titles, not copy the engine made up.
+  const sectionHeadings: Record<string, string> = {};
+  const sectionBodies: Record<string, string> = {};
   let briefHeadline: string | undefined;
   let briefSub: string | undefined;
   let briefAbout: string | undefined;
   if (brief.isStructured) {
     for (const s of brief.sections) {
+      // Capture the user's heading + prose body for every real section.
+      if (s.kind !== 'hero' && s.kind !== 'unknown') {
+        if (s.heading && !sectionHeadings[s.kind]) sectionHeadings[s.kind] = s.heading;
+        if (s.body && s.body.length > 12 && !sectionBodies[s.kind]) sectionBodies[s.kind] = s.body;
+      }
       if (s.kind === 'hero') {
         briefHeadline = briefHeadline || s.headline;
         briefSub = briefSub || s.subheadline;
@@ -1005,6 +1018,9 @@ export function understandPrompt(prompt: string, briefOverride?: Brief): NluCont
                   ),
     // Navigation: the brief's nav list wins, then an inline "Navigation:" list.
     navItems:     brief.nav.length ? brief.nav : (explicit?.navItems && explicit.navItems.length ? explicit.navItems : undefined),
+    // The user's own section headings + bodies (so the renderer shows their words).
+    sectionHeadings: Object.keys(sectionHeadings).length ? sectionHeadings : undefined,
+    sectionBodies:   Object.keys(sectionBodies).length ? sectionBodies : undefined,
     products,
     faqs:         undefined, // FAQs are template content, not user-written — omit so renderer only shows them when explicitly requested
     // Semantic qualifiers — passed to buildSiteCopy for richer dynamic copy

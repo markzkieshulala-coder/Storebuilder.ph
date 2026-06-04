@@ -142,6 +142,9 @@ export interface NluSignals {
   products: Array<{ name: string; desc: string; price: string; fromUser: boolean }>;
   faqs: Array<{ q: string; a: string }>;
   sections: string[];
+  /** The user's exact heading/body per section kind (from the structured brief). */
+  sectionHeadings: Record<string, string>;
+  sectionBodies: Record<string, string>;
 }
 
 const CTA_VERB_RE = /\b(?:order|book|call|visit|contact|reserve|schedule|buy|shop|sign\s+up|get\s+started)\s+(?:now|today|us|here|online)\b/i;
@@ -186,6 +189,8 @@ export function extractNluSignals(puo: PromptUnderstandingObject): NluSignals {
     products,
     faqs,
     sections:        arr<string>(llm.sections).map(String),
+    sectionHeadings: (llm.sectionHeadings && typeof llm.sectionHeadings === 'object') ? (llm.sectionHeadings as Record<string, string>) : {},
+    sectionBodies:   (llm.sectionBodies && typeof llm.sectionBodies === 'object') ? (llm.sectionBodies as Record<string, string>) : {},
   };
 }
 
