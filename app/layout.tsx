@@ -134,6 +134,10 @@ export default function RootLayout({
             }),
           }}
         />
+        {/* Marketing homepage fonts (Hanken Grotesk) + Material Symbols icons. */}
+        <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+        <style dangerouslySetInnerHTML={{ __html: `.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;}` }} />
       </head>
       <body className="antialiased bg-white text-gray-900" style={{ fontFamily: "'Google Sans', Roboto, Arial, system-ui, sans-serif" }}>
         <Providers>{children}</Providers>
