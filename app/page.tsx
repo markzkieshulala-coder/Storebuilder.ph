@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-// Design tokens from the approved Stitch homepage (kept self-contained as explicit
-// values so the global Tailwind theme used by the app/dashboard is untouched).
+// Design tokens from the approved Stitch homepage, kept self-contained as explicit
+// values so the global Tailwind theme used by the app/dashboard is untouched.
 const FONT = "'Hanken Grotesk', sans-serif";
+
+const HERO_IMG =
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuCno8phD_4jQFuVBFr1aAAqK9LYAoAylvhfI15TMW2a7UgmZ6lC1Az_BT6upDbxJd6lFSzwin2yiPDVyow0le2yvcs9vs8s8-8ErHIA_M-raeGpJvPu3RQB-c9CedITITyjgnMXLADcGb0XSrzakakRxb05oyhTihlqvfy1Zvgf7TZ5v5cvQHSW7AdLo_gxaHgqcMi0sfYH5pc2Bo8DN0i96rKLzsUZQchx0SQ-DA-GHRun9xKUWxZ7NtHskqE8WMCvobOEcGUsI5mU";
+const SHOWCASE_IMG =
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuDrV-cK-6nUbMsvl01YB2gc6iMaNmt17Y3IBRus4LnAYspQCDMYOpzw7SDP2s4TWDOLiHWcPgHSVUMIV390VUC4PjTnD44KQbx-3U7bw7N6YuP-j1x2QtCbdT9ihE828mRfHAw9c8-cYUMiYTgX2GYr7Bs6prNgjZBGrIkKrGX4pzpKTThJOAtdeK-ECDXfRRQBf1GXtfk9xfyflQlOrNjLCj4jDw5qO6A6Ehdr1QDrsF7G-zOwEmURx9Ffe97JwYsf-hwOu3Nx2v5J";
+const FOOTER_LOGO =
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuAopiJyBmsqt1bwkchhwtrMEbPcQLQg0yOPr4nEowpE4ugVs4tb2VsKJ2Gfgkwixrkn7rxXqvqwRtKfXhNPFDjl1jA3FuASNl_6WLyUcSfOrIf-GhzyCoxYBjgZ_HH-0KALzkWe7EDFllkj0hOO9c21bqZFFM4TnMOfCT1DU5frVBz22prHsybwYu67BngJrpngciU8B2dA1mIwOATWF0mc4LqvE4hmN4BeSw62aIYx9O8Zl5QAKKjvxF7jPHyMk_sUi4YkWMxnQoCP";
+const VIDEO_POSTER = "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200";
+const VIDEO_SRC = "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
 
 function Icon({ name, className = "" }: { name: string; className?: string }) {
   return <span className={`material-symbols-outlined ${className}`}>{name}</span>;
@@ -16,6 +25,8 @@ export default function Home() {
   const { data: session } = useSession();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 100);
@@ -25,6 +36,20 @@ export default function Home() {
 
   const start = () => router.push(session ? "/dashboard" : "/auth/signin?callbackUrl=/dashboard");
   const login = () => router.push("/auth/signin?callbackUrl=/dashboard");
+
+  const toggleVideo = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      v.controls = true;
+      setPlaying(true);
+    } else {
+      v.pause();
+      v.controls = false;
+      setPlaying(false);
+    }
+  };
 
   const card = "bg-white p-8 rounded-xl border border-[#CED0D4] transition-all hover:shadow-lg hover:-translate-y-1";
 
@@ -81,35 +106,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Showcase mock (no external image dependency) */}
             <div className="relative">
               <div className="absolute -top-12 -right-12 w-64 h-64 bg-[#0058bc]/10 rounded-full blur-3xl" />
               <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-[#016c00]/10 rounded-full blur-3xl" />
-              <div className="relative rounded-xl overflow-hidden shadow-2xl border border-[#CED0D4] bg-white">
-                <div className="h-9 bg-[#eceef1] border-b border-[#CED0D4] flex items-center gap-1.5 px-4">
-                  <span className="w-3 h-3 rounded-full bg-[#FA3E3E]" />
-                  <span className="w-3 h-3 rounded-full bg-[#F7B928]" />
-                  <span className="w-3 h-3 rounded-full bg-[#018800]" />
-                </div>
-                <div className="p-6">
-                  <div className="h-32 rounded-lg bg-gradient-to-br from-[#0058bc] to-[#0070eb] mb-4 flex items-center px-6">
-                    <div>
-                      <div className="h-3 w-28 bg-white/80 rounded mb-2" />
-                      <div className="h-2 w-40 bg-white/50 rounded" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="rounded-lg border border-[#CED0D4] overflow-hidden">
-                        <div className="h-16 bg-[#e0e3e6]" />
-                        <div className="p-2">
-                          <div className="h-2 w-3/4 bg-[#CED0D4] rounded mb-1.5" />
-                          <div className="h-2 w-1/3 bg-[#0058bc] rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="relative rounded-xl overflow-hidden shadow-2xl border border-[#CED0D4]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt="AI website builder showcase" className="w-full h-auto" src={HERO_IMG} />
               </div>
             </div>
           </div>
@@ -151,7 +153,7 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
-                { icon: "rocket_launch", title: "Lightning Fast Setup", body: "Go from zero to a fully functional online store in under 15 minutes. No coding knowledge required." },
+                { icon: "rocket_launch", title: "Lightning Fast Setup", body: "Go from zero to a fully functional online store in under 15 minutes. Our drag-and-drop builder requires no coding knowledge." },
                 { icon: "shield_lock", title: "Secure Payments", body: "Simply provide your HitPay or PayMongo payment link and you can start selling immediately." },
                 { icon: "smartphone", title: "Mobile-First Experience", body: "Your store will look stunning on every device. Fully responsive designs optimized for mobile shoppers." },
                 { icon: "insights", title: "Powerful Analytics", body: "Real-time data at your fingertips. Track visitors, conversion rates, and inventory levels with ease." },
@@ -175,33 +177,44 @@ export default function Home() {
                   Showcase your services to your clients through a professional website portfolio
                 </h2>
                 <p className="text-[16px] leading-[24px] text-[#65676B] mb-8">
-                  Whether you&apos;re a freelancer, agency, or creator, our platform lets you upload and display your services, projects, and video reels in a professional gallery designed to impress your clients.
+                  Whether you&apos;re a freelancer, agency, or creator, our platform allows you to upload and display your services, projects, and video reels in a professional gallery designed to impress your clients.
                 </p>
                 <button onClick={start} className="bg-[#0058bc] text-white px-8 py-4 rounded-lg text-[20px] leading-[28px] font-semibold hover:bg-[#004493] transition-all">
                   Explore Portfolio Features
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Services */}
                 <div className="bg-white p-6 rounded-xl border border-[#CED0D4] transition-all hover:shadow-lg hover:-translate-y-1">
                   <span className="material-symbols-outlined text-[#0058bc] text-4xl mb-4">design_services</span>
                   <h4 className="text-[20px] leading-[28px] font-bold mb-2">Web Design Services</h4>
                   <p className="text-[#65676B] text-[14px] leading-[20px]">Professional consulting and design packages tailored for your clients.</p>
                 </div>
+                {/* Project Showcase */}
                 <div className="bg-white rounded-xl border border-[#CED0D4] overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
-                  <div className="h-40 bg-gradient-to-br from-[#0058bc] to-[#0070eb]" />
+                  <div className="h-40 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt="Project Showcase" className="w-full h-full object-cover block" src={SHOWCASE_IMG} />
+                  </div>
                   <div className="p-4">
                     <h4 className="text-[16px] leading-[24px] font-bold">Project Showcase</h4>
                     <p className="text-[#65676B] text-sm">High-quality gallery for your best work.</p>
                   </div>
                 </div>
-                <div className="md:col-span-2 bg-white rounded-xl border border-[#CED0D4] overflow-hidden relative group transition-all hover:shadow-lg hover:-translate-y-1">
-                  <div className="h-48 bg-[#0058bc]/10 flex items-center justify-center">
-                    <div className="w-16 h-16 bg-[#0058bc] text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <span className="material-symbols-outlined text-3xl">play_arrow</span>
-                    </div>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent text-white">
-                    <p className="font-bold">2024 Creative Reel</p>
+                {/* Video Reel */}
+                <div className="md:col-span-2 bg-white rounded-xl border border-[#CED0D4] overflow-hidden transition-all hover:shadow-lg">
+                  <div className="relative group cursor-pointer" onClick={toggleVideo}>
+                    <video ref={videoRef} className="w-full h-full object-cover aspect-video block" poster={VIDEO_POSTER} onEnded={() => { if (videoRef.current) videoRef.current.controls = false; setPlaying(false); }}>
+                      <source src={VIDEO_SRC} type="video/mp4" />
+                      Your browser does not support the video tag.
+                    </video>
+                    {!playing && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/30 transition-all duration-300">
+                        <div className="bg-[#0058bc] text-white w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-300">
+                          <span className="material-symbols-outlined text-5xl">play_arrow</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -229,35 +242,45 @@ export default function Home() {
       {/* Footer */}
       <footer id="footer" className="bg-[#f7f9fc] border-t border-[#CED0D4] py-16 px-4 md:px-10">
         <div className="max-w-[1280px] mx-auto">
-          <div className="flex flex-col gap-12 mb-12 md:flex-row justify-between">
-            <div>
-              <div className="text-[20px] leading-[28px] font-bold text-[#0058bc] mb-4">Storebuilder.ph</div>
-              <p className="text-[#65676B] text-[14px] leading-[20px] max-w-md">
-                Empowering Filipino businesses with world-class e-commerce technology.
-              </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            {/* Brand */}
+            <div className="flex flex-col gap-4">
+              <div className="w-16 h-16 mb-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt="Storebuilder.ph Logo" className="w-full h-full object-cover" src={FOOTER_LOGO} />
+              </div>
+              <div className="text-[20px] leading-[28px] font-bold text-[#0058bc]">Storebuilder.ph</div>
+              <p className="text-[#65676B] text-[14px] leading-[20px]">Empowering Filipino businesses with world-class e-commerce technology.</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 text-left">
-              <div className="flex flex-col gap-4">
-                <h4 className="font-bold text-[#050505]">Company</h4>
-                <a className="text-[#65676B] hover:text-[#0058bc] text-[14px] transition-colors" href="#features">About Us</a>
-                <a className="text-[#65676B] hover:text-[#0058bc] text-[14px] transition-colors" href="#footer">Contact</a>
-                <a className="text-[#65676B] hover:text-[#0058bc] text-[14px] transition-colors" href="#cta">Pricing</a>
-              </div>
-              <div className="flex flex-col gap-4">
-                <h4 className="font-bold text-[#050505]">Legal</h4>
-                <a className="text-[#65676B] hover:text-[#0058bc] text-[14px] transition-colors" href="#">Terms of Service</a>
-                <a className="text-[#65676B] hover:text-[#0058bc] text-[14px] transition-colors" href="#">Privacy Policy</a>
-              </div>
-              <div className="flex flex-col gap-4">
-                <h4 className="font-bold text-[#050505]">Contact</h4>
-                <p className="text-[#65676B] text-[14px] leading-[20px]">Send us a message</p>
-                <p className="text-[#65676B] text-[14px] leading-[20px]">Philippines 🇵🇭</p>
-              </div>
+            {/* Company */}
+            <div>
+              <h4 className="text-[20px] leading-[28px] font-bold mb-6">Company</h4>
+              <ul className="flex flex-col gap-4">
+                <li><a className="text-[#65676B] hover:text-[#0058bc] transition-colors text-[14px]" href="#features">About Us</a></li>
+                <li><a className="text-[#65676B] hover:text-[#0058bc] transition-colors text-[14px]" href="#footer">Contact</a></li>
+                <li><a className="text-[#65676B] hover:text-[#0058bc] transition-colors text-[14px]" href="#cta">Pricing</a></li>
+              </ul>
+            </div>
+            {/* Legal */}
+            <div>
+              <h4 className="text-[20px] leading-[28px] font-bold mb-6">Legal</h4>
+              <ul className="flex flex-col gap-4">
+                <li><a className="text-[#65676B] hover:text-[#0058bc] transition-colors text-[14px]" href="#">Terms of Service</a></li>
+                <li><a className="text-[#65676B] hover:text-[#0058bc] transition-colors text-[14px]" href="#">Privacy Policy</a></li>
+              </ul>
+            </div>
+            {/* Contact */}
+            <div>
+              <h4 className="text-[20px] leading-[28px] font-bold mb-6">Contact</h4>
+              <ul className="flex flex-col gap-4">
+                <li><a className="text-[#65676B] hover:text-[#0058bc] transition-colors text-[14px]" href="#">Send us a message</a></li>
+                <li className="text-[#65676B] text-[14px]">Philippines 🇵🇭</li>
+              </ul>
             </div>
           </div>
-          <div className="pt-8 border-t border-[#CED0D4] flex flex-col md:flex-row items-center gap-4 md:justify-between">
-            <p className="text-[12px] leading-[16px] text-[#65676B]">© 2026 Storebuilder.ph. All rights reserved. 🇵🇭</p>
-            <div className="text-[12px] leading-[16px] text-[#65676B]">Proudly built for Filipino entrepreneurs by Mark Ocdenaria.</div>
+          <div className="pt-8 border-t border-[#CED0D4] text-center">
+            <p className="text-[#65676B] text-[14px] leading-[20px] mb-2">© 2026 Storebuilder.ph. All rights reserved. 🇵🇭</p>
+            <p className="text-[#65676B] text-[12px] leading-[16px] font-semibold uppercase tracking-wider">Proudly built for Filipino entrepreneurs</p>
           </div>
         </div>
       </footer>
